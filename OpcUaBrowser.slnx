@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OpcUaBrowser.App/OpcUaBrowser.App.csproj" />
+    <Project Path="src/OpcUaBrowser.Core/OpcUaBrowser.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OpcUaBrowser.App.Tests/OpcUaBrowser.App.Tests.csproj" />
+    <Project Path="tests/OpcUaBrowser.Core.Tests/OpcUaBrowser.Core.Tests.csproj" />
+  </Folder>
+</Solution>

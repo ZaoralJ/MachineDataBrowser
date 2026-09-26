@@ -1,0 +1,67 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Input.Raw;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using OpcUaBrowser.App.ViewModels;
+using OpcUaBrowser.App.Views;
+using OpcUaBrowser.Core.Tests;
+using Xunit;
+
+namespace OpcUaBrowser.App.Tests;
+
+public sealed class DragDropTests(OpcPlcFixture plc)
+{
+    [AvaloniaFact]
+    public async Task Dragging_folder_label_onto_watch_grid_adds_its_variables()
+    {
+        await using var vm = new MainWindowViewModel { EndpointUrl = plc.EndpointUrl };
+        var window = new MainWindow { DataContext = vm, Width = 1280, Height = 800 };
+        window.Show();
+        await vm.ConnectCommand.ExecuteAsync(null);
+        var root = vm.RootNodes[0];
+        await Until(() => root.Children.Any(c => c.DisplayName == "Objects"));
+        var objects = root.Children.Single(c => c.DisplayName == "Objects");
+        objects.IsExpanded = true;
+        await Until(() => objects.Children.Any(c => c.DisplayName == "OpcPlc"));
+        var plcNode = objects.Children.Single(c => c.DisplayName == "OpcPlc");
+        Dispatcher.UIThread.RunJobs();
+
+        var label = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.DataContext == plcNode && t.Text == "OpcPlc");
+        var from = label.TranslatePoint(new Point(label.Bounds.Width / 2, label.Bounds.Height / 2), window)!.Value;
+        var started = NodeDrag.StartedCount;
+        window.MouseMove(from);
+        window.MouseDown(from, MouseButton.Left);
+        window.MouseMove(from + new Vector(20, 5), RawInputModifiers.LeftMouseButton);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(NodeDrag.StartedCount > started, "drag did not start from tree label");
+        window.MouseUp(from + new Vector(20, 5), MouseButton.Left);
+
+        var grid = window.GetVisualDescendants().OfType<DataGrid>().Single(g => g.Name == "WatchGrid");
+        var to = grid.TranslatePoint(new Point(grid.Bounds.Width / 2, grid.Bounds.Height / 2), window)!.Value;
+        NodeDrag.Current = [plcNode];
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.CreateText("x"));
+        window.DragDrop(to, RawDragEventType.DragEnter, data, DragDropEffects.Copy);
+        window.DragDrop(to, RawDragEventType.DragOver, data, DragDropEffects.Copy);
+        window.DragDrop(to, RawDragEventType.Drop, data, DragDropEffects.Copy);
+        NodeDrag.Current = null;
+
+        await Until(() => vm.WatchItems.Count > 4);
+        window.Close();
+    }
+
+    private static async Task Until(Func<bool> c)
+    {
+        var end = DateTime.UtcNow.AddSeconds(10);
+        while (!c())
+        {
+            Assert.True(DateTime.UtcNow < end, "timeout");
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+        }
+    }
+}

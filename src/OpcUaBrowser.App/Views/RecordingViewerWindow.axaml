@@ -1,0 +1,56 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:OpcUaBrowser.App.ViewModels"
+        x:Class="OpcUaBrowser.App.Views.RecordingViewerWindow"
+        x:DataType="vm:RecordingViewerViewModel"
+        Title="{Binding Title, StringFormat='Recording — {0}'}"
+        Width="900" Height="560" MinWidth="560" MinHeight="300"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Classes="pane-toolbar" Padding="10,6">
+      <DockPanel>
+        <CheckBox DockPanel.Dock="Right" Content="Follow latest" IsChecked="{Binding Follow}"
+                  ToolTip.Tip="Keep scrolled to the newest sample as it arrives" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="Item" VerticalAlignment="Center" />
+          <ComboBox ItemsSource="{Binding ItemNames}" SelectedItem="{Binding SelectedItem}" MinWidth="220" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+    <Border DockPanel.Dock="Bottom" Padding="10,4"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Right" FontSize="12" Text="{Binding TotalRows, StringFormat='{}{0} rows'}" />
+        <TextBlock FontSize="12" Text="{Binding StatusText}" />
+      </DockPanel>
+    </Border>
+    <Grid>
+      <DataGrid x:Name="RowsGrid" ItemsSource="{Binding Rows}">
+        <DataGrid.Columns>
+          <DataGridTemplateColumn Header="Received" Width="110">
+            <DataTemplate DataType="vm:HistoryRow">
+              <TextBlock Classes="cell mono" Text="{Binding TimeText}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Name" Width="180">
+            <DataTemplate DataType="vm:HistoryRow">
+              <TextBlock Classes="cell" Text="{Binding Name}" ToolTip.Tip="{Binding NodeId}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Status" Width="120">
+            <DataTemplate DataType="vm:HistoryRow">
+              <TextBlock Classes="cell" Text="{Binding Status}"
+                         Classes.status-bad="{Binding IsBad}" Classes.status-uncertain="{Binding IsUncertain}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Value" Width="*">
+            <DataTemplate DataType="vm:HistoryRow">
+              <TextBlock Classes="cell mono" Text="{Binding Value}" ToolTip.Tip="{Binding Value}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+        </DataGrid.Columns>
+      </DataGrid>
+      <TextBlock Classes="empty-hint" IsVisible="{Binding !Rows.Count}" Text="Waiting for samples…" />
+    </Grid>
+  </DockPanel>
+</Window>

@@ -1,0 +1,188 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Styles.Resources>
+    <FontFamily x:Key="MonoFont">Menlo, Consolas, "Cascadia Mono", "DejaVu Sans Mono", monospace</FontFamily>
+
+    <StreamGeometry x:Key="IconOptions">M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z</StreamGeometry>
+    <StreamGeometry x:Key="IconConnect">M8 5v14l11-7z</StreamGeometry>
+    <StreamGeometry x:Key="IconDisconnect">M6 6h12v12H6z</StreamGeometry>
+    <StreamGeometry x:Key="IconMonitor">M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z</StreamGeometry>
+    <StreamGeometry x:Key="IconFolderMonitor">M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2zm2 5.5c2.5 0 4.6 1.6 5.5 3.75C16.6 15.4 14.5 17 12 17s-4.6-1.6-5.5-3.75C7.4 11.1 9.5 9.5 12 9.5zm0 1.75a2 2 0 1 0 0 4 2 2 0 0 0 0-4z</StreamGeometry>
+    <StreamGeometry x:Key="IconExpandAll">M12 5.83 15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z</StreamGeometry>
+    <StreamGeometry x:Key="IconCollapseAll">M7.41 18.59 8.83 20 12 16.83 15.17 20l1.41-1.41L12 14l-4.59 4.59zm9.18-13.18L15.17 4 12 7.17 8.83 4 7.41 5.41 12 10l4.59-4.59z</StreamGeometry>
+    <StreamGeometry x:Key="IconChevronDown">M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z</StreamGeometry>
+    <StreamGeometry x:Key="IconTimer">M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61 1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.96 8.96 0 0 0 12 4a9 9 0 1 0 9 9c0-2.12-.74-4.07-1.97-5.61zM12 20a7 7 0 1 1 0-14 7 7 0 0 1 0 14z</StreamGeometry>
+    <StreamGeometry x:Key="IconRecord">M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z</StreamGeometry>
+    <StreamGeometry x:Key="IconPause">M6 19h4V5H6v14zm8-14v14h4V5h-4z</StreamGeometry>
+    <StreamGeometry x:Key="IconReset">M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z</StreamGeometry>
+    <StreamGeometry x:Key="IconColumns">M3 5v14h18V5H3zm5 12H5V7h3v10zm5 0h-3V7h3v10zm6 0h-4V7h4v10z</StreamGeometry>
+    <StreamGeometry x:Key="IconAdd">M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z</StreamGeometry>
+    <StreamGeometry x:Key="IconRemove">M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z</StreamGeometry>
+    <StreamGeometry x:Key="IconClose">M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z</StreamGeometry>
+    <StreamGeometry x:Key="IconError">M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z</StreamGeometry>
+    <StreamGeometry x:Key="IconInfo">M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z</StreamGeometry>
+    <StreamGeometry x:Key="IconWarning">M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z</StreamGeometry>
+
+    <SolidColorBrush x:Key="StatusGoodBrush" Color="#22A06B" />
+    <SolidColorBrush x:Key="StatusUncertainBrush" Color="#D97706" />
+    <SolidColorBrush x:Key="StatusBadBrush" Color="#E5484D" />
+    <SolidColorBrush x:Key="StatusIdleBrush" Color="#8B8D98" />
+  </Styles.Resources>
+
+  <!-- Dialog / general buttons: centred labels -->
+  <Style Selector="Window Button:not(.icon-only):not(.history-entry)">
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="NumericUpDown">
+    <Setter Property="MinHeight" Value="30" />
+  </Style>
+
+  <!-- Pane headers -->
+  <Style Selector="Border.pane-header">
+    <Setter Property="Padding" Value="12,6" />
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseLowBrush}" />
+    <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" />
+  </Style>
+  <Style Selector="TextBlock.pane-title">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.6" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseMediumHighBrush}" />
+  </Style>
+
+  <!-- Slim action strip at the top of a docked pane (the tab above already shows the title) -->
+  <Style Selector="Border.pane-toolbar">
+    <Setter Property="Padding" Value="4,2" />
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseLowBrush}" />
+  </Style>
+
+  <!-- Empty-state hint centred in a pane -->
+  <Style Selector="TextBlock.empty-hint">
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextAlignment" Value="Center" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Margin" Value="24" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+  </Style>
+
+  <!-- Compact toolbar buttons: icon + optional label -->
+  <Style Selector="Button.toolbar">
+    <Setter Property="Padding" Value="10,5" />
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.toolbar PathIcon">
+    <Setter Property="Width" Value="14" />
+    <Setter Property="Height" Value="14" />
+  </Style>
+  <Style Selector="Button.icon-only">
+    <Setter Property="Padding" Value="6" />
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.icon-only PathIcon">
+    <Setter Property="Width" Value="12" />
+    <Setter Property="Height" Value="12" />
+  </Style>
+  <Style Selector="Button.icon-only:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundListLowBrush}" />
+  </Style>
+  <Style Selector="Button.icon-only:disabled">
+    <Setter Property="Opacity" Value="0.35" />
+  </Style>
+  <Style Selector="Button.icon-only:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <!-- Flat list-like buttons (history dropdown) -->
+  <Style Selector="Button.history-entry">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="8,6" />
+  </Style>
+
+  <!-- Tree row action: visible only while hovering its own row -->
+  <Style Selector="Grid.tree-row Button.row-action">
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+  <Style Selector="Grid.tree-row:pointerover Button.row-action">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <!-- Pane splitters: 5px grab area, accent on hover -->
+  <Style Selector="GridSplitter">
+    <Setter Property="Background" Value="{DynamicResource SystemControlForegroundBaseLowBrush}" />
+    <Setter Property="MinWidth" Value="5" />
+    <Setter Property="MinHeight" Value="5" />
+  </Style>
+  <Style Selector="GridSplitter:pointerover">
+    <Setter Property="Background" Value="{DynamicResource SystemAccentColor}" />
+  </Style>
+
+  <!-- Grids -->
+  <Style Selector="DataGrid">
+    <Setter Property="GridLinesVisibility" Value="Horizontal" />
+    <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource SystemControlForegroundBaseLowBrush}" />
+    <Setter Property="HeadersVisibility" Value="Column" />
+    <Setter Property="IsReadOnly" Value="True" />
+    <Setter Property="RowHeight" Value="28" />
+    <Setter Property="ColumnHeaderHeight" Value="30" />
+    <Setter Property="SelectionMode" Value="Single" />
+    <Setter Property="CanUserResizeColumns" Value="True" />
+    <Setter Property="CanUserReorderColumns" Value="True" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="DataGridCell">
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="DataGridColumnHeader">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Padding" Value="12,0,6,0" />
+    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+  </Style>
+  <Style Selector="TextBlock.cell">
+    <Setter Property="Margin" Value="12,0,8,0" />
+  </Style>
+  <Style Selector="TextBlock.mono">
+    <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="TextBlock.cell">
+    <Setter Property="Margin" Value="12,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+
+  <!-- Status text colouring (readable on light and dark) -->
+  <Style Selector="TextBlock.status-uncertain">
+    <Setter Property="Foreground" Value="{StaticResource StatusUncertainBrush}" />
+  </Style>
+  <Style Selector="TextBlock.status-bad">
+    <Setter Property="Foreground" Value="{StaticResource StatusBadBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <!-- Insecure option -->
+  <Style Selector="CheckBox.insecure:checked">
+    <Setter Property="Foreground" Value="{StaticResource StatusUncertainBrush}" />
+  </Style>
+
+  <!-- Error banner -->
+  <Style Selector="Border.error-banner">
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="Background" Value="#26E5484D" />
+    <Setter Property="BorderBrush" Value="{StaticResource StatusBadBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+</Styles>

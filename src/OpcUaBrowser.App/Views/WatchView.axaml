@@ -1,0 +1,148 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:OpcUaBrowser.App.ViewModels"
+             xmlns:core="using:OpcUaBrowser.Core"
+             xmlns:conv="using:OpcUaBrowser.App.Converters"
+             x:Class="OpcUaBrowser.App.Views.WatchView"
+             x:DataType="vm:MainWindowViewModel">
+  <DockPanel Background="Transparent" DragDrop.AllowDrop="True">
+    <Border DockPanel.Dock="Top" Classes="pane-toolbar">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2">
+          <Button x:Name="ColumnsButton" Classes="icon-only" AutomationProperties.Name="Columns"
+                  ToolTip.Tip="Show/hide columns (saved with the session). Drag headers to reorder, edges to resize.">
+            <PathIcon Data="{StaticResource IconColumns}" />
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedRight">
+                <StackPanel Spacing="2" MinWidth="180">
+                  <TextBlock Classes="pane-title" Text="COLUMNS" Margin="4,0,0,6" />
+                  <ItemsControl ItemsSource="{Binding WatchColumns.Columns}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:WatchColumnOption">
+                        <CheckBox Content="{Binding Header}" IsChecked="{Binding IsVisible}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <Separator />
+                  <Button Classes="history-entry" Content="Reset columns" HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Left" Command="{Binding ResetWatchColumnsCommand}" />
+                </StackPanel>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+          <Button Classes="icon-only" Command="{Binding AddToWatchCommand}"
+                  AutomationProperties.Name="Add selected node to watch"
+                  ToolTip.Tip="Add selected variable (Enter or double-click in tree)">
+            <PathIcon Data="{StaticResource IconAdd}" />
+          </Button>
+          <Button Classes="icon-only" Command="{Binding RemoveFromWatchCommand}"
+                  AutomationProperties.Name="Remove from watch"
+                  ToolTip.Tip="Remove selected items (Delete). Cmd/Ctrl- or Shift-click to select several.">
+            <PathIcon Data="{StaticResource IconRemove}" />
+          </Button>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+    <Grid>
+      <DataGrid x:Name="WatchGrid" DoubleTapped="OnRowDoubleTapped" DragDrop.AllowDrop="True" Background="Transparent" ItemsSource="{Binding WatchItems}" SelectedItem="{Binding SelectedWatchItem}"
+                SelectionMode="Extended" SelectionChanged="OnWatchSelectionChanged"
+                AutomationProperties.Name="Watch list">
+        <DataGrid.KeyBindings>
+          <KeyBinding Gesture="Delete" Command="{Binding RemoveFromWatchCommand}" />
+          <KeyBinding Gesture="Enter" Command="{Binding RevealInTreeCommand}" />
+          <KeyBinding Gesture="Ctrl+Shift+C" Command="{Binding CopyWatchJsonCommand}" />
+          <KeyBinding Gesture="Meta+Shift+C" Command="{Binding CopyWatchJsonCommand}" />
+          <KeyBinding Gesture="Back" Command="{Binding RemoveFromWatchCommand}" />
+        </DataGrid.KeyBindings>
+        <DataGrid.ContextMenu>
+          <ContextMenu>
+              <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Refresh time{0}'}" IsEnabled="{Binding IsConnected}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconTimer}" /></MenuItem.Icon>
+              <MenuItem Header="100 ms" Command="{Binding SetRefreshCommand}"><MenuItem.CommandParameter><x:Int32>100</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="250 ms" Command="{Binding SetRefreshCommand}"><MenuItem.CommandParameter><x:Int32>250</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="500 ms" Command="{Binding SetRefreshCommand}"><MenuItem.CommandParameter><x:Int32>500</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="1 s" Command="{Binding SetRefreshCommand}"><MenuItem.CommandParameter><x:Int32>1000</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="2 s" Command="{Binding SetRefreshCommand}"><MenuItem.CommandParameter><x:Int32>2000</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="5 s" Command="{Binding SetRefreshCommand}"><MenuItem.CommandParameter><x:Int32>5000</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="10 s" Command="{Binding SetRefreshCommand}"><MenuItem.CommandParameter><x:Int32>10000</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <Separator />
+              <MenuItem Header="Custom…" Click="OnCustomRefresh" Tag="watch" />
+            </MenuItem>
+            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Record selected…{0}'}" Command="{Binding NewRecordingCommand}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconRecord}" /></MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Record all monitored…" Command="{Binding RecordAllCommand}" />
+            <Separator />
+            <MenuItem Header="Show in address space" Command="{Binding RevealInTreeCommand}" InputGesture="Enter" />
+            <Separator />
+            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy value{0}'}" Command="{Binding CopyWatchValueCommand}" />
+            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy NodeId{0}'}" Command="{Binding CopyWatchNodeIdCommand}" />
+            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy values as JSON{0}'}" Command="{Binding CopyWatchValuesJsonCommand}" ToolTip.Tip="Typed values only: one value, or an object keyed by name" />
+            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy as JSON{0}'}" Command="{Binding CopyWatchJsonCommand}" InputGesture="Meta+Shift+C" />
+            <Separator />
+            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Remove selected{0}'}" Command="{Binding RemoveFromWatchCommand}" InputGesture="Delete">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconRemove}" /></MenuItem.Icon>
+            </MenuItem>
+          </ContextMenu>
+        </DataGrid.ContextMenu>
+        <DataGrid.Columns>
+          <DataGridTemplateColumn Header="Name" Width="190" MinWidth="80" SortMemberPath="DisplayName">
+            <DataTemplate DataType="vm:WatchItemViewModel">
+              <TextBlock Classes="cell" Text="{Binding DisplayName}" ToolTip.Tip="{Binding NodeIdText}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="NodeId" Width="210" MinWidth="80" SortMemberPath="NodeIdText">
+            <DataTemplate DataType="vm:WatchItemViewModel">
+              <TextBlock Classes="cell mono" Text="{Binding NodeIdText}"
+                         Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Status" Width="110" MinWidth="70" SortMemberPath="Status">
+            <DataTemplate DataType="vm:WatchItemViewModel">
+              <TextBlock Classes="cell" Text="{Binding Status}"
+                         Classes.status-bad="{Binding IsBad}"
+                         Classes.status-uncertain="{Binding IsUncertain}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Refresh" Width="100" MinWidth="80" SortMemberPath="RefreshMs">
+            <DataTemplate DataType="vm:WatchItemViewModel">
+              <TextBlock Classes="cell mono" Text="{Binding RefreshText}" HorizontalAlignment="Right"
+                         ToolTip.Tip="Sampling/publishing interval. Right-click to change." />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Last update" Width="136" MinWidth="110" SortMemberPath="LastUpdate">
+            <DataTemplate DataType="vm:WatchItemViewModel">
+              <TextBlock Classes="cell mono" Text="{Binding LastUpdateText}" HorizontalAlignment="Right"
+                         ToolTip.Tip="Local time the latest notification arrived" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Since" Width="112" MinWidth="80" SortMemberPath="LastUpdate">
+            <DataTemplate DataType="vm:WatchItemViewModel">
+              <TextBlock Classes="cell" Text="{Binding SinceText}" HorizontalAlignment="Right"
+                         Classes.status-uncertain="{Binding IsStale}">
+                <ToolTip.Tip>
+                  <TextBlock>
+                    <Run Text="Updates received: " /><Run Text="{Binding UpdateCount}" />
+                    <LineBreak /><Run Text="Amber = no change for 5× the refresh time (value may just be constant)." />
+                  </TextBlock>
+                </ToolTip.Tip>
+              </TextBlock>
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Source time" Width="130" MinWidth="70">
+            <DataTemplate DataType="vm:WatchItemViewModel">
+              <TextBlock Classes="cell mono" Text="{Binding SourceTimestamp}" HorizontalAlignment="Right" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Value" Width="*" MinWidth="120">
+            <DataTemplate DataType="vm:WatchItemViewModel">
+              <TextBlock Classes="cell mono" Text="{Binding Value}" ToolTip.Tip="{Binding Value}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+        </DataGrid.Columns>
+      </DataGrid>
+      <TextBlock Classes="empty-hint" IsVisible="{Binding !HasWatchItems}"
+                 Text="Drag variables or folders here from the address space, or double-click a variable, to watch live values." />
+    </Grid>
+  </DockPanel>
+</UserControl>
