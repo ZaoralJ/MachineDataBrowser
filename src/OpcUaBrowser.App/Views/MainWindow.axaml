@@ -6,6 +6,7 @@
         x:Class="OpcUaBrowser.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="{Binding WindowTitle}"
+        Icon="/Assets/AppIcon.png"
         Width="1280" Height="800"
         MinWidth="900" MinHeight="560"
         WindowStartupLocation="CenterScreen">

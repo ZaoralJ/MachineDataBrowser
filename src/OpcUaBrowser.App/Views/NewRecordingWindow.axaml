@@ -3,7 +3,9 @@
         xmlns:vm="using:OpcUaBrowser.App.ViewModels"
         x:Class="OpcUaBrowser.App.Views.NewRecordingWindow"
         x:DataType="vm:NewRecordingViewModel"
-        Title="New Recording" Width="480" SizeToContent="Height" CanResize="False"
+        Title="New Recording"
+        Icon="/Assets/AppIcon.png"
+        Width="480" SizeToContent="Height" CanResize="False"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
   <DockPanel>
     <Border DockPanel.Dock="Bottom" Padding="16,12"
