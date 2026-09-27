@@ -59,5 +59,5 @@ Use [Conventional Commits](https://www.conventionalcommits.org/): `feat(app): ..
 
 ## Releases (maintainers)
 
-Push a tag `vX.Y.Z` on `main`. The release workflow builds the macOS app bundles, publishes a GitHub release and
-the Homebrew cask. See the README.
+Run `scripts/release.sh X.Y.Z` on an up-to-date `main` (see the README). Label PRs (`enhancement`, `bug`,
+`dependencies`) so they land in the right section of the generated release notes.

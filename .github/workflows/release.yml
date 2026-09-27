@@ -2,16 +2,36 @@ name: release
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["v*.*.*"]
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Validate tag
+        run: |
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "Tag must be vX.Y.Z[-pre]"; exit 1; }
+          git fetch -q origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "Tag must point to a commit on main"; exit 1; }
+      - run: dotnet build -c Release
+      - run: dotnet test -c Release --no-build
+
   macos:
+    name: build & publish
+    needs: test
     runs-on: macos-15
-    env:
-      TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -19,7 +39,7 @@ jobs:
           global-json-file: global.json
       - name: Package
         run: packaging/macos/package.sh "${GITHUB_REF_NAME#v}" arm64 x64
-      - name: Update cask with version and checksums
+      - name: Generate cask
         run: |
           v="${GITHUB_REF_NAME#v}"
           arm=$(grep 'osx-arm64.zip' artifacts/dist/checksums.txt | cut -d' ' -f1)
@@ -30,20 +50,24 @@ jobs:
               packaging/homebrew/opcua-browser.rb > artifacts/dist/opcua-browser.rb
       - uses: softprops/action-gh-release@v2
         with:
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             artifacts/dist/*.zip
             artifacts/dist/opcua-browser.rb
             artifacts/dist/checksums.txt
-      - name: Publish cask to ZaoralJ/homebrew-tap
-        if: ${{ env.TAP_TOKEN != '' }}
+      - name: Update Homebrew tap
+        if: ${{ !contains(github.ref_name, '-') }}
         env:
-          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
         run: |
-          git clone "https://x-access-token:${TAP_TOKEN}@github.com/ZaoralJ/homebrew-tap.git" tap
-          mkdir -p tap/Casks
-          cp artifacts/dist/opcua-browser.rb tap/Casks/opcua-browser.rb
+          [ -n "$TAP_DEPLOY_KEY" ] || { echo "::warning::TAP_DEPLOY_KEY not set, tap not updated"; exit 0; }
+          mkdir -p ~/.ssh && echo "$TAP_DEPLOY_KEY" > ~/.ssh/tap && chmod 600 ~/.ssh/tap
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/tap -o StrictHostKeyChecking=accept-new"
+          git clone -q git@github.com:ZaoralJ/homebrew-tap.git tap
+          mkdir -p tap/Casks && cp artifacts/dist/opcua-browser.rb tap/Casks/opcua-browser.rb
           cd tap
-          git config user.name "release-bot"
-          git config user.email "release-bot@users.noreply.github.com"
+          git config user.name "Jaroslav Zaoral"
+          git config user.email "zaoralj@gmail.com"
           git add Casks/opcua-browser.rb
-          git commit -m "opcua-browser ${GITHUB_REF_NAME#v}" && git push
+          git diff --cached --quiet || { git commit -q -m "opcua-browser ${GITHUB_REF_NAME#v}"; git push -q; }
