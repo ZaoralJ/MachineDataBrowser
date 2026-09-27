@@ -1,15 +1,26 @@
 name: release
 
+# Stable releases: called by release-please after its release PR is merged (the release already exists
+# with the changelog as notes; this attaches the artifacts). Pre-releases: push a vX.Y.Z-pre tag manually.
 on:
   push:
     tags: ["v*.*.*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag, e.g. v0.2.0
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: release
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   test:
@@ -17,14 +28,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
       - name: Validate tag
         run: |
-          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "Tag must be vX.Y.Z[-pre]"; exit 1; }
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "Tag must be vX.Y.Z[-pre]"; exit 1; }
           git fetch -q origin main
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "Tag must point to a commit on main"; exit 1; }
+          git merge-base --is-ancestor "$(git rev-parse HEAD)" origin/main || { echo "Tag must point to a commit on main"; exit 1; }
       - run: dotnet build -c Release
       - run: dotnet test -c Release --no-build
 
@@ -34,14 +47,16 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
       - name: Package
-        run: packaging/macos/package.sh "${GITHUB_REF_NAME#v}" arm64 x64
+        run: packaging/macos/package.sh "${TAG#v}" arm64 x64
       - name: Generate cask
         run: |
-          v="${GITHUB_REF_NAME#v}"
+          v="${TAG#v}"
           arm=$(grep 'osx-arm64.zip' artifacts/dist/checksums.txt | cut -d' ' -f1)
           x64=$(grep 'osx-x64.zip' artifacts/dist/checksums.txt | cut -d' ' -f1)
           sed -e "s/version \".*\"/version \"$v\"/" \
@@ -50,14 +65,16 @@ jobs:
               packaging/homebrew/opcua-browser.rb > artifacts/dist/opcua-browser.rb
       - uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          tag_name: ${{ env.TAG }}
+          # release-please already wrote the notes; generate them only for manually tagged releases.
+          generate_release_notes: ${{ inputs.tag == '' }}
+          prerelease: ${{ contains(env.TAG, '-') }}
           files: |
             artifacts/dist/*.zip
             artifacts/dist/opcua-browser.rb
             artifacts/dist/checksums.txt
       - name: Update Homebrew tap
-        if: ${{ !contains(github.ref_name, '-') }}
+        if: ${{ !contains(env.TAG, '-') }}
         env:
           TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
         run: |
@@ -70,4 +87,4 @@ jobs:
           git config user.name "Jaroslav Zaoral"
           git config user.email "zaoralj@gmail.com"
           git add Casks/opcua-browser.rb
-          git diff --cached --quiet || { git commit -q -m "opcua-browser ${GITHUB_REF_NAME#v}"; git push -q; }
+          git diff --cached --quiet || { git commit -q -m "opcua-browser ${TAG#v}"; git push -q; }
