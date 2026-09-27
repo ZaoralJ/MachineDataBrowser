@@ -54,6 +54,45 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Read_tree_exports_json_and_csharp()
+    {
+        var tree = await _client.ReadTreeAsync(VariableIds.Server_ServerStatus, "ServerStatus", NodeClass.Variable, 3, 100, Ct);
+
+        var json = Assert.IsType<System.Text.Json.Nodes.JsonObject>(NodeExport.ToJson(tree));
+        Assert.True(json.ContainsKey("CurrentTime"));
+        Assert.IsType<System.Text.Json.Nodes.JsonObject>(json["BuildInfo"]);
+
+        var code = NodeExport.ToCSharp(tree);
+        Assert.Contains("public sealed class ServerStatus", code);
+        Assert.Contains("public DateTime CurrentTime { get; set; }", code);
+        Assert.Contains("public BuildInfo BuildInfo { get; set; } = new();", code);
+        Assert.Contains("public sealed class BuildInfo", code);
+
+        var record = NodeExport.ToCSharp(tree, asRecord: true);
+        Assert.Contains("public sealed record ServerStatus", record);
+        Assert.Contains("public DateTime CurrentTime { get; init; }", record);
+        Assert.DoesNotContain("set;", record);
+    }
+
+    [Fact]
+    public void Csharp_export_omits_types_without_properties()
+    {
+        var root = new NodeTree(new NodeId(1), "Device", NodeClass.Object);
+        root.Children.Add(new NodeTree(new NodeId(2), "MethodSet", NodeClass.Object));
+        var alarms = new NodeTree(new NodeId(3), "Alarms", NodeClass.Object);
+        alarms.Children.Add(new NodeTree(new NodeId(4), "Empty", NodeClass.Object));
+        root.Children.Add(alarms);
+        root.Children.Add(new NodeTree(new NodeId(5), "Speed", NodeClass.Variable) { Value = 1.5f });
+
+        var code = NodeExport.ToCSharp(root);
+
+        Assert.Contains("public float Speed", code);
+        Assert.DoesNotContain("MethodSet", code);
+        Assert.DoesNotContain("Alarms", code);
+        Assert.DoesNotContain("Empty", code);
+    }
+
+    [Fact]
     public async Task Monitor_many_reports_rejected_items_without_failing_the_batch()
     {
         var results = await _client.MonitorManyAsync(

@@ -58,6 +58,12 @@
             </MenuItem>
             <Separator />
             <MenuItem Header="Copy NodeId" Command="{Binding CopyNodeIdCommand}" />
+            <MenuItem Header="Copy as JSON" Command="{Binding CopyNodeJsonCommand}"
+                      ToolTip.Tip="Current values of the node and its descendants as a JSON document" />
+            <MenuItem Header="Copy as C# class" Command="{Binding CopyNodeClassCommand}"
+                      ToolTip.Tip="C# classes mirroring the node's structure, with property types from current values" />
+            <MenuItem Header="Copy as C# record" Command="{Binding CopyNodeRecordCommand}"
+                      ToolTip.Tip="Immutable C# records (init-only properties) mirroring the node's structure" />
           </ContextMenu>
         </TreeView.ContextMenu>
         <TreeView.Styles>

@@ -184,7 +184,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     public partial string? ErrorMessage { get; private set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(AddToWatchCommand), nameof(CopyNodeIdCommand), nameof(MonitorFolderCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddToWatchCommand), nameof(CopyNodeIdCommand), nameof(MonitorFolderCommand), nameof(CopyNodeJsonCommand), nameof(CopyNodeClassCommand), nameof(CopyNodeRecordCommand))]
     public partial NodeViewModel? SelectedNode { get; set; }
 
     [ObservableProperty]
@@ -490,6 +490,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         MonitorSelectedWithRefreshCommand.NotifyCanExecuteChanged();
         MonitorFolderCommand.NotifyCanExecuteChanged();
         CopyNodeIdCommand.NotifyCanExecuteChanged();
+        CopyNodeJsonCommand.NotifyCanExecuteChanged();
+        CopyNodeClassCommand.NotifyCanExecuteChanged();
+        CopyNodeRecordCommand.NotifyCanExecuteChanged();
     }
 
     public ObservableCollection<WatchItemViewModel> SelectedWatchItems { get; } = [];
@@ -653,6 +656,49 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     [RelayCommand(CanExecute = nameof(HasSelectedNode))]
     private Task CopyNodeIdAsync() => CopyAsync(string.Join(Environment.NewLine, SelectionOrCurrent().Select(n => n.NodeId.ToString())));
+
+    private bool CanCopyNodeTree() => IsConnected && HasSelectedNode();
+
+    [RelayCommand(CanExecute = nameof(CanCopyNodeTree))]
+    private Task CopyNodeJsonAsync() => CopyNodeTreeAsync(trees => trees.Count == 1
+        ? NodeExport.ToJsonString(trees[0])
+        : new System.Text.Json.Nodes.JsonObject(trees.Select(t => System.Collections.Generic.KeyValuePair.Create(t.DisplayName, NodeExport.ToJson(t))))
+            .ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+
+    [RelayCommand(CanExecute = nameof(CanCopyNodeTree))]
+    private Task CopyNodeClassAsync() => CopyNodeTreeAsync(trees => string.Join(Environment.NewLine, trees.Select(t => NodeExport.ToCSharp(t))));
+
+    [RelayCommand(CanExecute = nameof(CanCopyNodeTree))]
+    private Task CopyNodeRecordAsync() => CopyNodeTreeAsync(trees => string.Join(Environment.NewLine, trees.Select(t => NodeExport.ToCSharp(t, asRecord: true))));
+
+    private async Task CopyNodeTreeAsync(Func<List<NodeTree>, string> format)
+    {
+        var nodes = SelectionOrCurrent().ToList();
+        if (nodes.Count == 0)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var trees = new List<NodeTree>();
+            foreach (var node in nodes)
+            {
+                trees.Add(await _client.ReadTreeAsync(node.NodeId, node.DisplayName, node.NodeClass, MaxRecursiveDepth, MaxRecursiveItems));
+            }
+
+            await CopyAsync(format(trees));
+        }
+        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        {
+            ReportError(ex);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
 
     private bool HasSelectedAttribute() => SelectedAttribute is not null;
 

@@ -472,6 +472,69 @@ public sealed class OpcUaClient : IAsyncDisposable
         return found;
     }
 
+    /// <summary>
+    /// Browses <paramref name="nodeId"/> and its descendants (up to <paramref name="maxDepth"/> levels and
+    /// <paramref name="maxNodes"/> nodes) and reads the current value of every variable in batches.
+    /// </summary>
+    public async Task<NodeTree> ReadTreeAsync(
+        NodeId nodeId,
+        string displayName,
+        NodeClass nodeClass,
+        int maxDepth,
+        int maxNodes,
+        CancellationToken cancellationToken = default)
+    {
+        var session = RequireSession();
+        var root = new NodeTree(nodeId, displayName, nodeClass);
+        var visited = new HashSet<NodeId> { nodeId };
+        var level = new List<NodeTree> { root };
+        var count = 1;
+        for (var depth = 0; depth < maxDepth && level.Count > 0 && count < maxNodes; depth++)
+        {
+            var next = new List<NodeTree>();
+            foreach (var parent in level)
+            {
+                foreach (var child in await BrowseAsync(parent.NodeId, cancellationToken).ConfigureAwait(false))
+                {
+                    if (count >= maxNodes)
+                    {
+                        break;
+                    }
+
+                    if (child.NodeClass is not (NodeClass.Object or NodeClass.Variable) || !visited.Add(child.NodeId))
+                    {
+                        continue;
+                    }
+
+                    var node = new NodeTree(child.NodeId, child.DisplayName, child.NodeClass);
+                    parent.Children.Add(node);
+                    count++;
+                    if (child.HasChildren)
+                    {
+                        next.Add(node);
+                    }
+                }
+            }
+
+            level = next;
+        }
+
+        var variables = Flatten(root).Where(n => n.NodeClass == NodeClass.Variable).ToList();
+        foreach (var chunk in variables.Chunk(500))
+        {
+            var toRead = new ReadValueIdCollection(chunk.Select(v => new ReadValueId { NodeId = v.NodeId, AttributeId = Attributes.Value }));
+            var response = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, toRead, cancellationToken).ConfigureAwait(false);
+            for (var i = 0; i < chunk.Length && i < response.Results.Count; i++)
+            {
+                chunk[i].Value = StatusCode.IsBad(response.Results[i].StatusCode) ? null : response.Results[i].Value;
+            }
+        }
+
+        return root;
+
+        static IEnumerable<NodeTree> Flatten(NodeTree node) => node.Children.SelectMany(Flatten).Prepend(node);
+    }
+
     public async ValueTask DisposeAsync()
     {
         await DisconnectAsync().ConfigureAwait(false);
