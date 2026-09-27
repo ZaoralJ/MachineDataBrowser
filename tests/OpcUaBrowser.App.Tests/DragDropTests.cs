@@ -54,6 +54,31 @@ public sealed class DragDropTests(OpcPlcFixture plc)
         window.Close();
     }
 
+    [AvaloniaFact]
+    public async Task Right_click_selects_the_clicked_tree_node_for_the_context_menu()
+    {
+        await using var vm = new MainWindowViewModel { EndpointUrl = plc.EndpointUrl };
+        var window = new MainWindow { DataContext = vm, Width = 1280, Height = 800 };
+        window.Show();
+        await vm.ConnectCommand.ExecuteAsync(null);
+        var root = vm.RootNodes[0];
+        await Until(() => root.Children.Any(c => c.DisplayName == "Objects"));
+        var objects = root.Children.Single(c => c.DisplayName == "Objects");
+        var types = root.Children.Single(c => c.DisplayName == "Types");
+        vm.SelectedNode = types;
+        Dispatcher.UIThread.RunJobs();
+
+        var label = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.DataContext == objects && t.Text == "Objects");
+        var at = label.TranslatePoint(new Point(label.Bounds.Width / 2, label.Bounds.Height / 2), window)!.Value;
+        window.MouseMove(at);
+        window.MouseDown(at, MouseButton.Right, RawInputModifiers.RightMouseButton);
+        window.MouseUp(at, MouseButton.Right);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal([objects], vm.SelectedNodes);
+        window.Close();
+    }
+
     private static async Task Until(Func<bool> c)
     {
         var end = DateTime.UtcNow.AddSeconds(10);

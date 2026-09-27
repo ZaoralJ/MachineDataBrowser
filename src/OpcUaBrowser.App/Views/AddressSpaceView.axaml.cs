@@ -26,6 +26,15 @@ public sealed partial class AddressSpaceView : UserControl
 
     private void OnTreePointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        // Right-click acts on the clicked node: an unselected node becomes the selection, a node that is
+        // already selected keeps the whole multi-selection for the context menu.
+        if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed && ClickedNode(e.Source) is { } clicked
+            && !AddressTree.SelectedItems.Contains(clicked))
+        {
+            AddressTree.SelectedItems.Clear();
+            AddressTree.SelectedItem = clicked;
+        }
+
         _dragStart = e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && ClickedNode(e.Source) is { } node
             ? (e.GetPosition(this), node, e)
             : null;
@@ -97,7 +106,17 @@ public sealed partial class AddressSpaceView : UserControl
     {
         if (DataContext is MainWindowViewModel vm)
         {
-            SelectionSync.Apply(vm.SelectedNodes, e);
+            // Mirror the tree's real selection: a Clear() raises no RemovedItems, so applying deltas leaves stale nodes.
+            var actual = AddressTree.SelectedItems.OfType<NodeViewModel>().ToList();
+            foreach (var stale in vm.SelectedNodes.Except(actual).ToList())
+            {
+                vm.SelectedNodes.Remove(stale);
+            }
+
+            foreach (var node in actual.Where(n => !vm.SelectedNodes.Contains(n)))
+            {
+                vm.SelectedNodes.Add(node);
+            }
         }
     }
 
