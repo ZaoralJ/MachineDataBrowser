@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.2.0...v0.3.0) (2026-09-27)
+
+
+### Features
+
+* **app:** add application icon and macOS app bundle assets ([#8](https://github.com/ZaoralJ/OpcUaBrowser/issues/8)) ([8522693](https://github.com/ZaoralJ/OpcUaBrowser/commit/852269357b03b4e8bc4f5c8f888501137aa07d1e))
+
 ## [0.2.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.1.0...v0.2.0) (2026-09-27)
 
 
