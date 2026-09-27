@@ -59,5 +59,6 @@ Use [Conventional Commits](https://www.conventionalcommits.org/): `feat(app): ..
 
 ## Releases (maintainers)
 
-Run `scripts/release.sh X.Y.Z` on an up-to-date `main` (see the README). Label PRs (`enhancement`, `bug`,
-`dependencies`) so they land in the right section of the generated release notes.
+Merge the release-please PR to publish a release (see the README). `feat` bumps the minor version, `fix` the
+patch; while below 1.0 a breaking change (`feat!:`) bumps the minor. PR titles become the changelog entries.
+Pre-releases: `scripts/release.sh X.Y.Z-rc.N` on an up-to-date `main`.

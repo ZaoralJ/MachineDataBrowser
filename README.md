@@ -27,14 +27,17 @@ dotnet run --project src/OpcUaBrowser.App
 
 ## Release
 
-```sh
-scripts/release.sh 0.2.0        # or 0.2.0-rc.1 for a pre-release
-```
+Releases are driven by [release-please](https://github.com/googleapis/release-please). Every merge to `main`
+updates a release PR that bumps the version (from the Conventional Commit PR titles) and `CHANGELOG.md`.
+Merging that PR tags `vX.Y.Z`, creates the GitHub release and runs the `release` workflow, which tests again,
+builds self-contained `osx-arm64`/`osx-x64` app bundles, attaches them and updates the Homebrew cask in
+`ZaoralJ/homebrew-tap`.
 
-The script checks that `main` is clean and in sync, runs the tests and pushes the tag `v0.2.0`.
-The `release` workflow then tests again, builds self-contained `osx-arm64`/`osx-x64` app bundles, publishes a
-GitHub release with generated notes, and updates the Homebrew cask in `ZaoralJ/homebrew-tap`
-(pre-releases skip the tap). Only admins can push `v*` tags.
+Pre-releases are tagged by hand and skip the tap:
+
+```sh
+scripts/release.sh 0.2.0-rc.1
+```
 
 Local package only: `packaging/macos/package.sh 0.2.0 arm64` → `artifacts/dist/`.
 
