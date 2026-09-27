@@ -30,6 +30,7 @@ for arch in "${ARCHS[@]}"; do
   sed "s/__VERSION__/$VERSION/g" "$ROOT/packaging/macos/Info.plist" > "$bundle/Contents/Info.plist"
   chmod +x "$bundle/Contents/MacOS/OpcUaBrowser"
   cp "$ROOT/LICENSE" "$ROOT/THIRD-PARTY-NOTICES.md" "$bundle/Contents/Resources/"
+  cp "$ROOT/packaging/macos/AppIcon.icns" "$bundle/Contents/Resources/"
 
   # Ad-hoc signature: required for arm64 binaries to launch; not a Developer ID signature.
   codesign --force --deep --sign - "$bundle"

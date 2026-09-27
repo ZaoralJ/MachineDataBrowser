@@ -4,6 +4,7 @@
         x:Class="OpcUaBrowser.App.Views.RecordingViewerWindow"
         x:DataType="vm:RecordingViewerViewModel"
         Title="{Binding Title, StringFormat='Recording — {0}'}"
+        Icon="/Assets/AppIcon.png"
         Width="900" Height="560" MinWidth="560" MinHeight="300"
         WindowStartupLocation="CenterOwner">
   <DockPanel>

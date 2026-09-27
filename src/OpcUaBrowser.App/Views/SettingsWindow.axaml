@@ -5,6 +5,7 @@
         x:Class="OpcUaBrowser.App.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
         Title="Settings"
+        Icon="/Assets/AppIcon.png"
         Width="520" SizeToContent="Height" CanResize="False"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
   <DockPanel>
