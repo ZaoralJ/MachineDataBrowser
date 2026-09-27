@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:OpcUaBrowser.App.ViewModels"
+             x:Class="OpcUaBrowser.App.Views.RecordingsView"
+             x:DataType="vm:MainWindowViewModel">
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Classes="pane-toolbar">
+      <StackPanel Orientation="Horizontal" Spacing="2">
+        <Button Classes="icon-only" Command="{Binding NewRecordingCommand}" AutomationProperties.Name="New recording"
+                ToolTip.Tip="New recording from the rows selected in Watch (all watched items if none is selected)">
+          <PathIcon Data="{StaticResource IconRecord}" Foreground="{StaticResource StatusBadBrush}" />
+        </Button>
+        <Button Classes="icon-only" Command="{Binding RecordAllCommand}" AutomationProperties.Name="Record all monitored"
+                ToolTip.Tip="New recording of all monitored items (ignores Watch selection)">
+          <TextBlock Text="ALL" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource StatusBadBrush}" />
+        </Button>
+        <Button Classes="icon-only" Command="{Binding ViewRecordingCommand}" AutomationProperties.Name="View live"
+                ToolTip.Tip="Open live view of the selected recording (double-click a row)">
+          <PathIcon Data="{StaticResource IconMonitor}" />
+        </Button>
+        <Button Classes="icon-only" Command="{Binding OpenRecordingFileCommand}" AutomationProperties.Name="Open recording file"
+                ToolTip.Tip="Open a recording CSV (export or live file) — follows the file while it is still being written">
+          <PathIcon Data="{StaticResource IconFolderMonitor}" />
+        </Button>
+        <Button Classes="icon-only" Command="{Binding StartRecordingCommand}" AutomationProperties.Name="Start or resume" ToolTip.Tip="Start / resume">
+          <PathIcon Data="{StaticResource IconConnect}" />
+        </Button>
+        <Button Classes="icon-only" Command="{Binding PauseRecordingCommand}" AutomationProperties.Name="Pause" ToolTip.Tip="Pause (samples are dropped while paused)">
+          <PathIcon Data="{StaticResource IconPause}" />
+        </Button>
+        <Button Classes="icon-only" Command="{Binding StopRecordingCommand}" AutomationProperties.Name="Stop" ToolTip.Tip="Stop (history is kept)">
+          <PathIcon Data="{StaticResource IconDisconnect}" />
+        </Button>
+        <Button Classes="icon-only" Command="{Binding ResetRecordingCommand}" AutomationProperties.Name="Reset history" ToolTip.Tip="Clear captured history">
+          <PathIcon Data="{StaticResource IconReset}" />
+        </Button>
+        <Button Classes="icon-only" Command="{Binding ExportRecordingCsvCommand}" AutomationProperties.Name="Export CSV" ToolTip.Tip="Export history as CSV">
+          <TextBlock Text="CSV" FontSize="10" FontWeight="SemiBold" />
+        </Button>
+        <Button Classes="icon-only" Command="{Binding ExportRecordingJsonCommand}" AutomationProperties.Name="Export JSON" ToolTip.Tip="Export history as JSON">
+          <TextBlock Text="JSON" FontSize="10" FontWeight="SemiBold" />
+        </Button>
+        <Button Classes="icon-only" Command="{Binding CloseRecordingCommand}" AutomationProperties.Name="Close recording" ToolTip.Tip="Close recording (discards history)">
+          <PathIcon Data="{StaticResource IconClose}" />
+        </Button>
+      </StackPanel>
+    </Border>
+    <Grid>
+      <DataGrid DoubleTapped="OnRecordingDoubleTapped" ItemsSource="{Binding Recordings}" SelectedItem="{Binding SelectedRecording}" AutomationProperties.Name="Recordings">
+        <DataGrid.Columns>
+          <DataGridTemplateColumn Header="Name" Width="180" MinWidth="80">
+            <DataTemplate DataType="vm:RecordingViewModel">
+              <TextBlock Classes="cell" Text="{Binding Name}" ToolTip.Tip="{Binding LastError}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="State" Width="100" MinWidth="70">
+            <DataTemplate DataType="vm:RecordingViewModel">
+              <TextBlock Classes="cell" Text="{Binding State}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Elapsed" Width="90" MinWidth="60">
+            <DataTemplate DataType="vm:RecordingViewModel">
+              <TextBlock Classes="cell mono" Text="{Binding ElapsedText}" HorizontalAlignment="Right" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Samples" Width="90" MinWidth="60">
+            <DataTemplate DataType="vm:RecordingViewModel">
+              <TextBlock Classes="cell mono" Text="{Binding Samples}" HorizontalAlignment="Right" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Details" Width="*" MinWidth="120">
+            <DataTemplate DataType="vm:RecordingViewModel">
+              <TextBlock Classes="cell" Text="{Binding Details}" ToolTip.Tip="{Binding Details}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+        </DataGrid.Columns>
+      </DataGrid>
+      <TextBlock Classes="empty-hint" IsVisible="{Binding !Recordings.Count}"
+                 Text="Record the history of watched values: select rows in Watch (or none for all) and press the red button." />
+    </Grid>
+  </DockPanel>
+</UserControl>

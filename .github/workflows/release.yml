@@ -1,0 +1,49 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-15
+    env:
+      TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Package
+        run: packaging/macos/package.sh "${GITHUB_REF_NAME#v}" arm64 x64
+      - name: Update cask with version and checksums
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          arm=$(grep 'osx-arm64.zip' artifacts/dist/checksums.txt | cut -d' ' -f1)
+          x64=$(grep 'osx-x64.zip' artifacts/dist/checksums.txt | cut -d' ' -f1)
+          sed -e "s/version \".*\"/version \"$v\"/" \
+              -e "s/REPLACE_WITH_ARM64_SHA256/$arm/" \
+              -e "s/REPLACE_WITH_X64_SHA256/$x64/" \
+              packaging/homebrew/opcua-browser.rb > artifacts/dist/opcua-browser.rb
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/dist/*.zip
+            artifacts/dist/opcua-browser.rb
+            artifacts/dist/checksums.txt
+      - name: Publish cask to ZaoralJ/homebrew-tap
+        if: ${{ env.TAP_TOKEN != '' }}
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/ZaoralJ/homebrew-tap.git" tap
+          mkdir -p tap/Casks
+          cp artifacts/dist/opcua-browser.rb tap/Casks/opcua-browser.rb
+          cd tap
+          git config user.name "release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+          git add Casks/opcua-browser.rb
+          git commit -m "opcua-browser ${GITHUB_REF_NAME#v}" && git push

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Client" />
+    <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Client.ComplexTypes" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpcUaBrowser.Core.Tests" />
+  </ItemGroup>
+</Project>

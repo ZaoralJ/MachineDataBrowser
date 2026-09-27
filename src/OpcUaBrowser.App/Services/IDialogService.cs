@@ -1,0 +1,33 @@
+namespace OpcUaBrowser.App.Services;
+
+public interface IDialogService
+{
+    Task<string?> PickSessionToOpenAsync();
+
+    Task<string?> PickSessionSaveTargetAsync(string suggestedName);
+
+    Task<string?> PickCsvSaveTargetAsync(string suggestedName);
+
+    Task<UnsavedChangesChoice> AskUnsavedChangesAsync(string documentName);
+
+    Task<AppSettings?> EditSettingsAsync(AppSettings current);
+
+    Task ShowAboutAsync();
+
+    void ShowRecordingViewer(ViewModels.RecordingViewerViewModel viewer);
+
+    Task<string?> PickRecordingFileAsync();
+
+    Task<OpcUaBrowser.Core.RecordingOptions?> EditNewRecordingAsync(ViewModels.NewRecordingDraft draft);
+
+    Task<string?> PickExportTargetAsync(string suggestedName, string extension);
+
+    void RevealInFileManager(string path);
+}
+
+public enum UnsavedChangesChoice
+{
+    Save,
+    Discard,
+    Cancel,
+}

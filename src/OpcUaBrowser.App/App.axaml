@@ -1,0 +1,44 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:OpcUaBrowser.App.ViewModels"
+             xmlns:views="using:OpcUaBrowser.App.Views"
+             x:Class="OpcUaBrowser.App.App"
+             Name="OPC UA Browser"
+             RequestedThemeVariant="Default">
+  <Application.DataTemplates>
+    <DataTemplate DataType="vm:AddressSpaceTool" x:DataType="vm:AddressSpaceTool">
+      <views:PaneHost PaneId="AddressSpace">
+        <views:PaneHost.Pane>
+          <views:AddressSpaceView DataContext="{Binding Main}" />
+        </views:PaneHost.Pane>
+      </views:PaneHost>
+    </DataTemplate>
+    <DataTemplate DataType="vm:AttributesTool" x:DataType="vm:AttributesTool">
+      <views:PaneHost PaneId="Attributes">
+        <views:PaneHost.Pane>
+          <views:AttributesView DataContext="{Binding Main}" />
+        </views:PaneHost.Pane>
+      </views:PaneHost>
+    </DataTemplate>
+    <DataTemplate DataType="vm:RecordingsTool" x:DataType="vm:RecordingsTool">
+      <views:PaneHost PaneId="Recordings">
+        <views:PaneHost.Pane>
+          <views:RecordingsView DataContext="{Binding Main}" />
+        </views:PaneHost.Pane>
+      </views:PaneHost>
+    </DataTemplate>
+    <DataTemplate DataType="vm:WatchTool" x:DataType="vm:WatchTool">
+      <views:PaneHost PaneId="Watch">
+        <views:PaneHost.Pane>
+          <views:WatchView DataContext="{Binding Main}" />
+        </views:PaneHost.Pane>
+      </views:PaneHost>
+    </DataTemplate>
+  </Application.DataTemplates>
+  <Application.Styles>
+    <FluentTheme DensityStyle="Compact" />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+    <DockFluentTheme />
+    <StyleInclude Source="avares://OpcUaBrowser/Styles/AppStyles.axaml" />
+  </Application.Styles>
+</Application>
