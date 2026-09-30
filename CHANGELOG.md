@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.3.0...v0.4.0) (2026-09-30)
+
+
+### Features
+
+* **app:** cherry-pick export, refreshed UI and connection bar fixes ([#11](https://github.com/ZaoralJ/OpcUaBrowser/issues/11)) ([268edd0](https://github.com/ZaoralJ/OpcUaBrowser/commit/268edd0d3153c41a37bdb92ed72719e39bd62784))
+* **core:** EtherNet/IP (Logix) client behind a protocol-neutral device client ([#10](https://github.com/ZaoralJ/OpcUaBrowser/issues/10)) ([bb8ce90](https://github.com/ZaoralJ/OpcUaBrowser/commit/bb8ce9030205a21d84ac53eef04724e02f8446eb))
+
 ## [0.3.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.2.0...v0.3.0) (2026-09-27)
 
 
