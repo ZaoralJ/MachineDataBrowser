@@ -74,6 +74,7 @@ public sealed partial class AddressSpaceView : UserControl
         base.OnDataContextChanged(e);
         if (DataContext is MainWindowViewModel vm)
         {
+            ApplyShortcuts(vm);
             vm.RevealRequested -= OnRevealRequested;
             vm.RevealRequested += OnRevealRequested;
         }
@@ -152,11 +153,45 @@ public sealed partial class AddressSpaceView : UserControl
         return null;
     }
 
-    private async void OnCustomRefresh(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+
+    private bool _shortcutsApplied;
+
+    private void ApplyShortcuts(MainWindowViewModel vm)
+    {
+        if (_shortcutsApplied)
+        {
+            return;
+        }
+
+        _shortcutsApplied = true;
+        Shortcuts.Apply("Address Space", AddressTree,
+        [
+            new("Enter", vm.AddToWatchCommand, Description: "Monitor selected variables"),
+            new("D1", vm.MonitorSelectedWithRefreshCommand, 100, "Monitor with refresh 100 ms"),
+            new("D2", vm.MonitorSelectedWithRefreshCommand, 250, "Monitor with refresh 250 ms"),
+            new("D3", vm.MonitorSelectedWithRefreshCommand, 500, "Monitor with refresh 500 ms"),
+            new("D4", vm.MonitorSelectedWithRefreshCommand, 1000, "Monitor with refresh 1000 ms"),
+            new("D5", vm.MonitorSelectedWithRefreshCommand, 2000, "Monitor with refresh 2000 ms"),
+            new("D6", vm.MonitorSelectedWithRefreshCommand, 5000, "Monitor with refresh 5000 ms"),
+            new("D7", vm.MonitorSelectedWithRefreshCommand, 10000, "Monitor with refresh 10000 ms"),
+            new("T", new CommunityToolkit.Mvvm.Input.AsyncRelayCommand(PromptRefreshAsync), Description: "Monitor with custom refresh time…"),
+            new("F", vm.MonitorFolderCommand, Description: "Monitor all variables in folder"),
+            new("E", vm.ExpandAllCommand, Description: "Expand all below"),
+            new("Shift+E", vm.CollapseAllCommand, Description: "Collapse all"),
+            new("Cmd+Alt+N", vm.CopyNodeIdCommand, Description: "Copy NodeId"),
+            new("Cmd+Shift+C", vm.CopyNodeJsonCommand, Description: "Copy as JSON"),
+            new("Cmd+Shift+K", vm.CopyNodeClassCommand, Description: "Copy as C# class"),
+            new("Cmd+Alt+K", vm.CopyNodeRecordCommand, Description: "Copy as C# record"),
+        ]);
+    }
+
+    private async Task PromptRefreshAsync()
     {
         if (DataContext is MainWindowViewModel vm && await RefreshPrompt.AskAsync(this, vm.DefaultRefreshMs) is { } ms)
         {
             await vm.MonitorSelectedWithRefreshCommand.ExecuteAsync(ms);
         }
     }
+
+    private async void OnCustomRefresh(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => await PromptRefreshAsync();
 }

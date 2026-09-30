@@ -20,9 +20,22 @@ public interface IDialogService
 
     Task<OpcUaBrowser.Core.RecordingOptions?> EditNewRecordingAsync(ViewModels.NewRecordingDraft draft);
 
+    /// <summary>Shows the recording form for an existing recording; returns the changed options or null.</summary>
+    Task<OpcUaBrowser.Core.RecordingOptions?> EditRecordingSettingsAsync(ViewModels.NewRecordingViewModel form);
+
     Task<string?> PickExportTargetAsync(string suggestedName, string extension);
 
     void RevealInFileManager(string path);
+
+    /// <summary>Asked when the watch list became empty while recordings still capture values.</summary>
+    Task<ActiveRecordingsChoice> AskActiveRecordingsAsync(int count);
+}
+
+public enum ActiveRecordingsChoice
+{
+    Keep,
+    Stop,
+    Close,
 }
 
 public enum UnsavedChangesChoice

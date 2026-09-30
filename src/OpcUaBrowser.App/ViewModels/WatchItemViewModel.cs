@@ -111,7 +111,7 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
         LastUpdate = receivedAt;
         RawValue = update.Raw;
         UpdateCount++;
-        LastUpdateText = receivedAt.ToString("HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture);
+        LastUpdateText = Timestamps.Format(receivedAt);
         RefreshAge(receivedAt);
         Value = update.Value;
         Status = update.Status.SymbolicId ?? update.Status.ToString();
@@ -119,6 +119,6 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
         IsUncertain = StatusCode.IsUncertain(update.Status);
         SourceTimestamp = update.SourceTimestamp == DateTime.MinValue
             ? string.Empty
-            : update.SourceTimestamp.ToLocalTime().ToString("HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture);
+            : Timestamps.Format(update.SourceTimestamp);
     }
 }

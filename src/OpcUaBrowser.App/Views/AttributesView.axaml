@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:OpcUaBrowser.App.Views"
              xmlns:vm="using:OpcUaBrowser.App.ViewModels"
              xmlns:core="using:OpcUaBrowser.Core"
              xmlns:conv="using:OpcUaBrowser.App.Converters"
@@ -14,7 +15,7 @@
       </StackPanel>
     </Border>
     <Grid>
-      <DataGrid ItemsSource="{Binding Attributes}" SelectedItem="{Binding SelectedAttribute}"
+      <DataGrid x:Name="AttributesGrid" ItemsSource="{Binding Attributes}" SelectedItem="{Binding SelectedAttribute}"
                 CanUserSortColumns="False" AutomationProperties.Name="Attributes">
         <DataGrid.ContextMenu>
           <ContextMenu>
@@ -22,13 +23,13 @@
           </ContextMenu>
         </DataGrid.ContextMenu>
         <DataGrid.Columns>
-          <DataGridTemplateColumn Header="Attribute" Width="180" MinWidth="80">
+          <DataGridTemplateColumn Header="Attribute" views:GridCopy.Member="Name" Width="180" MinWidth="80">
             <DataTemplate DataType="core:AttributeValue">
               <TextBlock Classes="cell" Text="{Binding Name}"
                          Foreground="{DynamicResource SystemControlForegroundBaseMediumHighBrush}" />
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Value" Width="*" MinWidth="120">
+          <DataGridTemplateColumn Header="Value" views:GridCopy.Member="Value" Width="*" MinWidth="120">
             <DataTemplate DataType="core:AttributeValue">
               <TextBlock Classes="cell mono" Text="{Binding Value}" ToolTip.Tip="{Binding Value}" />
             </DataTemplate>

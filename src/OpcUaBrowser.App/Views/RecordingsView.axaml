@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:OpcUaBrowser.App.Views"
              xmlns:vm="using:OpcUaBrowser.App.ViewModels"
              x:Class="OpcUaBrowser.App.Views.RecordingsView"
              x:DataType="vm:MainWindowViewModel">
@@ -46,29 +47,58 @@
       </StackPanel>
     </Border>
     <Grid>
-      <DataGrid DoubleTapped="OnRecordingDoubleTapped" ItemsSource="{Binding Recordings}" SelectedItem="{Binding SelectedRecording}" AutomationProperties.Name="Recordings">
+      <DataGrid x:Name="RecordingsGrid" DoubleTapped="OnRecordingDoubleTapped" ItemsSource="{Binding Recordings}" SelectedItem="{Binding SelectedRecording}" AutomationProperties.Name="Recordings">
+        <DataGrid.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Settings…" Command="{Binding EditRecordingSettingsCommand}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconOptions}" /></MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="View live" Command="{Binding ViewRecordingCommand}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconMonitor}" /></MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Start / resume" Command="{Binding StartRecordingCommand}" />
+            <MenuItem Header="Pause" Command="{Binding PauseRecordingCommand}" />
+            <MenuItem Header="Stop" Command="{Binding StopRecordingCommand}" />
+            <MenuItem Header="Reset history" Command="{Binding ResetRecordingCommand}" />
+            <Separator />
+            <MenuItem Header="Export CSV…" Command="{Binding ExportRecordingCsvCommand}" />
+            <MenuItem Header="Export JSON…" Command="{Binding ExportRecordingJsonCommand}" />
+            <Separator />
+            <MenuItem Header="Close recording" Command="{Binding CloseRecordingCommand}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconClose}" /></MenuItem.Icon>
+            </MenuItem>
+          </ContextMenu>
+        </DataGrid.ContextMenu>
         <DataGrid.Columns>
-          <DataGridTemplateColumn Header="Name" Width="180" MinWidth="80">
+          <DataGridTemplateColumn Header="Name" views:GridCopy.Member="Name" Width="180" MinWidth="80">
             <DataTemplate DataType="vm:RecordingViewModel">
               <TextBlock Classes="cell" Text="{Binding Name}" ToolTip.Tip="{Binding LastError}" />
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="State" Width="100" MinWidth="70">
+          <DataGridTemplateColumn Header="State" views:GridCopy.Member="State" Width="100" MinWidth="70">
             <DataTemplate DataType="vm:RecordingViewModel">
               <TextBlock Classes="cell" Text="{Binding State}" />
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Elapsed" Width="90" MinWidth="76">
+          <DataGridTemplateColumn Header="Elapsed" views:GridCopy.Member="ElapsedText" Width="90" MinWidth="76">
             <DataTemplate DataType="vm:RecordingViewModel">
               <TextBlock Classes="cell mono" Text="{Binding ElapsedText}" HorizontalAlignment="Right" />
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Samples" Width="90" MinWidth="80">
+          <DataGridTemplateColumn Header="Samples" views:GridCopy.Member="Samples" Width="90" MinWidth="80">
             <DataTemplate DataType="vm:RecordingViewModel">
-              <TextBlock Classes="cell mono" Text="{Binding Samples}" HorizontalAlignment="Right" />
+              <TextBlock Classes="cell mono" Text="{Binding Samples}" HorizontalAlignment="Right">
+                <ToolTip.Tip>
+                  <TextBlock>
+                    <Run Text="Kept in history (limited by max points per item): " /><Run Text="{Binding Samples}" />
+                    <LineBreak /><Run Text="Received since start: " /><Run Text="{Binding Received}" />
+                  </TextBlock>
+                </ToolTip.Tip>
+              </TextBlock>
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Details" Width="*" MinWidth="120">
+          <DataGridTemplateColumn Header="Details" views:GridCopy.Member="Details" Width="*" MinWidth="120">
             <DataTemplate DataType="vm:RecordingViewModel">
               <TextBlock Classes="cell" Text="{Binding Details}" ToolTip.Tip="{Binding Details}" />
             </DataTemplate>

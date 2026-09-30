@@ -30,8 +30,10 @@ internal static class MessageDialog
         var dialog = new Window
         {
             Title = title,
-            Width = 440,
-            SizeToContent = SizeToContent.Height,
+            // Grows to fit the buttons (long labels used to be clipped at 440 px); text wraps at a readable width.
+            MinWidth = 440,
+            MaxWidth = 720,
+            SizeToContent = SizeToContent.WidthAndHeight,
             CanResize = false,
             CanMinimize = false,
             CanMaximize = false,
@@ -39,6 +41,7 @@ internal static class MessageDialog
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
         };
 
+        var picked = false;
         var buttonBar = new DockPanel { LastChildFill = false };
         var trailing = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         DockPanel.SetDock(trailing, Avalonia.Controls.Dock.Right);
@@ -60,11 +63,16 @@ internal static class MessageDialog
                 button.Classes.Add("accent");
             }
 
-            button.Click += (_, _) => dialog.Close(spec.Result);
+            button.Click += (_, _) =>
+            {
+                picked = true;
+                dialog.Close(spec.Result);
+            };
 
             if (spec.Role == DialogButtonRole.Destructive)
             {
                 DockPanel.SetDock(button, Avalonia.Controls.Dock.Left);
+                button.Margin = new Thickness(0, 0, 24, 0);
                 buttonBar.Children.Add(button);
             }
             else
@@ -85,6 +93,8 @@ internal static class MessageDialog
                 {
                     Text = body,
                     TextWrapping = TextWrapping.Wrap,
+                    MaxWidth = 460,
+                    HorizontalAlignment = HorizontalAlignment.Left,
                     [!TextBlock.ForegroundProperty] = new DynamicResourceExtension("SystemControlForegroundBaseMediumHighBrush"),
                 },
             },
@@ -128,7 +138,13 @@ internal static class MessageDialog
             },
         };
 
-        return dialog.ShowDialog<T?>(owner);
+        return ShowAsync(dialog, owner, () => picked, buttons.FirstOrDefault(b => b.Role == DialogButtonRole.Cancel));
+    }
+
+    private static async Task<T?> ShowAsync<T>(Window dialog, Window owner, Func<bool> picked, DialogButton<T>? cancel)
+    {
+        var result = await dialog.ShowDialog<T?>(owner);
+        return picked() || cancel is null ? result : cancel.Result;
     }
 
     private static Control Docked(Control control, Avalonia.Controls.Dock dock)

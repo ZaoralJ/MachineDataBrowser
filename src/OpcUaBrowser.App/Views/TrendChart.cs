@@ -106,8 +106,8 @@ public sealed class TrendChart : Control
             DrawText(context, Format(value), text, new Point(plot.Left - 6, y), alignRight: true);
         }
 
-        DrawText(context, points[0].Time.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture), text, new Point(plot.Left, plot.Bottom + 12), alignRight: false);
-        DrawText(context, points[^1].Time.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture), text, new Point(plot.Right, plot.Bottom + 12), alignRight: true);
+        DrawText(context, Timestamps.Format(points[0].Time), text, new Point(plot.Left, plot.Bottom + 12), alignRight: false);
+        DrawText(context, Timestamps.Format(points[^1].Time), text, new Point(plot.Right, plot.Bottom + 12), alignRight: true);
 
         var geometry = new StreamGeometry();
         using (var g = geometry.Open())
@@ -166,7 +166,7 @@ public sealed class TrendChart : Control
             context.DrawEllipse(Brush("AppSurfaceBrush", Brushes.White), new Pen(accent, 2), new Point(x, y), 4.5, 4.5);
 
             var label = new FormattedText(
-                $"{Format(h.Value)}  ·  {h.Time.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)}",
+                $"{Format(h.Value)}  ·  {Timestamps.Format(h.Time)}",
                 CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Typeface.Default, 11, Brush("SystemControlForegroundBaseHighBrush", Brushes.White));
             var box = new Rect(0, 0, label.Width + 12, label.Height + 6);
             var left = x + 8 + box.Width > plot.Right ? x - 8 - box.Width : x + 8;

@@ -681,9 +681,58 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             ReportError(ex);
         }
 
-        if (items.Count > 1)
+        StatusMessage = items.Count == 1 ? "Removed 1 item from watch" : $"Removed {items.Count} items from watch";
+        if (WatchItems.Count == 0)
         {
-            StatusMessage = $"Removed {items.Count} items from watch";
+            await AskAboutActiveRecordingsAsync();
+        }
+    }
+
+    /// <summary>
+    /// Recordings monitor their items independently of the watch list, so emptying the list leaves them running.
+    /// Ask whether to stop (keep history) or close (discard) them.
+    /// </summary>
+    private async Task AskAboutActiveRecordingsAsync()
+    {
+        var active = Recordings.Where(r => r.Recording.State is RecordingState.Recording or RecordingState.Paused or RecordingState.Scheduled).ToList();
+        if (active.Count == 0 || Dialogs is null)
+        {
+            return;
+        }
+
+        try
+        {
+            switch (await Dialogs.AskActiveRecordingsAsync(active.Count))
+            {
+                case ActiveRecordingsChoice.Stop:
+                    foreach (var recording in active)
+                    {
+                        var r = recording.Recording;
+                        await Task.Run(() => r.StopAsync());
+                        recording.Refresh();
+                    }
+
+                    StatusMessage = active.Count == 1 ? "Watch list cleared; recording stopped" : $"Watch list cleared; {active.Count} recordings stopped";
+                    break;
+                case ActiveRecordingsChoice.Close:
+                    foreach (var recording in active)
+                    {
+                        Recordings.Remove(recording);
+                        await recording.DisposeAsync();
+                    }
+
+                    SelectedRecording = Recordings.LastOrDefault();
+                    NotifyRecordingCommands();
+                    StatusMessage = active.Count == 1 ? "Watch list cleared; recording closed" : $"Watch list cleared; {active.Count} recordings closed";
+                    break;
+                default:
+                    StatusMessage = "Watch list cleared; recordings keep running";
+                    break;
+            }
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            ReportError(ex);
         }
     }
 
@@ -879,7 +928,20 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     partial void OnSelectedNodeChanged(NodeViewModel? value) => _ = LoadAttributesAsync(value);
 
-    public async ValueTask DisposeAsync()
+    private Task? _shutdown;
+
+    public void ShowShutdownProgress()
+    {
+        IsBusy = true;
+        StatusMessage = Recordings.Count > 0 || IsConnected ? "Quitting: stopping recordings and closing the session…" : "Quitting…";
+    }
+
+    /// <summary>Graceful, idempotent shutdown used on quit (and by <see cref="DisposeAsync"/>).</summary>
+    public Task ShutdownAsync() => _shutdown ??= DisposeCoreAsync();
+
+    public ValueTask DisposeAsync() => new(ShutdownAsync());
+
+    private async Task DisposeCoreAsync()
     {
         _flushTimer.Stop();
         AppErrors.Reported -= OnAppError;
@@ -950,7 +1012,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         SetAttribute("StatusCode", update.Status.SymbolicId ?? update.Status.ToString());
         if (update.SourceTimestamp != DateTime.MinValue)
         {
-            SetAttribute("SourceTimestamp", update.SourceTimestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture));
+            SetAttribute("SourceTimestamp", Timestamps.Format(update.SourceTimestamp));
         }
     });
 

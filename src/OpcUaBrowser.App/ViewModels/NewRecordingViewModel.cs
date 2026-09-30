@@ -5,7 +5,45 @@ namespace OpcUaBrowser.App.ViewModels;
 
 public sealed partial class NewRecordingViewModel(NewRecordingDraft draft) : ObservableObject
 {
-    public string Summary => $"Records {draft.ItemCount} item(s): the rows selected in Watch, or all watched items when none is selected.";
+    private RecordingOptions? _editing;
+    private RecordingState _editingState;
+
+    /// <summary>Edits the settings of an existing recording (same form, applied instead of started).</summary>
+    public static NewRecordingViewModel ForEdit(Recording recording, DateTimeOffset now)
+    {
+        var o = recording.Options;
+        var vm = new NewRecordingViewModel(new NewRecordingDraft(o.Name, recording.Items.Count, (int)o.SamplingIntervalMs))
+        {
+            _editing = o,
+            _editingState = recording.State,
+            EditSummary = $"{recording.Items.Count} item(s) · {recording.State}. Changes apply immediately, also while recording.",
+            LimitAge = o.MaxAge is not null,
+            MaxAgeMinutes = o.MaxAge is { } age ? (decimal)Math.Max(1, Math.Round(age.TotalMinutes)) : 60,
+            MaxPoints = o.MaxPointsPerItem,
+            UseStartDelay = recording.State == RecordingState.Scheduled && o.ScheduledStart is not null,
+            StartDelayMinutes = o.ScheduledStart is { } start ? (decimal)Math.Max(0, Math.Ceiling((start - now).TotalMinutes)) : 5,
+            UseStopAfter = o.StopAfter is not null,
+            StopAfterMinutes = o.StopAfter is { } after ? (decimal)Math.Max(1, Math.Round(after.TotalMinutes)) : 10,
+            UseLiveFile = o.LiveFilePath is not null,
+            LiveFilePath = o.LiveFilePath,
+        };
+        return vm;
+    }
+
+    public bool IsEdit => _editing is not null;
+
+    public string Title => IsEdit ? $"Recording Settings — {draft.Name}" : "New Recording";
+
+    public string ConfirmText => IsEdit ? "Apply" : "Start";
+
+    /// <summary>Scheduling a start only makes sense before the recording runs.</summary>
+    public bool CanSchedule => _editing is null || _editingState == RecordingState.Scheduled;
+
+    private string EditSummary { get; init; } = string.Empty;
+
+    public string Summary => IsEdit
+        ? EditSummary
+        : $"Records {draft.ItemCount} item(s): the rows selected in Watch, or all watched items when none is selected.";
 
     [ObservableProperty]
     public partial string Name { get; set; } = draft.Name;
@@ -49,5 +87,6 @@ public sealed partial class NewRecordingViewModel(NewRecordingDraft draft) : Obs
         ScheduledStart = UseStartDelay ? now.AddMinutes((double)(StartDelayMinutes ?? 0)) : null,
         StopAfter = UseStopAfter ? TimeSpan.FromMinutes((double)(StopAfterMinutes ?? 10)) : null,
         LiveFilePath = UseLiveFile && !string.IsNullOrWhiteSpace(LiveFilePath) ? LiveFilePath : null,
+        StopAt = _editing?.StopAt,
     };
 }

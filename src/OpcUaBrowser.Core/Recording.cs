@@ -64,6 +64,7 @@ public sealed class Recording : IAsyncDisposable
     private readonly SemaphoreSlim _lifecycle = new(1, 1);
 
     private List<IAsyncDisposable> _monitors = [];
+    private IReadOnlyList<RecordedItem> _items;
     private ITimer? _startTimer;
     private ITimer? _stopTimer;
     private Channel<string>? _liveChannel;
@@ -84,7 +85,7 @@ public sealed class Recording : IAsyncDisposable
         _client = client;
         _time = timeProvider ?? TimeProvider.System;
         Options = options;
-        Items = items;
+        _items = [.. items];
         _itemsById = items.ToDictionary(i => i.NodeId);
         _buffers = items.ToDictionary(i => i.NodeId, _ => new Queue<HistorySample>());
     }
@@ -94,9 +95,10 @@ public sealed class Recording : IAsyncDisposable
     /// <summary>Raised when the recording fails in the background (e.g. auto-start, live file I/O).</summary>
     public event EventHandler<Exception>? Faulted;
 
-    public RecordingOptions Options { get; }
+    public RecordingOptions Options { get; private set; }
 
-    public IReadOnlyList<RecordedItem> Items { get; }
+    /// <summary>Recorded items; replaced (never mutated) when items are added, so readers can enumerate it freely.</summary>
+    public IReadOnlyList<RecordedItem> Items => _items;
 
     public RecordingState State { get; private set; } = RecordingState.Created;
 
@@ -104,7 +106,21 @@ public sealed class Recording : IAsyncDisposable
 
     public DateTimeOffset? StoppedAt { get; private set; }
 
+    /// <summary>Samples received since start or reset, including those already dropped by the limits.</summary>
     public long TotalSamples => Interlocked.Read(ref _totalSamples);
+
+    /// <summary>Samples currently kept in history (at most <see cref="RecordingOptions.MaxPointsPerItem"/> per item).</summary>
+    public int KeptSamples
+    {
+        get
+        {
+            lock (_sync)
+            {
+                PruneByAge(_time.GetUtcNow());
+                return _buffers.Values.Sum(b => b.Count);
+            }
+        }
+    }
 
     public TimeSpan Elapsed => StartedAt is not { } start
         ? TimeSpan.Zero
@@ -197,6 +213,131 @@ public sealed class Recording : IAsyncDisposable
                 StartedAt = _time.GetUtcNow();
             }
         }
+    }
+
+    /// <summary>
+    /// Adds items to the recording. While it is recording or paused the new items are monitored at once; otherwise
+    /// they are picked up by the next start. Items already recorded are ignored. Returns the items actually added.
+    /// </summary>
+    public async Task<IReadOnlyList<RecordedItem>> AddItemsAsync(IReadOnlyList<RecordedItem> items, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        await _lifecycle.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (State == RecordingState.Closed)
+            {
+                throw new InvalidOperationException("The recording is closed.");
+            }
+
+            List<RecordedItem> added;
+            lock (_sync)
+            {
+                added = [.. items.Where(i => !_itemsById.ContainsKey(i.NodeId)).DistinctBy(i => i.NodeId)];
+                foreach (var item in added)
+                {
+                    _itemsById[item.NodeId] = item;
+                    _buffers[item.NodeId] = new Queue<HistorySample>();
+                }
+
+                _items = [.. _items, .. added];
+            }
+
+            if (added.Count > 0 && State is RecordingState.Recording or RecordingState.Paused)
+            {
+                var results = await _client.MonitorManyAsync(
+                    [.. added.Select(i => i.NodeId)],
+                    Append,
+                    Options.SamplingIntervalMs,
+                    cancellationToken).ConfigureAwait(false);
+                _monitors = [.. _monitors, .. results.Select(r => r.Handle).OfType<IAsyncDisposable>()];
+            }
+
+            return added;
+        }
+        finally
+        {
+            _lifecycle.Release();
+        }
+    }
+
+    /// <summary>
+    /// Changes the options of an existing recording. Everything applies immediately: a new name, sampling interval
+    /// (monitored items are moved to it), limits (history is trimmed), schedule and auto-stop (timers are re-armed)
+    /// and live file (the old file is closed, the new one opened).
+    /// </summary>
+    public async Task UpdateOptionsAsync(RecordingOptions options, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        await _lifecycle.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (State == RecordingState.Closed)
+            {
+                throw new InvalidOperationException("The recording is closed.");
+            }
+
+            var previous = Options;
+            lock (_sync)
+            {
+                Options = options;
+                foreach (var buffer in _buffers.Values)
+                {
+                    while (buffer.Count > options.MaxPointsPerItem)
+                    {
+                        buffer.Dequeue();
+                    }
+                }
+
+                PruneByAge(_time.GetUtcNow());
+            }
+
+            if (State is RecordingState.Recording or RecordingState.Paused)
+            {
+                if (Math.Abs(previous.SamplingIntervalMs - options.SamplingIntervalMs) > 0.5 && _monitors.Count > 0)
+                {
+                    var results = await _client.ChangeRefreshAsync(_monitors, Append, options.SamplingIntervalMs, cancellationToken).ConfigureAwait(false);
+                    _monitors = [.. results.Select(r => r.Handle).OfType<IAsyncDisposable>()];
+                }
+
+                if (!string.Equals(previous.LiveFilePath, options.LiveFilePath, StringComparison.Ordinal))
+                {
+                    await CloseLiveFileAsync().ConfigureAwait(false);
+                    if (options.LiveFilePath is { } path)
+                    {
+                        OpenLiveFile(path);
+                    }
+                }
+
+                _stopTimer?.Dispose();
+                _stopTimer = null;
+                if (PlannedStopAt is { } stopAt)
+                {
+                    var due = stopAt - _time.GetUtcNow();
+                    _stopTimer = _time.CreateTimer(_ => _ = BackgroundAsync(() => StopAsync()), null, due < TimeSpan.Zero ? TimeSpan.Zero : due, Timeout.InfiniteTimeSpan);
+                }
+            }
+            else if (State == RecordingState.Scheduled)
+            {
+                _startTimer?.Dispose();
+                _startTimer = null;
+                var now = _time.GetUtcNow();
+                if (options.ScheduledStart is { } at && at > now)
+                {
+                    _startTimer = _time.CreateTimer(_ => _ = BackgroundAsync(StartScheduledAsync), null, at - now, Timeout.InfiniteTimeSpan);
+                }
+                else
+                {
+                    await BeginAsync(cancellationToken).ConfigureAwait(false);
+                }
+            }
+        }
+        finally
+        {
+            _lifecycle.Release();
+        }
+
+        StateChanged?.Invoke(this, State);
     }
 
     public IReadOnlyList<HistorySample> GetHistory(NodeId nodeId)
@@ -311,18 +452,17 @@ public sealed class Recording : IAsyncDisposable
 
     internal void Append(ValueUpdate update)
     {
-        if (!_itemsById.TryGetValue(update.NodeId, out var item))
-        {
-            return;
-        }
-
-        var sample = new HistorySample(_time.GetUtcNow(), update.SourceTimestamp, update.ServerTimestamp, update.Value, update.Numeric, update.Status, Interlocked.Increment(ref _sequence));
+        RecordedItem? item;
+        HistorySample sample;
         lock (_sync)
         {
-            if (State != RecordingState.Recording)
+            // Items can be added while recording, so the lookup happens under the same lock as AddItemsAsync.
+            if (State != RecordingState.Recording || !_itemsById.TryGetValue(update.NodeId, out item))
             {
                 return;
             }
+
+            sample = new HistorySample(_time.GetUtcNow(), update.SourceTimestamp, update.ServerTimestamp, update.Value, update.Numeric, update.Status, Interlocked.Increment(ref _sequence));
 
             var buffer = _buffers[update.NodeId];
             buffer.Enqueue(sample);

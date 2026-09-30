@@ -13,7 +13,8 @@ public sealed partial class MainWindowViewModel
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartRecordingCommand), nameof(PauseRecordingCommand), nameof(StopRecordingCommand),
-        nameof(ResetRecordingCommand), nameof(CloseRecordingCommand), nameof(ViewRecordingCommand), nameof(ExportRecordingCsvCommand), nameof(ExportRecordingJsonCommand))]
+        nameof(ResetRecordingCommand), nameof(CloseRecordingCommand), nameof(ViewRecordingCommand), nameof(ExportRecordingCsvCommand), nameof(ExportRecordingJsonCommand),
+        nameof(EditRecordingSettingsCommand))]
     public partial RecordingViewModel? SelectedRecording { get; set; }
 
     private bool CanCreateRecording() => IsConnected && WatchItems.Any(w => w.Monitor is not null);
@@ -103,6 +104,66 @@ public sealed partial class MainWindowViewModel
 
         var recorded = recording.Recording.Items.First(i => i.NodeId == item.NodeId);
         Dialogs?.ShowRecordingViewer(RecordingViewerViewModel.ForRecording(recording.Recording, recorded.DisplayName));
+    }
+
+    /// <summary>Adds the selected watch rows (all watched items when none is selected) to an existing recording.</summary>
+    [RelayCommand]
+    private async Task AddToRecordingAsync(RecordingViewModel? target)
+    {
+        target ??= SelectedRecording;
+        var source = RecordingSource();
+        if (target is null || source.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var added = await target.Recording.AddItemsAsync([.. source.Select(w => new RecordedItem(w.NodeId, w.DisplayName, w.PortableId))]);
+            StatusMessage = added.Count switch
+            {
+                0 => $"'{target.Name}' already records the selected items",
+                1 => $"Added 1 item to '{target.Name}'",
+                _ => $"Added {added.Count} items to '{target.Name}'",
+            };
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            ReportError(ex);
+        }
+
+        target.Refresh();
+        UpdateRecordingFlags();
+    }
+
+    /// <summary>Shows and changes the settings of the selected recording (name, refresh, limits, schedule, file).</summary>
+    [RelayCommand(CanExecute = nameof(HasRecording))]
+    private async Task EditRecordingSettingsAsync()
+    {
+        if (SelectedRecording is not { } recording || Dialogs is null)
+        {
+            return;
+        }
+
+        var form = NewRecordingViewModel.ForEdit(recording.Recording, DateTimeOffset.UtcNow);
+        if (await Dialogs.EditRecordingSettingsAsync(form) is not { } options)
+        {
+            return;
+        }
+
+        try
+        {
+            var target = recording.Recording;
+            await Task.Run(() => target.UpdateOptionsAsync(options));
+            StatusMessage = $"Updated settings of '{options.Name}'";
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            ReportError(ex);
+        }
+
+        recording.Refresh();
+        UpdateRecordingFlags();
     }
 
     private bool HasRecording() => SelectedRecording is not null;

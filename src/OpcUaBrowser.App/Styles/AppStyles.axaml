@@ -358,6 +358,11 @@
   <Style Selector="ToolControl /template/ Border#PART_Border">
     <Setter Property="BorderThickness" Value="0" />
   </Style>
+  <!-- A pane without tabs still has an empty tab strip whose 1 px top border showed as a stray line above the
+       card's bottom edge. The selected tab is marked by its own style, so the strip needs no border. -->
+  <Style Selector="ToolTabStrip /template/ Border#PART_BorderLeftFill, ToolTabStrip /template/ Border#PART_BorderRightFill">
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
   <Style Selector="ProportionalStackPanelSplitter">
     <Setter Property="Thickness" Value="8" />
   </Style>
@@ -434,7 +439,8 @@
     <Setter Property="IsReadOnly" Value="True" />
     <Setter Property="RowHeight" Value="30" />
     <Setter Property="ColumnHeaderHeight" Value="32" />
-    <Setter Property="SelectionMode" Value="Single" />
+    <!-- Several rows can be selected for "Copy as table" (Views/GridCopy). -->
+    <Setter Property="SelectionMode" Value="Extended" />
     <Setter Property="CanUserResizeColumns" Value="True" />
     <Setter Property="CanUserReorderColumns" Value="True" />
     <Setter Property="BorderThickness" Value="0" />
@@ -464,8 +470,9 @@
     <Setter Property="Fill" Value="{DynamicResource AppRowSelectionBrush}" />
     <Setter Property="Opacity" Value="1" />
   </Style>
+  <!-- Selection is per row: no current-cell frame. The theme toggles IsVisible on :current/:focus, so hide via Opacity. -->
   <Style Selector="DataGridCell /template/ Grid#FocusVisual, DataGridCell /template/ Rectangle#CurrencyVisual">
-    <Setter Property="IsVisible" Value="False" />
+    <Setter Property="Opacity" Value="0" />
   </Style>
   <Style Selector="TextBlock.mono">
     <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
