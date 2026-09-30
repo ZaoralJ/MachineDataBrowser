@@ -21,7 +21,8 @@ Thanks for helping! Bug reports, ideas and pull requests are welcome.
 ## Development setup
 
 Requirements: [.NET SDK 10](https://dotnet.microsoft.com/download) (see `global.json`) and Docker
-(integration tests start an [opc-plc](https://github.com/Azure-Samples/iot-edge-opc-plc) container).
+(integration tests start an [opc-plc](https://github.com/Azure-Samples/iot-edge-opc-plc) container and build the
+simulators in `simulators/`).
 
 ```sh
 dotnet build                     # warnings are errors
@@ -29,14 +30,13 @@ dotnet test                      # Core integration + headless UI tests (needs D
 dotnet run --project src/OpcUaBrowser.App
 ```
 
-A local test server:
+Local test servers ([`just`](https://github.com/casey/just) recipes, see [docs/simulators.md](docs/simulators.md)):
 
 ```sh
-docker run --rm -p 50000:50000 mcr.microsoft.com/iotedge/opc-plc:latest \
-  --pn=50000 --autoaccept --unsecuretransport --ph=localhost
+just opcua          # opc-plc                        -> opc.tcp://localhost:50000
+just opcua-custom   # custom structures, large tree  -> opc.tcp://localhost:4841/
+just cip            # Logix / EtherNet/IP            -> eip://localhost:44818/1,0
 ```
-
-Connect the app to `opc.tcp://localhost:50000`.
 
 Tip: while the app is running, run tests with `--artifacts-path /tmp/opcua-artifacts` so the test build does not
 overwrite the running app's binaries. `OPCUABROWSER_DATA_DIR` points settings/PKI to another folder.
@@ -48,7 +48,8 @@ overwrite the running app's binaries. `OPCUABROWSER_DATA_DIR` points settings/PK
 - Follow `.editorconfig` and the existing style; nullable reference types are on.
 - Persist NodeIds in the `nsu=` form (`ToPortableId`), never namespace indexes.
 - Never persist passwords or secrets.
-- New behaviour needs a test: Core against opc-plc, UI with `Avalonia.Headless` (`[AvaloniaFact]`).
+- New behaviour needs a test: Core against opc-plc or the simulators in `simulators/`, UI with `Avalonia.Headless`
+  (`[AvaloniaFact]`).
 - Comments explain *why*, not *what*.
 - Package versions go in `Directory.Packages.props` only.
 
