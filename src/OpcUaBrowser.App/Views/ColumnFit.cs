@@ -43,6 +43,16 @@ public static class ColumnFit
             }
         }
 
+        // Cells can hold more than text (recording dot, chart button, status badge): measure the realized ones too.
+        foreach (var item in grid.ItemsSource?.Cast<object>().Take(MaxRowsMeasured) ?? [])
+        {
+            if (column.GetCellContent(item) is { } content)
+            {
+                content.Measure(Size.Infinity);
+                widest = Math.Max(widest, content.DesiredSize.Width + content.Margin.Left + content.Margin.Right);
+            }
+        }
+
         return Math.Clamp(Math.Max(header, widest + CellPadding), column.MinWidth, MaxWidth);
     }
 

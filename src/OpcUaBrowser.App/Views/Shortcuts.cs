@@ -151,7 +151,7 @@ public static class Shortcuts
         top.AddHandler(InputElement.PointerExitedEvent, (_, _) => pointer = null, Avalonia.Interactivity.RoutingStrategies.Direct, handledEventsToo: true);
         top.AddHandler(InputElement.KeyDownEvent, (_, e) =>
         {
-            if (e.Handled || pointer is not { } at)
+            if (e.Handled || pointer is not { } at || (IsTyping(top) && (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta | KeyModifiers.Alt)) == 0))
             {
                 return;
             }
@@ -179,7 +179,39 @@ public static class Shortcuts
     {
         foreach (var shortcut in shortcuts)
         {
-            target.KeyBindings.Add(new KeyBinding { Gesture = shortcut.KeyGesture, Command = shortcut.Command, CommandParameter = shortcut.Parameter! });
+            var command = IsPlainKey(shortcut.KeyGesture) ? new NotWhileTyping(shortcut.Command, target) : shortcut.Command;
+            target.KeyBindings.Add(new KeyBinding { Gesture = shortcut.KeyGesture, Command = command, CommandParameter = shortcut.Parameter! });
+        }
+    }
+
+    /// <summary>Keys that type text: no ⌘/Ctrl/Alt (Shift alone still types capitals and symbols).</summary>
+    private static bool IsPlainKey(KeyGesture gesture) =>
+        (gesture.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta | KeyModifiers.Alt)) == 0;
+
+    /// <summary>True while focus is in a text field (search box, number field, …), where plain keys are typing.</summary>
+    public static bool IsTyping(Visual? scope) =>
+        (scope is null ? null : TopLevel.GetTopLevel(scope)?.FocusManager?.GetFocusedElement()) is TextBox;
+
+    /// <summary>
+    /// A single-key shortcut (S, E, 1–7, Delete, Enter, …) is disabled while the user types in a text field, so the key
+    /// reaches the field instead of running a command.
+    /// </summary>
+    private sealed class NotWhileTyping(ICommand inner, InputElement scope) : ICommand
+    {
+        public event EventHandler? CanExecuteChanged
+        {
+            add => inner.CanExecuteChanged += value;
+            remove => inner.CanExecuteChanged -= value;
+        }
+
+        public bool CanExecute(object? parameter) => !IsTyping(scope as Visual) && inner.CanExecute(parameter);
+
+        public void Execute(object? parameter)
+        {
+            if (!IsTyping(scope as Visual))
+            {
+                inner.Execute(parameter);
+            }
         }
     }
 

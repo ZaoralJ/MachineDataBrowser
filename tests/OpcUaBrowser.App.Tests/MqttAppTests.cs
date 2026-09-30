@@ -15,7 +15,12 @@ public sealed class MqttAppTests(MqttSimulatorFixture broker)
         await using var vm = new MainWindowViewModel { EndpointUrl = broker.EndpointUrl };
         var window = new MainWindow { DataContext = vm, Width = 1280, Height = 800 };
         window.Show();
-        Assert.StartsWith("MQTT · Anonymous", vm.OptionsSummary, StringComparison.Ordinal);
+        Assert.Equal(0, vm.DefaultRefreshMs); // MQTT: every message by default
+        Assert.StartsWith("MQTT · Anonymous · all", vm.OptionsSummary, StringComparison.Ordinal);
+        vm.EndpointUrl = "opc.tcp://localhost:4840";
+        Assert.Equal(vm.Settings.SamplingIntervalMs, vm.DefaultRefreshMs);
+        vm.EndpointUrl = broker.EndpointUrl;
+        Assert.Equal(0, vm.DefaultRefreshMs);
         Assert.False(vm.IsOpcUaEndpoint);
         Assert.True(vm.HasCredentials);
 
@@ -33,6 +38,18 @@ public sealed class MqttAppTests(MqttSimulatorFixture broker)
 
         await Until(() => vm.WatchItems.Count == 2 && vm.WatchItems.All(w => w.UpdateCount > 2 && !w.IsBad));
         Assert.All(vm.WatchItems, w => Assert.IsType<double>(w.RawValue));
+
+        // Search from the whole tree (nothing with children selected) and reveal a result in the tree.
+        vm.SelectedNode = null;
+        vm.SearchText = "gripperVacuum";
+        await vm.SearchCommand.ExecuteAsync(null);
+        Assert.Equal(8, vm.SearchResults.Count); // per UNS line: the process topic and its unit in the robot's _meta JSON
+        Assert.StartsWith("8 matches", vm.SearchStatus, StringComparison.Ordinal);
+        await vm.RevealSearchHitCommand.ExecuteAsync(vm.SearchResults.Single(h => h.PathText.Contains("line2 › robot › process", StringComparison.Ordinal)));
+        Assert.Equal("gripperVacuum", vm.SelectedNode?.DisplayName);
+        Assert.Equal("line2", vm.SelectedNode?.Parent?.Parent?.Parent?.DisplayName);
+        vm.ClearSearchCommand.Execute(null);
+        Assert.False(vm.HasSearchPanel);
         window.Close();
     }
 

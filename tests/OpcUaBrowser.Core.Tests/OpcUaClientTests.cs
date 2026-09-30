@@ -234,4 +234,13 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
             Assert.True(updates.Select(u => u.Value).Distinct().Count() > 1);
         }
     }
+
+    [Fact]
+    public async Task Search_finds_nodes_by_name_from_the_objects_folder()
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var result = await _client.SearchAsync(new BrowseItem(ObjectIds.ObjectsFolder, "Objects", "Objects", NodeClass.Object), "StepUp", maxDepth: 6, cancellationToken: Ct);
+        Assert.Contains(result.Hits, h => h.Item.DisplayName == "StepUp" && h.PathText.EndsWith("OpcPlc › Telemetry › Basic › StepUp", StringComparison.Ordinal));
+        TestContext.Current.TestOutputHelper!.WriteLine($"{result.NodesVisited} nodes in {watch.ElapsedMilliseconds} ms");
+    }
 }

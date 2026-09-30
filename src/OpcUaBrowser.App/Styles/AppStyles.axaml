@@ -487,6 +487,16 @@
     <Setter Property="Opacity" Value="1" />
   </Style>
   <!-- Selection is per row: no current-cell frame. The theme toggles IsVisible on :current/:focus, so hide via Opacity. -->
+  <!-- The rows span the horizontal scrollbar's row in the theme, so the bar covered the last row; give it its own row. -->
+  <!-- Grid scrollbars always take their own space: the auto-hiding overlay bar floats over the last row on macOS. -->
+  <Style Selector="DataGrid /template/ ScrollBar">
+    <Setter Property="AllowAutoHide" Value="False" />
+  </Style>
+  <Style Selector="DataGrid /template/ DataGridRowsPresenter#PART_RowsPresenter">
+    <Setter Property="Grid.RowSpan" Value="1" />
+    <!-- A partly visible last row is drawn past the presenter's bounds; clip it so it does not run under the bar. -->
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
   <Style Selector="DataGridCell /template/ Grid#FocusVisual, DataGridCell /template/ Rectangle#CurrencyVisual">
     <Setter Property="Opacity" Value="0" />
   </Style>

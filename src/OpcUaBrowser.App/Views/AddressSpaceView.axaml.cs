@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using OpcUaBrowser.App.ViewModels;
+using OpcUaBrowser.Core;
 
 namespace OpcUaBrowser.App.Views;
 
@@ -19,6 +20,7 @@ public sealed partial class AddressSpaceView : UserControl
         AddressTree.AddHandler(InputElement.PointerPressedEvent, OnTreePointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddressTree.AddHandler(InputElement.PointerMovedEvent, OnTreePointerMoved, handledEventsToo: true);
         AddressTree.AddHandler(InputElement.PointerReleasedEvent, (_, _) => _dragStart = null, handledEventsToo: true);
+        SearchBox.AddHandler(KeyDownEvent, OnSearchBoxKeyDown, RoutingStrategies.Tunnel);
     }
 
     private const double DragThreshold = 6;
@@ -75,6 +77,8 @@ public sealed partial class AddressSpaceView : UserControl
         if (DataContext is MainWindowViewModel vm)
         {
             ApplyShortcuts(vm);
+            vm.SearchFocusRequested -= OnSearchFocusRequested;
+            vm.SearchFocusRequested += OnSearchFocusRequested;
             vm.RevealRequested -= OnRevealRequested;
             vm.RevealRequested += OnRevealRequested;
         }
@@ -182,7 +186,34 @@ public sealed partial class AddressSpaceView : UserControl
             new("Cmd+Shift+C", vm.CopyNodeJsonCommand, Description: "Copy as JSON"),
             new("Cmd+Shift+K", vm.CopyNodeClassCommand, Description: "Copy as C# class"),
             new("Cmd+Alt+K", vm.CopyNodeRecordCommand, Description: "Copy as C# record"),
+            new("OemQuestion", vm.FocusSearchCommand, Description: "Search the address space (/)"),
         ]);
+    }
+
+    /// <summary>↓ in the search box moves into the results, so they can be walked with the arrow keys.</summary>
+    private void OnSearchBoxKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Down && SearchResultsList.ItemCount > 0)
+        {
+            SearchResultsList.SelectedIndex = Math.Max(0, SearchResultsList.SelectedIndex);
+            SearchResultsList.ContainerFromIndex(SearchResultsList.SelectedIndex)?.Focus();
+            e.Handled = true;
+        }
+    }
+
+    private void OnSearchFocusRequested(object? sender, EventArgs e) =>
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            SearchBox.Focus();
+            SearchBox.SelectAll();
+        }, Avalonia.Threading.DispatcherPriority.Loaded);
+
+    private async void OnSearchResultDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel vm && SearchResultsList.SelectedItem is SearchHit hit)
+        {
+            await vm.RevealSearchHitCommand.ExecuteAsync(hit);
+        }
     }
 
     private async Task PromptRefreshAsync()
