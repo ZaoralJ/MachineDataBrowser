@@ -341,6 +341,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     private Task MonitorSelectedWithRefreshAsync(int refreshMs) =>
         AddWatchItemsAsync(SelectionOrCurrent().Where(n => n.IsVariable).Select(n => (n.NodeId, n.DisplayName)).ToList(), refreshMs);
 
+    /// <summary>Raised with the items the Watch grid should select (the grid owns the multi-selection).</summary>
+    public event EventHandler<IReadOnlyList<WatchItemViewModel>>? WatchSelectionRequested;
+
+    /// <summary>Selects watch items without a recent update (see <see cref="WatchItemViewModel.IsStale"/>).</summary>
+    [RelayCommand]
+    private void SelectStale()
+    {
+        var stale = WatchItems.Where(i => i.IsStale).ToList();
+        StatusMessage = stale.Count switch
+        {
+            0 => "No stale values",
+            1 => "1 stale value selected",
+            _ => $"{stale.Count} stale values selected",
+        };
+        WatchSelectionRequested?.Invoke(this, stale);
+    }
+
     [RelayCommand(CanExecute = nameof(HasSelectedWatchItem))]
     private async Task SetRefreshAsync(int refreshMs)
     {

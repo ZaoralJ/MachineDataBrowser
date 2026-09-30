@@ -25,9 +25,22 @@ public sealed partial class WatchView : UserControl
         WatchGrid.LayoutUpdated += (_, _) => CaptureWidths();
     }
 
+    private MainWindowViewModel? _vm;
+
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        if (_vm is not null)
+        {
+            _vm.WatchSelectionRequested -= OnWatchSelectionRequested;
+        }
+
+        _vm = DataContext as MainWindowViewModel;
+        if (_vm is not null)
+        {
+            _vm.WatchSelectionRequested += OnWatchSelectionRequested;
+        }
+
         if (_columns is not null)
         {
             _columns.Changed -= OnColumnsChanged;
@@ -255,6 +268,21 @@ public sealed partial class WatchView : UserControl
             e.DragEffects = Avalonia.Input.DragDropEffects.Copy;
             e.Handled = true;
             await vm.DropNodesAsync([.. nodes]);
+        }
+    }
+
+    private void OnWatchSelectionRequested(object? sender, IReadOnlyList<WatchItemViewModel> items)
+    {
+        WatchGrid.SelectedItems.Clear();
+        foreach (var item in items)
+        {
+            WatchGrid.SelectedItems.Add(item);
+        }
+
+        if (items.Count > 0)
+        {
+            WatchGrid.ScrollIntoView(items[0], null);
+            WatchGrid.Focus();
         }
     }
 

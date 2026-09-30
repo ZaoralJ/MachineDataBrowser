@@ -30,6 +30,11 @@
               </Flyout>
             </Button.Flyout>
           </Button>
+          <Button Classes="icon-only" Command="{Binding SelectStaleCommand}"
+                  AutomationProperties.Name="Select stale values"
+                  ToolTip.Tip="Select stale values: items without an update for 5× their refresh time (at least 5 s), or never updated">
+            <PathIcon Data="{StaticResource IconStale}" />
+          </Button>
           <Button Classes="icon-only" Command="{Binding AddToWatchCommand}"
                   AutomationProperties.Name="Add selected node to watch"
                   ToolTip.Tip="Add selected variable (Enter or double-click in tree)">
@@ -74,6 +79,9 @@
             <MenuItem Header="Record all monitored…" Command="{Binding RecordAllCommand}" />
             <Separator />
             <MenuItem Header="Show in address space" Command="{Binding RevealInTreeCommand}" InputGesture="Enter" />
+            <MenuItem Header="Select stale values" Command="{Binding SelectStaleCommand}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconStale}" /></MenuItem.Icon>
+            </MenuItem>
             <Separator />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy value{0}'}" Command="{Binding CopyWatchValueCommand}" />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy NodeId{0}'}" Command="{Binding CopyWatchNodeIdCommand}" />
