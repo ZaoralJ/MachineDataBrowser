@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.5.0...v0.6.0) (2026-09-30)
+
+
+### Features
+
+* MQTT support (Sparkplug B, CloudEvents, UNS) and machine data viewer polish ([#19](https://github.com/ZaoralJ/OpcUaBrowser/issues/19)) ([7bea4ff](https://github.com/ZaoralJ/OpcUaBrowser/commit/7bea4ffc20c0472e442c3315625e350b592f5c27))
+
 ## [0.5.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.4.0...v0.5.0) (2026-09-30)
 
 
