@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:OpcUaBrowser.App.ViewModels"
+        xmlns:views="using:OpcUaBrowser.App.Views"
         x:Class="OpcUaBrowser.App.Views.RecordingViewerWindow"
         x:DataType="vm:RecordingViewerViewModel"
         Title="{Binding Title, StringFormat='Recording — {0}'}"
@@ -24,6 +25,10 @@
         <TextBlock DockPanel.Dock="Right" FontSize="12" Text="{Binding TotalRows, StringFormat='{}{0} rows'}" />
         <TextBlock FontSize="12" Text="{Binding StatusText}" />
       </DockPanel>
+    </Border>
+    <Border DockPanel.Dock="Top" Height="220" IsVisible="{Binding HasChart}"
+            BorderThickness="0,0,0,1" BorderBrush="{DynamicResource AppBorderBrush}">
+      <views:TrendChart x:Name="Chart" Points="{Binding ChartPoints}" AutomationProperties.Name="Trend chart" />
     </Border>
     <Grid>
       <DataGrid x:Name="RowsGrid" ItemsSource="{Binding Rows}">

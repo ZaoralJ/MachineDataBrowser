@@ -271,6 +271,22 @@ public sealed partial class WatchView : UserControl
         }
     }
 
+    private async void OnRemoveStaleDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (_vm is not null)
+        {
+            await _vm.RemoveStaleCommand.ExecuteAsync(null);
+        }
+    }
+
+    private async void OnRemoveBadDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (_vm is not null)
+        {
+            await _vm.RemoveBadCommand.ExecuteAsync(null);
+        }
+    }
+
     private void OnWatchSelectionRequested(object? sender, IReadOnlyList<WatchItemViewModel> items)
     {
         WatchGrid.SelectedItems.Clear();

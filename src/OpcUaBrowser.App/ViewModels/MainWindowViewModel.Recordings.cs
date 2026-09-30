@@ -64,6 +64,36 @@ public sealed partial class MainWindowViewModel
         return vm;
     }
 
+    /// <summary>Marks watch items that open recordings contain (icon in the Name column).</summary>
+    private void UpdateRecordingFlags()
+    {
+        foreach (var item in WatchItems)
+        {
+            item.SetRecordings([.. Recordings
+                .Where(r => r.Recording.Items.Any(i => i.NodeId == item.NodeId))
+                .Select(r => (r.Name, r.Recording.State))]);
+        }
+    }
+
+    /// <summary>The newest open recording that contains the item.</summary>
+    private RecordingViewModel? RecordingFor(WatchItemViewModel item) =>
+        Recordings.LastOrDefault(r => r.Recording.Items.Any(i => i.NodeId == item.NodeId));
+
+    /// <summary>Opens the recorded values of one watch item, with a trend chart for numeric values.</summary>
+    [RelayCommand]
+    private void ViewItemRecording(WatchItemViewModel? item)
+    {
+        item ??= SelectedWatchItem;
+        if (item is null || RecordingFor(item) is not { } recording)
+        {
+            StatusMessage = "No recording contains this item";
+            return;
+        }
+
+        var recorded = recording.Recording.Items.First(i => i.NodeId == item.NodeId);
+        Dialogs?.ShowRecordingViewer(RecordingViewerViewModel.ForRecording(recording.Recording, recorded.DisplayName));
+    }
+
     private bool HasRecording() => SelectedRecording is not null;
 
     [RelayCommand(CanExecute = nameof(HasRecording))]

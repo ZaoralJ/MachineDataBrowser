@@ -256,7 +256,12 @@ public sealed partial class MainWindowViewModel
     }
 
     [RelayCommand(CanExecute = nameof(HasWatchItemsToExport))]
-    private async Task ClearWatchAsync() => await StopAllMonitorsAsync();
+    private async Task ClearWatchAsync()
+    {
+        var count = WatchItems.Count;
+        await StopAllMonitorsAsync();
+        StatusMessage = count == 1 ? "Removed 1 item from watch" : $"Removed {count} items from watch";
+    }
 
     public static readonly double[] ZoomSteps = [0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0];
 

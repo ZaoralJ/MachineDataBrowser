@@ -14,6 +14,7 @@
           <SolidColorBrush x:Key="AppMutedTextBrush" Color="#6B7180" />
           <SolidColorBrush x:Key="AppHoverBrush" Color="#0A1B1D24" />
           <SolidColorBrush x:Key="AppSelectionBrush" Color="#1F5B5BD6" />
+          <SolidColorBrush x:Key="AppRowSelectionBrush" Color="#105B5BD6" />
           <SolidColorBrush x:Key="AppSelectionTextBrush" Color="#3E3EB8" />
           <SolidColorBrush x:Key="AppAccentBrush" Color="#5B5BD6" />
           <SolidColorBrush x:Key="AppChipBrush" Color="#EEF0F4" />
@@ -27,7 +28,8 @@
           <StaticResource x:Key="DockBorderStrongBrush" ResourceKey="AppBorderStrongBrush" />
           <StaticResource x:Key="DockSeparatorBrush" ResourceKey="AppBorderBrush" />
           <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="Transparent" />
-          <StaticResource x:Key="DockSplitterHoverBrush" ResourceKey="AppSelectionBrush" />
+          <!-- Hover only changes the cursor; a tinted bar across the gutter looked like a stray line. -->
+          <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="Transparent" />
           <StaticResource x:Key="DockSplitterDragBrush" ResourceKey="AppAccentBrush" />
           <SolidColorBrush x:Key="DockTabBackgroundBrush" Color="Transparent" />
           <StaticResource x:Key="DockTabHoverBackgroundBrush" ResourceKey="AppHoverBrush" />
@@ -56,6 +58,7 @@
           <SolidColorBrush x:Key="AppMutedTextBrush" Color="#8D93A3" />
           <SolidColorBrush x:Key="AppHoverBrush" Color="#0FFFFFFF" />
           <SolidColorBrush x:Key="AppSelectionBrush" Color="#336E6AF0" />
+          <SolidColorBrush x:Key="AppRowSelectionBrush" Color="#1A6E6AF0" />
           <SolidColorBrush x:Key="AppSelectionTextBrush" Color="#C9C8FF" />
           <SolidColorBrush x:Key="AppAccentBrush" Color="#8A87FF" />
           <SolidColorBrush x:Key="AppChipBrush" Color="#1D2029" />
@@ -69,7 +72,8 @@
           <StaticResource x:Key="DockBorderStrongBrush" ResourceKey="AppBorderStrongBrush" />
           <StaticResource x:Key="DockSeparatorBrush" ResourceKey="AppBorderBrush" />
           <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="Transparent" />
-          <StaticResource x:Key="DockSplitterHoverBrush" ResourceKey="AppSelectionBrush" />
+          <!-- Hover only changes the cursor; a tinted bar across the gutter looked like a stray line. -->
+          <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="Transparent" />
           <StaticResource x:Key="DockSplitterDragBrush" ResourceKey="AppAccentBrush" />
           <SolidColorBrush x:Key="DockTabBackgroundBrush" Color="Transparent" />
           <StaticResource x:Key="DockTabHoverBackgroundBrush" ResourceKey="AppHoverBrush" />
@@ -102,6 +106,9 @@
     <StreamGeometry x:Key="IconChevronDown">M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z</StreamGeometry>
     <StreamGeometry x:Key="IconTimer">M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61 1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.96 8.96 0 0 0 12 4a9 9 0 1 0 9 9c0-2.12-.74-4.07-1.97-5.61zM12 20a7 7 0 1 1 0-14 7 7 0 0 1 0 14z</StreamGeometry>
     <StreamGeometry x:Key="IconStale">M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z</StreamGeometry>
+    <StreamGeometry x:Key="IconClearAll">M15 16h4v2h-4zm0-8h7v2h-7zm0 4h6v2h-6zM3 18c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V8H3v10zM14 5h-3l-1-1H6L5 5H2v2h12z</StreamGeometry>
+    <StreamGeometry x:Key="IconChart">M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z</StreamGeometry>
+    <StreamGeometry x:Key="IconHistory">M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z</StreamGeometry>
     <StreamGeometry x:Key="IconRecord">M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z</StreamGeometry>
     <StreamGeometry x:Key="IconPause">M6 19h4V5H6v14zm8-14v14h4V5h-4z</StreamGeometry>
     <StreamGeometry x:Key="IconReset">M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z</StreamGeometry>
@@ -333,6 +340,8 @@
   <Style Selector="ToolChromeControl:not(:floating) /template/ DeferredContentPresenter#PART_ContentPresenter">
     <Setter Property="CornerRadius" Value="0,0,10,10" />
     <Setter Property="BorderThickness" Value="1,0,1,1" />
+    <!-- Clipping is rectangular, so keep content (grid rows, lines) out of the rounded bottom corners. -->
+    <Setter Property="Padding" Value="0,0,0,8" />
     <Setter Property="ClipToBounds" Value="True" />
   </Style>
   <Style Selector="ToolChromeControl /template/ TextBlock#PART_Title">
@@ -391,6 +400,18 @@
     <Setter Property="Opacity" Value="1" />
   </Style>
 
+  <!-- Watch: recording indicator and history button in the Name cell -->
+  <Style Selector="PathIcon.recording-dot">
+    <Setter Property="Foreground" Value="#E5484D" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.row-history">
+    <Setter Property="MinWidth" Value="22" />
+    <Setter Property="Height" Value="22" />
+    <Setter Property="Padding" Value="4" />
+    <Setter Property="Margin" Value="0,0,4,0" />
+  </Style>
+
   <!-- Pane splitters: 5px grab area, accent on hover -->
   <Style Selector="GridSplitter">
     <Setter Property="Background" Value="{DynamicResource AppBorderBrush}" />
@@ -434,9 +455,13 @@
     <Setter Property="Fill" Value="{DynamicResource AppHoverBrush}" />
     <Setter Property="Opacity" Value="1" />
   </Style>
+  <!-- Quiet grid selection: a soft row tint instead of the accent block, and no current-cell focus frame. -->
   <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
-    <Setter Property="Fill" Value="{DynamicResource AppSelectionBrush}" />
+    <Setter Property="Fill" Value="{DynamicResource AppRowSelectionBrush}" />
     <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="DataGridCell /template/ Grid#FocusVisual, DataGridCell /template/ Rectangle#CurrencyVisual">
+    <Setter Property="IsVisible" Value="False" />
   </Style>
   <Style Selector="TextBlock.mono">
     <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
@@ -507,7 +532,8 @@
     <Setter Property="BorderThickness" Value="1" />
   </Style>
   <Style Selector="Border.status-bar">
-    <Setter Property="Padding" Value="14,6" />
+    <!-- Right inset matches the dock host margin plus the card border, so the chip lines up with the panes. -->
+    <Setter Property="Padding" Value="14,6,8,6" />
     <Setter Property="MinHeight" Value="32" />
   </Style>
   <Style Selector="Border.status-chip">

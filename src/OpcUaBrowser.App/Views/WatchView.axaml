@@ -30,10 +30,15 @@
               </Flyout>
             </Button.Flyout>
           </Button>
-          <Button Classes="icon-only" Command="{Binding SelectStaleCommand}"
+          <Button Classes="icon-only" Command="{Binding SelectStaleCommand}" DoubleTapped="OnRemoveStaleDoubleTapped"
                   AutomationProperties.Name="Select stale values"
-                  ToolTip.Tip="Select stale values: items without an update for 5× their refresh time (at least 5 s), or never updated">
+                  ToolTip.Tip="Select stale values: items without an update for 5× their refresh time (at least 5 s), or never updated. Double-click removes them.">
             <PathIcon Data="{StaticResource IconStale}" />
+          </Button>
+          <Button Classes="icon-only" Command="{Binding SelectBadCommand}" DoubleTapped="OnRemoveBadDoubleTapped"
+                  AutomationProperties.Name="Select bad values"
+                  ToolTip.Tip="Select bad values: items whose latest status is Bad. Double-click removes them.">
+            <PathIcon Data="{StaticResource IconError}" />
           </Button>
           <Button Classes="icon-only" Command="{Binding AddToWatchCommand}"
                   AutomationProperties.Name="Add selected node to watch"
@@ -44,6 +49,11 @@
                   AutomationProperties.Name="Remove from watch"
                   ToolTip.Tip="Remove selected items (Delete). Cmd/Ctrl- or Shift-click to select several.">
             <PathIcon Data="{StaticResource IconRemove}" />
+          </Button>
+          <Button Classes="icon-only" Command="{Binding ClearWatchCommand}"
+                  AutomationProperties.Name="Remove all from watch"
+                  ToolTip.Tip="Remove all items from the watch list">
+            <PathIcon Data="{StaticResource IconClearAll}" />
           </Button>
         </StackPanel>
       </DockPanel>
@@ -77,10 +87,16 @@
               <MenuItem.Icon><PathIcon Data="{StaticResource IconRecord}" /></MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Record all monitored…" Command="{Binding RecordAllCommand}" />
+            <MenuItem Header="Show recorded values" Command="{Binding ViewItemRecordingCommand}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconChart}" /></MenuItem.Icon>
+            </MenuItem>
             <Separator />
             <MenuItem Header="Show in address space" Command="{Binding RevealInTreeCommand}" InputGesture="Enter" />
-            <MenuItem Header="Select stale values" Command="{Binding SelectStaleCommand}">
+            <MenuItem Header="Select">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconStale}" /></MenuItem.Icon>
+              <MenuItem Header="Stale values" Command="{Binding SelectStaleCommand}" />
+              <MenuItem Header="Bad values" Command="{Binding SelectBadCommand}" />
+              <MenuItem Header="Stale or bad values" Command="{Binding SelectStaleOrBadCommand}" />
             </MenuItem>
             <Separator />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy value{0}'}" Command="{Binding CopyWatchValueCommand}" />
@@ -91,12 +107,27 @@
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Remove selected{0}'}" Command="{Binding RemoveFromWatchCommand}" InputGesture="Delete">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconRemove}" /></MenuItem.Icon>
             </MenuItem>
+            <MenuItem Header="Remove all" Command="{Binding ClearWatchCommand}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconClearAll}" /></MenuItem.Icon>
+            </MenuItem>
           </ContextMenu>
         </DataGrid.ContextMenu>
         <DataGrid.Columns>
           <DataGridTemplateColumn Header="Name" Width="190" MinWidth="80" SortMemberPath="DisplayName">
             <DataTemplate DataType="vm:WatchItemViewModel">
-              <TextBlock Classes="cell" Text="{Binding DisplayName}" ToolTip.Tip="{Binding NodeIdText}" />
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Classes="icon-only row-history" IsVisible="{Binding HasRecording}"
+                        Command="{Binding $parent[DataGrid].((vm:MainWindowViewModel)DataContext).ViewItemRecordingCommand}"
+                        CommandParameter="{Binding}"
+                        AutomationProperties.Name="Show recorded values"
+                        ToolTip.Tip="Show recorded values (with a trend chart for numbers)">
+                  <PathIcon Data="{StaticResource IconChart}" />
+                </Button>
+                <PathIcon DockPanel.Dock="Right" Classes="recording-dot" Data="{StaticResource IconRecord}"
+                          Width="10" Height="10" Margin="0,0,4,0" IsVisible="{Binding IsRecording}"
+                          ToolTip.Tip="{Binding RecordingToolTip}" AutomationProperties.Name="Recorded" />
+                <TextBlock Classes="cell" Text="{Binding DisplayName}" ToolTip.Tip="{Binding NodeIdText}" />
+              </DockPanel>
             </DataTemplate>
           </DataGridTemplateColumn>
           <DataGridTemplateColumn Header="NodeId" Width="210" MinWidth="80" SortMemberPath="NodeIdText">

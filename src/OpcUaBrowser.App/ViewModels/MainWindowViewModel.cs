@@ -49,7 +49,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             NewRecordingCommand.NotifyCanExecuteChanged();
             RecordAllCommand.NotifyCanExecuteChanged();
             ExportWatchCsvCommand.NotifyCanExecuteChanged();
+            UpdateRecordingFlags();
             MarkDirty();
+        };
+        Recordings.CollectionChanged += (_, e) =>
+        {
+            foreach (var added in e.NewItems?.OfType<RecordingViewModel>() ?? [])
+            {
+                added.PropertyChanged += (_, p) =>
+                {
+                    if (p.PropertyName == nameof(RecordingViewModel.State))
+                    {
+                        UpdateRecordingFlags();
+                    }
+                };
+            }
+
+            UpdateRecordingFlags();
         };
         WatchColumns.Changed += (_, _) => MarkDirty();
         SelectedWatchItems.CollectionChanged += (_, _) =>
@@ -346,16 +362,46 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     /// <summary>Selects watch items without a recent update (see <see cref="WatchItemViewModel.IsStale"/>).</summary>
     [RelayCommand]
-    private void SelectStale()
+    private void SelectStale() => SelectWatchItems(i => i.IsStale, "stale");
+
+    /// <summary>Selects watch items whose latest status is Bad.</summary>
+    [RelayCommand]
+    private void SelectBad() => SelectWatchItems(i => i.IsBad, "bad");
+
+    /// <summary>Selects watch items that are stale or Bad.</summary>
+    [RelayCommand]
+    private void SelectStaleOrBad() => SelectWatchItems(i => i.IsStale || i.IsBad, "stale or bad");
+
+    /// <summary>Removes stale watch items (double-click on the stale toolbar button).</summary>
+    [RelayCommand]
+    private Task RemoveStaleAsync() => RemoveMatchingAsync(i => i.IsStale, "stale");
+
+    /// <summary>Removes watch items with Bad status (double-click on the bad toolbar button).</summary>
+    [RelayCommand]
+    private Task RemoveBadAsync() => RemoveMatchingAsync(i => i.IsBad, "bad");
+
+    private async Task RemoveMatchingAsync(Func<WatchItemViewModel, bool> predicate, string kind)
     {
-        var stale = WatchItems.Where(i => i.IsStale).ToList();
-        StatusMessage = stale.Count switch
+        var items = WatchItems.Where(predicate).ToList();
+        await RemoveWatchItemsAsync(items);
+        StatusMessage = items.Count switch
         {
-            0 => "No stale values",
-            1 => "1 stale value selected",
-            _ => $"{stale.Count} stale values selected",
+            0 => $"No {kind} values",
+            1 => $"Removed 1 {kind} value from watch",
+            _ => $"Removed {items.Count} {kind} values from watch",
         };
-        WatchSelectionRequested?.Invoke(this, stale);
+    }
+
+    private void SelectWatchItems(Func<WatchItemViewModel, bool> predicate, string kind)
+    {
+        var items = WatchItems.Where(predicate).ToList();
+        StatusMessage = items.Count switch
+        {
+            0 => $"No {kind} values",
+            1 => $"1 {kind} value selected",
+            _ => $"{items.Count} {kind} values selected",
+        };
+        WatchSelectionRequested?.Invoke(this, items);
     }
 
     [RelayCommand(CanExecute = nameof(HasSelectedWatchItem))]

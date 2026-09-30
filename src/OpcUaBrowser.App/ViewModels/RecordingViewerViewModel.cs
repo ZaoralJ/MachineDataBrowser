@@ -6,7 +6,7 @@ using OpcUaBrowser.Core;
 
 namespace OpcUaBrowser.App.ViewModels;
 
-public sealed record HistoryRow(DateTimeOffset ReceivedAt, string Name, string NodeId, string Value, string Status, string SourceTime)
+public sealed record HistoryRow(DateTimeOffset ReceivedAt, string Name, string NodeId, string Value, string Status, string SourceTime, double? Numeric = null)
 {
     public string TimeText => ReceivedAt.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture);
 
@@ -36,10 +36,10 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
         _timer.Start();
     }
 
-    public static RecordingViewerViewModel ForRecording(Recording recording)
+    public static RecordingViewerViewModel ForRecording(Recording recording, string? item = null)
     {
         long last = 0;
-        return new RecordingViewerViewModel(
+        var viewer = new RecordingViewerViewModel(
             recording.Options.Name,
             () =>
             {
@@ -52,9 +52,21 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
                 return [.. samples.Select(p => new HistoryRow(
                     p.Sample.ReceivedAt, p.Item.DisplayName, p.Item.PortableId, p.Sample.Value,
                     p.Sample.Status.SymbolicId ?? p.Sample.Status.ToString(),
-                    p.Sample.SourceTimestamp == DateTime.MinValue ? string.Empty : p.Sample.SourceTimestamp.ToString("O", CultureInfo.InvariantCulture)))];
+                    p.Sample.SourceTimestamp == DateTime.MinValue ? string.Empty : p.Sample.SourceTimestamp.ToString("O", CultureInfo.InvariantCulture),
+                    p.Sample.Numeric))];
             },
             () => $"{recording.State} · {recording.TotalSamples} samples");
+        foreach (var name in recording.Items.Select(i => i.DisplayName).Distinct().Where(n => !viewer.ItemNames.Contains(n)))
+        {
+            viewer.ItemNames.Add(name);
+        }
+
+        if (item is not null)
+        {
+            viewer.SelectedItem = item;
+        }
+
+        return viewer;
     }
 
     public static RecordingViewerViewModel ForFile(string path)
@@ -68,7 +80,7 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
                 try
                 {
                     error = null;
-                    return [.. reader.ReadNew().Select(r => new HistoryRow(r.ReceivedAt, r.Name, r.NodeId, r.Value, r.Status, r.SourceTimestamp))];
+                    return [.. reader.ReadNew().Select(r => new HistoryRow(r.ReceivedAt, r.Name, r.NodeId, r.Value, r.Status, r.SourceTimestamp, ParseNumeric(r.Value)))];
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
@@ -98,6 +110,38 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
 
     [ObservableProperty]
     public partial int TotalRows { get; private set; }
+
+    /// <summary>Numeric samples of the selected item for the trend chart; empty for "All items" or non-numeric values.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasChart))]
+    public partial IReadOnlyList<TrendPoint> ChartPoints { get; private set; } = [];
+
+    public bool HasChart => ChartPoints.Count > 1;
+
+    private static double? ParseNumeric(string value) =>
+        double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? d
+        : bool.TryParse(value, out var b) ? (b ? 1 : 0)
+        : null;
+
+    private void UpdateChart()
+    {
+        if (SelectedItem == AllItems)
+        {
+            ChartPoints = [];
+            return;
+        }
+
+        var points = new List<TrendPoint>();
+        foreach (var row in _all)
+        {
+            if (row.Name == SelectedItem && row.Numeric is { } value && double.IsFinite(value))
+            {
+                points.Add(new TrendPoint(row.ReceivedAt, value));
+            }
+        }
+
+        ChartPoints = points;
+    }
 
     partial void OnSelectedItemChanged(string value) => Rebuild();
 
@@ -134,6 +178,7 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
             }
         }
 
+        UpdateChart();
         RowsAppended?.Invoke(this, EventArgs.Empty);
     }
 
@@ -149,6 +194,9 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
             Rows.Add(row);
         }
 
+        UpdateChart();
         RowsAppended?.Invoke(this, EventArgs.Empty);
     }
 }
+
+public readonly record struct TrendPoint(DateTimeOffset Time, double Value);

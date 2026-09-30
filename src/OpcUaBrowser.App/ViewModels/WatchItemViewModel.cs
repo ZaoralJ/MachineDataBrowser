@@ -50,6 +50,24 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
     [ObservableProperty]
     public partial int UpdateCount { get; private set; }
 
+    /// <summary>A recording is capturing this item right now (recording, paused or scheduled).</summary>
+    [ObservableProperty]
+    public partial bool IsRecording { get; private set; }
+
+    /// <summary>At least one open recording contains this item, so its recorded values can be shown.</summary>
+    [ObservableProperty]
+    public partial bool HasRecording { get; private set; }
+
+    [ObservableProperty]
+    public partial string RecordingToolTip { get; private set; } = string.Empty;
+
+    public void SetRecordings(IReadOnlyList<(string Name, RecordingState State)> recordings)
+    {
+        HasRecording = recordings.Count > 0;
+        IsRecording = recordings.Any(r => r.State is RecordingState.Recording or RecordingState.Paused or RecordingState.Scheduled);
+        RecordingToolTip = string.Join('\n', recordings.Select(r => $"{r.Name}: {r.State}"));
+    }
+
     public DateTimeOffset? LastUpdate { get; private set; }
 
     public object? RawValue { get; private set; }
