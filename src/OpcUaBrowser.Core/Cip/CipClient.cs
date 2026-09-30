@@ -563,6 +563,7 @@ public sealed class CipClient : IDeviceClient
     {
         try
         {
+            await InitializeTagAsync(tag, cancellationToken).ConfigureAwait(false);
             await tag.ReadAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (LibPlcTagException ex)
@@ -570,6 +571,15 @@ public sealed class CipClient : IDeviceClient
             throw new ServiceResultException(ToStatus(ex), $"{tag.Name}: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Creates the native tag synchronously on a pool thread. libplctag.NET 1.5 <c>InitializeAsync</c> leaves the
+    /// native tag and its callback registered when creation fails (e.g. the tag does not exist); after the wrapper is
+    /// collected, the next event libplctag raises for it (such as the PLC disconnecting) crashes the process with
+    /// "callback was made on a garbage collected delegate". The synchronous create destroys a failed tag natively.
+    /// </summary>
+    private static Task InitializeTagAsync(Tag tag, CancellationToken cancellationToken) =>
+        tag.IsInitialized ? Task.CompletedTask : Task.Run(tag.Initialize, cancellationToken);
 
     private static Tag CreateTag(CipEndpoint endpoint, CipItem item) =>
         CreateTag(endpoint, item.Path, item.Template is null && item.Dimensions.Length > 0 ? item.ElementCount : null);
@@ -767,6 +777,7 @@ public sealed class CipClient : IDeviceClient
                 var ok = true;
                 try
                 {
+                    await InitializeTagAsync(entry.Tag, cancellationToken).ConfigureAwait(false);
                     await entry.Tag.ReadAsync(cancellationToken).ConfigureAwait(false);
                     data = entry.Tag.GetBuffer();
                     value = entry.Item.Decode(data);
