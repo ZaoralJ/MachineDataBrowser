@@ -10,7 +10,8 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
 
     public string DisplayName { get; } = displayName;
 
-    public string NodeIdText => NodeId.ToString();
+    /// <summary>Id as shown in the NodeId column and copied; set from the client's display form.</summary>
+    public string NodeIdText { get; init; } = nodeId.ToString();
 
     public string PortableId { get; init; } = nodeId.ToString();
 

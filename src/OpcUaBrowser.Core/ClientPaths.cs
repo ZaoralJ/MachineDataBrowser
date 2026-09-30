@@ -1,3 +1,5 @@
+using OpcUaBrowser.Core.Ua;
+
 namespace OpcUaBrowser.Core;
 
 public static class ClientPaths

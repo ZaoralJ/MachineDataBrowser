@@ -11,6 +11,18 @@ Short record of the choices behind the current stack. Facts were checked at the 
 - Alternatives considered: `async-opcua` (Rust, MPL-2.0, younger), open62541 (C, MPL-2.0; runtime structure
   decoding is manual), node-opcua (MIT, heavier runtime), Eclipse Milo (Java). No maintained MIT Rust SDK exists.
 
+## EtherNet/IP (Logix): libplctag.NET, read-only
+
+- `libplctag` (MPL-2.0) wraps the mature C libplctag and ships native binaries for macOS (x64/arm64), Windows and Linux.
+- Scope: Logix only (tag listing via `@tags` / `@udt/<id>` exists only there) and read-only.
+- The OPC UA information model (`NodeId`, `NodeClass`, `StatusCode`) is kept as the shared vocabulary behind
+  `IDeviceClient` instead of a new neutral model: the App, recordings and exports work unchanged and the refactor
+  stays small. Tags map to `ns=1;s=<tag path>`, folders to `ns=2`.
+- The protocol is chosen by the endpoint URL scheme (`eip://`), so session files need no new field.
+- CIP has no subscriptions: monitoring polls per refresh time and reports only changes.
+- `ab_server` (libplctag's simulator) does not implement tag listing, so CIP is covered by codec/path unit tests; a
+  manual smoke test against `ab_server` verified native loading and reads.
+
 ## UI: Avalonia 12
 
 - Only mature .NET UI framework that runs natively on macOS (incl. Apple Silicon), Windows and Linux.

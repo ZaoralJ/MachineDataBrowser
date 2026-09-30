@@ -47,15 +47,18 @@ public static class NodeExport
 
     /// <summary>C# classes mirroring the subtree: one class per object/structured variable, one property per child.</summary>
     /// <param name="asRecord">Emit <c>sealed record</c> types with <c>init</c> accessors instead of mutable classes.</param>
-    public static string ToCSharp(NodeTree node, bool asRecord = false)
+    /// <param name="formatId">Id text for the <c>summary</c> comments; defaults to <see cref="NodeId.ToString()"/>.</param>
+    public static string ToCSharp(NodeTree node, bool asRecord = false, Func<NodeId, string>? formatId = null)
     {
+        ArgumentNullException.ThrowIfNull(node);
+        formatId ??= id => id.ToString();
         var sb = new StringBuilder();
         var emitted = new HashSet<string>(StringComparer.Ordinal);
-        WriteClass(sb, node, UniqueClassName(Identifier(node.DisplayName), emitted), emitted, asRecord);
+        WriteClass(sb, node, UniqueClassName(Identifier(node.DisplayName), emitted), emitted, asRecord, formatId);
         return sb.ToString().TrimEnd() + Environment.NewLine;
     }
 
-    private static void WriteClass(StringBuilder sb, NodeTree node, string className, HashSet<string> emitted, bool asRecord)
+    private static void WriteClass(StringBuilder sb, NodeTree node, string className, HashSet<string> emitted, bool asRecord, Func<NodeId, string> formatId)
     {
         var nested = new List<(NodeTree Node, string ClassName)>();
         var body = new StringBuilder();
@@ -74,12 +77,12 @@ public static class NodeExport
                 nested.Add((child, type));
             }
 
-            body.Append(CultureInfo.InvariantCulture, $"    /// <summary>{Escape(child.NodeId.ToString())}</summary>{Environment.NewLine}");
+            body.Append(CultureInfo.InvariantCulture, $"    /// <summary>{Escape(formatId(child.NodeId))}</summary>{Environment.NewLine}");
             body.Append(CultureInfo.InvariantCulture, $"    public {type} {property} {{ get; {(asRecord ? "init" : "set")}; }}{Default(type)}{Environment.NewLine}");
             body.AppendLine();
         }
 
-        sb.Append(CultureInfo.InvariantCulture, $"/// <summary>{Escape(node.NodeId.ToString())}</summary>{Environment.NewLine}");
+        sb.Append(CultureInfo.InvariantCulture, $"/// <summary>{Escape(formatId(node.NodeId))}</summary>{Environment.NewLine}");
         sb.Append(CultureInfo.InvariantCulture, $"public sealed {(asRecord ? "record" : "class")} {className}{Environment.NewLine}{{{Environment.NewLine}");
         sb.Append(body.ToString().TrimEnd());
         sb.AppendLine();
@@ -88,7 +91,7 @@ public static class NodeExport
 
         foreach (var (child, childClass) in nested)
         {
-            WriteClass(sb, child, childClass, emitted, asRecord);
+            WriteClass(sb, child, childClass, emitted, asRecord, formatId);
         }
     }
 

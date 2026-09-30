@@ -6,12 +6,13 @@ using CommunityToolkit.Mvvm.Input;
 using Opc.Ua;
 using OpcUaBrowser.App.Services;
 using OpcUaBrowser.Core;
+using OpcUaBrowser.Core.Ua;
 
 namespace OpcUaBrowser.App.ViewModels;
 
 public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDisposable
 {
-    private readonly OpcUaClient _client = new();
+    private IDeviceClient _client = new OpcUaClient();
     private readonly LayoutStore? _layoutStore;
     private DockFactory? _dockFactory;
 
@@ -34,7 +35,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         ApplyTheme(Settings.Theme);
         Layout = layoutStore?.TryLoad(DockFactory) ?? DockFactory.CreateLayout();
 
-        _client.StateChanged += (_, state) => Dispatcher.UIThread.Post(() => HandleClientState(state));
+        _client.StateChanged += OnClientStateChanged;
         _flushTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (_, _) => FlushUpdates());
         _flushTimer.Start();
 
@@ -68,6 +69,30 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     public Func<string, Task>? CopyToClipboard { get; set; }
+
+    private void OnClientStateChanged(object? sender, ConnectionState state) =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (ReferenceEquals(sender, _client))
+            {
+                HandleClientState(state);
+            }
+        });
+
+    /// <summary>The protocol follows the endpoint URL (<c>opc.tcp://</c> or <c>eip://</c>); swap clients when it changes.</summary>
+    private async Task EnsureClientForAsync(string endpointUrl)
+    {
+        if (DeviceClient.Supports(_client, endpointUrl))
+        {
+            return;
+        }
+
+        var old = _client;
+        old.StateChanged -= OnClientStateChanged;
+        _client = DeviceClient.Create(endpointUrl);
+        _client.StateChanged += OnClientStateChanged;
+        await old.DisposeAsync();
+    }
 
     public DockFactory DockFactory => _dockFactory ??= new DockFactory(this);
 
@@ -240,6 +265,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         StatusMessage = $"Connecting to {EndpointUrl}…";
         try
         {
+            await EnsureClientForAsync(EndpointUrl);
             await _client.ConnectAsync(new ConnectOptions
             {
                 EndpointUrl = EndpointUrl.Trim(),
@@ -251,9 +277,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
             RootNodes.Clear();
             var root = new NodeViewModel(
-                new BrowseItem(ObjectIds.RootFolder, "Root", "Root", NodeClass.Object),
+                _client.Root,
                 Browse,
-                ReportError);
+                ReportError,
+                _client.ToDisplayId);
             RootNodes.Add(root);
             root.IsExpanded = true;
 
@@ -425,7 +452,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         var watched = WatchItems.Select(w => w.NodeId).ToHashSet();
         var items = nodes
             .Where(n => watched.Add(n.NodeId))
-            .Select(n => new WatchItemViewModel(n.NodeId, n.DisplayName) { PortableId = _client.ToPortableId(n.NodeId), RefreshMs = refreshMs })
+            .Select(n => new WatchItemViewModel(n.NodeId, n.DisplayName) { PortableId = _client.ToPortableId(n.NodeId), NodeIdText = _client.ToDisplayId(n.NodeId), RefreshMs = refreshMs })
             .ToList();
         if (items.Count == 0)
         {
@@ -540,7 +567,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
         try
         {
-            await OpcUaClient.StopMonitoringAsync(items.Select(i => i.Monitor).OfType<IAsyncDisposable>());
+            await DeviceClient.StopMonitoringAsync(items.Select(i => i.Monitor).OfType<IAsyncDisposable>());
         }
         catch (ServiceResultException ex)
         {
@@ -655,7 +682,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     private bool HasSelectedNode() => SelectedNodes.Count > 0 || SelectedNode is not null;
 
     [RelayCommand(CanExecute = nameof(HasSelectedNode))]
-    private Task CopyNodeIdAsync() => CopyAsync(string.Join(Environment.NewLine, SelectionOrCurrent().Select(n => n.NodeId.ToString())));
+    private Task CopyNodeIdAsync() => CopyAsync(string.Join(Environment.NewLine, SelectionOrCurrent().Select(n => n.NodeIdText)));
 
     private bool CanCopyNodeTree() => IsConnected && HasSelectedNode();
 
@@ -666,10 +693,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             .ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
 
     [RelayCommand(CanExecute = nameof(CanCopyNodeTree))]
-    private Task CopyNodeClassAsync() => CopyNodeTreeAsync(trees => string.Join(Environment.NewLine, trees.Select(t => NodeExport.ToCSharp(t))));
+    private Task CopyNodeClassAsync() => CopyNodeTreeAsync(trees => string.Join(Environment.NewLine, trees.Select(t => NodeExport.ToCSharp(t, formatId: _client.ToDisplayId))));
 
     [RelayCommand(CanExecute = nameof(CanCopyNodeTree))]
-    private Task CopyNodeRecordAsync() => CopyNodeTreeAsync(trees => string.Join(Environment.NewLine, trees.Select(t => NodeExport.ToCSharp(t, asRecord: true))));
+    private Task CopyNodeRecordAsync() => CopyNodeTreeAsync(trees => string.Join(Environment.NewLine, trees.Select(t => NodeExport.ToCSharp(t, asRecord: true, formatId: _client.ToDisplayId))));
 
     private async Task CopyNodeTreeAsync(Func<List<NodeTree>, string> format)
     {
@@ -899,7 +926,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         _pendingUpdates.Clear();
         try
         {
-            await OpcUaClient.StopMonitoringAsync(items.Select(i => i.Monitor).OfType<IAsyncDisposable>());
+            await DeviceClient.StopMonitoringAsync(items.Select(i => i.Monitor).OfType<IAsyncDisposable>());
         }
         catch (ServiceResultException ex)
         {

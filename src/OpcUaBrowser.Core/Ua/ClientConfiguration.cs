@@ -1,7 +1,7 @@
 using Opc.Ua;
 using Opc.Ua.Configuration;
 
-namespace OpcUaBrowser.Core;
+namespace OpcUaBrowser.Core.Ua;
 
 internal static class ClientConfiguration
 {

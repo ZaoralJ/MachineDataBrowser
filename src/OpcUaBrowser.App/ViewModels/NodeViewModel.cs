@@ -11,6 +11,7 @@ public sealed partial class NodeViewModel : ObservableObject
 
     private readonly Func<NodeId, Task<IReadOnlyList<BrowseItem>>>? _browse;
     private readonly Action<Exception>? _onError;
+    private readonly Func<NodeId, string>? _formatId;
     private bool _loaded;
     private Task? _loading;
 
@@ -23,9 +24,12 @@ public sealed partial class NodeViewModel : ObservableObject
     public NodeViewModel(
         BrowseItem item,
         Func<NodeId, Task<IReadOnlyList<BrowseItem>>> browse,
-        Action<Exception> onError)
+        Action<Exception> onError,
+        Func<NodeId, string>? formatId = null)
     {
         NodeId = item.NodeId;
+        _formatId = formatId;
+        NodeIdText = formatId?.Invoke(item.NodeId) ?? item.NodeId.ToString();
         DisplayName = item.DisplayName;
         NodeClass = item.NodeClass;
         _browse = browse;
@@ -45,15 +49,18 @@ public sealed partial class NodeViewModel : ObservableObject
 
     public NodeId NodeId { get; }
 
+    /// <summary>Id as shown to people (tooltip, drag text): <c>ns=…</c> for OPC UA, the tag path for CIP.</summary>
+    public string NodeIdText { get; } = string.Empty;
+
     public string DisplayName { get; }
 
     public NodeClass NodeClass { get; }
 
     public string ToolTip => IsVariable
-        ? $"{NodeClass}  ·  {NodeId}\nDouble-click, Enter or drag to Watch to monitor · right-click for more"
+        ? $"{NodeClass}  ·  {NodeIdText}\nDouble-click, Enter or drag to Watch to monitor · right-click for more"
         : HasChildren
-            ? $"{NodeClass}  ·  {NodeId}\nDrag to Watch or right-click to monitor all variables inside (including subfolders)"
-            : $"{NodeClass}  ·  {NodeId}";
+            ? $"{NodeClass}  ·  {NodeIdText}\nDrag to Watch or right-click to monitor all variables inside (including subfolders)"
+            : $"{NodeClass}  ·  {NodeIdText}";
 
     public bool IsVariable => NodeClass == NodeClass.Variable;
 
@@ -138,7 +145,7 @@ public sealed partial class NodeViewModel : ObservableObject
             Children.Clear();
             foreach (var item in items)
             {
-                Children.Add(new NodeViewModel(item, _browse, _onError!));
+                Children.Add(new NodeViewModel(item, _browse, _onError!, _formatId));
             }
         }
         catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
