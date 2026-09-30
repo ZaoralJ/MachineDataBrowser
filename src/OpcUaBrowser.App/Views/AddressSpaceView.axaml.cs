@@ -60,7 +60,7 @@ public sealed partial class AddressSpaceView : UserControl
         try
         {
             var data = new DataTransfer();
-            data.Add(DataTransferItem.CreateText(string.Join(Environment.NewLine, nodes.Select(n => n.NodeId.ToString()))));
+            data.Add(DataTransferItem.CreateText(string.Join(Environment.NewLine, nodes.Select(n => n.NodeIdText))));
             await DragDrop.DoDragDropAsync(start.Args, data, DragDropEffects.Copy);
         }
         finally

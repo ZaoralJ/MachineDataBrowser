@@ -49,14 +49,14 @@ public sealed record HistorySample(
     long Sequence = 0);
 
 /// <summary>
-/// A named capture of value history for a set of nodes on one <see cref="OpcUaClient"/> connection.
+/// A named capture of value history for a set of nodes on one <see cref="IDeviceClient"/> connection.
 /// History is kept in bounded in-memory buffers (per item) and can optionally be streamed to a CSV file.
 /// </summary>
 public sealed class Recording : IAsyncDisposable
 {
     private const string CsvHeader = "ReceivedAt,SourceTimestamp,ServerTimestamp,Name,NodeId,Value,Status";
 
-    private readonly OpcUaClient _client;
+    private readonly IDeviceClient _client;
     private readonly TimeProvider _time;
     private readonly Dictionary<NodeId, RecordedItem> _itemsById;
     private readonly Dictionary<NodeId, Queue<HistorySample>> _buffers;
@@ -71,7 +71,7 @@ public sealed class Recording : IAsyncDisposable
     private long _totalSamples;
     private long _sequence;
 
-    public Recording(OpcUaClient client, RecordingOptions options, IReadOnlyList<RecordedItem> items, TimeProvider? timeProvider = null)
+    public Recording(IDeviceClient client, RecordingOptions options, IReadOnlyList<RecordedItem> items, TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(options);
@@ -415,7 +415,7 @@ public sealed class Recording : IAsyncDisposable
         _monitors = [];
         try
         {
-            await OpcUaClient.StopMonitoringAsync(monitors, cancellationToken).ConfigureAwait(false);
+            await DeviceClient.StopMonitoringAsync(monitors, cancellationToken).ConfigureAwait(false);
         }
         catch (ServiceResultException ex)
         {

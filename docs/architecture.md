@@ -37,6 +37,23 @@ warnings are errors and the recommended .NET analyzers are enabled.
 Data, settings and PKI live under `LocalApplicationData/OpcUaBrowser` (`~/Library/Application Support/OpcUaBrowser`
 on macOS); `OPCUABROWSER_DATA_DIR` overrides it (used by tests). PKI layout: `pki/own|trusted|issuer|rejected`.
 
+## EtherNet/IP (CIP)
+
+`IDeviceClient` is the protocol boundary; `DeviceClient.Create(url)` picks `Ua.OpcUaClient` (`opc.tcp://`) or
+`Cip.CipClient` (`eip://host[:port][/path]`). Protocol-independent operations (`MonitorAsync`, `CollectVariablesAsync`,
+`ReadTreeAsync`) are extensions in `DeviceClientExtensions`; `DeviceClient.StopMonitoringAsync` stops handles of any client.
+
+`CipClient` (libplctag, Logix, read-only):
+
+- **Tree** – `Root` ▸ `Controller Tags` / `Programs` ▸ `<program>` (ns=2 folders), then tags as ns=1 string NodeIds
+  holding the Logix path (`Program:Main.Motor[2].Speed`); the portable id is the path itself, folders are `@<name>`.
+- **Types** – `@tags` listings per scope and `@udt/<id>` templates are parsed by `LogixCodec` and cached. Atomics,
+  atomic arrays and STRING-like UDTs (`LEN` + `DATA`) are Variables; structures and arrays of structures are Objects
+  with member/element children (max 1000 elements). Hidden BOOL host members (`ZZZZZZZZZZ…`) are skipped.
+- **Monitoring** – one poll loop per refresh time reads its tags concurrently and reports only changed bytes/status.
+  Communication errors switch the state to `Reconnecting` until a read succeeds (libplctag reconnects itself).
+- libplctag errors surface as `ServiceResultException` like the OPC UA client, so App error handling is shared.
+
 ## App
 
 - `MainWindowViewModel` (split into partial files: main, `.Session`, `.Recordings`) owns the client, the tree

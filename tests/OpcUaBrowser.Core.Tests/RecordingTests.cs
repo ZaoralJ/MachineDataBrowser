@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Time.Testing;
 using Opc.Ua;
 using Xunit;
+using OpcUaBrowser.Core.Ua;
 
 namespace OpcUaBrowser.Core.Tests;
 

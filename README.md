@@ -4,6 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Cross-platform OPC UA client to browse and monitor servers (.NET 10, Avalonia, OPC Foundation UA-.NETStandard).
+It can also browse and monitor Allen-Bradley Logix controllers (ControlLogix, CompactLogix) over EtherNet/IP (CIP),
+read-only: enter `eip://<ip>[:port][/backplane,slot]` as the endpoint, e.g. `eip://192.168.1.10/1,0` (path defaults to `1,0`).
 
 ## Install (macOS, Homebrew)
 

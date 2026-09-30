@@ -2,13 +2,13 @@ using Opc.Ua;
 using Opc.Ua.Client;
 using Opc.Ua.Client.ComplexTypes;
 
-namespace OpcUaBrowser.Core;
+namespace OpcUaBrowser.Core.Ua;
 
 /// <summary>
 /// One OPC UA session: connect, browse, read attributes and monitor values.
 /// Thread-safe for the operations it exposes; events are raised on SDK threads.
 /// </summary>
-public sealed class OpcUaClient : IAsyncDisposable
+public sealed class OpcUaClient : IDeviceClient
 {
     private static readonly ITelemetryContext Telemetry = DefaultTelemetry.Create(_ => { });
 
@@ -56,6 +56,8 @@ public sealed class OpcUaClient : IAsyncDisposable
 
     public string? ServerUri => _session?.Endpoint?.Server?.ApplicationUri;
 
+    public BrowseItem Root { get; } = new(ObjectIds.RootFolder, "Root", "Root", NodeClass.Object);
+
     /// <summary>
     /// Formats a NodeId with its namespace URI (<c>nsu=...</c>) instead of the index, which servers may
     /// renumber between restarts. Use for anything persisted.
@@ -67,6 +69,13 @@ public sealed class OpcUaClient : IAsyncDisposable
         return nodeId.NamespaceIndex == 0 || uri is null
             ? nodeId.ToString()
             : new ExpandedNodeId(nodeId, uri).ToString();
+    }
+
+    /// <summary>The familiar <c>ns=1;s=...</c> form.</summary>
+    public string ToDisplayId(NodeId nodeId)
+    {
+        ArgumentNullException.ThrowIfNull(nodeId);
+        return nodeId.ToString();
     }
 
     /// <summary>Parses <c>nsu=</c> or <c>ns=</c> NodeIds against the connected server's namespace table.</summary>
@@ -325,17 +334,6 @@ public sealed class OpcUaClient : IAsyncDisposable
         return result;
     }
 
-    /// <summary>Starts monitoring the Value attribute. Dispose the returned handle to stop.</summary>
-    public async Task<IAsyncDisposable> MonitorAsync(
-        NodeId nodeId,
-        Action<ValueUpdate> onUpdate,
-        double samplingIntervalMs = 250,
-        CancellationToken cancellationToken = default)
-    {
-        var result = (await MonitorManyAsync([nodeId], onUpdate, samplingIntervalMs, cancellationToken).ConfigureAwait(false))[0];
-        return result.Handle ?? throw new ServiceResultException(result.Error);
-    }
-
     /// <summary>
     /// Monitors many Value attributes with a single CreateMonitoredItems round trip.
     /// Items the server rejects are returned with <see cref="MonitorResult.Error"/> set and no handle.
@@ -410,129 +408,22 @@ public sealed class OpcUaClient : IAsyncDisposable
         return results;
     }
 
-    /// <summary>
-    /// Collects Variable nodes below <paramref name="nodeId"/> following hierarchical references,
-    /// breadth-first, up to <paramref name="maxDepth"/> levels and <paramref name="maxCount"/> results.
-    /// Only folders/objects are descended into, so a variable's own properties (EURange, EngineeringUnits, …)
-    /// are not collected.
-    /// </summary>
-    public Task<IReadOnlyList<BrowseItem>> CollectVariablesAsync(
-        NodeId nodeId,
-        int maxDepth,
-        int maxCount,
-        CancellationToken cancellationToken = default) =>
-        CollectVariablesAsync(nodeId, maxDepth, maxCount, descendIntoVariables: false, cancellationToken);
-
-    /// <summary>
-    /// As <see cref="CollectVariablesAsync(NodeId,int,int,CancellationToken)"/>; with <paramref name="descendIntoVariables"/>
-    /// the children of variables (structure components, properties) are collected too.
-    /// </summary>
-    public async Task<IReadOnlyList<BrowseItem>> CollectVariablesAsync(
-        NodeId nodeId,
-        int maxDepth,
-        int maxCount,
-        bool descendIntoVariables,
-        CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<object?>> ReadValuesAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken cancellationToken = default)
     {
-        var found = new List<BrowseItem>();
-        var visited = new HashSet<NodeId> { nodeId };
-        var level = new List<NodeId> { nodeId };
-
-        for (var depth = 0; depth < maxDepth && level.Count > 0 && found.Count < maxCount; depth++)
-        {
-            var next = new List<NodeId>();
-            foreach (var parent in level)
-            {
-                foreach (var child in await BrowseAsync(parent, cancellationToken).ConfigureAwait(false))
-                {
-                    if (!visited.Add(child.NodeId))
-                    {
-                        continue;
-                    }
-
-                    if (child.NodeClass == NodeClass.Variable)
-                    {
-                        found.Add(child);
-                        if (found.Count >= maxCount)
-                        {
-                            return found;
-                        }
-                    }
-
-                    if (child.HasChildren && (child.NodeClass == NodeClass.Object || (descendIntoVariables && child.NodeClass == NodeClass.Variable)))
-                    {
-                        next.Add(child.NodeId);
-                    }
-                }
-            }
-
-            level = next;
-        }
-
-        return found;
-    }
-
-    /// <summary>
-    /// Browses <paramref name="nodeId"/> and its descendants (up to <paramref name="maxDepth"/> levels and
-    /// <paramref name="maxNodes"/> nodes) and reads the current value of every variable in batches.
-    /// </summary>
-    public async Task<NodeTree> ReadTreeAsync(
-        NodeId nodeId,
-        string displayName,
-        NodeClass nodeClass,
-        int maxDepth,
-        int maxNodes,
-        CancellationToken cancellationToken = default)
-    {
+        ArgumentNullException.ThrowIfNull(nodeIds);
         var session = RequireSession();
-        var root = new NodeTree(nodeId, displayName, nodeClass);
-        var visited = new HashSet<NodeId> { nodeId };
-        var level = new List<NodeTree> { root };
-        var count = 1;
-        for (var depth = 0; depth < maxDepth && level.Count > 0 && count < maxNodes; depth++)
+        var result = new List<object?>(nodeIds.Count);
+        foreach (var chunk in nodeIds.Chunk(500))
         {
-            var next = new List<NodeTree>();
-            foreach (var parent in level)
-            {
-                foreach (var child in await BrowseAsync(parent.NodeId, cancellationToken).ConfigureAwait(false))
-                {
-                    if (count >= maxNodes)
-                    {
-                        break;
-                    }
-
-                    if (child.NodeClass is not (NodeClass.Object or NodeClass.Variable) || !visited.Add(child.NodeId))
-                    {
-                        continue;
-                    }
-
-                    var node = new NodeTree(child.NodeId, child.DisplayName, child.NodeClass);
-                    parent.Children.Add(node);
-                    count++;
-                    if (child.HasChildren)
-                    {
-                        next.Add(node);
-                    }
-                }
-            }
-
-            level = next;
-        }
-
-        var variables = Flatten(root).Where(n => n.NodeClass == NodeClass.Variable).ToList();
-        foreach (var chunk in variables.Chunk(500))
-        {
-            var toRead = new ReadValueIdCollection(chunk.Select(v => new ReadValueId { NodeId = v.NodeId, AttributeId = Attributes.Value }));
+            var toRead = new ReadValueIdCollection(chunk.Select(id => new ReadValueId { NodeId = id, AttributeId = Attributes.Value }));
             var response = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, toRead, cancellationToken).ConfigureAwait(false);
-            for (var i = 0; i < chunk.Length && i < response.Results.Count; i++)
+            for (var i = 0; i < chunk.Length; i++)
             {
-                chunk[i].Value = StatusCode.IsBad(response.Results[i].StatusCode) ? null : response.Results[i].Value;
+                result.Add(i < response.Results.Count && !StatusCode.IsBad(response.Results[i].StatusCode) ? response.Results[i].Value : null);
             }
         }
 
-        return root;
-
-        static IEnumerable<NodeTree> Flatten(NodeTree node) => node.Children.SelectMany(Flatten).Prepend(node);
+        return result;
     }
 
     public async ValueTask DisposeAsync()
@@ -582,13 +473,13 @@ public sealed class OpcUaClient : IAsyncDisposable
     /// sampling interval. Returns the new handles; handles not created by this client are ignored.
     /// </summary>
     public async Task<IReadOnlyList<MonitorResult>> ChangeRefreshAsync(
-        IReadOnlyList<IAsyncDisposable> handles,
+        IReadOnlyList<IAsyncDisposable> monitors,
         Action<ValueUpdate> onUpdate,
         double refreshMs,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(handles);
-        var owned = handles.OfType<MonitorHandle>().ToList();
+        ArgumentNullException.ThrowIfNull(monitors);
+        var owned = monitors.OfType<MonitorHandle>().ToList();
         var nodeIds = owned.Select(h => h.Item.StartNodeId).ToList();
         var results = await MonitorManyAsync(nodeIds, onUpdate, refreshMs, cancellationToken).ConfigureAwait(false);
         await StopMonitoringAsync(owned.Cast<IAsyncDisposable>(), cancellationToken).ConfigureAwait(false);
@@ -704,7 +595,12 @@ public sealed class OpcUaClient : IAsyncDisposable
         return parts.Count == 0 ? "None" : string.Join(", ", parts);
     }
 
-    /// <summary>Stops many monitored items with one DeleteMonitoredItems round trip per subscription.</summary>
+    internal static bool IsOwnHandle(IAsyncDisposable handle) => handle is MonitorHandle;
+
+    /// <summary>
+    /// Stops many monitored items with one DeleteMonitoredItems round trip per subscription.
+    /// Handles of other clients are ignored; use <see cref="DeviceClient.StopMonitoringAsync"/> for mixed lists.
+    /// </summary>
     public static async Task StopMonitoringAsync(IEnumerable<IAsyncDisposable> handles, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(handles);
