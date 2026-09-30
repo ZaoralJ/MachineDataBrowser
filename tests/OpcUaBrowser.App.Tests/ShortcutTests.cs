@@ -101,4 +101,34 @@ public sealed class ShortcutTests
         Assert.Equal([stale], vm.SelectedWatchItems);
         window.Close();
     }
+
+    [AvaloniaFact]
+    public void Typing_in_the_search_box_never_triggers_single_key_shortcuts()
+    {
+        var vm = new MainWindowViewModel();
+        var stale = new WatchItemViewModel(new NodeId(1u, 2), "stale");
+        stale.Apply(new ValueUpdate(stale.NodeId, "1", StatusCodes.Good, DateTime.UtcNow, DateTime.UtcNow), DateTimeOffset.Now.AddMinutes(-5));
+        stale.RefreshAge(DateTimeOffset.Now);
+        vm.WatchItems.Add(stale);
+        var window = new MainWindow { DataContext = vm, Width = 1280, Height = 800 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var staleButton = window.GetVisualDescendants().OfType<Button>().Single(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Select stale values");
+        window.MouseMove(staleButton.TranslatePoint(new Point(5, 5), window)!.Value); // pointing at Watch
+        var search = window.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "SearchBox");
+        search.Focus();
+        Dispatcher.UIThread.RunJobs();
+
+        foreach (var (key, text) in new[] { (PhysicalKey.S, "s"), (PhysicalKey.B, "b"), (PhysicalKey.E, "e"), (PhysicalKey.Digit1, "1") })
+        {
+            window.KeyPressQwerty(key, RawInputModifiers.None);
+            window.KeyTextInput(text);
+        }
+
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("sbe1", vm.SearchText);
+        Assert.Empty(vm.SelectedWatchItems); // S/B were typed, not "select stale/bad"
+        window.Close();
+    }
 }

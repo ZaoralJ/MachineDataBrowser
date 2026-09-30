@@ -19,7 +19,7 @@ public sealed partial class WatchColumnOption(string header) : ObservableObject
 public sealed class WatchColumnsViewModel
 {
     public static IReadOnlyList<string> AllHeaders { get; } =
-        ["Name", "NodeId", "Status", "Refresh", "Last update", "Since", "Source time", "Recorded", "Value"];
+        ["Name", "NodeId", "Status", "Value", "Refresh", "Last update", "Since", "Source time", "Recorded"];
 
     public static IReadOnlySet<string> DefaultHidden { get; } = new HashSet<string> { "Source time", "NodeId" };
 

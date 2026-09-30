@@ -8,7 +8,7 @@
   <DockPanel>
     <Border DockPanel.Dock="Top" Classes="pane-toolbar">
       <DockPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2" Margin="6,0,0,0">
           <Button Classes="icon-only" Command="{Binding ExpandAllCommand}"
                   AutomationProperties.Name="Expand all"
                   ToolTip.Tip="Expand all below the selection (or from Root), up to 5 levels">
@@ -19,6 +19,44 @@
             <PathIcon Data="{StaticResource IconCollapseAll}" />
           </Button>
         </StackPanel>
+        <TextBox x:Name="SearchBox" Text="{Binding SearchText}" PlaceholderText="Search names or ids (⌘F)" Classes="search"
+                 AutomationProperties.Name="Search address space"
+                 ToolTip.Tip="Searches below the selected folder, or the whole tree. * and ? are wildcards. Enter searches, Esc clears.">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding SearchCommand}" />
+            <KeyBinding Gesture="Escape" Command="{Binding ClearSearchCommand}" />
+          </TextBox.KeyBindings>
+        </TextBox>
+      </DockPanel>
+    </Border>
+    <Border DockPanel.Dock="Top" IsVisible="{Binding HasSearchPanel}" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource AppBorderBrush}">
+      <DockPanel MaxHeight="260">
+        <DockPanel DockPanel.Dock="Top" Margin="10,4,6,4">
+          <Button DockPanel.Dock="Right" Classes="icon-only" Command="{Binding ClearSearchCommand}"
+                  AutomationProperties.Name="Close search results" ToolTip.Tip="Close search results (Esc)">
+            <PathIcon Data="{StaticResource IconClose}" />
+          </Button>
+          <ProgressBar DockPanel.Dock="Right" IsIndeterminate="True" IsVisible="{Binding IsSearching}" Width="60" Margin="6,0" />
+          <TextBlock Text="{Binding SearchStatus}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                     Foreground="{DynamicResource AppMutedTextBrush}" />
+        </DockPanel>
+        <ListBox x:Name="SearchResultsList" ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedSearchHit}"
+                 DoubleTapped="OnSearchResultDoubleTapped" AutomationProperties.Name="Search results"
+                 IsVisible="{Binding SearchResults.Count}">
+          <ListBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding RevealSearchHitCommand}" />
+            <KeyBinding Gesture="Escape" Command="{Binding ClearSearchCommand}" />
+          </ListBox.KeyBindings>
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="core:SearchHit">
+              <StackPanel Spacing="1" ToolTip.Tip="Enter or double-click shows it in the tree">
+                <TextBlock Text="{Binding Item.DisplayName}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding PathText}" FontSize="11" TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource AppMutedTextBrush}" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
       </DockPanel>
     </Border>
     <Grid>

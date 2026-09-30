@@ -215,8 +215,10 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
             .WithClientId($"opcuabrowser-{Guid.NewGuid():N}"[..23])
             .WithProtocolVersion(MQTTnet.Formatter.MqttProtocolVersion.V500)
             .WithCleanStart()
-            .WithKeepAlivePeriod(TimeSpan.FromSeconds(15))
-            .WithTimeout(TimeSpan.FromSeconds(10));
+            // Short keep-alive: a broker behind a port proxy (Docker, load balancer) can vanish without closing the TCP
+            // connection, and only the missing PINGRESP reveals it (after 1.5x the period).
+            .WithKeepAlivePeriod(TimeSpan.FromSeconds(5))
+            .WithTimeout(TimeSpan.FromSeconds(5));
         builder = endpoint.WebSocket
             ? builder.WithWebSocketServer(o => o.WithUri(endpoint.WebSocketUri))
             : builder.WithTcpServer(endpoint.Host, endpoint.Port);

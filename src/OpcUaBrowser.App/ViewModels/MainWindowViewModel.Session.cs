@@ -43,7 +43,26 @@ public sealed partial class MainWindowViewModel
 
     public ThemePreference Theme => Settings.Theme;
 
-    partial void OnEndpointUrlChanged(string value) => MarkDirty();
+    partial void OnEndpointUrlChanged(string oldValue, string newValue)
+    {
+        // MQTT defaults to every message (0); the other protocols to the configured default. Only a refresh time that
+        // is still the other protocol's default is switched, so an explicit choice survives editing the endpoint.
+        var wasMqtt = OpcUaBrowser.Core.DeviceClient.IsMqtt(oldValue ?? string.Empty);
+        var isMqtt = OpcUaBrowser.Core.DeviceClient.IsMqtt(newValue ?? string.Empty);
+        if (isMqtt && !wasMqtt && DefaultRefreshMs == Settings.SamplingIntervalMs)
+        {
+            DefaultRefreshMs = 0;
+        }
+        else if (!isMqtt && wasMqtt && DefaultRefreshMs == 0)
+        {
+            DefaultRefreshMs = Settings.SamplingIntervalMs;
+        }
+
+        MarkDirty();
+    }
+
+    /// <summary>Default refresh time for new watch items and recordings: every message for MQTT.</summary>
+    private int DefaultRefreshFor(string endpointUrl) => OpcUaBrowser.Core.DeviceClient.IsMqtt(endpointUrl) ? 0 : Settings.SamplingIntervalMs;
 
     partial void OnUseSecurityChanged(bool value) => MarkDirty();
 
@@ -66,7 +85,7 @@ public sealed partial class MainWindowViewModel
         UseSecurity = false;
         AutoAcceptCertificates = false;
         UserName = string.Empty;
-        DefaultRefreshMs = Settings.SamplingIntervalMs;
+        DefaultRefreshMs = DefaultRefreshFor(EndpointUrl);
         WatchColumns.Reset();
         Password = string.Empty;
         _suppressDirty = false;
@@ -126,7 +145,7 @@ public sealed partial class MainWindowViewModel
         UseSecurity = document.UseSecurity;
         AutoAcceptCertificates = document.AutoAcceptCertificates;
         UserName = document.UserName ?? string.Empty;
-        DefaultRefreshMs = document.DefaultRefreshMs ?? Settings.SamplingIntervalMs;
+        DefaultRefreshMs = document.DefaultRefreshMs ?? DefaultRefreshFor(document.EndpointUrl);
         WatchColumns.SetSort(document.WatchSortColumn, document.WatchSortDescending);
         WatchColumns.Apply(document.WatchColumns);
         Password = string.Empty;

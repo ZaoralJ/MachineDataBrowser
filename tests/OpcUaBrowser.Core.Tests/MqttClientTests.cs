@@ -193,6 +193,25 @@ public sealed class MqttClientTests(MqttSimulatorFixture broker) : IAsyncLifetim
     }
 
     [Fact]
+    public async Task Search_finds_topics_json_fields_and_metrics_with_their_paths()
+    {
+        var result = await _client.SearchAsync(_client.Root, "bearing", cancellationToken: Ct);
+        var hit = Assert.Single(result.Hits, h => h.Item.NodeId.Identifier as string == "t:machines/m1/status#/temperature/bearing");
+        Assert.Equal("Topics › machines › m1 › status › temperature › bearing", hit.PathText);
+        Assert.Equal("root", hit.Path[0].Identifier);
+
+        var wildcard = await _client.SearchAsync(_client.Root, "Press?", cancellationToken: Ct);
+        Assert.Contains(wildcard.Hits, h => h.PathText.EndsWith("Edge1 › Press1", StringComparison.Ordinal));
+        Assert.DoesNotContain(wildcard.Hits, h => h.Item.DisplayName == "press"); // "?" needs one more character
+
+        var byId = await _client.SearchAsync(new BrowseItem(Id("t:acme"), "acme", "acme", NodeClass.Object), "line3/robot/_meta", cancellationToken: Ct);
+        Assert.Contains(byId.Hits, h => h.Item.NodeId.Identifier as string == "t:acme/billund/moulding/line3/robot/_meta");
+
+        var limited = await _client.SearchAsync(_client.Root, "sensor", maxNodes: 10, cancellationToken: Ct);
+        Assert.True(limited.Truncated);
+    }
+
+    [Fact]
     public async Task Paths_from_root_resolve_for_topics_json_fields_and_metrics()
     {
         Assert.Equal(["root", "topics", "t:machines", "t:machines/m1", "t:machines/m1/status", "t:machines/m1/status#/temperature", "t:machines/m1/status#/temperature/bearing"],

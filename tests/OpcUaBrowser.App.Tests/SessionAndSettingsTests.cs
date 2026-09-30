@@ -301,7 +301,7 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
         await WaitUntil(() => grid.GetVisualDescendants().OfType<Avalonia.Controls.DataGridRow>().Count() >= 4);
         Point RowCenter(int i)
         {
-            var row = grid.GetVisualDescendants().OfType<Avalonia.Controls.DataGridRow>().Single(r => r.DataContext == vm.WatchItems[i]);
+            var row = grid.GetVisualDescendants().OfType<Avalonia.Controls.DataGridRow>().Single(r => r.IsEffectivelyVisible && r.DataContext == vm.WatchItems[i]);
             return row.TranslatePoint(new Point(40, row.Bounds.Height / 2), window)!.Value;
         }
 

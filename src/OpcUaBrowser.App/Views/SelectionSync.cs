@@ -52,7 +52,7 @@ internal static class RefreshPrompt
             Spacing = 12,
             Children =
             {
-                new Avalonia.Controls.TextBlock { Text = "Refresh time in milliseconds (0 = every update: as fast as the server allows, every MQTT message)", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
+                new Avalonia.Controls.TextBlock { Text = "Refresh time in milliseconds (0 = all updates: as fast as the server allows, every MQTT message)", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
                 input,
                 new Avalonia.Controls.StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Spacing = 8, Children = { cancel, ok } },
             },

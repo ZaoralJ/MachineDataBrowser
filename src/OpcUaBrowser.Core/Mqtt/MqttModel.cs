@@ -258,6 +258,7 @@ internal sealed class MqttModel
 
         // Every metric's status follows its node/device (Bad while it is dead), so all of them are reported.
         changed.AddRange(container.Metrics.Values.Select(m => m.Key));
+        changed.AddRange(container.Redirects.Keys.Select(p => Key(container, p)));
     }
 
     private const string AliasPlaceholder = "alias ";
@@ -266,9 +267,17 @@ internal sealed class MqttModel
     {
         if (birth)
         {
+            // The birth names the aliases: "alias 101" placeholders disappear from the tree, but ids already watched
+            // or recorded keep working by following the named metric.
             foreach (var placeholder in container.Metrics.Keys.Where(k => k.StartsWith(AliasPlaceholder, StringComparison.Ordinal)).ToList())
             {
                 container.Metrics.Remove(placeholder);
+                var alias = ulong.Parse(placeholder[AliasPlaceholder.Length..], CultureInfo.InvariantCulture);
+                var named = payload.Metrics.FirstOrDefault(m => m.Alias == alias && !string.IsNullOrEmpty(m.Name))?.Name;
+                if (named is not null)
+                {
+                    container.Redirects[placeholder] = named;
+                }
             }
         }
 
@@ -315,6 +324,7 @@ internal sealed class MqttModel
             state.SourceUtc = timestamp is { } ms ? DateTimeOffset.FromUnixTimeMilliseconds((long)ms).UtcDateTime : receivedUtc;
             state.ReceivedUtc = receivedUtc;
             changed.Add(state.Key);
+            changed.AddRange(container.Redirects.Where(r => r.Value == name).Select(r => Key(container, r.Key)));
         }
     }
 
@@ -639,7 +649,14 @@ internal sealed class MqttModel
     private (SpbContainer Container, SpbMetric Metric)? FindMetric(string id)
     {
         var parts = id[2..].Split(Sep, 4);
-        return parts.Length == 4 && FindContainer(parts[0], parts[1], parts[2]) is { } c && c.Metrics.TryGetValue(parts[3], out var m) ? (c, m) : null;
+        if (parts.Length != 4 || FindContainer(parts[0], parts[1], parts[2]) is not { } c)
+        {
+            return null;
+        }
+
+        return c.Metrics.TryGetValue(parts[3], out var m) || (c.Redirects.TryGetValue(parts[3], out var named) && c.Metrics.TryGetValue(named, out m))
+            ? (c, m)
+            : null;
     }
 
     private static ValueUpdate Update(string id, object? value, StatusCode status, DateTime source, DateTime received)
@@ -799,6 +816,9 @@ internal sealed class MqttModel
         public ulong? Seq { get; set; }
 
         public Dictionary<string, SpbMetric> Metrics { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>"alias 101" placeholder → metric name, learned from a birth after the placeholder was created.</summary>
+        public Dictionary<string, string> Redirects { get; } = new(StringComparer.Ordinal);
     }
 
     private sealed class SpbEdge(string group, string name)

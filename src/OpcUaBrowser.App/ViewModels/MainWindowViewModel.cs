@@ -30,8 +30,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         _settingsStore = settingsStore;
         _layoutStore = layoutStore;
         Settings = settingsStore?.Load() ?? new AppSettings();
-        DefaultRefreshMs = Settings.SamplingIntervalMs;
         EndpointUrl = DefaultEndpointUrl;
+        DefaultRefreshMs = DefaultRefreshFor(EndpointUrl);
         IsDirty = false;
         ApplyTheme(Settings.Theme);
         Layout = layoutStore?.TryLoad(DockFactory) ?? DockFactory.CreateLayout();
@@ -261,21 +261,21 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     public static string FormatRefresh(int ms) => ms switch
     {
-        <= 0 => "every update",
+        <= 0 => "all",
         >= 1000 when ms % 1000 == 0 => $"{ms / 1000} s",
         _ => $"{ms} ms",
     };
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsDisconnected), nameof(StateText))]
-    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand))]
     public partial ConnectionState State { get; private set; }
 
     [ObservableProperty]
     public partial bool IsBusy { get; private set; }
 
     [ObservableProperty]
-    public partial string StatusMessage { get; private set; } = "Not connected";
+    public partial string StatusMessage { get; private set; } = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -338,7 +338,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     public ObservableCollection<AttributeValue> Attributes { get; } = [];
 
-    public ObservableCollection<WatchItemViewModel> WatchItems { get; } = [];
+    public BulkObservableCollection<WatchItemViewModel> WatchItems { get; } = [];
 
     [RelayCommand(CanExecute = nameof(IsDisconnected))]
     private async Task ConnectAsync()
@@ -363,6 +363,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             var client = _client;
             await Task.Run(() => client.ConnectAsync(options));
 
+            ClearSearch();
             RootNodes.Clear();
             var root = new NodeViewModel(
                 _client.Root,
@@ -379,7 +380,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             State = _client.State;
-            StatusMessage = "Not connected";
+            StatusMessage = string.Empty;
             ReportError(ex);
         }
         finally
@@ -402,7 +403,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             State = _client.State;
             RootNodes.Clear();
             Attributes.Clear();
-            StatusMessage = "Disconnected";
+            StatusMessage = string.Empty;
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
@@ -411,7 +412,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             State = ConnectionState.Disconnected;
             RootNodes.Clear();
             Attributes.Clear();
-            StatusMessage = "Disconnected";
+            StatusMessage = string.Empty;
         }
         finally
         {
@@ -567,15 +568,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         StatusMessage = "Collecting variables recursively…";
         try
         {
-            var variables = new List<BrowseItem>();
-            foreach (var parent in parents)
+            // Browsing thousands of nodes happens off the UI thread; only the result comes back.
+            var client = _client;
+            var roots = parents.Select(p => p.NodeId).ToList();
+            var variables = await Task.Run(async () =>
             {
-                variables.AddRange(await _client.CollectVariablesAsync(parent.NodeId, maxDepth, maxCount - variables.Count, descendIntoVariables));
-                if (variables.Count >= maxCount)
+                var found = new List<BrowseItem>();
+                foreach (var root in roots)
                 {
-                    break;
+                    found.AddRange(await client.CollectVariablesAsync(root, maxDepth, maxCount - found.Count, descendIntoVariables));
+                    if (found.Count >= maxCount)
+                    {
+                        break;
+                    }
                 }
-            }
+
+                return found;
+            });
 
             await AddWatchItemsAsync(variables.Select(v => (v.NodeId, v.DisplayName)).ToList());
             StatusMessage = variables.Count >= maxCount
@@ -615,18 +624,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             return;
         }
 
-        foreach (var item in items)
-        {
-            WatchItems.Add(item);
-        }
-
+        // One Reset for the whole batch: per-item adds re-laid out the grid and re-ran every listener per row.
+        WatchItems.AddRange(items);
         NotifySelectionCommands();
 
         var byNodeId = items.ToDictionary(i => i.NodeId);
         try
         {
-            var results = await _client.MonitorManyAsync(
-                items.Select(i => i.NodeId).ToList(),
+            var client = _client;
+            var ids = items.Select(i => i.NodeId).ToList();
+            var results = await Task.Run(() => client.MonitorManyAsync(
+                ids,
                 update =>
                 {
                     if (byNodeId.TryGetValue(update.NodeId, out var item))
@@ -634,7 +642,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                         _pendingUpdates[item] = update;
                     }
                 },
-                refreshMs);
+                refreshMs));
 
             var rejected = results.Where(r => r.Handle is null).ToList();
             foreach (var result in results)
@@ -643,11 +651,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 {
                     byNodeId[result.NodeId].Monitor = handle;
                 }
-                else
-                {
-                    WatchItems.Remove(byNodeId[result.NodeId]);
-                }
             }
+
+            WatchItems.RemoveRange(rejected.Select(r => byNodeId[r.NodeId]));
 
             if (rejected.Count > 0)
             {
@@ -656,11 +662,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
-            foreach (var item in items)
-            {
-                WatchItems.Remove(item);
-            }
-
+            WatchItems.RemoveRange(items);
             ReportError(ex);
         }
 
@@ -712,9 +714,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             return;
         }
 
+        WatchItems.RemoveRange(items);
         foreach (var item in items)
         {
-            WatchItems.Remove(item);
             _pendingUpdates.TryRemove(item, out _);
         }
 
@@ -853,6 +855,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 return;
             }
 
+            await RevealPathAsync(path, target.DisplayName);
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            ReportError(ex);
+        }
+    }
+
+    /// <summary>Expands the tree along <paramref name="path"/> (Root first) and selects the last node.</summary>
+    private async Task RevealPathAsync(IReadOnlyList<NodeId> path, string displayName)
+    {
+        var target = (DisplayName: displayName, NodeId: path[^1]);
+        {
             var node = RootNodes[0];
             foreach (var id in path.Skip(1))
             {
@@ -877,10 +892,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
             RevealRequested?.Invoke(this, node);
             StatusMessage = $"Selected {target.DisplayName} in address space";
-        }
-        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
-        {
-            ReportError(ex);
         }
     }
 
@@ -1202,7 +1213,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
         else if (state == ConnectionState.Disconnected && previous is ConnectionState.Connected or ConnectionState.Reconnecting && !_disconnecting)
         {
-            StatusMessage = "Disconnected";
+            StatusMessage = string.Empty;
             ErrorMessage = "Connection lost and could not be restored. Connect again to continue.";
         }
     }

@@ -71,6 +71,20 @@ connection by itself. Watch items and recordings continue after that.
   - ⇧⌘K / ⌥⌘K copy C# classes or records that mirror the structure.
   - To cherry-pick properties, select several nodes first.
 
+### Search
+
+⌘F (View ▸ Find in Address Space…) or **/** in the tree puts the cursor in the search box above the tree.
+
+- Type part of a name or id and press **Enter**. Case doesn't matter; `*` and `?` are wildcards (`Temp*`, `Press?`).
+- **Where it searches:** below the selected folder, or the whole tree if nothing with children is selected. Select a
+  folder first to search a big server faster.
+- **Results:** each result shows its name and path. ↓ moves into the list; **Enter** or double-click opens the tree at
+  that node and selects it.
+- **Esc** clears the search.
+- **Limits:** the search browses the device breadth-first, up to 12 levels and 50 000 nodes, and returns at most
+  1 000 results. The status line says when a limit was reached.
+- **MQTT:** only topics received so far can be found.
+
 ### What the tree looks like per protocol
 
 - **OPC UA:** the server's address space. Custom structures are decoded using the server's type definitions.

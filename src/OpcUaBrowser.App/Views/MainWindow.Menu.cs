@@ -95,6 +95,7 @@ public sealed partial class MainWindow
                 new NativeMenuItemSeparator(),
                 Item("Show _Certificate Folder", vm.RevealCertificatesCommand, new KeyGesture(Key.K, cmd | KeyModifiers.Alt | KeyModifiers.Shift))),
             Submenu("_View",
+                Item("_Find in Address Space…", vm.FocusSearchCommand, new KeyGesture(Key.F, cmd)),
                 Item("_Expand All Below Selection", vm.ExpandAllCommand, new KeyGesture(Key.Right, cmd | KeyModifiers.Alt)),
                 Item("_Collapse All", vm.CollapseAllCommand, new KeyGesture(Key.Left, cmd | KeyModifiers.Alt)),
                 new NativeMenuItemSeparator(),

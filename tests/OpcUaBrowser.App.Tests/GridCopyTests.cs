@@ -137,4 +137,69 @@ public sealed class GridCopyTests
         Assert.True(grid.Columns.Single(c => Equals(c.Header, "Value")).Width.Value > 500);
         window.Close();
     }
+
+    [AvaloniaFact]
+    public void Watch_value_column_follows_status_by_default()
+    {
+        var window = new MainWindow { DataContext = new MainWindowViewModel(), Width = 1280, Height = 800 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        var grid = window.GetVisualDescendants().OfType<DataGrid>().Single(g => g.Name == "WatchGrid");
+        var visible = grid.Columns.Where(c => c.IsVisible).OrderBy(c => c.DisplayIndex).Select(c => c.Header!.ToString()).ToList();
+        Assert.Equal(visible.IndexOf("Status") + 1, visible.IndexOf("Value"));
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Fitting_the_name_column_keeps_room_for_the_recording_icons()
+    {
+        var vm = new MainWindowViewModel();
+        var item = new WatchItemViewModel(new NodeId(1u, 2), "speed");
+        item.SetRecordings([("R", OpcUaBrowser.Core.RecordingState.Recording)]);
+        vm.WatchItems.Add(item);
+        var window = new MainWindow { DataContext = vm, Width = 1280, Height = 800 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        var grid = window.GetVisualDescendants().OfType<DataGrid>().Single(g => g.Name == "WatchGrid");
+
+        ColumnFit.Fit(grid, grid.Columns.Single(c => Equals(c.Header, "Name")));
+        Dispatcher.UIThread.RunJobs();
+
+        var text = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == "speed");
+        var probe = new TextBlock { Text = text.Text, FontSize = text.FontSize, FontFamily = text.FontFamily };
+        probe.Measure(Size.Infinity);
+        Assert.True(text.Bounds.Width >= probe.DesiredSize.Width - 0.5, $"'speed' squeezed to {text.Bounds.Width:0} of {probe.DesiredSize.Width:0}px next to the icons");
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Horizontal_scrollbar_does_not_cover_the_last_row()
+    {
+        var vm = new MainWindowViewModel();
+        for (var i = 0; i < 60; i++)
+        {
+            vm.WatchItems.Add(new WatchItemViewModel(new NodeId((uint)i + 1, 2), $"item {i}"));
+        }
+
+        var window = new MainWindow { DataContext = vm, Width = 700, Height = 800 }; // narrow and full: both bars
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        var grid = window.GetVisualDescendants().OfType<DataGrid>().Single(g => g.Name == "WatchGrid");
+        var bar = grid.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ScrollBar>().Single(b => b.Name == "PART_HorizontalScrollbar");
+        var rows = grid.GetVisualDescendants().OfType<DataGridRowsPresenter>().Single();
+        Assert.True(bar.IsVisible);
+        var rowsBottom = rows.TranslatePoint(new Point(0, rows.Bounds.Height), grid)!.Value.Y;
+        var barTop = bar.TranslatePoint(new Point(0, 0), grid)!.Value.Y;
+        Assert.True(rowsBottom <= barTop + 0.5, $"rows end at {rowsBottom}, scrollbar starts at {barTop}");
+        Assert.True(rows.ClipToBounds, "rows are not clipped, so a partly visible last row is drawn under the scrollbar");
+        window.CaptureRenderedFrame()?.Dispose();
+        Dispatcher.UIThread.RunJobs();
+        using (var frame = window.CaptureRenderedFrame())
+        {
+            Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "screenshots"));
+            frame!.Save(Path.Combine(AppContext.BaseDirectory, "screenshots", "watch-scrollbar.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+        }
+
+        window.Close();
+    }
 }

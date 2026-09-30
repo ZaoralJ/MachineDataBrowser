@@ -142,7 +142,7 @@
                          Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Status" views:GridCopy.Member="Status" Width="110" MinWidth="70" SortMemberPath="Status">
+          <DataGridTemplateColumn Header="Status" views:GridCopy.Member="Status" Width="180" MinWidth="70" SortMemberPath="Status">
             <DataTemplate DataType="vm:WatchItemViewModel">
               <Border Classes="status-badge" Margin="10,0,6,0"
                       IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
@@ -193,7 +193,7 @@
               <TextBlock Classes="cell mono" Text="{Binding SourceTimestamp}" HorizontalAlignment="Right" />
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Value" views:GridCopy.Member="Value" Width="*" MinWidth="120">
+          <DataGridTemplateColumn Header="Value" views:GridCopy.Member="Value" Width="280" MinWidth="120">
             <DataTemplate DataType="vm:WatchItemViewModel">
               <TextBlock Classes="cell mono" Text="{Binding Value}" ToolTip.Tip="{Binding Value}" />
             </DataTemplate>
