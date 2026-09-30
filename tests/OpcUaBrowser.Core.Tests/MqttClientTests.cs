@@ -138,7 +138,7 @@ public sealed class MqttClientTests(MqttSimulatorFixture broker) : IAsyncLifetim
         Assert.Contains("shift", line);
 
         Assert.Equal("KUKA", await ReadAsync("t:acme/billund/moulding/line2/robot/_meta#/vendor")); // retained
-        Assert.IsType<string>(await ReadAsync("t:acme/billund/moulding/line2/press/state"));
+        await Until(async () => await ReadAsync("t:acme/billund/moulding/line2/press/state") is string); // retained
         await Until(async () => await ReadAsync("t:acme/billund/moulding/line2/press/process/temperature") is double);
         await Until(async () => await ReadAsync("t:acme/billund/moulding/line2/press/kpi/oee#/oee") is double, seconds: 10);
     }

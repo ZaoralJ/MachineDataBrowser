@@ -122,7 +122,8 @@ public sealed class SettingsStore(string? path = null)
     public void Save(AppSettings settings)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-        var temp = _path + ".tmp";
+        // Unique temp name: several app instances can save at the same time.
+        var temp = $"{_path}.{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
         using (var stream = File.Create(temp))
         {
             JsonSerializer.Serialize(stream, settings, AppJsonContext.Default.AppSettings);
