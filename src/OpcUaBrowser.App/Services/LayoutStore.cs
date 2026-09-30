@@ -42,7 +42,9 @@ public sealed class LayoutStore(string? path = null)
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-        File.WriteAllText(_path, JsonSerializer.Serialize(Capture(content), AppJsonContext.Default.LayoutNode));
+        var temp = $"{_path}.{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
+        File.WriteAllText(temp, JsonSerializer.Serialize(Capture(content), AppJsonContext.Default.LayoutNode));
+        File.Move(temp, _path, overwrite: true);
     }
 
     public IRootDock? TryLoad(DockFactory factory)

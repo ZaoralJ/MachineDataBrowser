@@ -167,6 +167,15 @@ Opened with Enter or double-click in Recordings, or from Watch for a single item
 - Times are local (`HH:mm:ss.fff`). Hover a time to see the full date and UTC offset.
 - The status bar shows kept vs received samples and the per-item limit.
 
+## Several instances
+
+File ▸ **New Instance** (⇧⌘N) starts another copy of the app. Each copy has its own connection, watch list and
+recordings, so you can look at several devices side by side. On macOS the Dock only brings the running app to the
+front, so use this menu item, or `open -n "/Applications/OPC UA Browser.app"` from a terminal.
+
+All copies share settings, certificates, the layout and the log. When two copies change settings, the last save
+wins.
+
 ## Sessions and settings
 
 - **Sessions (`.opcsession`):**

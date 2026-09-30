@@ -76,6 +76,7 @@ public sealed partial class MainWindow
         return
         [
             Submenu("_File",
+                Item("New _Instance", new RelayCommandAdapter(StartNewInstance), new KeyGesture(Key.N, cmd | KeyModifiers.Shift)),
                 Item("_New Session", vm.NewSessionCommand, new KeyGesture(Key.N, cmd)),
                 Item("_Open Session…", vm.OpenSessionCommand, new KeyGesture(Key.O, cmd)),
                 new NativeMenuItem(Label("Open _Recent")) { Menu = _recentSessionsMenu },
@@ -233,6 +234,29 @@ public sealed partial class MainWindow
         }
 
         return new NativeMenuItem(Label(header)) { Menu = submenu };
+    }
+
+    /// <summary>
+    /// Starts another, fully independent app process (own connection, watch list, recordings). On macOS the Dock
+    /// only activates a running app, so this is the way to get a second one. The instances share settings,
+    /// certificates and the log; settings are saved last-writer-wins.
+    /// </summary>
+    private void StartNewInstance()
+    {
+        try
+        {
+            var bundle = Environment.ProcessPath is { } exe && exe.Contains(".app/Contents/MacOS/", StringComparison.Ordinal)
+                ? exe[..(exe.IndexOf(".app/", StringComparison.Ordinal) + 4)]
+                : null;
+            var start = bundle is not null
+                ? new System.Diagnostics.ProcessStartInfo("open", ["-n", bundle])
+                : new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false };
+            System.Diagnostics.Process.Start(start)?.Dispose();
+        }
+        catch (Exception ex) when (Services.AppErrors.IsRecoverable(ex))
+        {
+            Services.AppErrors.Report(ex, "Could not start a new instance");
+        }
     }
 
     private sealed class RelayCommandAdapter(Action action) : ICommand
