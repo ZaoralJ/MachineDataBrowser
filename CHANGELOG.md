@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.4.0...v0.5.0) (2026-09-30)
+
+
+### Features
+
+* **app:** watch, recording and usability improvements ([#17](https://github.com/ZaoralJ/OpcUaBrowser/issues/17)) ([6602b4c](https://github.com/ZaoralJ/OpcUaBrowser/commit/6602b4cbfb2c170af55f7420cd80be7d4a9ce17c))
+* local Logix and OPC UA simulators with integration tests ([#15](https://github.com/ZaoralJ/OpcUaBrowser/issues/15)) ([0b90d44](https://github.com/ZaoralJ/OpcUaBrowser/commit/0b90d44767ec39fa93f7eefdc58cbee9fd8d4e12))
+
 ## [0.4.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.3.0...v0.4.0) (2026-09-30)
 
 
