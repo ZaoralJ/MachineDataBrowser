@@ -364,11 +364,17 @@
     <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Margin" Value="4,1" />
   </Style>
+  <!-- Hover on the header row itself: TreeViewItem:pointerover is also true for every ancestor item, so pointing
+       at a child (or the gap between rows) lit up and blinked the parent rows above it. The first style cancels the
+       theme's item-level hover; later styles win. -->
   <Style Selector="TreeViewItem:pointerover /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="TreeViewItem /template/ Border#PART_LayoutRoot:pointerover">
     <Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
   </Style>
   <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot,
-                   TreeViewItem:selected:pointerover /template/ Border#PART_LayoutRoot,
+                   TreeViewItem:selected /template/ Border#PART_LayoutRoot:pointerover,
                    TreeViewItem:selected:focus /template/ Border#PART_LayoutRoot">
     <Setter Property="Background" Value="{DynamicResource AppSelectionBrush}" />
   </Style>

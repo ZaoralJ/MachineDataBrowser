@@ -79,6 +79,35 @@ public sealed class DragDropTests(OpcPlcFixture plc)
         window.Close();
     }
 
+    [AvaloniaFact]
+    public async Task Hovering_a_child_row_highlights_only_that_row()
+    {
+        await using var vm = new MainWindowViewModel { EndpointUrl = plc.EndpointUrl };
+        var window = new MainWindow { DataContext = vm, Width = 1280, Height = 800 };
+        window.Show();
+        await vm.ConnectCommand.ExecuteAsync(null);
+        var root = vm.RootNodes[0];
+        await Until(() => root.Children.Any(c => c.DisplayName == "Objects"));
+        var objects = root.Children.Single(c => c.DisplayName == "Objects");
+        objects.IsExpanded = true;
+        await Until(() => objects.Children.Any(c => c.DisplayName == "OpcPlc"));
+        Dispatcher.UIThread.RunJobs();
+
+        Border RowOf(NodeViewModel node) => window.GetVisualDescendants().OfType<TreeViewItem>().First(i => i.DataContext == node)
+            .GetVisualDescendants().OfType<Border>().First(b => b.Name == "PART_LayoutRoot");
+        static bool Lit(Border b) => b.Background is Avalonia.Media.ISolidColorBrush { Color.A: > 0 };
+
+        var child = objects.Children.Single(c => c.DisplayName == "OpcPlc");
+        var label = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.DataContext == child && t.Text == "OpcPlc");
+        window.MouseMove(label.TranslatePoint(new Point(label.Bounds.Width / 2, label.Bounds.Height / 2), window)!.Value);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(Lit(RowOf(child)), "hovered row is not highlighted");
+        Assert.False(Lit(RowOf(objects)), "parent row lights up while a child is hovered");
+        Assert.False(Lit(RowOf(root)), "grandparent row lights up while a child is hovered");
+        window.Close();
+    }
+
     private static async Task Until(Func<bool> c)
     {
         var end = DateTime.UtcNow.AddSeconds(10);
