@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Opc.Ua;
 using OpcUaBrowser.Core;
 
+using OpcUaBrowser.App.Services;
+
 namespace OpcUaBrowser.App.ViewModels;
 
 public sealed partial class NodeViewModel : ObservableObject
@@ -168,7 +170,7 @@ public sealed partial class NodeViewModel : ObservableObject
                 Children.Add(new NodeViewModel(item, _browse, _onError!, _formatId, this));
             }
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             Children.Clear();
             _loaded = false;

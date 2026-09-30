@@ -167,7 +167,17 @@ public sealed partial class WatchView : UserControl
 
     private void OnRowDoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
     {
-        if (RowItemAt(e.Source) is { } item && DataContext is MainWindowViewModel vm)
+        if (RowItemAt(e.Source) is not { } item || DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        // Recorded items open their recorded values; others are revealed in the address space.
+        if (item.HasRecording)
+        {
+            vm.ViewItemRecordingCommand.Execute(item);
+        }
+        else
         {
             vm.RevealInTreeCommand.Execute(item);
         }

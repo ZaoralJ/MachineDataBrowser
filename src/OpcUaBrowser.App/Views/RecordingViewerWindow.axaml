@@ -28,10 +28,11 @@
     </Border>
     <Border DockPanel.Dock="Top" Height="220" IsVisible="{Binding HasChart}"
             BorderThickness="0,0,0,1" BorderBrush="{DynamicResource AppBorderBrush}">
-      <views:TrendChart x:Name="Chart" Points="{Binding ChartPoints}" AutomationProperties.Name="Trend chart" />
+      <views:TrendChart x:Name="Chart" Points="{Binding ChartPoints}" Highlight="{Binding HighlightedPoint}"
+                        AutomationProperties.Name="Trend chart" ToolTip.Tip="Click to select the nearest sample" />
     </Border>
     <Grid>
-      <DataGrid x:Name="RowsGrid" ItemsSource="{Binding Rows}">
+      <DataGrid x:Name="RowsGrid" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}">
         <DataGrid.Columns>
           <DataGridTemplateColumn Header="Received" Width="110">
             <DataTemplate DataType="vm:HistoryRow">

@@ -54,7 +54,7 @@ public sealed partial class MainWindowViewModel
             await vm.Recording.StartAsync();
             StatusMessage = vm.Recording.State == RecordingState.Scheduled ? $"'{options.Name}' scheduled" : $"Recording '{options.Name}'";
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -72,6 +72,17 @@ public sealed partial class MainWindowViewModel
             item.SetRecordings([.. Recordings
                 .Where(r => r.Recording.Items.Any(i => i.NodeId == item.NodeId))
                 .Select(r => (r.Name, r.Recording.State))]);
+        }
+
+        UpdateRecordedCounts();
+    }
+
+    /// <summary>Refreshes the Recorded column; called when recordings report new sample totals (about once a second).</summary>
+    private void UpdateRecordedCounts()
+    {
+        foreach (var item in WatchItems)
+        {
+            item.SetRecordedSamples(RecordingFor(item)?.Recording.GetSampleCount(item.NodeId) ?? 0);
         }
     }
 
@@ -181,7 +192,7 @@ public sealed partial class MainWindowViewModel
             await export(vm.Recording, path);
             StatusMessage = $"Exported '{vm.Name}' to {Path.GetFileName(path)}";
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Text.Json.JsonException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ErrorMessage = $"Export failed: {ex.Message}";
         }
@@ -198,7 +209,7 @@ public sealed partial class MainWindowViewModel
         {
             await action(vm.Recording);
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException or IOException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }

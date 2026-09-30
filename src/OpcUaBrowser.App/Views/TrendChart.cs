@@ -1,6 +1,8 @@
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Media;
 using OpcUaBrowser.App.ViewModels;
 
@@ -15,11 +17,55 @@ public sealed class TrendChart : Control
     public static readonly StyledProperty<IReadOnlyList<TrendPoint>?> PointsProperty =
         AvaloniaProperty.Register<TrendChart, IReadOnlyList<TrendPoint>?>(nameof(Points));
 
+    public static readonly StyledProperty<TrendPoint?> HighlightProperty =
+        AvaloniaProperty.Register<TrendChart, TrendPoint?>(nameof(Highlight), defaultBindingMode: BindingMode.TwoWay);
+
     private const double AxisWidth = 64;
     private const double AxisHeight = 20;
     private const double Pad = 8;
 
-    static TrendChart() => AffectsRender<TrendChart>(PointsProperty);
+    static TrendChart() => AffectsRender<TrendChart>(PointsProperty, HighlightProperty);
+
+    public TrendChart() => Cursor = new Cursor(StandardCursorType.Cross);
+
+    /// <summary>The sample drawn with a marker; clicking the chart selects the nearest sample.</summary>
+    public TrendPoint? Highlight
+    {
+        get => GetValue(HighlightProperty);
+        set => SetValue(HighlightProperty, value);
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        if (Points is not { Count: > 1 } points || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        var plot = PlotArea(new Rect(Bounds.Size));
+        var span = Math.Max((points[^1].Time - points[0].Time).TotalMilliseconds, 1);
+        var at = points[0].Time.AddMilliseconds(Math.Clamp((e.GetPosition(this).X - plot.Left) / plot.Width, 0, 1) * span);
+
+        // Points are in time order: binary search for the sample closest to the clicked time.
+        int lo = 0, hi = points.Count - 1;
+        while (lo < hi)
+        {
+            var mid = (lo + hi) / 2;
+            if (points[mid].Time < at) lo = mid + 1; else hi = mid;
+        }
+
+        if (lo > 0 && (at - points[lo - 1].Time) < (points[lo].Time - at))
+        {
+            lo--;
+        }
+
+        Highlight = points[lo];
+        e.Handled = true;
+    }
+
+    private static Rect PlotArea(Rect bounds) =>
+        new(AxisWidth, Pad, Math.Max(1, bounds.Width - AxisWidth - Pad), Math.Max(1, bounds.Height - AxisHeight - Pad));
 
     public IReadOnlyList<TrendPoint>? Points
     {
@@ -36,7 +82,7 @@ public sealed class TrendChart : Control
             return;
         }
 
-        var plot = new Rect(AxisWidth, Pad, Math.Max(1, bounds.Width - AxisWidth - Pad), Math.Max(1, bounds.Height - AxisHeight - Pad));
+        var plot = PlotArea(bounds);
         var t0 = points[0].Time;
         var span = Math.Max((points[^1].Time - t0).TotalMilliseconds, 1);
         var (min, max) = (points.Min(p => p.Value), points.Max(p => p.Value));
@@ -105,9 +151,29 @@ public sealed class TrendChart : Control
             g.EndFigure(isClosed: false);
         }
 
+        var accent = Brush("AppAccentBrush", Brushes.DodgerBlue);
         using (context.PushClip(plot.Inflate(1)))
         {
-            context.DrawGeometry(null, new Pen(Brush("AppAccentBrush", Brushes.DodgerBlue), 1.5), geometry);
+            context.DrawGeometry(null, new Pen(accent, 1.5), geometry);
+        }
+
+        if (Highlight is { } h && h.Time >= t0 && h.Time <= points[^1].Time)
+        {
+            var x = Math.Round(X(h.Time)) + 0.5;
+            var y = Y(h.Value);
+            var guide = Brush("AppMutedTextBrush", Brushes.Gray);
+            context.DrawLine(new Pen(guide, 1, new DashStyle([3, 3], 0)), new Point(x, plot.Top), new Point(x, plot.Bottom));
+            context.DrawEllipse(Brush("AppSurfaceBrush", Brushes.White), new Pen(accent, 2), new Point(x, y), 4.5, 4.5);
+
+            var label = new FormattedText(
+                $"{Format(h.Value)}  ·  {h.Time.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)}",
+                CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Typeface.Default, 11, Brush("SystemControlForegroundBaseHighBrush", Brushes.White));
+            var box = new Rect(0, 0, label.Width + 12, label.Height + 6);
+            var left = x + 8 + box.Width > plot.Right ? x - 8 - box.Width : x + 8;
+            var top = Math.Clamp(y - box.Height - 6, plot.Top, plot.Bottom - box.Height);
+            box = box.Translate(new Vector(left, top));
+            context.DrawRectangle(Brush("AppSurfaceAltBrush", Brushes.Black), new Pen(Brush("AppBorderStrongBrush", Brushes.Gray), 1), box, 4, 4);
+            context.DrawText(label, new Point(box.X + 6, box.Y + 3));
         }
     }
 

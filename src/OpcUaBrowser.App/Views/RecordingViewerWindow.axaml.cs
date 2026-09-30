@@ -32,6 +32,10 @@ public sealed partial class RecordingViewerWindow : Window
                 {
                     ScrollToEnd();
                 }
+                else if (p.PropertyName == nameof(RecordingViewerViewModel.SelectedRow) && _vm.SelectedRow is { } row)
+                {
+                    RowsGrid.ScrollIntoView(row, null);
+                }
             };
         }
     }

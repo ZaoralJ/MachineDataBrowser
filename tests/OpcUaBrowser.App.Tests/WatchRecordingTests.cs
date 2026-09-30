@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -46,6 +47,8 @@ public sealed class WatchRecordingTests(OpcPlcFixture plc)
         Assert.False(random.HasRecording);
 
         await Until(() => recording.Recording.GetSampleCount(step.NodeId) >= 5);
+        await Until(() => step.RecordedSamples >= 5); // Recorded column follows the recording's sample count
+        Assert.Equal(string.Empty, random.RecordedText);
         Directory.CreateDirectory(OutputDir);
         Dispatcher.UIThread.RunJobs();
         window.CaptureRenderedFrame()?.Dispose();
@@ -62,6 +65,21 @@ public sealed class WatchRecordingTests(OpcPlcFixture plc)
 
         var viewerWindow = new RecordingViewerWindow { DataContext = viewer, Width = 900, Height = 560 };
         viewerWindow.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        // Selecting a row highlights its sample; clicking the chart selects the nearest sample's row.
+        var picked = viewer.Rows[2];
+        viewer.SelectedRow = picked;
+        Assert.Same(picked, viewer.HighlightedPoint?.Row);
+        var chart = viewerWindow.GetVisualDescendants().OfType<TrendChart>().Single();
+        var leftEdge = chart.TranslatePoint(new Avalonia.Point(70, chart.Bounds.Height / 2), viewerWindow)!.Value;
+        viewerWindow.MouseDown(leftEdge, Avalonia.Input.MouseButton.Left);
+        viewerWindow.MouseUp(leftEdge, Avalonia.Input.MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Same(viewer.ChartPoints[0].Row, viewer.SelectedRow);
+        Assert.Same(viewer.SelectedRow, viewer.HighlightedPoint?.Row);
+        Assert.False(viewer.Follow);
+        viewer.SelectedRow = picked;
         Directory.CreateDirectory(OutputDir);
         Dispatcher.UIThread.RunJobs();
         viewerWindow.CaptureRenderedFrame()?.Dispose();

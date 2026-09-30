@@ -37,6 +37,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         Layout = layoutStore?.TryLoad(DockFactory) ?? DockFactory.CreateLayout();
 
         _client.StateChanged += OnClientStateChanged;
+        AppErrors.Reported += OnAppError;
         _flushTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (_, _) => FlushUpdates());
         _flushTimer.Start();
 
@@ -61,6 +62,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                     if (p.PropertyName == nameof(RecordingViewModel.State))
                     {
                         UpdateRecordingFlags();
+                    }
+                    else if (p.PropertyName == nameof(RecordingViewModel.Samples))
+                    {
+                        UpdateRecordedCounts();
                     }
                 };
             }
@@ -177,7 +182,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             {
                 _layoutStore?.Save(layout);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or NotSupportedException or ArgumentException)
+            catch (Exception ex) when (AppErrors.IsRecoverable(ex))
             {
                 ReportError(ex);
             }
@@ -322,7 +327,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             StatusMessage = $"Connected to {_client.ServerUri ?? EndpointUrl}";
             UpdateSettings(Settings.WithRecentEndpoint(EndpointUrl.Trim()));
         }
-        catch (Exception ex) when (ex is ServiceResultException or IOException or UriFormatException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             State = _client.State;
             StatusMessage = "Not connected";
@@ -338,6 +343,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     private async Task DisconnectAsync()
     {
         IsBusy = true;
+        _disconnecting = true;
         StatusMessage = "Disconnecting…";
         try
         {
@@ -349,8 +355,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             Attributes.Clear();
             StatusMessage = "Disconnected";
         }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            // The session is unusable either way; show why and leave the UI disconnected.
+            ReportError(ex);
+            State = ConnectionState.Disconnected;
+            RootNodes.Clear();
+            Attributes.Clear();
+            StatusMessage = "Disconnected";
+        }
         finally
         {
+            _disconnecting = false;
             IsBusy = false;
         }
     }
@@ -455,7 +471,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             MarkDirty();
             StatusMessage = $"Refresh time {FormatRefresh(refreshMs)} for {items.Count} item(s)";
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -517,7 +533,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 ? $"Monitoring limited to the first {maxCount} variables"
                 : $"Found {variables.Count} variable(s)";
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -589,7 +605,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 ErrorMessage = $"{rejected.Count} item(s) could not be monitored, e.g. {byNodeId[rejected[0].NodeId].DisplayName}: {rejected[0].Error.StatusCode.SymbolicId}";
             }
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             foreach (var item in items)
             {
@@ -660,7 +676,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         {
             await DeviceClient.StopMonitoringAsync(items.Select(i => i.Monitor).OfType<IAsyncDisposable>());
         }
-        catch (ServiceResultException ex)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -696,7 +712,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 ? $"Expanded {ExpandAllMaxDepth} levels (limit reached — expand deeper nodes individually)"
                 : "Expanded all";
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -764,7 +780,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             RevealRequested?.Invoke(this, node);
             StatusMessage = $"Selected {target.DisplayName} in address space";
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -815,7 +831,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             var trees = NodeExport.ComposeSelection(selections);
             await CopyAsync(format(trees));
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -866,12 +882,29 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     public async ValueTask DisposeAsync()
     {
         _flushTimer.Stop();
+        AppErrors.Reported -= OnAppError;
+
+        // Shutdown must not fail because a server is gone or a recording file is locked.
         foreach (var recording in Recordings.ToList())
         {
-            await recording.DisposeAsync();
+            try
+            {
+                await recording.DisposeAsync();
+            }
+            catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+            {
+                AppErrors.Log(ex, "closing recording");
+            }
         }
 
-        await _client.DisposeAsync();
+        try
+        {
+            await _client.DisposeAsync();
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            AppErrors.Log(ex, "closing connection");
+        }
     }
 
     private Task<IReadOnlyList<BrowseItem>> Browse(NodeId nodeId) => _client.BrowseAsync(nodeId);
@@ -899,7 +932,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             {
                 await monitor.DisposeAsync();
             }
-            catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+            catch (Exception ex) when (AppErrors.IsRecoverable(ex))
             {
                 ReportError(ex);
             }
@@ -985,7 +1018,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 }
             }
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -1027,27 +1060,48 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             var monitors = items.Select(i => i.Monitor).OfType<IAsyncDisposable>().ToList();
             await Task.Run(() => DeviceClient.StopMonitoringAsync(monitors));
         }
-        catch (ServiceResultException ex)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
     }
 
+    private const string ConnectionLostMessage = "Connection lost. Reconnecting…";
+
+    /// <summary>Set while the user disconnects, so the resulting Disconnected state is not reported as a failure.</summary>
+    private bool _disconnecting;
+
     private void HandleClientState(ConnectionState state)
     {
+        var previous = State;
         State = state;
         if (state == ConnectionState.Reconnecting)
         {
             StatusMessage = "Connection lost, reconnecting…";
+            ErrorMessage = ConnectionLostMessage;
         }
-        else if (state == ConnectionState.Connected && StatusMessage.StartsWith("Connection lost", StringComparison.Ordinal))
+        else if (state == ConnectionState.Connected && previous == ConnectionState.Reconnecting)
         {
             StatusMessage = "Reconnected";
+            if (ErrorMessage == ConnectionLostMessage)
+            {
+                ErrorMessage = null;
+            }
+        }
+        else if (state == ConnectionState.Disconnected && previous is ConnectionState.Connected or ConnectionState.Reconnecting && !_disconnecting)
+        {
+            StatusMessage = "Disconnected";
+            ErrorMessage = "Connection lost and could not be restored. Connect again to continue.";
         }
     }
 
-    private void ReportError(Exception ex) =>
-        Dispatcher.UIThread.Post(() => ErrorMessage = ex is ServiceResultException sre
-            ? $"{sre.Result.StatusCode.SymbolicId}: {sre.Message}"
-            : ex.Message);
+    private void ReportError(Exception ex)
+    {
+        AppErrors.Log(ex);
+        var message = AppErrors.Describe(ex);
+        Dispatcher.UIThread.Post(() => ErrorMessage = message);
+    }
+
+    /// <summary>Errors caught by the global handlers (<see cref="AppErrors"/>) land in the same error bar.</summary>
+    private void OnAppError(object? sender, string message) => ErrorMessage = message;
 }

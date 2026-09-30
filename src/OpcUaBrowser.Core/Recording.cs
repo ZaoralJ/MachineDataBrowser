@@ -417,7 +417,7 @@ public sealed class Recording : IAsyncDisposable
         {
             await DeviceClient.StopMonitoringAsync(monitors, cancellationToken).ConfigureAwait(false);
         }
-        catch (ServiceResultException ex)
+        catch (Exception ex) when (Errors.IsRecoverable(ex))
         {
             Faulted?.Invoke(this, ex);
         }
@@ -456,7 +456,7 @@ public sealed class Recording : IAsyncDisposable
                     await writer.FlushAsync().ConfigureAwait(false);
                 }
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            catch (Exception ex) when (Errors.IsRecoverable(ex))
             {
                 Faulted?.Invoke(this, ex);
             }
@@ -526,7 +526,7 @@ public sealed class Recording : IAsyncDisposable
         {
             await action().ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException or ObjectDisposedException)
+        catch (Exception ex) when (Errors.IsRecoverable(ex))
         {
             Faulted?.Invoke(this, ex);
         }

@@ -34,6 +34,7 @@ public sealed class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        AppErrors.Install();
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var viewModel = new MainWindowViewModel(new SettingsStore(), new LayoutStore());

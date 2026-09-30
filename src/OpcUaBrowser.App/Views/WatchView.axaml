@@ -176,6 +176,12 @@
               </TextBlock>
             </DataTemplate>
           </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Recorded" Width="100" MinWidth="86" SortMemberPath="RecordedSamples">
+            <DataTemplate DataType="vm:WatchItemViewModel">
+              <TextBlock Classes="cell mono" Text="{Binding RecordedText}" HorizontalAlignment="Right"
+                         ToolTip.Tip="Samples in the newest recording of this item. Double-click the row to show them." />
+            </DataTemplate>
+          </DataGridTemplateColumn>
           <DataGridTemplateColumn Header="Source time" Width="130" MinWidth="70">
             <DataTemplate DataType="vm:WatchItemViewModel">
               <TextBlock Classes="cell mono" Text="{Binding SourceTimestamp}" HorizontalAlignment="Right" />

@@ -61,9 +61,19 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
     [ObservableProperty]
     public partial string RecordingToolTip { get; private set; } = string.Empty;
 
+    /// <summary>Samples of this item in the newest recording that contains it (the one "Show recorded values" opens).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RecordedText))]
+    public partial int RecordedSamples { get; private set; }
+
+    public string RecordedText => HasRecording ? RecordedSamples.ToString("N0", System.Globalization.CultureInfo.CurrentCulture) : string.Empty;
+
+    public void SetRecordedSamples(int count) => RecordedSamples = count;
+
     public void SetRecordings(IReadOnlyList<(string Name, RecordingState State)> recordings)
     {
         HasRecording = recordings.Count > 0;
+        OnPropertyChanged(nameof(RecordedText));
         IsRecording = recordings.Any(r => r.State is RecordingState.Recording or RecordingState.Paused or RecordingState.Scheduled);
         RecordingToolTip = string.Join('\n', recordings.Select(r => $"{r.Name}: {r.State}"));
     }

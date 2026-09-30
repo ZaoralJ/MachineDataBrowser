@@ -4,6 +4,8 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using OpcUaBrowser.Core;
 
+using OpcUaBrowser.App.Services;
+
 namespace OpcUaBrowser.App.ViewModels;
 
 public sealed record HistoryRow(DateTimeOffset ReceivedAt, string Name, string NodeId, string Value, string Status, string SourceTime, double? Numeric = null)
@@ -82,7 +84,7 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
                     error = null;
                     return [.. reader.ReadNew().Select(r => new HistoryRow(r.ReceivedAt, r.Name, r.NodeId, r.Value, r.Status, r.SourceTimestamp, ParseNumeric(r.Value)))];
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                catch (Exception ex) when (AppErrors.IsRecoverable(ex))
                 {
                     error = ex.Message;
                     return [];
@@ -136,14 +138,48 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
         {
             if (row.Name == SelectedItem && row.Numeric is { } value && double.IsFinite(value))
             {
-                points.Add(new TrendPoint(row.ReceivedAt, value));
+                points.Add(new TrendPoint(row.ReceivedAt, value, row));
             }
         }
 
         ChartPoints = points;
+
+        // Keep the highlight on the selected sample after the point list is rebuilt.
+        var selected = SelectedRow;
+        HighlightedPoint = selected is null ? null : points.FirstOrDefault(p => ReferenceEquals(p.Row, selected));
     }
 
     partial void OnSelectedItemChanged(string value) => Rebuild();
+
+    /// <summary>Row selected in the grid; its sample is highlighted in the chart.</summary>
+    [ObservableProperty]
+    public partial HistoryRow? SelectedRow { get; set; }
+
+    /// <summary>Sample highlighted in the chart; clicking the chart selects the matching row.</summary>
+    [ObservableProperty]
+    public partial TrendPoint? HighlightedPoint { get; set; }
+
+    partial void OnSelectedRowChanged(HistoryRow? value)
+    {
+        var point = value is null ? null : ChartPoints.FirstOrDefault(p => ReferenceEquals(p.Row, value));
+        if (!ReferenceEquals(point, HighlightedPoint) && (point is not null || value is null || !HasChart))
+        {
+            HighlightedPoint = point;
+        }
+    }
+
+    partial void OnHighlightedPointChanged(TrendPoint? value)
+    {
+        if (value?.Row is { } row && !ReferenceEquals(row, SelectedRow))
+        {
+            if (Follow)
+            {
+                Follow = false; // picking a sample would otherwise be scrolled away by the next update
+            }
+
+            SelectedRow = row;
+        }
+    }
 
     public void Poll()
     {
@@ -199,4 +235,5 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
     }
 }
 
-public readonly record struct TrendPoint(DateTimeOffset Time, double Value);
+/// <summary>One chart sample; <paramref name="Row"/> links it back to its grid row for selection.</summary>
+public sealed record TrendPoint(DateTimeOffset Time, double Value, HistoryRow? Row = null);
