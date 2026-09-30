@@ -108,7 +108,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         old.StateChanged -= OnClientStateChanged;
         _client = DeviceClient.Create(endpointUrl);
         _client.StateChanged += OnClientStateChanged;
-        await old.DisposeAsync();
+        await Task.Run(() => old.DisposeAsync().AsTask());
     }
 
     public DockFactory DockFactory => _dockFactory ??= new DockFactory(this);
@@ -295,14 +295,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         try
         {
             await EnsureClientForAsync(EndpointUrl);
-            await _client.ConnectAsync(new ConnectOptions
+            var options = new ConnectOptions
             {
                 EndpointUrl = EndpointUrl.Trim(),
                 UseSecurity = UseSecurity,
                 AutoAcceptUntrustedCertificates = AutoAcceptCertificates,
                 UserName = string.IsNullOrWhiteSpace(UserName) ? null : UserName,
                 Password = Password,
-            });
+            };
+
+            // The SDKs do synchronous work while connecting (endpoint discovery, certificates, type system,
+            // libplctag tag creation); run it on the pool so the window stays responsive.
+            var client = _client;
+            await Task.Run(() => client.ConnectAsync(options));
 
             RootNodes.Clear();
             var root = new NodeViewModel(
@@ -332,12 +337,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     [RelayCommand(CanExecute = nameof(IsConnected))]
     private async Task DisconnectAsync()
     {
-        await StopAllMonitorsAsync();
-        await _client.DisconnectAsync();
-        State = _client.State;
-        RootNodes.Clear();
-        Attributes.Clear();
-        StatusMessage = "Disconnected";
+        IsBusy = true;
+        StatusMessage = "Disconnecting…";
+        try
+        {
+            await StopAllMonitorsAsync();
+            var client = _client;
+            await Task.Run(client.DisconnectAsync);
+            State = _client.State;
+            RootNodes.Clear();
+            Attributes.Clear();
+            StatusMessage = "Disconnected";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]
@@ -1009,7 +1024,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         _pendingUpdates.Clear();
         try
         {
-            await DeviceClient.StopMonitoringAsync(items.Select(i => i.Monitor).OfType<IAsyncDisposable>());
+            var monitors = items.Select(i => i.Monitor).OfType<IAsyncDisposable>().ToList();
+            await Task.Run(() => DeviceClient.StopMonitoringAsync(monitors));
         }
         catch (ServiceResultException ex)
         {

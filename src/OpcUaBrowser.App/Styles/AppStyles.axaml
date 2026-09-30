@@ -337,6 +337,10 @@
   <Style Selector="ToolChromeControl /template/ Grid#PART_Grip">
     <Setter Property="Background" Value="Transparent" />
   </Style>
+  <!-- The chrome shows a square grip strip on hover; over the rounded card it read as a stray line at the top edge. -->
+  <Style Selector="ToolChromeControl /template/ Panel#PART_Panel">
+    <Setter Property="Opacity" Value="0" />
+  </Style>
   <Style Selector="ToolChromeControl:not(:floating) /template/ DeferredContentPresenter#PART_ContentPresenter">
     <Setter Property="CornerRadius" Value="0,0,10,10" />
     <Setter Property="BorderThickness" Value="1,0,1,1" />

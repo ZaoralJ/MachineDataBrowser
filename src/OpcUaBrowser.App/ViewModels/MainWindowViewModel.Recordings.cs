@@ -216,7 +216,8 @@ public sealed partial class MainWindowViewModel
     {
         foreach (var vm in Recordings.ToList())
         {
-            await vm.Recording.StopAsync();
+            var recording = vm.Recording;
+            await Task.Run(() => recording.StopAsync());
             vm.Refresh();
         }
     }
