@@ -31,6 +31,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         _layoutStore = layoutStore;
         Settings = settingsStore?.Load() ?? new AppSettings();
         DefaultRefreshMs = Settings.SamplingIntervalMs;
+        EndpointUrl = DefaultEndpointUrl;
         IsDirty = false;
         ApplyTheme(Settings.Theme);
         Layout = layoutStore?.TryLoad(DockFactory) ?? DockFactory.CreateLayout();
@@ -168,7 +169,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOpcUaEndpoint), nameof(OptionsSummary))]
     public partial string EndpointUrl { get; set; } = "opc.tcp://localhost:50000";
+
+    /// <summary>Security, credentials and certificate trust only apply to OPC UA, not to EtherNet/IP (<c>eip://</c>).</summary>
+    public bool IsOpcUaEndpoint => !DeviceClient.IsEip(EndpointUrl ?? string.Empty);
+
+    /// <summary>The last connected endpoint, or localhost when there is no history.</summary>
+    private string DefaultEndpointUrl => Settings.RecentEndpoints.Count > 0 ? Settings.RecentEndpoints[0] : "opc.tcp://localhost:50000";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OptionsSummary))]
@@ -243,6 +251,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             var security = UseSecurity ? "Secure" : "No security";
             var user = string.IsNullOrWhiteSpace(UserName) ? "Anonymous" : UserName;
             var refresh = FormatRefresh(DefaultRefreshMs);
+            if (!IsOpcUaEndpoint)
+            {
+                return $"EtherNet/IP · {refresh}";
+            }
+
             return AutoAcceptCertificates ? $"{security} · {user} · {refresh} · auto-trust" : $"{security} · {user} · {refresh}";
         }
     }

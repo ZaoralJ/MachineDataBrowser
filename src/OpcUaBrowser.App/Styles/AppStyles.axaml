@@ -2,6 +2,94 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="AppWindowBrush" Color="#F4F5F8" />
+          <SolidColorBrush x:Key="AppSurfaceBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="AppSurfaceAltBrush" Color="#F7F8FA" />
+          <SolidColorBrush x:Key="AppInputBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="AppBorderBrush" Color="#E3E5EB" />
+          <SolidColorBrush x:Key="AppBorderStrongBrush" Color="#D3D7DF" />
+          <SolidColorBrush x:Key="AppMutedTextBrush" Color="#6B7180" />
+          <SolidColorBrush x:Key="AppHoverBrush" Color="#0A1B1D24" />
+          <SolidColorBrush x:Key="AppSelectionBrush" Color="#1F5B5BD6" />
+          <SolidColorBrush x:Key="AppSelectionTextBrush" Color="#3E3EB8" />
+          <SolidColorBrush x:Key="AppAccentBrush" Color="#5B5BD6" />
+          <SolidColorBrush x:Key="AppChipBrush" Color="#EEF0F4" />
+          <!-- Dock tokens -->
+          <StaticResource x:Key="DockSurfacePanelBrush" ResourceKey="AppSurfaceBrush" />
+          <StaticResource x:Key="DockSurfaceSidebarBrush" ResourceKey="AppWindowBrush" />
+          <StaticResource x:Key="DockSurfaceWorkbenchBrush" ResourceKey="AppWindowBrush" />
+          <StaticResource x:Key="DockSurfaceHeaderBrush" ResourceKey="AppSurfaceBrush" />
+          <StaticResource x:Key="DockSurfaceHeaderActiveBrush" ResourceKey="AppSurfaceBrush" />
+          <StaticResource x:Key="DockBorderSubtleBrush" ResourceKey="AppBorderBrush" />
+          <StaticResource x:Key="DockBorderStrongBrush" ResourceKey="AppBorderStrongBrush" />
+          <StaticResource x:Key="DockSeparatorBrush" ResourceKey="AppBorderBrush" />
+          <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="Transparent" />
+          <StaticResource x:Key="DockSplitterHoverBrush" ResourceKey="AppSelectionBrush" />
+          <StaticResource x:Key="DockSplitterDragBrush" ResourceKey="AppAccentBrush" />
+          <SolidColorBrush x:Key="DockTabBackgroundBrush" Color="Transparent" />
+          <StaticResource x:Key="DockTabHoverBackgroundBrush" ResourceKey="AppHoverBrush" />
+          <StaticResource x:Key="DockTabActiveBackgroundBrush" ResourceKey="AppSelectionBrush" />
+          <StaticResource x:Key="DockTabActiveIndicatorBrush" ResourceKey="AppAccentBrush" />
+          <StaticResource x:Key="DockTabForegroundBrush" ResourceKey="AppMutedTextBrush" />
+          <StaticResource x:Key="DockTabSelectedForegroundBrush" ResourceKey="AppAccentBrush" />
+          <StaticResource x:Key="DockTabActiveForegroundBrush" ResourceKey="AppSelectionTextBrush" />
+          <StaticResource x:Key="DockChromeButtonHoverBackgroundBrush" ResourceKey="AppHoverBrush" />
+          <StaticResource x:Key="DockChromeButtonPressedBackgroundBrush" ResourceKey="AppSelectionBrush" />
+          <StaticResource x:Key="DockChromeButtonForegroundBrush" ResourceKey="AppMutedTextBrush" />
+          <StaticResource x:Key="DockApplicationAccentBrushLow" ResourceKey="AppSelectionBrush" />
+          <StaticResource x:Key="DockApplicationAccentBrushMed" ResourceKey="AppHoverBrush" />
+          <StaticResource x:Key="DockApplicationAccentBrushHigh" ResourceKey="AppSelectionBrush" />
+          <StaticResource x:Key="DockApplicationAccentBrushIndicator" ResourceKey="AppAccentBrush" />
+          <StaticResource x:Key="DockApplicationAccentForegroundBrush" ResourceKey="AppSelectionTextBrush" />
+          <StaticResource x:Key="DockTargetIndicatorBrush" ResourceKey="AppAccentBrush" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="AppWindowBrush" Color="#0B0C10" />
+          <SolidColorBrush x:Key="AppSurfaceBrush" Color="#14161C" />
+          <SolidColorBrush x:Key="AppSurfaceAltBrush" Color="#191C23" />
+          <SolidColorBrush x:Key="AppInputBrush" Color="#1B1E25" />
+          <SolidColorBrush x:Key="AppBorderBrush" Color="#242832" />
+          <SolidColorBrush x:Key="AppBorderStrongBrush" Color="#323744" />
+          <SolidColorBrush x:Key="AppMutedTextBrush" Color="#8D93A3" />
+          <SolidColorBrush x:Key="AppHoverBrush" Color="#0FFFFFFF" />
+          <SolidColorBrush x:Key="AppSelectionBrush" Color="#336E6AF0" />
+          <SolidColorBrush x:Key="AppSelectionTextBrush" Color="#C9C8FF" />
+          <SolidColorBrush x:Key="AppAccentBrush" Color="#8A87FF" />
+          <SolidColorBrush x:Key="AppChipBrush" Color="#1D2029" />
+          <!-- Dock tokens -->
+          <StaticResource x:Key="DockSurfacePanelBrush" ResourceKey="AppSurfaceBrush" />
+          <StaticResource x:Key="DockSurfaceSidebarBrush" ResourceKey="AppWindowBrush" />
+          <StaticResource x:Key="DockSurfaceWorkbenchBrush" ResourceKey="AppWindowBrush" />
+          <StaticResource x:Key="DockSurfaceHeaderBrush" ResourceKey="AppSurfaceBrush" />
+          <StaticResource x:Key="DockSurfaceHeaderActiveBrush" ResourceKey="AppSurfaceBrush" />
+          <StaticResource x:Key="DockBorderSubtleBrush" ResourceKey="AppBorderBrush" />
+          <StaticResource x:Key="DockBorderStrongBrush" ResourceKey="AppBorderStrongBrush" />
+          <StaticResource x:Key="DockSeparatorBrush" ResourceKey="AppBorderBrush" />
+          <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="Transparent" />
+          <StaticResource x:Key="DockSplitterHoverBrush" ResourceKey="AppSelectionBrush" />
+          <StaticResource x:Key="DockSplitterDragBrush" ResourceKey="AppAccentBrush" />
+          <SolidColorBrush x:Key="DockTabBackgroundBrush" Color="Transparent" />
+          <StaticResource x:Key="DockTabHoverBackgroundBrush" ResourceKey="AppHoverBrush" />
+          <StaticResource x:Key="DockTabActiveBackgroundBrush" ResourceKey="AppSelectionBrush" />
+          <StaticResource x:Key="DockTabActiveIndicatorBrush" ResourceKey="AppAccentBrush" />
+          <StaticResource x:Key="DockTabForegroundBrush" ResourceKey="AppMutedTextBrush" />
+          <StaticResource x:Key="DockTabSelectedForegroundBrush" ResourceKey="AppAccentBrush" />
+          <StaticResource x:Key="DockTabActiveForegroundBrush" ResourceKey="AppSelectionTextBrush" />
+          <StaticResource x:Key="DockChromeButtonHoverBackgroundBrush" ResourceKey="AppHoverBrush" />
+          <StaticResource x:Key="DockChromeButtonPressedBackgroundBrush" ResourceKey="AppSelectionBrush" />
+          <StaticResource x:Key="DockChromeButtonForegroundBrush" ResourceKey="AppMutedTextBrush" />
+          <StaticResource x:Key="DockApplicationAccentBrushLow" ResourceKey="AppSelectionBrush" />
+          <StaticResource x:Key="DockApplicationAccentBrushMed" ResourceKey="AppHoverBrush" />
+          <StaticResource x:Key="DockApplicationAccentBrushHigh" ResourceKey="AppSelectionBrush" />
+          <StaticResource x:Key="DockApplicationAccentBrushIndicator" ResourceKey="AppAccentBrush" />
+          <StaticResource x:Key="DockApplicationAccentForegroundBrush" ResourceKey="AppSelectionTextBrush" />
+          <StaticResource x:Key="DockTargetIndicatorBrush" ResourceKey="AppAccentBrush" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
     <FontFamily x:Key="MonoFont">Menlo, Consolas, "Cascadia Mono", "DejaVu Sans Mono", monospace</FontFamily>
 
     <StreamGeometry x:Key="IconOptions">M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z</StreamGeometry>
@@ -24,79 +112,152 @@
     <StreamGeometry x:Key="IconInfo">M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z</StreamGeometry>
     <StreamGeometry x:Key="IconWarning">M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z</StreamGeometry>
 
+    <x:Double x:Key="DockFontSizeNormal">12</x:Double>
+    <x:Double x:Key="DockTabHeight">32</x:Double>
+    <Thickness x:Key="DockToolChromeHeaderMargin">12,2,8,2</Thickness>
+    <Thickness x:Key="DockToolTabItemPadding">10,4,10,4</Thickness>
+    <Thickness x:Key="DockToolTabItemSelectedPadding">10,4,10,4</Thickness>
+    <CornerRadius x:Key="AppControlRadius">7</CornerRadius>
+    <CornerRadius x:Key="AppCardRadius">10</CornerRadius>
+    <!-- Fluent control geometry -->
+    <CornerRadius x:Key="ControlCornerRadius">7</CornerRadius>
+    <CornerRadius x:Key="OverlayCornerRadius">10</CornerRadius>
+
     <SolidColorBrush x:Key="StatusGoodBrush" Color="#22A06B" />
     <SolidColorBrush x:Key="StatusUncertainBrush" Color="#D97706" />
     <SolidColorBrush x:Key="StatusBadBrush" Color="#E5484D" />
     <SolidColorBrush x:Key="StatusIdleBrush" Color="#8B8D98" />
   </Styles.Resources>
 
-  <!-- Dialog / general buttons: centred labels -->
+  <!-- ============ Base controls ============ -->
   <Style Selector="Window Button:not(.icon-only):not(.history-entry)">
     <Setter Property="HorizontalContentAlignment" Value="Center" />
   </Style>
+  <Style Selector="Button">
+    <Setter Property="CornerRadius" Value="{StaticResource AppControlRadius}" />
+    <!-- Buttons get MinHeight from dialogs/toolbars; keep the label centred in the extra height. -->
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBox">
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="CornerRadius" Value="{StaticResource AppControlRadius}" />
+  </Style>
   <Style Selector="NumericUpDown">
     <Setter Property="MinHeight" Value="30" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="CornerRadius" Value="{StaticResource AppControlRadius}" />
+  </Style>
+  <!-- MinHeight makes the inner TextBox taller than its text; keep the text centred. -->
+  <Style Selector="NumericUpDown /template/ TextBox">
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <!-- Flyout content spans the presenter; separators line up with the content edges -->
+  <Style Selector="FlyoutPresenter Separator">
+    <Setter Property="Margin" Value="8,6" />
+  </Style>
+  <Style Selector="FlyoutPresenter">
+    <Setter Property="MaxWidth" Value="560" />
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+    <Setter Property="CornerRadius" Value="{StaticResource AppCardRadius}" />
+    <Setter Property="Padding" Value="14" />
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderStrongBrush}" />
+  </Style>
+  <Style Selector="MenuFlyoutPresenter, ContextMenu">
+    <Setter Property="CornerRadius" Value="{StaticResource AppCardRadius}" />
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderStrongBrush}" />
+  </Style>
+  <Style Selector="ToolTip">
+    <Setter Property="CornerRadius" Value="6" />
   </Style>
 
-  <!-- Pane headers -->
-  <Style Selector="Border.pane-header">
+  <!-- ============ App header ============ -->
+  <Style Selector="Border.app-header">
+    <Setter Property="Padding" Value="14,10" />
+    <Setter Property="Background" Value="{DynamicResource AppWindowBrush}" />
+  </Style>
+  <Style Selector="Image.brand-mark">
+    <Setter Property="Width" Value="32" />
+    <Setter Property="Height" Value="32" />
+  </Style>
+  <Style Selector="TextBlock.brand-title">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.brand-subtitle">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
+  </Style>
+
+  <!-- Endpoint field: a tall pill with an inline label chip -->
+  <Style Selector="TextBox.endpoint">
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="Background" Value="{DynamicResource AppInputBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+    <Setter Property="CornerRadius" Value="9" />
+  </Style>
+  <Style Selector="TextBox.endpoint:disabled /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceAltBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+  </Style>
+  <Style Selector="Border.endpoint-label">
+    <Setter Property="Margin" Value="5,0,6,0" />
+    <Setter Property="Padding" Value="8,3" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Background" Value="{DynamicResource AppChipBrush}" />
+  </Style>
+  <Style Selector="Border.endpoint-label TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
+  </Style>
+
+  <!-- ============ Buttons ============ -->
+  <Style Selector="Button.toolbar">
     <Setter Property="Padding" Value="12,6" />
     <Setter Property="MinHeight" Value="36" />
-    <Setter Property="BorderThickness" Value="0,0,0,1" />
-    <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseLowBrush}" />
-    <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" />
-  </Style>
-  <Style Selector="TextBlock.pane-title">
-    <Setter Property="FontSize" Value="12" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="LetterSpacing" Value="0.6" />
-    <Setter Property="VerticalAlignment" Value="Center" />
-    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseMediumHighBrush}" />
-  </Style>
-
-  <!-- Slim action strip at the top of a docked pane (the tab above already shows the title) -->
-  <Style Selector="Border.pane-toolbar">
-    <Setter Property="Padding" Value="4,2" />
-    <Setter Property="MinHeight" Value="30" />
-    <Setter Property="BorderThickness" Value="0,0,0,1" />
-    <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseLowBrush}" />
-  </Style>
-
-  <!-- Empty-state hint centred in a pane -->
-  <Style Selector="TextBlock.empty-hint">
-    <Setter Property="HorizontalAlignment" Value="Center" />
-    <Setter Property="VerticalAlignment" Value="Center" />
-    <Setter Property="TextAlignment" Value="Center" />
-    <Setter Property="TextWrapping" Value="Wrap" />
-    <Setter Property="Margin" Value="24" />
-    <Setter Property="IsHitTestVisible" Value="False" />
-    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
-  </Style>
-
-  <!-- Compact toolbar buttons: icon + optional label -->
-  <Style Selector="Button.toolbar">
-    <Setter Property="Padding" Value="10,5" />
-    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
   <Style Selector="Button.toolbar PathIcon">
     <Setter Property="Width" Value="14" />
     <Setter Property="Height" Value="14" />
   </Style>
+  <Style Selector="Button.subtle">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Button.subtle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceAltBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderStrongBrush}" />
+  </Style>
+  <Style Selector="Button.subtle:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceAltBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+  </Style>
+
   <Style Selector="Button.icon-only">
     <Setter Property="Padding" Value="6" />
-    <Setter Property="Width" Value="28" />
+    <!-- MinWidth, not Width: some strip buttons carry short text labels (ALL, CSV, JSON). -->
+    <Setter Property="MinWidth" Value="28" />
     <Setter Property="Height" Value="26" />
-    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="CornerRadius" Value="6" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
   </Style>
   <Style Selector="Button.icon-only PathIcon">
-    <Setter Property="Width" Value="12" />
-    <Setter Property="Height" Value="12" />
+    <Setter Property="Width" Value="13" />
+    <Setter Property="Height" Value="13" />
   </Style>
   <Style Selector="Button.icon-only:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundListLowBrush}" />
+    <Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}" />
   </Style>
   <Style Selector="Button.icon-only:disabled">
     <Setter Property="Opacity" Value="0.35" />
@@ -105,11 +266,114 @@
     <Setter Property="Background" Value="Transparent" />
   </Style>
 
-  <!-- Flat list-like buttons (history dropdown) -->
+  <!-- Flat list-like buttons (history dropdown, flyout actions) -->
   <Style Selector="Button.history-entry">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Padding" Value="8,6" />
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="Button.history-entry:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
+  </Style>
+
+  <!-- ============ Panes ============ -->
+  <Style Selector="Border.pane-header">
+    <Setter Property="Padding" Value="12,6" />
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+  </Style>
+  <Style Selector="TextBlock.pane-title">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.8" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
+  </Style>
+
+  <!-- Slim action strip at the top of a docked pane (the tab above already shows the title) -->
+  <Style Selector="Border.pane-toolbar">
+    <Setter Property="Padding" Value="8,3" />
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+  </Style>
+
+  <!-- Empty-state hint centred in a pane -->
+  <Style Selector="TextBlock.empty-hint">
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextAlignment" Value="Center" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="MaxWidth" Value="320" />
+    <Setter Property="LineHeight" Value="20" />
+    <Setter Property="Margin" Value="24" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+    <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
+  </Style>
+
+  <!-- ============ Dock panes as cards ============ -->
+  <Style Selector="ToolChromeControl">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+  </Style>
+  <!-- Header and body of the chrome together form one rounded card -->
+  <Style Selector="ToolChromeControl:not(:floating) /template/ Border#PART_Border">
+    <Setter Property="CornerRadius" Value="10,10,0,0" />
+    <Setter Property="BorderThickness" Value="1,1,1,0" />
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+  <Style Selector="ToolChromeControl /template/ Grid#PART_Grip">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="ToolChromeControl:not(:floating) /template/ DeferredContentPresenter#PART_ContentPresenter">
+    <Setter Property="CornerRadius" Value="0,0,10,10" />
+    <Setter Property="BorderThickness" Value="1,0,1,1" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+  <Style Selector="ToolChromeControl /template/ TextBlock#PART_Title">
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}" />
+  </Style>
+  <Style Selector="ToolChromeControl:active /template/ TextBlock#PART_Title">
+    <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
+  </Style>
+  <Style Selector="ToolControl /template/ Border#PART_Border">
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="ProportionalStackPanelSplitter">
+    <Setter Property="Thickness" Value="8" />
+  </Style>
+  <Style Selector="ToolTabStripItem">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="ToolTabStripItem:selected">
+    <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <!-- ============ Tree ============ -->
+  <Style Selector="TreeViewItem">
+    <Setter Property="MinHeight" Value="28" />
+  </Style>
+  <Style Selector="TreeViewItem /template/ Border#PART_LayoutRoot">
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Margin" Value="4,1" />
+  </Style>
+  <Style Selector="TreeViewItem:pointerover /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
+  </Style>
+  <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot,
+                   TreeViewItem:selected:pointerover /template/ Border#PART_LayoutRoot,
+                   TreeViewItem:selected:focus /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="{DynamicResource AppSelectionBrush}" />
+  </Style>
+  <Style Selector="TreeViewItem:selected /template/ ContentPresenter#PART_HeaderPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource AppSelectionTextBrush}" />
   </Style>
 
   <!-- Tree row action: visible only while hovering its own row -->
@@ -122,37 +386,50 @@
 
   <!-- Pane splitters: 5px grab area, accent on hover -->
   <Style Selector="GridSplitter">
-    <Setter Property="Background" Value="{DynamicResource SystemControlForegroundBaseLowBrush}" />
+    <Setter Property="Background" Value="{DynamicResource AppBorderBrush}" />
     <Setter Property="MinWidth" Value="5" />
     <Setter Property="MinHeight" Value="5" />
   </Style>
   <Style Selector="GridSplitter:pointerover">
-    <Setter Property="Background" Value="{DynamicResource SystemAccentColor}" />
+    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
   </Style>
 
-  <!-- Grids -->
+  <!-- ============ Grids ============ -->
   <Style Selector="DataGrid">
     <Setter Property="GridLinesVisibility" Value="Horizontal" />
-    <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource SystemControlForegroundBaseLowBrush}" />
+    <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource AppBorderBrush}" />
     <Setter Property="HeadersVisibility" Value="Column" />
     <Setter Property="IsReadOnly" Value="True" />
-    <Setter Property="RowHeight" Value="28" />
-    <Setter Property="ColumnHeaderHeight" Value="30" />
+    <Setter Property="RowHeight" Value="30" />
+    <Setter Property="ColumnHeaderHeight" Value="32" />
     <Setter Property="SelectionMode" Value="Single" />
     <Setter Property="CanUserResizeColumns" Value="True" />
     <Setter Property="CanUserReorderColumns" Value="True" />
     <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
   </Style>
   <Style Selector="DataGridCell">
     <Setter Property="FontSize" Value="13" />
   </Style>
   <Style Selector="DataGridColumnHeader">
-    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Padding" Value="12,0,6,0" />
-    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceAltBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
+    <Setter Property="SeparatorBrush" Value="{DynamicResource AppBorderBrush}" />
   </Style>
-  <Style Selector="TextBlock.cell">
-    <Setter Property="Margin" Value="12,0,8,0" />
+  <!-- The sort-icon column is resized in App.FitColumnHeaders; give the icon its own gap. -->
+  <Style Selector="DataGridColumnHeader /template/ Path#SortIcon">
+    <Setter Property="Margin" Value="4,0,0,0" />
+  </Style>
+  <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="{DynamicResource AppHoverBrush}" />
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="{DynamicResource AppSelectionBrush}" />
+    <Setter Property="Opacity" Value="1" />
   </Style>
   <Style Selector="TextBlock.mono">
     <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
@@ -173,16 +450,65 @@
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
 
+  <!-- Value status as a small pill: green good, amber uncertain, red bad -->
+  <Style Selector="Border.status-badge">
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Padding" Value="7,2,8,2" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Background" Value="#1F22A06B" />
+  </Style>
+  <Style Selector="Border.status-badge TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Foreground" Value="{StaticResource StatusGoodBrush}" />
+  </Style>
+  <Style Selector="Border.status-badge Ellipse">
+    <Setter Property="Fill" Value="{StaticResource StatusGoodBrush}" />
+  </Style>
+  <Style Selector="Border.status-badge.status-uncertain">
+    <Setter Property="Background" Value="#24D97706" />
+  </Style>
+  <Style Selector="Border.status-badge.status-uncertain TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource StatusUncertainBrush}" />
+  </Style>
+  <Style Selector="Border.status-badge.status-uncertain Ellipse">
+    <Setter Property="Fill" Value="{StaticResource StatusUncertainBrush}" />
+  </Style>
+  <Style Selector="Border.status-badge.status-bad">
+    <Setter Property="Background" Value="#24E5484D" />
+  </Style>
+  <Style Selector="Border.status-badge.status-bad TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource StatusBadBrush}" />
+  </Style>
+  <Style Selector="Border.status-badge.status-bad Ellipse">
+    <Setter Property="Fill" Value="{StaticResource StatusBadBrush}" />
+  </Style>
+
   <!-- Insecure option -->
   <Style Selector="CheckBox.insecure:checked">
     <Setter Property="Foreground" Value="{StaticResource StatusUncertainBrush}" />
   </Style>
 
-  <!-- Error banner -->
+  <!-- ============ Banners and status bar ============ -->
   <Style Selector="Border.error-banner">
+    <Setter Property="Margin" Value="8,0,8,8" />
     <Setter Property="Padding" Value="12,8" />
-    <Setter Property="Background" Value="#26E5484D" />
-    <Setter Property="BorderBrush" Value="{StaticResource StatusBadBrush}" />
-    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="CornerRadius" Value="{StaticResource AppCardRadius}" />
+    <Setter Property="Background" Value="#1FE5484D" />
+    <Setter Property="BorderBrush" Value="#66E5484D" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Border.status-bar">
+    <Setter Property="Padding" Value="14,6" />
+    <Setter Property="MinHeight" Value="32" />
+  </Style>
+  <Style Selector="Border.status-chip">
+    <Setter Property="Padding" Value="9,3" />
+    <Setter Property="CornerRadius" Value="11" />
+    <Setter Property="Margin" Value="12,0,0,0" />
+    <Setter Property="Background" Value="{DynamicResource AppChipBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
   </Style>
 </Styles>

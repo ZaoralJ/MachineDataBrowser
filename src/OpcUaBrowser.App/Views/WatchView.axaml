@@ -15,7 +15,7 @@
             <Button.Flyout>
               <Flyout Placement="BottomEdgeAlignedRight">
                 <StackPanel Spacing="2" MinWidth="180">
-                  <TextBlock Classes="pane-title" Text="COLUMNS" Margin="4,0,0,6" />
+                  <TextBlock Classes="pane-title" Text="COLUMNS" Margin="8,0,0,6" />
                   <ItemsControl ItemsSource="{Binding WatchColumns.Columns}">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:WatchColumnOption">
@@ -99,9 +99,17 @@
           </DataGridTemplateColumn>
           <DataGridTemplateColumn Header="Status" Width="110" MinWidth="70" SortMemberPath="Status">
             <DataTemplate DataType="vm:WatchItemViewModel">
-              <TextBlock Classes="cell" Text="{Binding Status}"
-                         Classes.status-bad="{Binding IsBad}"
-                         Classes.status-uncertain="{Binding IsUncertain}" />
+              <Border Classes="status-badge" Margin="10,0,6,0"
+                      IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                      Classes.status-bad="{Binding IsBad}"
+                      Classes.status-uncertain="{Binding IsUncertain}">
+                <StackPanel Orientation="Horizontal" Spacing="5">
+                  <Ellipse Width="6" Height="6" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis"
+                             Classes.status-bad="{Binding IsBad}"
+                             Classes.status-uncertain="{Binding IsUncertain}" />
+                </StackPanel>
+              </Border>
             </DataTemplate>
           </DataGridTemplateColumn>
           <DataGridTemplateColumn Header="Refresh" Width="100" MinWidth="80" SortMemberPath="RefreshMs">

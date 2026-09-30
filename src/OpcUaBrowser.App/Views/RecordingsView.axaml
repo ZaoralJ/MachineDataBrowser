@@ -58,12 +58,12 @@
               <TextBlock Classes="cell" Text="{Binding State}" />
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Elapsed" Width="90" MinWidth="60">
+          <DataGridTemplateColumn Header="Elapsed" Width="90" MinWidth="76">
             <DataTemplate DataType="vm:RecordingViewModel">
               <TextBlock Classes="cell mono" Text="{Binding ElapsedText}" HorizontalAlignment="Right" />
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Samples" Width="90" MinWidth="60">
+          <DataGridTemplateColumn Header="Samples" Width="90" MinWidth="80">
             <DataTemplate DataType="vm:RecordingViewModel">
               <TextBlock Classes="cell mono" Text="{Binding Samples}" HorizontalAlignment="Right" />
             </DataTemplate>
