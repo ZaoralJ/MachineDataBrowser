@@ -60,8 +60,8 @@ class UnsStation:
         self.phase = line * 1.7 + index
         self.good = 0
         self.bad = 0
-        self.state = "Running"
-        self.alarms = []
+        self.state = None  # publish the first state too, even when it is "Running"
+        self.alarms = None
 
     def retained(self, pub, line):
         pub(f"{self.base}/_meta", json.dumps({
