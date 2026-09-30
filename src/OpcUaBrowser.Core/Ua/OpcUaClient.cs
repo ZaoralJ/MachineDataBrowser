@@ -366,16 +366,36 @@ public sealed class OpcUaClient : IDeviceClient
             };
             item.Notification += (monitoredItem, e) =>
             {
-                if (e.NotificationValue is MonitoredItemNotification n && n.Value is { } dv)
+                // Runs on an SDK thread: an exception here would take down the process.
+                if (e.NotificationValue is not MonitoredItemNotification { Value: { } dv })
                 {
-                    onUpdate(new ValueUpdate(
+                    return;
+                }
+
+                ValueUpdate update;
+                try
+                {
+                    update = new ValueUpdate(
                         monitoredItem.StartNodeId,
                         ValueFormatter.Format(dv.WrappedValue),
                         dv.StatusCode,
                         dv.SourceTimestamp,
                         dv.ServerTimestamp,
                         ValueFormatter.ToNumeric(dv.WrappedValue),
-                        dv.WrappedValue.Value));
+                        dv.WrappedValue.Value);
+                }
+                catch (Exception ex) when (Errors.IsRecoverable(ex))
+                {
+                    update = new ValueUpdate(monitoredItem.StartNodeId, $"<cannot display value: {ex.Message}>", StatusCodes.BadDecodingError, dv.SourceTimestamp, dv.ServerTimestamp);
+                }
+
+                try
+                {
+                    onUpdate(update);
+                }
+                catch (Exception ex) when (Errors.IsRecoverable(ex))
+                {
+                    System.Diagnostics.Trace.TraceError($"Value update handler failed: {ex}");
                 }
             };
             return item;
@@ -511,12 +531,37 @@ public sealed class OpcUaClient : IDeviceClient
             return;
         }
 
-        State = ConnectionState.Reconnecting;
-        _reconnectHandler = new SessionReconnectHandler(Telemetry, true, 30_000);
-        _reconnectHandler.BeginReconnect(session, 1_000, OnReconnectComplete);
+        // SDK thread: a failure to start reconnecting must leave the client disconnected, not crash the app.
+        try
+        {
+            State = ConnectionState.Reconnecting;
+            _reconnectHandler = new SessionReconnectHandler(Telemetry, true, 30_000);
+            _reconnectHandler.BeginReconnect(session, 1_000, OnReconnectComplete);
+        }
+        catch (Exception ex) when (Errors.IsRecoverable(ex))
+        {
+            System.Diagnostics.Trace.TraceError($"Reconnect could not start: {ex}");
+            _reconnectHandler?.Dispose();
+            _reconnectHandler = null;
+            State = ConnectionState.Disconnected;
+        }
     }
 
     private void OnReconnectComplete(object? sender, EventArgs e)
+    {
+        try
+        {
+            CompleteReconnect();
+        }
+        catch (Exception ex) when (Errors.IsRecoverable(ex))
+        {
+            System.Diagnostics.Trace.TraceError($"Reconnect failed: {ex}");
+            _reconnectHandler = null;
+            State = ConnectionState.Disconnected;
+        }
+    }
+
+    private void CompleteReconnect()
     {
         var handler = _reconnectHandler;
         if (handler is null)
@@ -559,11 +604,20 @@ public sealed class OpcUaClient : IDeviceClient
             {
                 await session.CloseAsync().ConfigureAwait(false);
             }
-            catch (ServiceResultException) when (!session.Connected)
+            catch (Exception ex) when (Errors.IsRecoverable(ex))
             {
+                // Closing a session whose server is gone fails; the local session is disposed either way.
+                System.Diagnostics.Trace.TraceWarning($"Session close failed: {ex.Message}");
             }
 
-            session.Dispose();
+            try
+            {
+                session.Dispose();
+            }
+            catch (Exception ex) when (Errors.IsRecoverable(ex))
+            {
+                System.Diagnostics.Trace.TraceWarning($"Session dispose failed: {ex.Message}");
+            }
         }
 
         State = ConnectionState.Disconnected;

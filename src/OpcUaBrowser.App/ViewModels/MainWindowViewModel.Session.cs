@@ -114,7 +114,7 @@ public sealed partial class MainWindowViewModel
         {
             document = await SessionDocument.LoadAsync(path);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or System.Text.Json.JsonException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ErrorMessage = $"Could not open session: {ex.Message}";
             return;
@@ -157,7 +157,7 @@ public sealed partial class MainWindowViewModel
             {
                 resolved.Add((_client.ParsePortableId(entry.NodeId), entry.DisplayName, entry.RefreshMs ?? DefaultRefreshMs));
             }
-            catch (ServiceResultException)
+            catch (Exception parseError) when (AppErrors.IsRecoverable(parseError))
             {
                 unresolved.Add(entry.DisplayName);
             }
@@ -220,7 +220,7 @@ public sealed partial class MainWindowViewModel
             UpdateSettings(Settings.WithRecentSession(path));
             StatusMessage = $"Saved {DocumentName}";
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ErrorMessage = $"Could not save session: {ex.Message}";
         }
@@ -247,7 +247,7 @@ public sealed partial class MainWindowViewModel
             await File.WriteAllTextAsync(path, csv.ToString());
             StatusMessage = $"Exported {WatchItems.Count} item(s) to {Path.GetFileName(path)}";
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ErrorMessage = $"Export failed: {ex.Message}";
         }
@@ -256,7 +256,10 @@ public sealed partial class MainWindowViewModel
     }
 
     [RelayCommand(CanExecute = nameof(HasWatchItemsToExport))]
-    private async Task ClearWatchAsync() => await StopAllMonitorsAsync();
+    private async Task ClearWatchAsync()
+    {
+        await RemoveWatchItemsAsync([.. WatchItems]);
+    }
 
     public static readonly double[] ZoomSteps = [0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0];
 

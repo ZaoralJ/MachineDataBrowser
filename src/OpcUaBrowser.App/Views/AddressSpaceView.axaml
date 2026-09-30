@@ -25,12 +25,9 @@
       <TreeView ItemsSource="{Binding RootNodes}" SelectedItem="{Binding SelectedNode}"
                 SelectionMode="Multiple" SelectionChanged="OnTreeSelectionChanged"
                 x:Name="AddressTree" Tapped="OnTreeTapped" AutomationProperties.Name="Address space">
-        <TreeView.KeyBindings>
-          <KeyBinding Gesture="Enter" Command="{Binding AddToWatchCommand}" />
-        </TreeView.KeyBindings>
         <TreeView.ContextMenu>
           <ContextMenu>
-            <MenuItem Header="Monitor selected variables" Command="{Binding AddToWatchCommand}" InputGesture="Enter">
+            <MenuItem Header="Monitor selected variables" Command="{Binding AddToWatchCommand}">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconMonitor}" /></MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Monitor with refresh time" IsEnabled="{Binding IsConnected}">

@@ -37,6 +37,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         Layout = layoutStore?.TryLoad(DockFactory) ?? DockFactory.CreateLayout();
 
         _client.StateChanged += OnClientStateChanged;
+        AppErrors.Reported += OnAppError;
         _flushTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (_, _) => FlushUpdates());
         _flushTimer.Start();
 
@@ -49,7 +50,27 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             NewRecordingCommand.NotifyCanExecuteChanged();
             RecordAllCommand.NotifyCanExecuteChanged();
             ExportWatchCsvCommand.NotifyCanExecuteChanged();
+            UpdateRecordingFlags();
             MarkDirty();
+        };
+        Recordings.CollectionChanged += (_, e) =>
+        {
+            foreach (var added in e.NewItems?.OfType<RecordingViewModel>() ?? [])
+            {
+                added.PropertyChanged += (_, p) =>
+                {
+                    if (p.PropertyName == nameof(RecordingViewModel.State))
+                    {
+                        UpdateRecordingFlags();
+                    }
+                    else if (p.PropertyName == nameof(RecordingViewModel.Samples))
+                    {
+                        UpdateRecordedCounts();
+                    }
+                };
+            }
+
+            UpdateRecordingFlags();
         };
         WatchColumns.Changed += (_, _) => MarkDirty();
         SelectedWatchItems.CollectionChanged += (_, _) =>
@@ -92,7 +113,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         old.StateChanged -= OnClientStateChanged;
         _client = DeviceClient.Create(endpointUrl);
         _client.StateChanged += OnClientStateChanged;
-        await old.DisposeAsync();
+        await Task.Run(() => old.DisposeAsync().AsTask());
     }
 
     public DockFactory DockFactory => _dockFactory ??= new DockFactory(this);
@@ -161,7 +182,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             {
                 _layoutStore?.Save(layout);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or NotSupportedException or ArgumentException)
+            catch (Exception ex) when (AppErrors.IsRecoverable(ex))
             {
                 ReportError(ex);
             }
@@ -279,14 +300,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         try
         {
             await EnsureClientForAsync(EndpointUrl);
-            await _client.ConnectAsync(new ConnectOptions
+            var options = new ConnectOptions
             {
                 EndpointUrl = EndpointUrl.Trim(),
                 UseSecurity = UseSecurity,
                 AutoAcceptUntrustedCertificates = AutoAcceptCertificates,
                 UserName = string.IsNullOrWhiteSpace(UserName) ? null : UserName,
                 Password = Password,
-            });
+            };
+
+            // The SDKs do synchronous work while connecting (endpoint discovery, certificates, type system,
+            // libplctag tag creation); run it on the pool so the window stays responsive.
+            var client = _client;
+            await Task.Run(() => client.ConnectAsync(options));
 
             RootNodes.Clear();
             var root = new NodeViewModel(
@@ -301,7 +327,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             StatusMessage = $"Connected to {_client.ServerUri ?? EndpointUrl}";
             UpdateSettings(Settings.WithRecentEndpoint(EndpointUrl.Trim()));
         }
-        catch (Exception ex) when (ex is ServiceResultException or IOException or UriFormatException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             State = _client.State;
             StatusMessage = "Not connected";
@@ -316,12 +342,33 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     [RelayCommand(CanExecute = nameof(IsConnected))]
     private async Task DisconnectAsync()
     {
-        await StopAllMonitorsAsync();
-        await _client.DisconnectAsync();
-        State = _client.State;
-        RootNodes.Clear();
-        Attributes.Clear();
-        StatusMessage = "Disconnected";
+        IsBusy = true;
+        _disconnecting = true;
+        StatusMessage = "Disconnecting…";
+        try
+        {
+            await StopAllMonitorsAsync();
+            var client = _client;
+            await Task.Run(client.DisconnectAsync);
+            State = _client.State;
+            RootNodes.Clear();
+            Attributes.Clear();
+            StatusMessage = "Disconnected";
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            // The session is unusable either way; show why and leave the UI disconnected.
+            ReportError(ex);
+            State = ConnectionState.Disconnected;
+            RootNodes.Clear();
+            Attributes.Clear();
+            StatusMessage = "Disconnected";
+        }
+        finally
+        {
+            _disconnecting = false;
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]
@@ -340,6 +387,53 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     [RelayCommand(CanExecute = nameof(CanAddToWatch))]
     private Task MonitorSelectedWithRefreshAsync(int refreshMs) =>
         AddWatchItemsAsync(SelectionOrCurrent().Where(n => n.IsVariable).Select(n => (n.NodeId, n.DisplayName)).ToList(), refreshMs);
+
+    /// <summary>Raised with the items the Watch grid should select (the grid owns the multi-selection).</summary>
+    public event EventHandler<IReadOnlyList<WatchItemViewModel>>? WatchSelectionRequested;
+
+    /// <summary>Selects watch items without a recent update (see <see cref="WatchItemViewModel.IsStale"/>).</summary>
+    [RelayCommand]
+    private void SelectStale() => SelectWatchItems(i => i.IsStale, "stale");
+
+    /// <summary>Selects watch items whose latest status is Bad.</summary>
+    [RelayCommand]
+    private void SelectBad() => SelectWatchItems(i => i.IsBad, "bad");
+
+    /// <summary>Selects watch items that are stale or Bad.</summary>
+    [RelayCommand]
+    private void SelectStaleOrBad() => SelectWatchItems(i => i.IsStale || i.IsBad, "stale or bad");
+
+    /// <summary>Removes stale watch items (double-click on the stale toolbar button).</summary>
+    [RelayCommand]
+    private Task RemoveStaleAsync() => RemoveMatchingAsync(i => i.IsStale, "stale");
+
+    /// <summary>Removes watch items with Bad status (double-click on the bad toolbar button).</summary>
+    [RelayCommand]
+    private Task RemoveBadAsync() => RemoveMatchingAsync(i => i.IsBad, "bad");
+
+    private async Task RemoveMatchingAsync(Func<WatchItemViewModel, bool> predicate, string kind)
+    {
+        var items = WatchItems.Where(predicate).ToList();
+        await RemoveWatchItemsAsync(items);
+        StatusMessage = items.Count switch
+        {
+            0 => $"No {kind} values",
+            1 => $"Removed 1 {kind} value from watch",
+            _ => $"Removed {items.Count} {kind} values from watch",
+        };
+    }
+
+    private void SelectWatchItems(Func<WatchItemViewModel, bool> predicate, string kind)
+    {
+        var items = WatchItems.Where(predicate).ToList();
+        StatusMessage = items.Count switch
+        {
+            0 => $"No {kind} values",
+            1 => $"1 {kind} value selected",
+            _ => $"{items.Count} {kind} values selected",
+        };
+        WatchSelectionRequested?.Invoke(this, items);
+    }
 
     [RelayCommand(CanExecute = nameof(HasSelectedWatchItem))]
     private async Task SetRefreshAsync(int refreshMs)
@@ -377,7 +471,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             MarkDirty();
             StatusMessage = $"Refresh time {FormatRefresh(refreshMs)} for {items.Count} item(s)";
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -439,7 +533,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 ? $"Monitoring limited to the first {maxCount} variables"
                 : $"Found {variables.Count} variable(s)";
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -511,7 +605,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 ErrorMessage = $"{rejected.Count} item(s) could not be monitored, e.g. {byNodeId[rejected[0].NodeId].DisplayName}: {rejected[0].Error.StatusCode.SymbolicId}";
             }
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             foreach (var item in items)
             {
@@ -582,14 +676,63 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         {
             await DeviceClient.StopMonitoringAsync(items.Select(i => i.Monitor).OfType<IAsyncDisposable>());
         }
-        catch (ServiceResultException ex)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
 
-        if (items.Count > 1)
+        StatusMessage = items.Count == 1 ? "Removed 1 item from watch" : $"Removed {items.Count} items from watch";
+        if (WatchItems.Count == 0)
         {
-            StatusMessage = $"Removed {items.Count} items from watch";
+            await AskAboutActiveRecordingsAsync();
+        }
+    }
+
+    /// <summary>
+    /// Recordings monitor their items independently of the watch list, so emptying the list leaves them running.
+    /// Ask whether to stop (keep history) or close (discard) them.
+    /// </summary>
+    private async Task AskAboutActiveRecordingsAsync()
+    {
+        var active = Recordings.Where(r => r.Recording.State is RecordingState.Recording or RecordingState.Paused or RecordingState.Scheduled).ToList();
+        if (active.Count == 0 || Dialogs is null)
+        {
+            return;
+        }
+
+        try
+        {
+            switch (await Dialogs.AskActiveRecordingsAsync(active.Count))
+            {
+                case ActiveRecordingsChoice.Stop:
+                    foreach (var recording in active)
+                    {
+                        var r = recording.Recording;
+                        await Task.Run(() => r.StopAsync());
+                        recording.Refresh();
+                    }
+
+                    StatusMessage = active.Count == 1 ? "Watch list cleared; recording stopped" : $"Watch list cleared; {active.Count} recordings stopped";
+                    break;
+                case ActiveRecordingsChoice.Close:
+                    foreach (var recording in active)
+                    {
+                        Recordings.Remove(recording);
+                        await recording.DisposeAsync();
+                    }
+
+                    SelectedRecording = Recordings.LastOrDefault();
+                    NotifyRecordingCommands();
+                    StatusMessage = active.Count == 1 ? "Watch list cleared; recording closed" : $"Watch list cleared; {active.Count} recordings closed";
+                    break;
+                default:
+                    StatusMessage = "Watch list cleared; recordings keep running";
+                    break;
+            }
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            ReportError(ex);
         }
     }
 
@@ -618,7 +761,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 ? $"Expanded {ExpandAllMaxDepth} levels (limit reached — expand deeper nodes individually)"
                 : "Expanded all";
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -686,7 +829,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             RevealRequested?.Invoke(this, node);
             StatusMessage = $"Selected {target.DisplayName} in address space";
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -737,7 +880,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             var trees = NodeExport.ComposeSelection(selections);
             await CopyAsync(format(trees));
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -785,15 +928,45 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     partial void OnSelectedNodeChanged(NodeViewModel? value) => _ = LoadAttributesAsync(value);
 
-    public async ValueTask DisposeAsync()
+    private Task? _shutdown;
+
+    public void ShowShutdownProgress()
+    {
+        IsBusy = true;
+        StatusMessage = Recordings.Count > 0 || IsConnected ? "Quitting: stopping recordings and closing the session…" : "Quitting…";
+    }
+
+    /// <summary>Graceful, idempotent shutdown used on quit (and by <see cref="DisposeAsync"/>).</summary>
+    public Task ShutdownAsync() => _shutdown ??= DisposeCoreAsync();
+
+    public ValueTask DisposeAsync() => new(ShutdownAsync());
+
+    private async Task DisposeCoreAsync()
     {
         _flushTimer.Stop();
+        AppErrors.Reported -= OnAppError;
+
+        // Shutdown must not fail because a server is gone or a recording file is locked.
         foreach (var recording in Recordings.ToList())
         {
-            await recording.DisposeAsync();
+            try
+            {
+                await recording.DisposeAsync();
+            }
+            catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+            {
+                AppErrors.Log(ex, "closing recording");
+            }
         }
 
-        await _client.DisposeAsync();
+        try
+        {
+            await _client.DisposeAsync();
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            AppErrors.Log(ex, "closing connection");
+        }
     }
 
     private Task<IReadOnlyList<BrowseItem>> Browse(NodeId nodeId) => _client.BrowseAsync(nodeId);
@@ -821,7 +994,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             {
                 await monitor.DisposeAsync();
             }
-            catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+            catch (Exception ex) when (AppErrors.IsRecoverable(ex))
             {
                 ReportError(ex);
             }
@@ -839,7 +1012,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         SetAttribute("StatusCode", update.Status.SymbolicId ?? update.Status.ToString());
         if (update.SourceTimestamp != DateTime.MinValue)
         {
-            SetAttribute("SourceTimestamp", update.SourceTimestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture));
+            SetAttribute("SourceTimestamp", Timestamps.Format(update.SourceTimestamp));
         }
     });
 
@@ -907,7 +1080,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 }
             }
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -946,29 +1119,51 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         _pendingUpdates.Clear();
         try
         {
-            await DeviceClient.StopMonitoringAsync(items.Select(i => i.Monitor).OfType<IAsyncDisposable>());
+            var monitors = items.Select(i => i.Monitor).OfType<IAsyncDisposable>().ToList();
+            await Task.Run(() => DeviceClient.StopMonitoringAsync(monitors));
         }
-        catch (ServiceResultException ex)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
     }
 
+    private const string ConnectionLostMessage = "Connection lost. Reconnecting…";
+
+    /// <summary>Set while the user disconnects, so the resulting Disconnected state is not reported as a failure.</summary>
+    private bool _disconnecting;
+
     private void HandleClientState(ConnectionState state)
     {
+        var previous = State;
         State = state;
         if (state == ConnectionState.Reconnecting)
         {
             StatusMessage = "Connection lost, reconnecting…";
+            ErrorMessage = ConnectionLostMessage;
         }
-        else if (state == ConnectionState.Connected && StatusMessage.StartsWith("Connection lost", StringComparison.Ordinal))
+        else if (state == ConnectionState.Connected && previous == ConnectionState.Reconnecting)
         {
             StatusMessage = "Reconnected";
+            if (ErrorMessage == ConnectionLostMessage)
+            {
+                ErrorMessage = null;
+            }
+        }
+        else if (state == ConnectionState.Disconnected && previous is ConnectionState.Connected or ConnectionState.Reconnecting && !_disconnecting)
+        {
+            StatusMessage = "Disconnected";
+            ErrorMessage = "Connection lost and could not be restored. Connect again to continue.";
         }
     }
 
-    private void ReportError(Exception ex) =>
-        Dispatcher.UIThread.Post(() => ErrorMessage = ex is ServiceResultException sre
-            ? $"{sre.Result.StatusCode.SymbolicId}: {sre.Message}"
-            : ex.Message);
+    private void ReportError(Exception ex)
+    {
+        AppErrors.Log(ex);
+        var message = AppErrors.Describe(ex);
+        Dispatcher.UIThread.Post(() => ErrorMessage = message);
+    }
+
+    /// <summary>Errors caught by the global handlers (<see cref="AppErrors"/>) land in the same error bar.</summary>
+    private void OnAppError(object? sender, string message) => ErrorMessage = message;
 }

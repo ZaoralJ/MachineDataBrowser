@@ -50,6 +50,34 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
     [ObservableProperty]
     public partial int UpdateCount { get; private set; }
 
+    /// <summary>A recording is capturing this item right now (recording, paused or scheduled).</summary>
+    [ObservableProperty]
+    public partial bool IsRecording { get; private set; }
+
+    /// <summary>At least one open recording contains this item, so its recorded values can be shown.</summary>
+    [ObservableProperty]
+    public partial bool HasRecording { get; private set; }
+
+    [ObservableProperty]
+    public partial string RecordingToolTip { get; private set; } = string.Empty;
+
+    /// <summary>Samples of this item in the newest recording that contains it (the one "Show recorded values" opens).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RecordedText))]
+    public partial int RecordedSamples { get; private set; }
+
+    public string RecordedText => HasRecording ? RecordedSamples.ToString("N0", System.Globalization.CultureInfo.CurrentCulture) : string.Empty;
+
+    public void SetRecordedSamples(int count) => RecordedSamples = count;
+
+    public void SetRecordings(IReadOnlyList<(string Name, RecordingState State)> recordings)
+    {
+        HasRecording = recordings.Count > 0;
+        OnPropertyChanged(nameof(RecordedText));
+        IsRecording = recordings.Any(r => r.State is RecordingState.Recording or RecordingState.Paused or RecordingState.Scheduled);
+        RecordingToolTip = string.Join('\n', recordings.Select(r => $"{r.Name}: {r.State}"));
+    }
+
     public DateTimeOffset? LastUpdate { get; private set; }
 
     public object? RawValue { get; private set; }
@@ -83,7 +111,7 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
         LastUpdate = receivedAt;
         RawValue = update.Raw;
         UpdateCount++;
-        LastUpdateText = receivedAt.ToString("HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture);
+        LastUpdateText = Timestamps.Format(receivedAt);
         RefreshAge(receivedAt);
         Value = update.Value;
         Status = update.Status.SymbolicId ?? update.Status.ToString();
@@ -91,6 +119,6 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
         IsUncertain = StatusCode.IsUncertain(update.Status);
         SourceTimestamp = update.SourceTimestamp == DateTime.MinValue
             ? string.Empty
-            : update.SourceTimestamp.ToLocalTime().ToString("HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture);
+            : Timestamps.Format(update.SourceTimestamp);
     }
 }

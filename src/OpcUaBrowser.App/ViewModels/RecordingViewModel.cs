@@ -30,8 +30,8 @@ public sealed partial class RecordingViewModel : ObservableObject, IAsyncDisposa
             var o = Recording.Options;
             var parts = new List<string> { $"{ItemCount} item(s)", MainWindowViewModel.FormatRefresh((int)o.SamplingIntervalMs) };
             if (o.MaxAge is { } age) parts.Add($"keep {age:g}");
-            if (Recording.PlannedStopAt is { } stop) parts.Add($"stops {stop.ToLocalTime():HH:mm:ss}");
-            else if (o.ScheduledStart is { } start && Recording.State == RecordingState.Scheduled) parts.Add($"starts {start.ToLocalTime():HH:mm:ss}");
+            if (Recording.PlannedStopAt is { } stop) parts.Add($"stops {Timestamps.FormatSeconds(stop)}");
+            else if (o.ScheduledStart is { } start && Recording.State == RecordingState.Scheduled) parts.Add($"starts {Timestamps.FormatSeconds(start)}");
             if (o.LiveFilePath is { } file) parts.Add($"→ {Path.GetFileName(file)}");
             return string.Join(" · ", parts);
         }
@@ -45,6 +45,9 @@ public sealed partial class RecordingViewModel : ObservableObject, IAsyncDisposa
 
     [ObservableProperty]
     public partial long Samples { get; private set; }
+
+    [ObservableProperty]
+    public partial long Received { get; private set; }
 
     [ObservableProperty]
     public partial string? LastError { get; private set; }
@@ -61,12 +64,16 @@ public sealed partial class RecordingViewModel : ObservableObject, IAsyncDisposa
     {
         State = Recording.State;
         ElapsedText = Recording.Elapsed.ToString(@"h\:mm\:ss", System.Globalization.CultureInfo.InvariantCulture);
-        Samples = Recording.TotalSamples;
+        // The history the recording actually keeps (bounded by max points per item / age), not everything received.
+        Samples = Recording.KeptSamples;
+        Received = Recording.TotalSamples;
         OnPropertyChanged(nameof(CanStart));
         OnPropertyChanged(nameof(CanPause));
         OnPropertyChanged(nameof(CanResume));
         OnPropertyChanged(nameof(CanStop));
         OnPropertyChanged(nameof(Details));
+        OnPropertyChanged(nameof(ItemCount));
+        OnPropertyChanged(nameof(Name));
     }
 
     public async ValueTask DisposeAsync()

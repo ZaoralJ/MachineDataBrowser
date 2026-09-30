@@ -191,7 +191,8 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
         var path = Path.Combine(_dir, "columns.opcsession");
         await using (var vm = new MainWindowViewModel { EndpointUrl = plc.EndpointUrl })
         {
-            var window = new MainWindow { DataContext = vm };
+            // Wide enough for every column at its saved width; a narrow grid squeezes columns to their minimum.
+            var window = new MainWindow { DataContext = vm, Width = 2000, Height = 900 };
             window.Show();
             Dispatcher.UIThread.RunJobs();
             var grid = window.GetVisualDescendants().OfType<Avalonia.Controls.DataGrid>().Single(g => g.Name == "WatchGrid");
@@ -210,7 +211,7 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
         }
 
         await using var reopened = new MainWindowViewModel();
-        var w2 = new MainWindow { DataContext = reopened };
+        var w2 = new MainWindow { DataContext = reopened, Width = 2000, Height = 900 };
         w2.Show();
         await reopened.LoadSessionAsync(path);
         Dispatcher.UIThread.RunJobs();

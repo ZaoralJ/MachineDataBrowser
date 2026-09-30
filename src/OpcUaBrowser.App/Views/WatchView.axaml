@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:OpcUaBrowser.App.Views"
              xmlns:vm="using:OpcUaBrowser.App.ViewModels"
              xmlns:core="using:OpcUaBrowser.Core"
              xmlns:conv="using:OpcUaBrowser.App.Converters"
@@ -30,6 +31,16 @@
               </Flyout>
             </Button.Flyout>
           </Button>
+          <Button Classes="icon-only" Command="{Binding SelectStaleCommand}" DoubleTapped="OnRemoveStaleDoubleTapped"
+                  AutomationProperties.Name="Select stale values"
+                  ToolTip.Tip="Select stale values: items without an update for 5× their refresh time (at least 5 s), or never updated. Double-click removes them.">
+            <PathIcon Data="{StaticResource IconStale}" />
+          </Button>
+          <Button Classes="icon-only" Command="{Binding SelectBadCommand}" DoubleTapped="OnRemoveBadDoubleTapped"
+                  AutomationProperties.Name="Select bad values"
+                  ToolTip.Tip="Select bad values: items whose latest status is Bad. Double-click removes them.">
+            <PathIcon Data="{StaticResource IconError}" />
+          </Button>
           <Button Classes="icon-only" Command="{Binding AddToWatchCommand}"
                   AutomationProperties.Name="Add selected node to watch"
                   ToolTip.Tip="Add selected variable (Enter or double-click in tree)">
@@ -40,6 +51,11 @@
                   ToolTip.Tip="Remove selected items (Delete). Cmd/Ctrl- or Shift-click to select several.">
             <PathIcon Data="{StaticResource IconRemove}" />
           </Button>
+          <Button Classes="icon-only" Command="{Binding ClearWatchCommand}"
+                  AutomationProperties.Name="Remove all from watch"
+                  ToolTip.Tip="Remove all items from the watch list">
+            <PathIcon Data="{StaticResource IconClearAll}" />
+          </Button>
         </StackPanel>
       </DockPanel>
     </Border>
@@ -47,13 +63,6 @@
       <DataGrid x:Name="WatchGrid" DoubleTapped="OnRowDoubleTapped" DragDrop.AllowDrop="True" Background="Transparent" ItemsSource="{Binding WatchItems}" SelectedItem="{Binding SelectedWatchItem}"
                 SelectionMode="Extended" SelectionChanged="OnWatchSelectionChanged"
                 AutomationProperties.Name="Watch list">
-        <DataGrid.KeyBindings>
-          <KeyBinding Gesture="Delete" Command="{Binding RemoveFromWatchCommand}" />
-          <KeyBinding Gesture="Enter" Command="{Binding RevealInTreeCommand}" />
-          <KeyBinding Gesture="Ctrl+Shift+C" Command="{Binding CopyWatchJsonCommand}" />
-          <KeyBinding Gesture="Meta+Shift+C" Command="{Binding CopyWatchJsonCommand}" />
-          <KeyBinding Gesture="Back" Command="{Binding RemoveFromWatchCommand}" />
-        </DataGrid.KeyBindings>
         <DataGrid.ContextMenu>
           <ContextMenu>
               <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Refresh time{0}'}" IsEnabled="{Binding IsConnected}">
@@ -72,32 +81,68 @@
               <MenuItem.Icon><PathIcon Data="{StaticResource IconRecord}" /></MenuItem.Icon>
             </MenuItem>
             <MenuItem Header="Record all monitored…" Command="{Binding RecordAllCommand}" />
+            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Add to recording{0}'}" ItemsSource="{Binding Recordings}"
+                      IsEnabled="{Binding !!Recordings.Count}"
+                      ToolTip.Tip="Record the selected rows in an existing recording too; a running recording starts capturing them at once">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconRecord}" /></MenuItem.Icon>
+              <MenuItem.Styles>
+                <Style Selector="MenuItem > MenuItem" x:DataType="vm:RecordingViewModel">
+                  <Setter Property="Header" Value="{Binding Name}" />
+                  <Setter Property="Command" Value="{Binding $parent[ContextMenu].((vm:MainWindowViewModel)DataContext).AddToRecordingCommand}" />
+                  <Setter Property="CommandParameter" Value="{Binding}" />
+                </Style>
+              </MenuItem.Styles>
+            </MenuItem>
+            <MenuItem Header="Show recorded values" Command="{Binding ViewItemRecordingCommand}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconChart}" /></MenuItem.Icon>
+            </MenuItem>
             <Separator />
-            <MenuItem Header="Show in address space" Command="{Binding RevealInTreeCommand}" InputGesture="Enter" />
+            <MenuItem Header="Show in address space" Command="{Binding RevealInTreeCommand}" />
+            <MenuItem Header="Select">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconStale}" /></MenuItem.Icon>
+              <MenuItem Header="Stale values" Command="{Binding SelectStaleCommand}" />
+              <MenuItem Header="Bad values" Command="{Binding SelectBadCommand}" />
+              <MenuItem Header="Stale or bad values" Command="{Binding SelectStaleOrBadCommand}" />
+            </MenuItem>
             <Separator />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy value{0}'}" Command="{Binding CopyWatchValueCommand}" />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy NodeId{0}'}" Command="{Binding CopyWatchNodeIdCommand}" />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy values as JSON{0}'}" Command="{Binding CopyWatchValuesJsonCommand}" ToolTip.Tip="Typed values only: one value, or an object keyed by name" />
-            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy as JSON{0}'}" Command="{Binding CopyWatchJsonCommand}" InputGesture="Meta+Shift+C" />
+            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy as JSON{0}'}" Command="{Binding CopyWatchJsonCommand}" />
             <Separator />
-            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Remove selected{0}'}" Command="{Binding RemoveFromWatchCommand}" InputGesture="Delete">
+            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Remove selected{0}'}" Command="{Binding RemoveFromWatchCommand}">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconRemove}" /></MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Remove all" Command="{Binding ClearWatchCommand}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconClearAll}" /></MenuItem.Icon>
             </MenuItem>
           </ContextMenu>
         </DataGrid.ContextMenu>
         <DataGrid.Columns>
-          <DataGridTemplateColumn Header="Name" Width="190" MinWidth="80" SortMemberPath="DisplayName">
+          <DataGridTemplateColumn Header="Name" views:GridCopy.Member="DisplayName" Width="190" MinWidth="80" SortMemberPath="DisplayName">
             <DataTemplate DataType="vm:WatchItemViewModel">
-              <TextBlock Classes="cell" Text="{Binding DisplayName}" ToolTip.Tip="{Binding NodeIdText}" />
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Classes="icon-only row-history" IsVisible="{Binding HasRecording}"
+                        Command="{Binding $parent[DataGrid].((vm:MainWindowViewModel)DataContext).ViewItemRecordingCommand}"
+                        CommandParameter="{Binding}"
+                        AutomationProperties.Name="Show recorded values"
+                        ToolTip.Tip="Show recorded values (with a trend chart for numbers)">
+                  <PathIcon Data="{StaticResource IconChart}" />
+                </Button>
+                <PathIcon DockPanel.Dock="Right" Classes="recording-dot" Data="{StaticResource IconRecord}"
+                          Width="10" Height="10" Margin="0,0,4,0" IsVisible="{Binding IsRecording}"
+                          ToolTip.Tip="{Binding RecordingToolTip}" AutomationProperties.Name="Recorded" />
+                <TextBlock Classes="cell" Text="{Binding DisplayName}" ToolTip.Tip="{Binding NodeIdText}" />
+              </DockPanel>
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="NodeId" Width="210" MinWidth="80" SortMemberPath="NodeIdText">
+          <DataGridTemplateColumn Header="NodeId" views:GridCopy.Member="NodeIdText" Width="210" MinWidth="80" SortMemberPath="NodeIdText">
             <DataTemplate DataType="vm:WatchItemViewModel">
               <TextBlock Classes="cell mono" Text="{Binding NodeIdText}"
                          Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Status" Width="110" MinWidth="70" SortMemberPath="Status">
+          <DataGridTemplateColumn Header="Status" views:GridCopy.Member="Status" Width="110" MinWidth="70" SortMemberPath="Status">
             <DataTemplate DataType="vm:WatchItemViewModel">
               <Border Classes="status-badge" Margin="10,0,6,0"
                       IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
@@ -112,19 +157,19 @@
               </Border>
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Refresh" Width="100" MinWidth="80" SortMemberPath="RefreshMs">
+          <DataGridTemplateColumn Header="Refresh" views:GridCopy.Member="RefreshText" Width="100" MinWidth="80" SortMemberPath="RefreshMs">
             <DataTemplate DataType="vm:WatchItemViewModel">
               <TextBlock Classes="cell mono" Text="{Binding RefreshText}" HorizontalAlignment="Right"
                          ToolTip.Tip="Sampling/publishing interval. Right-click to change." />
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Last update" Width="136" MinWidth="110" SortMemberPath="LastUpdate">
+          <DataGridTemplateColumn Header="Last update" views:GridCopy.Member="LastUpdateText" Width="136" MinWidth="110" SortMemberPath="LastUpdate">
             <DataTemplate DataType="vm:WatchItemViewModel">
               <TextBlock Classes="cell mono" Text="{Binding LastUpdateText}" HorizontalAlignment="Right"
                          ToolTip.Tip="Local time the latest notification arrived" />
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Since" Width="112" MinWidth="80" SortMemberPath="LastUpdate">
+          <DataGridTemplateColumn Header="Since" views:GridCopy.Member="SinceText" Width="112" MinWidth="80" SortMemberPath="LastUpdate">
             <DataTemplate DataType="vm:WatchItemViewModel">
               <TextBlock Classes="cell" Text="{Binding SinceText}" HorizontalAlignment="Right"
                          Classes.status-uncertain="{Binding IsStale}">
@@ -137,12 +182,18 @@
               </TextBlock>
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Source time" Width="130" MinWidth="70">
+          <DataGridTemplateColumn Header="Recorded" views:GridCopy.Member="RecordedText" Width="100" MinWidth="86" SortMemberPath="RecordedSamples">
+            <DataTemplate DataType="vm:WatchItemViewModel">
+              <TextBlock Classes="cell mono" Text="{Binding RecordedText}" HorizontalAlignment="Right"
+                         ToolTip.Tip="Samples in the newest recording of this item. Double-click the row to show them." />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Source time" views:GridCopy.Member="SourceTimestamp" Width="136" MinWidth="110">
             <DataTemplate DataType="vm:WatchItemViewModel">
               <TextBlock Classes="cell mono" Text="{Binding SourceTimestamp}" HorizontalAlignment="Right" />
             </DataTemplate>
           </DataGridTemplateColumn>
-          <DataGridTemplateColumn Header="Value" Width="*" MinWidth="120">
+          <DataGridTemplateColumn Header="Value" views:GridCopy.Member="Value" Width="*" MinWidth="120">
             <DataTemplate DataType="vm:WatchItemViewModel">
               <TextBlock Classes="cell mono" Text="{Binding Value}" ToolTip.Tip="{Binding Value}" />
             </DataTemplate>

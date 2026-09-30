@@ -788,6 +788,12 @@ public sealed class CipClient : IDeviceClient
                     status = ToStatus(ex);
                     ok = status != StatusCodes.BadCommunicationError && status != StatusCodes.BadTimeout;
                 }
+                catch (Exception ex) when (ex is not OperationCanceledException and not ObjectDisposedException && Errors.IsRecoverable(ex))
+                {
+                    // Decoding or libplctag surprises must not stop the poll loop for every other tag.
+                    System.Diagnostics.Trace.TraceError($"Polling {entry.Item.Path} failed: {ex}");
+                    status = StatusCodes.BadUnexpectedError;
+                }
 
                 if (status == entry.LastStatus && (data is null || data.AsSpan().SequenceEqual(entry.LastData)))
                 {

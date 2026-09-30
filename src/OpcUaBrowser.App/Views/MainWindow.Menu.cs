@@ -13,6 +13,7 @@ public sealed partial class MainWindow
     private readonly NativeMenu _recentEndpointsMenu = new();
     private readonly Dictionary<ThemePreference, NativeMenuItem> _themeItems = [];
     private MainWindowViewModel? _menuViewModel;
+    private readonly List<Shortcut> _menuShortcuts = [];
 
     // The macOS native menu exporter cannot swap the window's NativeMenu instance once set
     // ("The menu being updated does not match"), so the menu is built once per view model and
@@ -52,6 +53,9 @@ public sealed partial class MainWindow
         }
 
         RefreshDynamicMenuItems();
+
+        // Menu shortcuts in Help ▸ Keyboard Shortcuts and in the tooltips of the header/toolbar buttons.
+        Shortcuts.Describe("Menu (anywhere)", this, [.. _menuShortcuts]);
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -67,6 +71,7 @@ public sealed partial class MainWindow
         var cmd = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
         KeyBindings.Clear();
         _themeItems.Clear();
+        _menuShortcuts.Clear();
 
         return
         [
@@ -88,10 +93,10 @@ public sealed partial class MainWindow
                 Item("_Disconnect", vm.DisconnectCommand, new KeyGesture(Key.D, cmd | KeyModifiers.Shift)),
                 new NativeMenuItem(Label("Recent _Endpoints")) { Menu = _recentEndpointsMenu },
                 new NativeMenuItemSeparator(),
-                Item("Show _Certificate Folder", vm.RevealCertificatesCommand)),
+                Item("Show _Certificate Folder", vm.RevealCertificatesCommand, new KeyGesture(Key.K, cmd | KeyModifiers.Alt | KeyModifiers.Shift))),
             Submenu("_View",
-                Item("_Expand All Below Selection", vm.ExpandAllCommand),
-                Item("_Collapse All", vm.CollapseAllCommand),
+                Item("_Expand All Below Selection", vm.ExpandAllCommand, new KeyGesture(Key.Right, cmd | KeyModifiers.Alt)),
+                Item("_Collapse All", vm.CollapseAllCommand, new KeyGesture(Key.Left, cmd | KeyModifiers.Alt)),
                 new NativeMenuItemSeparator(),
                 Submenu("_Panes",
                     Item("_Address Space", vm.ShowPaneCommand, new KeyGesture(Key.D1, cmd), "AddressSpace"),
@@ -99,46 +104,49 @@ public sealed partial class MainWindow
                     Item("_Watch", vm.ShowPaneCommand, new KeyGesture(Key.D3, cmd), "Watch"),
                     Item("_Recordings", vm.ShowPaneCommand, new KeyGesture(Key.D4, cmd), "Recordings"),
                     new NativeMenuItemSeparator(),
-                    Item("Pop Out Address Space", vm.FloatPaneCommand, parameter: "AddressSpace"),
-                    Item("Pop Out Attributes", vm.FloatPaneCommand, parameter: "Attributes"),
-                    Item("Pop Out Watch", vm.FloatPaneCommand, parameter: "Watch"),
-                    Item("Pop Out Recordings", vm.FloatPaneCommand, parameter: "Recordings")),
+                    Item("Pop Out Address Space", vm.FloatPaneCommand, new KeyGesture(Key.D1, cmd | KeyModifiers.Alt), "AddressSpace"),
+                    Item("Pop Out Attributes", vm.FloatPaneCommand, new KeyGesture(Key.D2, cmd | KeyModifiers.Alt), "Attributes"),
+                    Item("Pop Out Watch", vm.FloatPaneCommand, new KeyGesture(Key.D3, cmd | KeyModifiers.Alt), "Watch"),
+                    Item("Pop Out Recordings", vm.FloatPaneCommand, new KeyGesture(Key.D4, cmd | KeyModifiers.Alt), "Recordings")),
                 Item("_Dock All Floating Panes", vm.DockAllPanesCommand, new KeyGesture(Key.D, cmd | KeyModifiers.Alt)),
-                Item("_Reset Layout", vm.ResetLayoutCommand),
+                Item("_Reset Layout", vm.ResetLayoutCommand, new KeyGesture(Key.D0, cmd | KeyModifiers.Alt)),
                 new NativeMenuItemSeparator(),
                 Item("Zoom _In", vm.ZoomInCommand, new KeyGesture(Key.OemPlus, cmd)),
                 Item("Zoom _Out", vm.ZoomOutCommand, new KeyGesture(Key.OemMinus, cmd)),
                 Item("_Actual Size", vm.ZoomResetCommand, new KeyGesture(Key.D0, cmd)),
                 new NativeMenuItemSeparator(),
                 Submenu("_Theme",
-                    ThemeItem(vm, "Follow _System", ThemePreference.System),
-                    ThemeItem(vm, "_Light", ThemePreference.Light),
-                    ThemeItem(vm, "_Dark", ThemePreference.Dark))),
+                    ThemeItem(vm, "Follow _System", ThemePreference.System, new KeyGesture(Key.D7, cmd | KeyModifiers.Alt)),
+                    ThemeItem(vm, "_Light", ThemePreference.Light, new KeyGesture(Key.D8, cmd | KeyModifiers.Alt)),
+                    ThemeItem(vm, "_Dark", ThemePreference.Dark, new KeyGesture(Key.D9, cmd | KeyModifiers.Alt)))),
             Submenu("_Watch",
-                Item("_Monitor Selected Variables", vm.AddToWatchCommand),
-                Item("Monitor All Variables in _Folder", vm.MonitorFolderCommand),
+                Item("_Monitor Selected Variables", vm.AddToWatchCommand, new KeyGesture(Key.M, cmd | KeyModifiers.Shift)),
+                Item("Monitor All Variables in _Folder", vm.MonitorFolderCommand, new KeyGesture(Key.M, cmd | KeyModifiers.Alt | KeyModifiers.Shift)),
                 new NativeMenuItemSeparator(),
-                Item("_Remove Selected", vm.RemoveFromWatchCommand),
-                Item("_Clear Watch List", vm.ClearWatchCommand)),
+                Item("Show Recorded _Values", vm.ViewItemRecordingCommand, new KeyGesture(Key.Y, cmd)),
+                Item("_Remove Selected", vm.RemoveFromWatchCommand, new KeyGesture(Key.Back, cmd)),
+                Item("_Clear Watch List", vm.ClearWatchCommand, new KeyGesture(Key.Back, cmd | KeyModifiers.Shift))),
             Submenu("_Recording",
                 Item("_New Recording (Selected)…", vm.NewRecordingCommand, new KeyGesture(Key.R, cmd)),
                 Item("Record _All Monitored…", vm.RecordAllCommand, new KeyGesture(Key.R, cmd | KeyModifiers.Shift)),
                 Item("_View Live…", vm.ViewRecordingCommand, new KeyGesture(Key.L, cmd)),
+                Item("Recording Se_ttings…", vm.EditRecordingSettingsCommand, new KeyGesture(Key.I, cmd | KeyModifiers.Alt)),
                 Item("_Open Recording File…", vm.OpenRecordingFileCommand, new KeyGesture(Key.O, cmd | KeyModifiers.Shift)),
                 new NativeMenuItemSeparator(),
-                Item("_Start / Resume", vm.StartRecordingCommand),
-                Item("_Pause", vm.PauseRecordingCommand),
-                Item("S_top", vm.StopRecordingCommand),
-                Item("_Reset History", vm.ResetRecordingCommand),
+                Item("_Start / Resume", vm.StartRecordingCommand, new KeyGesture(Key.R, cmd | KeyModifiers.Alt)),
+                Item("_Pause", vm.PauseRecordingCommand, new KeyGesture(Key.P, cmd | KeyModifiers.Alt)),
+                Item("S_top", vm.StopRecordingCommand, new KeyGesture(Key.OemPeriod, cmd | KeyModifiers.Alt)),
+                Item("_Reset History", vm.ResetRecordingCommand, new KeyGesture(Key.Back, cmd | KeyModifiers.Alt)),
                 new NativeMenuItemSeparator(),
-                Item("Export as _CSV…", vm.ExportRecordingCsvCommand),
-                Item("Export as _JSON…", vm.ExportRecordingJsonCommand),
+                Item("Export as _CSV…", vm.ExportRecordingCsvCommand, new KeyGesture(Key.E, cmd | KeyModifiers.Alt)),
+                Item("Export as _JSON…", vm.ExportRecordingJsonCommand, new KeyGesture(Key.E, cmd | KeyModifiers.Alt | KeyModifiers.Shift)),
                 new NativeMenuItemSeparator(),
-                Item("C_lose Recording", vm.CloseRecordingCommand)),
+                Item("C_lose Recording", vm.CloseRecordingCommand, new KeyGesture(Key.W, cmd | KeyModifiers.Alt | KeyModifiers.Shift))),
             Submenu("_Help",
-                Item("Show Settings _Folder", vm.RevealSettingsCommand),
+                Item("_Keyboard Shortcuts", new RelayCommandAdapter(ShowShortcuts), new KeyGesture(Key.OemQuestion, cmd)),
+                Item("Show Settings _Folder", vm.RevealSettingsCommand, new KeyGesture(Key.OemComma, cmd | KeyModifiers.Alt | KeyModifiers.Shift)),
                 new NativeMenuItemSeparator(),
-                Item("_About OPC UA Browser", vm.ShowAboutCommand)),
+                Item("_About OPC UA Browser", vm.ShowAboutCommand, new KeyGesture(Key.I, cmd | KeyModifiers.Alt | KeyModifiers.Shift))),
         ];
     }
 
@@ -182,15 +190,11 @@ public sealed partial class MainWindow
         }
     }
 
-    private NativeMenuItem ThemeItem(MainWindowViewModel vm, string header, ThemePreference theme)
+    private NativeMenuItem ThemeItem(MainWindowViewModel vm, string header, ThemePreference theme, KeyGesture gesture)
     {
-        var item = new NativeMenuItem(Label(header))
-        {
-            Command = vm.SetThemeCommand,
-            CommandParameter = theme,
-            ToggleType = MenuItemToggleType.Radio,
-            IsChecked = vm.Theme == theme,
-        };
+        var item = Item(header, vm.SetThemeCommand, gesture, theme);
+        item.ToggleType = MenuItemToggleType.Radio;
+        item.IsChecked = vm.Theme == theme;
         _themeItems[theme] = item;
         return item;
     }
@@ -200,6 +204,11 @@ public sealed partial class MainWindow
 
     private NativeMenuItem Item(string header, ICommand command, KeyGesture? gesture = null, object? parameter = null)
     {
+        if (gesture is not null)
+        {
+            _menuShortcuts.Add(new Shortcut(gesture, command, parameter, header.Replace("_", string.Empty, StringComparison.Ordinal)));
+        }
+
         if (gesture is not null && !OperatingSystem.IsMacOS())
         {
             var binding = new KeyBinding { Gesture = gesture, Command = command };

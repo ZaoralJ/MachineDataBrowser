@@ -25,9 +25,23 @@ public sealed partial class WatchView : UserControl
         WatchGrid.LayoutUpdated += (_, _) => CaptureWidths();
     }
 
+    private MainWindowViewModel? _vm;
+
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        if (_vm is not null)
+        {
+            _vm.WatchSelectionRequested -= OnWatchSelectionRequested;
+        }
+
+        _vm = DataContext as MainWindowViewModel;
+        if (_vm is not null)
+        {
+            ApplyShortcuts(_vm);
+            _vm.WatchSelectionRequested += OnWatchSelectionRequested;
+        }
+
         if (_columns is not null)
         {
             _columns.Changed -= OnColumnsChanged;
@@ -154,7 +168,17 @@ public sealed partial class WatchView : UserControl
 
     private void OnRowDoubleTapped(object? sender, Avalonia.Input.TappedEventArgs e)
     {
-        if (RowItemAt(e.Source) is { } item && DataContext is MainWindowViewModel vm)
+        if (RowItemAt(e.Source) is not { } item || DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        // Recorded items open their recorded values; others are revealed in the address space.
+        if (item.HasRecording)
+        {
+            vm.ViewItemRecordingCommand.Execute(item);
+        }
+        else
         {
             vm.RevealInTreeCommand.Execute(item);
         }
@@ -258,6 +282,37 @@ public sealed partial class WatchView : UserControl
         }
     }
 
+    private async void OnRemoveStaleDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (_vm is not null)
+        {
+            await _vm.RemoveStaleCommand.ExecuteAsync(null);
+        }
+    }
+
+    private async void OnRemoveBadDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (_vm is not null)
+        {
+            await _vm.RemoveBadCommand.ExecuteAsync(null);
+        }
+    }
+
+    private void OnWatchSelectionRequested(object? sender, IReadOnlyList<WatchItemViewModel> items)
+    {
+        WatchGrid.SelectedItems.Clear();
+        foreach (var item in items)
+        {
+            WatchGrid.SelectedItems.Add(item);
+        }
+
+        if (items.Count > 0)
+        {
+            WatchGrid.ScrollIntoView(items[0], null);
+            WatchGrid.Focus();
+        }
+    }
+
     private void OnWatchSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (DataContext is not MainWindowViewModel vm)
@@ -280,11 +335,76 @@ public sealed partial class WatchView : UserControl
         }
     }
 
-    private async void OnCustomRefresh(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+
+    private bool _shortcutsApplied;
+
+    private void ApplyShortcuts(MainWindowViewModel vm)
+    {
+        if (_shortcutsApplied)
+        {
+            return;
+        }
+
+        _shortcutsApplied = true;
+        Shortcuts.Apply("Watch", WatchGrid,
+        [
+            new("Enter", vm.RevealInTreeCommand, Description: "Show in address space"),
+            new("Delete", vm.RemoveFromWatchCommand, Description: "Remove selected"),
+            new("Back", vm.RemoveFromWatchCommand, Description: "Remove selected"),
+            new("Shift+Delete", vm.ClearWatchCommand, Description: "Remove all"),
+            new("S", new CommunityToolkit.Mvvm.Input.RelayCommand(() => SelectOrRemove("stale", vm.SelectStaleCommand, vm.RemoveStaleCommand)),
+                Description: "Select stale values (press twice to remove them)", ShowOn: vm.SelectStaleCommand),
+            new("B", new CommunityToolkit.Mvvm.Input.RelayCommand(() => SelectOrRemove("bad", vm.SelectBadCommand, vm.RemoveBadCommand)),
+                Description: "Select bad values (press twice to remove them)", ShowOn: vm.SelectBadCommand),
+            new("Shift+S", vm.SelectStaleOrBadCommand, Description: "Select stale or bad values"),
+            new("Cmd+Alt+S", vm.RemoveStaleCommand, Description: "Remove stale values"),
+            new("Cmd+Alt+B", vm.RemoveBadCommand, Description: "Remove bad values"),
+            new("D1", vm.SetRefreshCommand, 100, "Refresh time 100 ms"),
+            new("D2", vm.SetRefreshCommand, 250, "Refresh time 250 ms"),
+            new("D3", vm.SetRefreshCommand, 500, "Refresh time 500 ms"),
+            new("D4", vm.SetRefreshCommand, 1000, "Refresh time 1000 ms"),
+            new("D5", vm.SetRefreshCommand, 2000, "Refresh time 2000 ms"),
+            new("D6", vm.SetRefreshCommand, 5000, "Refresh time 5000 ms"),
+            new("D7", vm.SetRefreshCommand, 10000, "Refresh time 10000 ms"),
+            new("T", new CommunityToolkit.Mvvm.Input.AsyncRelayCommand(PromptRefreshAsync), Description: "Custom refresh time…"),
+            new("R", vm.NewRecordingCommand, Description: "Record selected…"),
+            new("Shift+R", vm.RecordAllCommand, Description: "Record all monitored…"),
+            new("G", vm.ViewItemRecordingCommand, Description: "Show recorded values"),
+            new("Space", vm.ViewItemRecordingCommand, Description: "Show recorded values (quick look)"),
+            new("Cmd+Alt+C", vm.CopyWatchValueCommand, Description: "Copy value"),
+            new("Cmd+Alt+N", vm.CopyWatchNodeIdCommand, Description: "Copy NodeId"),
+            new("Cmd+Alt+J", vm.CopyWatchValuesJsonCommand, Description: "Copy values as JSON"),
+            new("Cmd+Shift+C", vm.CopyWatchJsonCommand, Description: "Copy as JSON"),
+        ]);
+    }
+
+    private static readonly TimeSpan DoublePress = TimeSpan.FromMilliseconds(800);
+    private string? _lastSelectKey;
+    private DateTime _lastSelectKeyAt;
+
+    /// <summary>First press selects the stale/bad rows; a second press shortly after removes them.</summary>
+    private void SelectOrRemove(string kind, System.Windows.Input.ICommand select, System.Windows.Input.ICommand remove)
+    {
+        var now = DateTime.UtcNow;
+        if (_lastSelectKey == kind && now - _lastSelectKeyAt < DoublePress)
+        {
+            _lastSelectKey = null;
+            remove.Execute(null);
+            return;
+        }
+
+        _lastSelectKey = kind;
+        _lastSelectKeyAt = now;
+        select.Execute(null);
+    }
+
+    private async Task PromptRefreshAsync()
     {
         if (DataContext is MainWindowViewModel vm && await RefreshPrompt.AskAsync(this, vm.SelectedWatchItem?.RefreshMs ?? vm.DefaultRefreshMs) is { } ms)
         {
             await vm.SetRefreshCommand.ExecuteAsync(ms);
         }
     }
+
+    private async void OnCustomRefresh(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => await PromptRefreshAsync();
 }

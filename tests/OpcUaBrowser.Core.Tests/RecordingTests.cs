@@ -72,6 +72,21 @@ public sealed class RecordingTests(OpcPlcFixture plc) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Items_added_while_recording_are_captured_and_duplicates_ignored()
+    {
+        var other = VariableIds.Server_ServerStatus_BuildInfo_SoftwareVersion;
+        await using var recording = await StartedAsync(new RecordingOptions { Name = "add" });
+
+        var added = await recording.AddItemsAsync([new RecordedItem(other, "Version", "v"), new RecordedItem(StaticNode, "dup", "d")], Ct);
+        recording.Append(Update(other, "1.0"));
+
+        Assert.Equal([other], added.Select(i => i.NodeId));
+        Assert.Equal(2, recording.Items.Count);
+        Assert.Equal(["1.0"], recording.GetHistory(other).Select(s => s.Value).Where(v => v == "1.0"));
+        Assert.Empty(await recording.AddItemsAsync([new RecordedItem(other, "Version", "v")], Ct));
+    }
+
+    [Fact]
     public async Task Scheduled_start_and_auto_stop_follow_the_clock()
     {
         await using var recording = new Recording(

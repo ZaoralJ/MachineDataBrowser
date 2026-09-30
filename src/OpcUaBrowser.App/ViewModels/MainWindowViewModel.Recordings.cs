@@ -13,7 +13,8 @@ public sealed partial class MainWindowViewModel
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartRecordingCommand), nameof(PauseRecordingCommand), nameof(StopRecordingCommand),
-        nameof(ResetRecordingCommand), nameof(CloseRecordingCommand), nameof(ViewRecordingCommand), nameof(ExportRecordingCsvCommand), nameof(ExportRecordingJsonCommand))]
+        nameof(ResetRecordingCommand), nameof(CloseRecordingCommand), nameof(ViewRecordingCommand), nameof(ExportRecordingCsvCommand), nameof(ExportRecordingJsonCommand),
+        nameof(EditRecordingSettingsCommand))]
     public partial RecordingViewModel? SelectedRecording { get; set; }
 
     private bool CanCreateRecording() => IsConnected && WatchItems.Any(w => w.Monitor is not null);
@@ -54,7 +55,7 @@ public sealed partial class MainWindowViewModel
             await vm.Recording.StartAsync();
             StatusMessage = vm.Recording.State == RecordingState.Scheduled ? $"'{options.Name}' scheduled" : $"Recording '{options.Name}'";
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -62,6 +63,107 @@ public sealed partial class MainWindowViewModel
         vm.Refresh();
         NotifyRecordingCommands();
         return vm;
+    }
+
+    /// <summary>Marks watch items that open recordings contain (icon in the Name column).</summary>
+    private void UpdateRecordingFlags()
+    {
+        foreach (var item in WatchItems)
+        {
+            item.SetRecordings([.. Recordings
+                .Where(r => r.Recording.Items.Any(i => i.NodeId == item.NodeId))
+                .Select(r => (r.Name, r.Recording.State))]);
+        }
+
+        UpdateRecordedCounts();
+    }
+
+    /// <summary>Refreshes the Recorded column; called when recordings report new sample totals (about once a second).</summary>
+    private void UpdateRecordedCounts()
+    {
+        foreach (var item in WatchItems)
+        {
+            item.SetRecordedSamples(RecordingFor(item)?.Recording.GetSampleCount(item.NodeId) ?? 0);
+        }
+    }
+
+    /// <summary>The newest open recording that contains the item.</summary>
+    private RecordingViewModel? RecordingFor(WatchItemViewModel item) =>
+        Recordings.LastOrDefault(r => r.Recording.Items.Any(i => i.NodeId == item.NodeId));
+
+    /// <summary>Opens the recorded values of one watch item, with a trend chart for numeric values.</summary>
+    [RelayCommand]
+    private void ViewItemRecording(WatchItemViewModel? item)
+    {
+        item ??= SelectedWatchItem;
+        if (item is null || RecordingFor(item) is not { } recording)
+        {
+            StatusMessage = "No recording contains this item";
+            return;
+        }
+
+        var recorded = recording.Recording.Items.First(i => i.NodeId == item.NodeId);
+        Dialogs?.ShowRecordingViewer(RecordingViewerViewModel.ForRecording(recording.Recording, recorded.DisplayName));
+    }
+
+    /// <summary>Adds the selected watch rows (all watched items when none is selected) to an existing recording.</summary>
+    [RelayCommand]
+    private async Task AddToRecordingAsync(RecordingViewModel? target)
+    {
+        target ??= SelectedRecording;
+        var source = RecordingSource();
+        if (target is null || source.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var added = await target.Recording.AddItemsAsync([.. source.Select(w => new RecordedItem(w.NodeId, w.DisplayName, w.PortableId))]);
+            StatusMessage = added.Count switch
+            {
+                0 => $"'{target.Name}' already records the selected items",
+                1 => $"Added 1 item to '{target.Name}'",
+                _ => $"Added {added.Count} items to '{target.Name}'",
+            };
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            ReportError(ex);
+        }
+
+        target.Refresh();
+        UpdateRecordingFlags();
+    }
+
+    /// <summary>Shows and changes the settings of the selected recording (name, refresh, limits, schedule, file).</summary>
+    [RelayCommand(CanExecute = nameof(HasRecording))]
+    private async Task EditRecordingSettingsAsync()
+    {
+        if (SelectedRecording is not { } recording || Dialogs is null)
+        {
+            return;
+        }
+
+        var form = NewRecordingViewModel.ForEdit(recording.Recording, DateTimeOffset.UtcNow);
+        if (await Dialogs.EditRecordingSettingsAsync(form) is not { } options)
+        {
+            return;
+        }
+
+        try
+        {
+            var target = recording.Recording;
+            await Task.Run(() => target.UpdateOptionsAsync(options));
+            StatusMessage = $"Updated settings of '{options.Name}'";
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            ReportError(ex);
+        }
+
+        recording.Refresh();
+        UpdateRecordingFlags();
     }
 
     private bool HasRecording() => SelectedRecording is not null;
@@ -151,7 +253,7 @@ public sealed partial class MainWindowViewModel
             await export(vm.Recording, path);
             StatusMessage = $"Exported '{vm.Name}' to {Path.GetFileName(path)}";
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Text.Json.JsonException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ErrorMessage = $"Export failed: {ex.Message}";
         }
@@ -168,7 +270,7 @@ public sealed partial class MainWindowViewModel
         {
             await action(vm.Recording);
         }
-        catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException or IOException)
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
         }
@@ -186,7 +288,8 @@ public sealed partial class MainWindowViewModel
     {
         foreach (var vm in Recordings.ToList())
         {
-            await vm.Recording.StopAsync();
+            var recording = vm.Recording;
+            await Task.Run(() => recording.StopAsync());
             vm.Refresh();
         }
     }
