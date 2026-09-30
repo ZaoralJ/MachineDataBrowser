@@ -146,20 +146,15 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
         : bool.TryParse(value, out var b) ? (b ? 1 : 0)
         : null;
 
+    /// <summary>Every numeric item gets a line: the selected item alone, or one line per item for "All items".</summary>
     private void UpdateChart()
     {
-        if (SelectedItem == AllItems)
-        {
-            ChartPoints = [];
-            return;
-        }
-
         var points = new List<TrendPoint>();
         foreach (var row in _all)
         {
-            if (row.Name == SelectedItem && row.Numeric is { } value && double.IsFinite(value))
+            if (Matches(row) && (row.Numeric ?? ParseNumeric(row.Value)) is { } value && double.IsFinite(value))
             {
-                points.Add(new TrendPoint(row.ReceivedAt, value, row));
+                points.Add(new TrendPoint(row.ReceivedAt, value, row, row.Name));
             }
         }
 
@@ -322,4 +317,4 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
 /// <summary>History limits of a live recording that the viewer mirrors.</summary>
 public readonly record struct HistoryLimits(int MaxPerItem, TimeSpan? MaxAge, bool IsEmpty);
 
-public sealed record TrendPoint(DateTimeOffset Time, double Value, HistoryRow? Row = null);
+public sealed record TrendPoint(DateTimeOffset Time, double Value, HistoryRow? Row = null, string Series = "");

@@ -151,6 +151,24 @@ public sealed class WatchRecordingTests(OpcPlcFixture plc)
         await Until(() => random.HasRecording && recording.Recording.GetSampleCount(random.NodeId) > 0);
         Assert.Equal(2, recording.Recording.Items.Count);
 
+        // "All items" charts every numeric item as its own line.
+        using (var all = RecordingViewerViewModel.ForRecording(recording.Recording))
+        {
+            Assert.Equal(RecordingViewerViewModel.AllItems, all.SelectedItem);
+            Assert.True(all.HasChart);
+            Assert.Equal(["RandomSignedInt32", "StepUp"], all.ChartPoints.Select(p => p.Series).Distinct().Order());
+            var allWindow = new RecordingViewerWindow { DataContext = all, Width = 900, Height = 560 };
+            allWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+            allWindow.CaptureRenderedFrame()?.Dispose();
+            using (var frame = allWindow.CaptureRenderedFrame())
+            {
+                frame!.Save(Path.Combine(OutputDir, "recording-trend-all.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+            }
+
+            allWindow.Close();
+        }
+
         vm.SelectedRecording = recording;
         await vm.StopRecordingCommand.ExecuteAsync(null);
         Dispatcher.UIThread.RunJobs();

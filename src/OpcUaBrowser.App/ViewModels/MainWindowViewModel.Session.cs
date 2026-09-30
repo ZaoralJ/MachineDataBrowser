@@ -12,7 +12,7 @@ namespace OpcUaBrowser.App.ViewModels;
 
 public sealed partial class MainWindowViewModel
 {
-    private const string AppTitle = "OPC UA Browser";
+    private const string AppTitle = "Machine Data Browser";
 
     private readonly SettingsStore? _settingsStore;
     private bool _suppressDirty;

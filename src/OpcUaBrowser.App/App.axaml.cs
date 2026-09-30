@@ -15,6 +15,7 @@ public sealed class App : Application
         FitColumnHeaders();
         CloseSecondaryWindowsOnEscape();
         Views.GridCopy.Install();
+        Views.ColumnFit.Install();
     }
 
     /// <summary>

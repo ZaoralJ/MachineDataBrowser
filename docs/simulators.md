@@ -1,13 +1,14 @@
 # Test servers (simulators)
 
-Three containers under `simulators/` cover local development, manual/user testing and the Core integration
-tests. Start them with [`just`](https://github.com/casey/just) from the repository root:
+Four containers under `simulators/` cover local development, manual/user testing and the integration tests.
+Start them with [`just`](https://github.com/casey/just) from the repository root:
 
 ```sh
 just cip            # Logix / EtherNet/IP   -> eip://localhost:44818/1,0
 just opcua          # opc-plc               -> opc.tcp://localhost:50000
 just opcua-custom   # custom types (asyncua) -> opc.tcp://localhost:4841/
-just all            # all three in the background; `just stop` removes them
+just mqtt           # MQTT broker + traffic  -> mqtt://localhost:1883 (ws://localhost:9001)
+just all            # all four in the background (replaces running ones); `just stop` removes them
 just logs cip       # follow a background container's log
 just cip-debug      # log every CIP request (service, path, sizes)
 just test-sim       # Core tests against the simulators
@@ -87,8 +88,32 @@ An [asyncua](https://github.com/FreeOpcUa/opcua-asyncio) server for what opc-plc
 `OPCUA_CUSTOM_HOST` (`localhost`) the host in the advertised endpoint URL. Startup takes 20-30 s with the
 default address space. Security is None only.
 
+## MQTT simulator (`simulators/mqtt`)
+
+Mosquitto (anonymous; MQTT on 1883, MQTT over WebSocket on 9001) plus a Python publisher (`publisher.py`, MQTT 5):
+
+| Topics | Content |
+|--------|---------|
+| `plant/hall1/press1/…`, `plant/hall1/press2/…` | plain values: numbers (100 ms – 1 s), booleans, text; `plant/hall1` also has its own retained payload |
+| `fast/10ms/counter`, `fast/20ms/sine`, `fast/50ms/noise` | values changing every 10 / 20 / 50 ms |
+| `machines/m1/status`, `machines/m2/status` | JSON every 200 ms: nested object, array, boolean, `null` |
+| `config/line1`, `plant/info/…`, `deep/l1/…/l8/value`, `text/with spaces/and-üñíçødé`, `bulk/sensor/NNNN` | retained messages (visible right after connecting), a deep tree, special characters, many topics |
+| `raw/blob`, `raw/int32`, `raw/float64` | raw binary payloads (non UTF-8 bytes, little-endian int32 / float64) |
+| `events/press1/structured` | CloudEvents 1.0, structured mode: JSON envelope (`specversion`, `id`, `source`, `type`, `time`, `data`), content type `application/cloudevents+json` |
+| `events/press1/binary` | CloudEvents 1.0, binary mode: JSON data as payload, attributes as MQTT 5 user properties |
+| `spBv1.0/Plant1/…` | Sparkplug B: edge nodes `Edge1` (devices `Press1`, `Press2`) and `Edge2`; BIRTH with names and aliases, DATA with aliases only (Temperature and Motor/Speed every 50 ms, the rest every second); `Press2` sends DDEATH and is reborn 5 s later every `MQTT_SIM_DEATH_PERIOD_S`; `Edge1` has an NDEATH last will |
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `MQTT_SIM_FAST_MS` | `10` | base tick of the publisher |
+| `MQTT_SIM_BULK` | `500` | number of `bulk/sensor/NNNN` topics |
+| `MQTT_SIM_DEATH_PERIOD_S` | `30` | how often `Press2` dies (0 = never) |
+| `MQTT_SIM_REBIRTH_S` | `15` | births are re-published periodically, so a browser connecting later learns metric names |
+
 ## Integration tests
 
-`tests/OpcUaBrowser.Core.Tests` builds `simulators/cip` and `simulators/opcua-custom` with Testcontainers
-(`LogixSimulatorFixture`, `CustomTypesServerFixture`); the custom server runs with a small address space there.
-`CipClientTests` and `CustomTypesTests` run in CI with the rest of `dotnet test`.
+`tests/OpcUaBrowser.Core.Tests` builds `simulators/cip`, `simulators/opcua-custom` and `simulators/mqtt` with
+Testcontainers (`LogixSimulatorFixture`, `CustomTypesServerFixture`, `MqttSimulatorFixture`); the custom server runs
+with a small address space and the MQTT publisher with faster deaths and rebirths there. `CipClientTests`,
+`CipConnectionLossTests`, `CustomTypesTests`, `MqttClientTests` and the App's `MqttAppTests` run in CI with the rest
+of `dotnet test`.

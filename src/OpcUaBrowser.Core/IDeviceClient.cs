@@ -4,7 +4,7 @@ using OpcUaBrowser.Core.Ua;
 namespace OpcUaBrowser.Core;
 
 /// <summary>
-/// A connection to one device (OPC UA server or Logix controller). The OPC UA information model
+/// A connection to one device (OPC UA server, Logix controller or MQTT broker). The OPC UA information model
 /// (<see cref="NodeId"/>, <see cref="NodeClass"/>, <see cref="StatusCode"/>) is the common vocabulary: other
 /// protocols map their items onto it, so the tree, watch list, recordings and exports work unchanged.
 /// </summary>
@@ -60,6 +60,15 @@ public interface IDeviceClient : IAsyncDisposable
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Implemented by clients whose address space grows while connected (MQTT: topics appear as messages arrive).
+/// The app re-browses expanded tree nodes when this is raised.
+/// </summary>
+public interface IDynamicAddressSpace
+{
+    event EventHandler? AddressSpaceChanged;
+}
+
 public static class DeviceClient
 {
     /// <summary>URL scheme of EtherNet/IP (Logix) endpoints: <c>eip://host[:port][/path]</c>, path defaults to <c>1,0</c>.</summary>
@@ -68,13 +77,20 @@ public static class DeviceClient
     public static bool IsEip(string endpointUrl) =>
         endpointUrl.TrimStart().StartsWith(EipScheme + "://", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>MQTT endpoints: <c>mqtt://</c>, <c>mqtts://</c>, <c>ws://</c>, <c>wss://</c>.</summary>
+    public static bool IsMqtt(string endpointUrl) => Mqtt.MqttEndpoint.IsMqtt(endpointUrl);
+
     /// <summary>A new, disconnected client for the protocol of <paramref name="endpointUrl"/>.</summary>
     public static IDeviceClient Create(string endpointUrl) =>
-        IsEip(endpointUrl) ? new Cip.CipClient() : new OpcUaClient();
+        IsEip(endpointUrl) ? new Cip.CipClient() : IsMqtt(endpointUrl) ? new Mqtt.MqttDeviceClient() : new OpcUaClient();
 
     /// <summary>True when <paramref name="client"/> can connect to <paramref name="endpointUrl"/>.</summary>
-    public static bool Supports(IDeviceClient client, string endpointUrl) =>
-        client is Cip.CipClient == IsEip(endpointUrl);
+    public static bool Supports(IDeviceClient client, string endpointUrl) => client switch
+    {
+        Cip.CipClient => IsEip(endpointUrl),
+        Mqtt.MqttDeviceClient => IsMqtt(endpointUrl),
+        _ => !IsEip(endpointUrl) && !IsMqtt(endpointUrl),
+    };
 
     /// <summary>Stops monitor handles of any client, batching where the protocol allows it.</summary>
     public static async Task StopMonitoringAsync(IEnumerable<IAsyncDisposable> handles, CancellationToken cancellationToken = default)

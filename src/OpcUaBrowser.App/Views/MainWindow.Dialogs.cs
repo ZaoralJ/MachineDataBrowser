@@ -9,7 +9,7 @@ namespace OpcUaBrowser.App.Views;
 
 public sealed partial class MainWindow : IDialogService
 {
-    private static readonly FilePickerFileType SessionFileType = new("OPC UA Browser session")
+    private static readonly FilePickerFileType SessionFileType = new("Machine Data Browser session")
     {
         Patterns = [$"*.{SessionDocument.FileExtension}"],
         AppleUniformTypeIdentifiers = ["public.json"],
@@ -128,7 +128,7 @@ public sealed partial class MainWindow : IDialogService
         await MessageDialog.ShowAsync(
             this,
             "About",
-            "OPC UA Browser",
+            "Machine Data Browser",
             $"Version {version}\nOPC Foundation UA-.NETStandard {sdk}\n.NET {Environment.Version} · Avalonia {typeof(Window).Assembly.GetName().Version}",
             DialogIcon.Info,
             new DialogButton<bool>("OK", true, DialogButtonRole.Default));

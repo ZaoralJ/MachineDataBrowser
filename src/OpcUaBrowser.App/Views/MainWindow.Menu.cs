@@ -146,7 +146,7 @@ public sealed partial class MainWindow
                 Item("_Keyboard Shortcuts", new RelayCommandAdapter(ShowShortcuts), new KeyGesture(Key.OemQuestion, cmd)),
                 Item("Show Settings _Folder", vm.RevealSettingsCommand, new KeyGesture(Key.OemComma, cmd | KeyModifiers.Alt | KeyModifiers.Shift)),
                 new NativeMenuItemSeparator(),
-                Item("_About OPC UA Browser", vm.ShowAboutCommand, new KeyGesture(Key.I, cmd | KeyModifiers.Alt | KeyModifiers.Shift))),
+                Item("_About Machine Data Browser", vm.ShowAboutCommand, new KeyGesture(Key.I, cmd | KeyModifiers.Alt | KeyModifiers.Shift))),
         ];
     }
 
