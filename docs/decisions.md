@@ -20,8 +20,10 @@ Short record of the choices behind the current stack. Facts were checked at the 
   stays small. Tags map to `ns=1;s=<tag path>`, folders to `ns=2`.
 - The protocol is chosen by the endpoint URL scheme (`eip://`), so session files need no new field.
 - CIP has no subscriptions: monitoring polls per refresh time and reports only changes.
-- `ab_server` (libplctag's simulator) does not implement tag listing, so CIP is covered by codec/path unit tests; a
-  manual smoke test against `ab_server` verified native loading and reads.
+- `ab_server` (libplctag's simulator) does not implement tag listing, so the repository has its own Logix simulator
+  (`simulators/cip`, pure Python, see [simulators.md](simulators.md)) that the CIP integration tests run against.
+- Tags are created with the synchronous `Initialize` on a pool thread: libplctag.NET 1.5 `InitializeAsync` leaks the
+  native tag and its callback when creation fails, which crashed the process on a later libplctag event.
 
 ## UI: Avalonia 12
 

@@ -6,7 +6,8 @@
 |---|---|
 | `src/OpcUaBrowser.Core` | OPC UA logic, no UI. Session, browse, attributes, monitoring, recordings, value formatting/JSON. |
 | `src/OpcUaBrowser.App` | Avalonia 12 desktop app (MVVM with CommunityToolkit.Mvvm, docking with Dock.Avalonia). |
-| `tests/OpcUaBrowser.Core.Tests` | Integration tests against an `opc-plc` container (Testcontainers) plus unit tests. |
+| `tests/OpcUaBrowser.Core.Tests` | Integration tests against an `opc-plc` container and the `simulators/` images (Testcontainers) plus unit tests. |
+| `simulators/` | Logix, opc-plc and custom-types test servers for development and tests (`just`, [simulators.md](simulators.md)). |
 | `tests/OpcUaBrowser.App.Tests` | Headless Avalonia UI tests (real rendering for screenshots) against the same container. |
 
 Target framework is .NET 10; package versions are pinned centrally in `Directory.Packages.props`;

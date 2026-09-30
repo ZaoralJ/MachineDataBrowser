@@ -1,0 +1,94 @@
+# Test servers (simulators)
+
+Three containers under `simulators/` cover local development, manual/user testing and the Core integration
+tests. Start them with [`just`](https://github.com/casey/just) from the repository root:
+
+```sh
+just cip            # Logix / EtherNet/IP   -> eip://localhost:44818/1,0
+just opcua          # opc-plc               -> opc.tcp://localhost:50000
+just opcua-custom   # custom types (asyncua) -> opc.tcp://localhost:4841/
+just all            # all three in the background; `just stop` removes them
+just logs cip       # follow a background container's log
+just cip-debug      # log every CIP request (service, path, sizes)
+just test-sim       # Core tests against the simulators
+```
+
+Recipe parameters are positional, e.g. `just cip 44900 20` (port 44900, 20 ms base tick).
+
+## Logix simulator (`simulators/cip`)
+
+A pure-Python (no packages) EtherNet/IP server that answers like a ControlLogix controller. Every tag is stored
+as raw bytes in Logix memory layout, so tag reads, member and element reads, whole-struct and array reads,
+fragmented reads and writes are served from the same data.
+
+It implements `@tags` (controller and program scope, paged, any attribute list), `@udt/<id>` (template attributes
+and definition), Read/Write Tag (plus fragmented variants), Read-Modify-Write, Multiple Service Packet, symbol
+instance addressing, Forward Open (small and large), Unconnected Send and the Identity object. libplctag
+(the browser) and pycomm3 both work against it; `ab_server` could not be used because it has no tag listing.
+
+### Content
+
+| Area | Tags |
+|------|------|
+| Atomics | `TestBool` … `TestLreal`, unsigned `TestUsint`/`TestUint`/`TestUdint`/`TestUlint`, bit strings `TestByte`/`TestWord`/`TestDword`/`TestLword` |
+| Strings | `TestString` (STRING, 82), `TestString20` (STRING20), `TestString40` (STRING_40), `TestStringArray`, `TestString20Array` |
+| Arrays | 1-D arrays of each type, `Matrix` DINT[4,5], `Cube` REAL[2,3,4], `Grid` SINGLE_T[3,3], `BigDintArray` DINT[5000], `BigRealArray` REAL[1500], `BigStructArray` SINGLE_T[1200] (more than the browser's 1000-element cap) |
+| BOOL | packed BOOL members (`Flags.B0`…`B11` around a DINT, `BoolsOnly`), `TestBoolArray` BOOL[64] and BOOL[n] UDT members (stored and described as DWORDs) |
+| UDTs | `Motor1`, `Motors` MOTOR_T[4], `Stations` STATION_T[6] (nested ROBOT_T, CONVEYOR_T, MOTOR_T[3], BOOL[32]), `Line`, `Plant` (5 levels, arrays of UDTs at several levels), `Types`/`Arrays` (every type), `Recipes` RECIPE_T[3] (1 kB each, fragmented reads) |
+| Changing values | `HighSpeed.Axes[0..3]`, `HighSpeed.Cycle`, `HighSpeed.Vision`, `Stations[*].Robot`, `Program:Motion.*` at 10 / 20 / 50 ms; `Fast` 100 ms, `Medium` 1 s, `Slow` 10 s, `Heartbeat` 1 s and slow process values |
+| Programs | `MainProgram`, `Motion`, `DATALOG`, `Packaging`, `Safety`, `Empty`, `Line01`…`Line20` |
+| Hidden by the browser | `Local:1:I`, `Local:2:O` (module types with colons), `__HiddenCounter`, `SystemClock` (system flag), `Task:MainTask`, `Map:Local`, `Routine:MainRoutine` in each program |
+| Paging | `Bulk_0001`…`Bulk_3000` push the controller `@tags` listing over many pages |
+
+### Settings
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `CIP_SIM_PORT` | `44818` | TCP port |
+| `CIP_SIM_FAST_TICK_MS` | `10` | base tick of the animations; `0` freezes all values |
+| `CIP_SIM_BULK_TAGS` | `3000` | number of `Bulk_NNNN` tags |
+| `CIP_SIM_PROGRAMS` | `20` | number of `Program:LineNN` scopes |
+| `CIP_SIM_LOG` | `INFO` | `DEBUG` logs every request |
+| `CIP_SIM_SEED` | random | seed for the random values |
+
+Known simplifications: writes of whole structures are accepted as raw bytes, BOOL arrays are addressed by DWORD
+index (`Bits[1]` is the second 32-bit word, as pycomm3 expects) and reads of `n` BOOLs return `ceil(n/32)` DWORDs,
+there are no aliases, AOIs, produced/consumed tags or access restrictions.
+
+## opc-plc (`simulators/opcua`)
+
+Microsoft's [opc-plc](https://github.com/Azure-Samples/iot-edge-opc-plc), pinned, with a development profile:
+
+- `Objects/OpcPlc/Telemetry/Fast`: `OPCUA_SIM_FAST_NODES` (20) doubles changing every `OPCUA_SIM_FAST_MS` (10 ms).
+- `Objects/OpcPlc/Telemetry/Basic` and `Anomaly`: the simulation cycle runs every `OPCUA_SIM_CYCLE_MS` (50 ms).
+- `Objects/OpcPlc/Telemetry/Slow`: `OPCUA_SIM_SLOW_NODES` (10) counters, every second.
+- `Objects/OpcPlc/Plant`: a writable folder tree from `nodesfile.json` with every built-in type and arrays. These
+  values change only when a client writes them.
+- Boilers (complex type, DI companion spec), alarms and conditions, simple events, stacklight, pumps, `ReferenceTest`.
+- Security None and anonymous allowed, certificates auto-accepted; users `admin`/`admin` and `user1`/`password`.
+- Extra opc-plc arguments go after the image name: `docker run --rm -p 50000:50000 opcuabrowser-opcua-simulator:dev --chaos`.
+
+## Custom types server (`simulators/opcua-custom`)
+
+An [asyncua](https://github.com/FreeOpcUa/opcua-asyncio) server for what opc-plc lacks. Everything is under
+`Objects/Custom`, namespace `urn:opcuabrowser:simulator:custom`:
+
+| Folder | Content |
+|--------|---------|
+| `Machines` | `Machine1..3`, instances of the custom `MachineType` object type; `Status` is a `MachineStatus` structure (enum, nested `Vector3`/`ToolInfo`, arrays of Int32/String/`Vector3`) updated every 50 ms; `Speed` every 10 ms |
+| `Structures` | `Position` (`Vector3`, 10 ms), `StatusHistory` (`MachineStatus[5]`), `QualityFull`/`QualityPartial` (optional fields set and unset), `SetpointNumeric`/`SetpointText` (union), `State` (enum), `Alarms` (OptionSet) |
+| `DataTypes` | every built-in scalar type (writable), `Arrays` with empty, 10 000-element, `Matrix3x4` (ValueRank 2, changes every 20 ms) and `Cube2x3x4` |
+| `Fast` | `Every10ms`, `Every20ms`, `Every50ms`: counter, sine, toggle, noise, timestamp |
+| `EdgeCases` | special characters, a 3000-character NodeId, opaque and GUID NodeIds, null value, Bad and Uncertain status, a 100 kB string, a not-readable node, a folder 30 levels deep, a method |
+| `Large` | `OPCUA_CUSTOM_LARGE` = `areas,lines,tags` (default `10,10,50`: 5000 variables) |
+| `Flat` | `OPCUA_CUSTOM_FLAT` (default 10 000) variables in one folder, to exercise browse continuation |
+
+`OPCUA_CUSTOM_FAST_MS` (10) sets the base tick (`0` freezes values), `OPCUA_CUSTOM_PORT` (4841) the port and
+`OPCUA_CUSTOM_HOST` (`localhost`) the host in the advertised endpoint URL. Startup takes 20-30 s with the
+default address space. Security is None only.
+
+## Integration tests
+
+`tests/OpcUaBrowser.Core.Tests` builds `simulators/cip` and `simulators/opcua-custom` with Testcontainers
+(`LogixSimulatorFixture`, `CustomTypesServerFixture`); the custom server runs with a small address space there.
+`CipClientTests` and `CustomTypesTests` run in CI with the rest of `dotnet test`.

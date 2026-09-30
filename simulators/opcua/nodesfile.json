@@ -1,0 +1,95 @@
+{
+  "Folder": "Plant",
+  "NodeList": [
+    { "NodeId": "Plant.Name", "Name": "Name", "DataType": "String", "Description": "Plant name" },
+    { "NodeId": "Plant.SiteId", "Name": "SiteId", "DataType": "Int32" },
+    { "NodeId": "Plant.Online", "Name": "Online", "DataType": "Boolean" }
+  ],
+  "FolderList": [
+    {
+      "Folder": "Hall1",
+      "NodeList": [
+        { "NodeId": "Plant.Hall1.Temperature", "Name": "Temperature", "DataType": "Float" },
+        { "NodeId": "Plant.Hall1.Humidity", "Name": "Humidity", "DataType": "Float" }
+      ],
+      "FolderList": [
+        {
+          "Folder": "Press1",
+          "NodeList": [
+            { "NodeId": "Plant.Hall1.Press1.Tonnage", "Name": "Tonnage", "DataType": "Double" },
+            { "NodeId": "Plant.Hall1.Press1.StrokeCount", "Name": "StrokeCount", "DataType": "Int64" },
+            { "NodeId": "Plant.Hall1.Press1.State", "Name": "State", "DataType": "Int16" },
+            { "NodeId": "Plant.Hall1.Press1.Recipe", "Name": "Recipe", "DataType": "String" },
+            { "NodeId": "Plant.Hall1.Press1.Running", "Name": "Running", "DataType": "Boolean" },
+            { "NodeId": "Plant.Hall1.Press1.CycleTimes", "Name": "CycleTimes", "DataType": "Float", "ValueRank": 1 },
+            { "NodeId": "Plant.Hall1.Press1.Serial", "Name": "Serial", "DataType": "String", "AccessLevel": "CurrentRead" }
+          ],
+          "FolderList": [
+            {
+              "Folder": "Tooling",
+              "NodeList": [
+                { "NodeId": "Plant.Hall1.Press1.Tooling.ToolId", "Name": "ToolId", "DataType": "String" },
+                { "NodeId": "Plant.Hall1.Press1.Tooling.Shots", "Name": "Shots", "DataType": "UInt32" },
+                { "NodeId": "Plant.Hall1.Press1.Tooling.Clamped", "Name": "Clamped", "DataType": "Boolean" }
+              ],
+              "FolderList": [
+                {
+                  "Folder": "Heater",
+                  "NodeList": [
+                    { "NodeId": "Plant.Hall1.Press1.Tooling.Heater.Setpoint", "Name": "Setpoint", "DataType": "Float" },
+                    { "NodeId": "Plant.Hall1.Press1.Tooling.Heater.Enabled", "Name": "Enabled", "DataType": "Boolean" },
+                    { "NodeId": "Plant.Hall1.Press1.Tooling.Heater.Zones", "Name": "Zones", "DataType": "Float", "ValueRank": 1 }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Folder": "Press2",
+          "NodeList": [
+            { "NodeId": "Plant.Hall1.Press2.Tonnage", "Name": "Tonnage", "DataType": "Double" },
+            { "NodeId": "Plant.Hall1.Press2.StrokeCount", "Name": "StrokeCount", "DataType": "Int64" },
+            { "NodeId": "Plant.Hall1.Press2.State", "Name": "State", "DataType": "Int16" },
+            { "NodeId": "Plant.Hall1.Press2.Recipe", "Name": "Recipe", "DataType": "String" }
+          ]
+        }
+      ]
+    },
+    {
+      "Folder": "Types",
+      "NodeList": [
+        { "NodeId": "Plant.Types.Bool", "Name": "Bool", "DataType": "Boolean" },
+        { "NodeId": "Plant.Types.SByte", "Name": "SByte", "DataType": "SByte" },
+        { "NodeId": "Plant.Types.Byte", "Name": "Byte", "DataType": "Byte" },
+        { "NodeId": "Plant.Types.Int16", "Name": "Int16", "DataType": "Int16" },
+        { "NodeId": "Plant.Types.UInt16", "Name": "UInt16", "DataType": "UInt16" },
+        { "NodeId": "Plant.Types.Int32", "Name": "Int32", "DataType": "Int32" },
+        { "NodeId": "Plant.Types.UInt32", "Name": "UInt32", "DataType": "UInt32" },
+        { "NodeId": "Plant.Types.Int64", "Name": "Int64", "DataType": "Int64" },
+        { "NodeId": "Plant.Types.UInt64", "Name": "UInt64", "DataType": "UInt64" },
+        { "NodeId": "Plant.Types.Float", "Name": "Float", "DataType": "Float" },
+        { "NodeId": "Plant.Types.Double", "Name": "Double", "DataType": "Double" },
+        { "NodeId": "Plant.Types.String", "Name": "String", "DataType": "String" },
+        { "NodeId": "Plant.Types.DateTime", "Name": "DateTime", "DataType": "DateTime" },
+        { "NodeId": "Plant.Types.Guid", "Name": "Guid", "DataType": "Guid" },
+        { "NodeId": "Plant.Types.ByteString", "Name": "ByteString", "DataType": "ByteString" },
+        { "NodeId": "Plant.Types.ReadOnlyInt32", "Name": "ReadOnlyInt32", "DataType": "Int32", "AccessLevel": "CurrentRead" }
+      ],
+      "FolderList": [
+        {
+          "Folder": "Arrays",
+          "NodeList": [
+            { "NodeId": "Plant.Types.Arrays.Bools", "Name": "Bools", "DataType": "Boolean", "ValueRank": 1 },
+            { "NodeId": "Plant.Types.Arrays.Int16s", "Name": "Int16s", "DataType": "Int16", "ValueRank": 1 },
+            { "NodeId": "Plant.Types.Arrays.Int32s", "Name": "Int32s", "DataType": "Int32", "ValueRank": 1 },
+            { "NodeId": "Plant.Types.Arrays.Int64s", "Name": "Int64s", "DataType": "Int64", "ValueRank": 1 },
+            { "NodeId": "Plant.Types.Arrays.Floats", "Name": "Floats", "DataType": "Float", "ValueRank": 1 },
+            { "NodeId": "Plant.Types.Arrays.Doubles", "Name": "Doubles", "DataType": "Double", "ValueRank": 1 },
+            { "NodeId": "Plant.Types.Arrays.Strings", "Name": "Strings", "DataType": "String", "ValueRank": 1 }
+          ]
+        }
+      ]
+    }
+  ]
+}
