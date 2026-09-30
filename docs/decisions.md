@@ -43,7 +43,9 @@ data keep working.
   the payload/metric fields the viewer shows are needed, and it avoids a protobuf toolchain in the build.
 - Payloads are decoded as number, boolean, text, JSON (fields become nodes, addressed by JSON pointer) or binary.
   CloudEvents (structured JSON and binary mode with MQTT 5 user properties) are recognised and labelled.
-- Monitoring delivers every message; the refresh time does not apply because the broker pushes.
+- The refresh time stays meaningful for MQTT as a maximum update rate: the latest value at most once per interval.
+  This keeps recordings of fast topics manageable. 0 delivers every message, e.g. for events where each one
+  matters.
 
 ## Resilience and threading
 

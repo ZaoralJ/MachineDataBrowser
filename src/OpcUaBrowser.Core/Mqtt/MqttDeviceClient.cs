@@ -8,7 +8,8 @@ namespace OpcUaBrowser.Core.Mqtt;
 /// <summary>
 /// Read-only MQTT client (MQTT 3.1.1 / 5, TCP or WebSocket, optional TLS) behind <see cref="IDeviceClient"/>.
 /// It subscribes to one topic filter (default <c>#</c>), builds the tree from the messages it receives and decodes
-/// Sparkplug B. MQTT pushes values, so monitoring is a callback per message; the refresh time is not used.
+/// Sparkplug B. MQTT pushes values; the refresh time is a maximum update rate per monitored item (the latest value at
+/// most once per interval), and 0 delivers every message.
 /// </summary>
 public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
 {
@@ -162,7 +163,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
                 continue;
             }
 
-            var subscriber = new Subscriber(this, id, onUpdate);
+            var subscriber = new Subscriber(this, id, onUpdate, samplingIntervalMs);
             lock (_lock)
             {
                 if (!_subscribers.TryGetValue(id, out var list))
@@ -176,7 +177,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
             // Like an OPC UA subscription, deliver the value already known (e.g. a retained message) at once.
             if (_model.Current(id) is { } current)
             {
-                Deliver(subscriber, current);
+                subscriber.Offer(current);
             }
 
             results.Add(new MonitorResult(nodeId, subscriber, ServiceResult.Good));
@@ -318,20 +319,8 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
 
             foreach (var (subscriber, _) in group)
             {
-                Deliver(subscriber, update);
+                subscriber.Offer(update);
             }
-        }
-    }
-
-    private static void Deliver(Subscriber subscriber, ValueUpdate update)
-    {
-        try
-        {
-            subscriber.OnUpdate(update);
-        }
-        catch (Exception ex) when (Errors.IsRecoverable(ex))
-        {
-            System.Diagnostics.Trace.TraceError($"MQTT value handler failed: {ex}");
         }
     }
 
@@ -431,18 +420,103 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
         }
     }
 
-    private sealed class Subscriber(MqttDeviceClient owner, string id, Action<ValueUpdate> onUpdate) : IAsyncDisposable
+    /// <summary>
+    /// One monitored item. With an interval it forwards at most one update per interval: the first at once, later
+    /// ones as the latest value when the interval has passed (like an OPC UA sampling interval). 0 forwards every message.
+    /// </summary>
+    private sealed class Subscriber(MqttDeviceClient owner, string id, Action<ValueUpdate> onUpdate, double intervalMs) : IAsyncDisposable
     {
+        private readonly Lock _lock = new();
+        private readonly TimeSpan _interval = TimeSpan.FromMilliseconds(Math.Max(0, intervalMs));
+        private long _lastDelivered = long.MinValue / 2;
+        private ValueUpdate? _pending;
+        private Timer? _timer;
+        private bool _disposed;
+
         public MqttDeviceClient Owner { get; } = owner;
 
         public string Id { get; } = id;
 
-        public Action<ValueUpdate> OnUpdate { get; } = onUpdate;
+        public void Offer(ValueUpdate update)
+        {
+            if (_interval == TimeSpan.Zero)
+            {
+                Deliver(update);
+                return;
+            }
+
+            lock (_lock)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                var now = Environment.TickCount64;
+                var due = _lastDelivered + (long)_interval.TotalMilliseconds - now;
+                if (due <= 0 && _pending is null)
+                {
+                    _lastDelivered = now;
+                }
+                else
+                {
+                    // Keep only the newest value; the timer sends it when the interval is over.
+                    var schedule = _pending is null;
+                    _pending = update;
+                    if (schedule)
+                    {
+                        _timer ??= new Timer(_ => Flush());
+                        _timer.Change(TimeSpan.FromMilliseconds(Math.Max(0, due)), Timeout.InfiniteTimeSpan);
+                    }
+
+                    return;
+                }
+            }
+
+            Deliver(update);
+        }
 
         public ValueTask DisposeAsync()
         {
+            lock (_lock)
+            {
+                _disposed = true;
+                _pending = null;
+                _timer?.Dispose();
+                _timer = null;
+            }
+
             Owner.Remove(this);
             return ValueTask.CompletedTask;
+        }
+
+        private void Flush()
+        {
+            ValueUpdate? update;
+            lock (_lock)
+            {
+                update = _pending;
+                _pending = null;
+                _lastDelivered = Environment.TickCount64;
+            }
+
+            if (update is not null)
+            {
+                Deliver(update);
+            }
+        }
+
+        private void Deliver(ValueUpdate update)
+        {
+            // MQTT or timer thread: never let a handler exception escape.
+            try
+            {
+                onUpdate(update);
+            }
+            catch (Exception ex) when (Errors.IsRecoverable(ex))
+            {
+                System.Diagnostics.Trace.TraceError($"MQTT value handler failed: {ex}");
+            }
         }
     }
 }

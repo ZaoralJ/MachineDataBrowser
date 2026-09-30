@@ -177,6 +177,22 @@ public sealed class MqttClientTests(MqttSimulatorFixture broker) : IAsyncLifetim
     }
 
     [Fact]
+    public async Task Refresh_time_limits_the_update_rate_and_zero_delivers_every_message()
+    {
+        var every = new ConcurrentQueue<ValueUpdate>();
+        var throttled = new ConcurrentQueue<ValueUpdate>();
+        await using (await _client.MonitorAsync(Id("t:fast/10ms/counter"), every.Enqueue, 0, Ct))
+        await using (await _client.MonitorAsync(Id("t:fast/10ms/counter"), throttled.Enqueue, 500, Ct))
+        {
+            await Task.Delay(TimeSpan.FromSeconds(2), Ct);
+        }
+
+        Assert.True(every.Count >= 100, $"every message: only {every.Count} in 2 s");
+        Assert.InRange(throttled.Count, 3, 6); // at most one per 500 ms, the latest value
+        Assert.True(long.Parse(throttled.Last().Value, System.Globalization.CultureInfo.InvariantCulture) > long.Parse(throttled.First().Value, System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
     public async Task Paths_from_root_resolve_for_topics_json_fields_and_metrics()
     {
         Assert.Equal(["root", "topics", "t:machines", "t:machines/m1", "t:machines/m1/status", "t:machines/m1/status#/temperature", "t:machines/m1/status#/temperature/bearing"],

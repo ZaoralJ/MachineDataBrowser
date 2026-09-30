@@ -107,7 +107,8 @@ order are saved with the session.
     them running.
 - **Refresh time:** 1–7 (100 ms … 10 s), T for a custom time, or right-click ▸ Refresh time.
   - OPC UA uses it as the sampling interval, Logix as the poll interval.
-  - MQTT delivers every message, so the refresh time doesn't apply there.
+  - For MQTT it is a maximum update rate: at most the latest value once per interval. **0** means every message;
+    use it for events, CloudEvents or anything where each message matters.
 - **Recorded values:**
   - A red dot marks a row that is being recorded; *Recorded* shows how many samples are kept.
   - Space, G, double-click or the chart button in the Name cell opens that item's recorded values. Double-click on a

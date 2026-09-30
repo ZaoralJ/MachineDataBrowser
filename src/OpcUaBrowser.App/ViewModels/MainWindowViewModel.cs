@@ -259,7 +259,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     public static IReadOnlyList<int> RefreshPresets { get; } = [100, 250, 500, 1000, 2000, 5000, 10000];
 
-    public static string FormatRefresh(int ms) => ms >= 1000 && ms % 1000 == 0 ? $"{ms / 1000} s" : $"{ms} ms";
+    public static string FormatRefresh(int ms) => ms switch
+    {
+        <= 0 => "every update",
+        >= 1000 when ms % 1000 == 0 => $"{ms / 1000} s",
+        _ => $"{ms} ms",
+    };
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsDisconnected), nameof(StateText))]

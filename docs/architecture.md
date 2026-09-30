@@ -108,7 +108,7 @@ classDiagram
 | Library | OPC Foundation UA-.NETStandard | libplctag.NET | MQTTnet |
 | Tree | server address space (forward hierarchical references) | Controller tags / Programs ▸ tags ▸ UDT members, array elements | Topics (topic levels, JSON fields) and Sparkplug B (group ▸ edge node ▸ device ▸ metrics) |
 | Node ids | `nsu=<namespace URI>;…` | Logix tag path, e.g. `Program:Main.Motor[2].Speed` | `t:<topic>[#<JSON pointer>]`, `m:<group>\|<edge>\|<device>\|<metric>` |
-| Values | read and subscriptions (server pushes) | polled per refresh time, only changes are reported | pushed per message; the refresh time is not used |
+| Values | read and subscriptions (server pushes) | polled per refresh time, only changes are reported | pushed per message; the refresh time is a maximum update rate (0 = every message) |
 | Structures | decoded with the server's type definitions | UDT templates (`@udt/<id>`) | JSON payloads, Sparkplug B protobuf |
 | Status | server status codes | `Bad…` from libplctag errors | `BadNoCommunication` while a Sparkplug node or device is dead |
 
@@ -216,7 +216,9 @@ flowchart TB
   - The raw `spBv1.0/…` topics are not listed under Topics.
 - **Live tree:** the client implements `IDynamicAddressSpace`. The App re-browses expanded nodes about once a second
   after the address space changes, and merges the result so expansion and selection survive.
-- **Monitoring:** every message is delivered; the refresh time is not used. The current value (for example a
+- **Monitoring:** the refresh time is a maximum update rate per item. The item gets the first message at once, then
+  at most the latest value once per interval, like an OPC UA sampling interval; 0 delivers every message. The current
+  value (for example a
   retained message) is delivered as soon as monitoring starts.
 - **Connection:** MQTT 5 over TCP, TLS (`mqtts://`) or WebSocket (`ws://`, `wss://`).
   - User name and password come from the connection options or the URL.
