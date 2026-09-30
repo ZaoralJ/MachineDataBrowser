@@ -477,6 +477,56 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
     }
 
     [AvaloniaFact]
+    public void Opc_ua_only_options_are_hidden_for_eip_endpoints()
+    {
+        var vm = new MainWindowViewModel { EndpointUrl = "opc.tcp://plc:4840", UserName = "op" };
+        Assert.True(vm.IsOpcUaEndpoint);
+        Assert.Contains("op", vm.OptionsSummary, StringComparison.Ordinal);
+
+        vm.EndpointUrl = "eip://192.168.1.10/1,0";
+        Assert.False(vm.IsOpcUaEndpoint);
+        Assert.StartsWith("EtherNet/IP", vm.OptionsSummary, StringComparison.Ordinal);
+        Assert.DoesNotContain("op", vm.OptionsSummary.Replace("EtherNet/IP", string.Empty, StringComparison.Ordinal), StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
+    public void Last_used_endpoint_is_the_default()
+    {
+        var store = new SettingsStore(Path.Combine(_dir, "settings.json"));
+        store.Save(new AppSettings { RecentEndpoints = ["opc.tcp://line2:4840", "opc.tcp://old-plc:4840"] });
+
+        var vm = new MainWindowViewModel(store);
+
+        Assert.Equal("opc.tcp://line2:4840", vm.EndpointUrl);
+        Assert.False(vm.IsDirty);
+    }
+
+    [AvaloniaFact]
+    public void Clicking_a_history_entry_fills_the_endpoint_and_closes_the_flyout()
+    {
+        var store = new SettingsStore(Path.Combine(_dir, "settings.json"));
+        store.Save(new AppSettings { RecentEndpoints = ["opc.tcp://old-plc:4840", "opc.tcp://line2:4840"] });
+        var vm = new MainWindowViewModel(store) { EndpointUrl = "opc.tcp://typed:4840" };
+        var window = new MainWindow { DataContext = vm };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var historyButton = window.GetVisualDescendants().OfType<Avalonia.Controls.Button>().Single(b => b.Name == "EndpointHistoryButton");
+        var flyout = Assert.IsAssignableFrom<Avalonia.Controls.Primitives.FlyoutBase>(historyButton.Flyout);
+        flyout.ShowAt(historyButton);
+        Dispatcher.UIThread.RunJobs();
+
+        var entry = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(((Avalonia.Controls.Flyout)flyout).Content as Avalonia.Visual ?? throw new InvalidOperationException())
+            .OfType<Avalonia.Controls.Button>().First(b => b.Classes.Contains("history-entry") && Equals(b.CommandParameter, "opc.tcp://line2:4840"));
+        typeof(Avalonia.Controls.Button).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(entry, null);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal("opc.tcp://line2:4840", vm.EndpointUrl);
+        Assert.False(flyout.IsOpen);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public async Task Theme_setting_is_applied_and_persisted()
     {
         var store = new SettingsStore(Path.Combine(_dir, "settings.json"));

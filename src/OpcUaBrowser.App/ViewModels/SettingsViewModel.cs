@@ -10,6 +10,9 @@ public sealed partial class SettingsViewModel(AppSettings original) : Observable
     [ObservableProperty]
     public partial ThemePreference Theme { get; set; } = original.Theme;
 
+    // Preview immediately; the caller restores the saved theme when the dialog is cancelled.
+    partial void OnThemeChanged(ThemePreference value) => MainWindowViewModel.ApplyTheme(value);
+
     [ObservableProperty]
     public partial decimal? SamplingIntervalMs { get; set; } = original.SamplingIntervalMs;
 

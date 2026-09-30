@@ -15,7 +15,9 @@ public sealed partial class MainWindow : Window
         {
             if (e.Source is Button button && button.Classes.Contains("history-entry"))
             {
-                EndpointHistoryButton.Flyout?.Hide();
+                // Button raises Click before executing its Command; closing the flyout right away detaches the
+                // entry and drops its $parent-bound Command, so the pick was lost. Close after the command ran.
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => EndpointHistoryButton.Flyout?.Hide());
             }
         });
     }

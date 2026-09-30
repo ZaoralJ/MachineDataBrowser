@@ -31,6 +31,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         _layoutStore = layoutStore;
         Settings = settingsStore?.Load() ?? new AppSettings();
         DefaultRefreshMs = Settings.SamplingIntervalMs;
+        EndpointUrl = DefaultEndpointUrl;
         IsDirty = false;
         ApplyTheme(Settings.Theme);
         Layout = layoutStore?.TryLoad(DockFactory) ?? DockFactory.CreateLayout();
@@ -168,7 +169,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOpcUaEndpoint), nameof(OptionsSummary))]
     public partial string EndpointUrl { get; set; } = "opc.tcp://localhost:50000";
+
+    /// <summary>Security, credentials and certificate trust only apply to OPC UA, not to EtherNet/IP (<c>eip://</c>).</summary>
+    public bool IsOpcUaEndpoint => !DeviceClient.IsEip(EndpointUrl ?? string.Empty);
+
+    /// <summary>The last connected endpoint, or localhost when there is no history.</summary>
+    private string DefaultEndpointUrl => Settings.RecentEndpoints.Count > 0 ? Settings.RecentEndpoints[0] : "opc.tcp://localhost:50000";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OptionsSummary))]
@@ -243,6 +251,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             var security = UseSecurity ? "Secure" : "No security";
             var user = string.IsNullOrWhiteSpace(UserName) ? "Anonymous" : UserName;
             var refresh = FormatRefresh(DefaultRefreshMs);
+            if (!IsOpcUaEndpoint)
+            {
+                return $"EtherNet/IP · {refresh}";
+            }
+
             return AutoAcceptCertificates ? $"{security} · {user} · {refresh} · auto-trust" : $"{security} · {user} · {refresh}";
         }
     }
@@ -709,12 +722,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         IsBusy = true;
         try
         {
-            var trees = new List<NodeTree>();
+            // Only nodes without picked descendants need their subtree read; the others just hold the picks.
+            var picked = nodes.Select(n => n.NodeId).ToHashSet();
+            var containers = nodes.SelectMany(n => n.Ancestors).Where(a => picked.Contains(a.NodeId)).Select(a => a.NodeId).ToHashSet();
+            var selections = new List<(IReadOnlyList<NodeTree> Ancestors, NodeTree Tree)>();
             foreach (var node in nodes)
             {
-                trees.Add(await _client.ReadTreeAsync(node.NodeId, node.DisplayName, node.NodeClass, MaxRecursiveDepth, MaxRecursiveItems));
+                var tree = containers.Contains(node.NodeId)
+                    ? new NodeTree(node.NodeId, node.DisplayName, node.NodeClass)
+                    : await _client.ReadTreeAsync(node.NodeId, node.DisplayName, node.NodeClass, MaxRecursiveDepth, MaxRecursiveItems);
+                selections.Add(([.. node.Ancestors.Select(a => new NodeTree(a.NodeId, a.DisplayName, a.NodeClass))], tree));
             }
 
+            var trees = NodeExport.ComposeSelection(selections);
             await CopyAsync(format(trees));
         }
         catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)

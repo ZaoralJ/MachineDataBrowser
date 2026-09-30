@@ -36,7 +36,23 @@
     </DataTemplate>
   </Application.DataTemplates>
   <Application.Styles>
-    <FluentTheme DensityStyle="Compact" />
+    <!-- Slate neutrals + indigo accent; Dock and DataGrid pick these up through the Fluent system brushes. -->
+    <FluentTheme DensityStyle="Compact">
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Light" Accent="#5B5BD6" RegionColor="#F4F5F8"
+                               AltHigh="#FFFFFF" AltMediumHigh="#FFFFFF" AltMedium="#FFFFFF" AltLow="#FFFFFF"
+                               BaseHigh="#1B1D24" BaseMediumHigh="#3A3F4B" BaseMedium="#6B7180" BaseMediumLow="#9097A6" BaseLow="#E3E5EB"
+                               ChromeLow="#F4F5F8" ChromeMediumLow="#FFFFFF" ChromeMedium="#EEF0F4" ChromeHigh="#D3D7DF" ChromeAltLow="#1B1D24"
+                               ChromeDisabledLow="#A7ADBA" ChromeDisabledHigh="#E3E5EB"
+                               ListLow="#F0F1F5" ListMedium="#E7E8F7" ErrorText="#D93D42" />
+        <ColorPaletteResources x:Key="Dark" Accent="#6E6AF0" RegionColor="#0F1116"
+                               AltHigh="#0F1116" AltMediumHigh="#15171D" AltMedium="#15171D" AltLow="#15171D"
+                               BaseHigh="#ECEDF1" BaseMediumHigh="#C5C8D2" BaseMedium="#8D93A3" BaseMediumLow="#666C7B" BaseLow="#262A33"
+                               ChromeLow="#0F1116" ChromeMediumLow="#15171D" ChromeMedium="#1B1E25" ChromeHigh="#2E333D" ChromeAltLow="#ECEDF1"
+                               ChromeDisabledLow="#5A6070" ChromeDisabledHigh="#262A33"
+                               ListLow="#1C1F27" ListMedium="#262A3F" ErrorText="#F2555A" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
     <DockFluentTheme />
     <StyleInclude Source="avares://OpcUaBrowser/Styles/AppStyles.axaml" />

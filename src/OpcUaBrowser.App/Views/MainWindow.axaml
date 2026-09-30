@@ -9,7 +9,8 @@
         Icon="/Assets/AppIcon.png"
         Width="1280" Height="800"
         MinWidth="900" MinHeight="560"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AppWindowBrush}">
 
   <LayoutTransformControl x:Name="ZoomHost">
     <LayoutTransformControl.LayoutTransform>
@@ -19,19 +20,26 @@
     <NativeMenuBar DockPanel.Dock="Top" />
 
     <!-- Toolbar -->
-    <Border DockPanel.Dock="Top" Padding="12,8"
-            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-            BorderThickness="0,0,0,1" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+    <Border DockPanel.Dock="Top" Classes="app-header">
+      <DockPanel>
+      <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="10" Margin="0,0,16,0" VerticalAlignment="Center">
+        <Image Classes="brand-mark" Source="/Assets/AppIcon.png" />
+        <StackPanel VerticalAlignment="Center" Spacing="0">
+          <TextBlock Classes="brand-title" Text="OPC UA Browser" />
+          <TextBlock Classes="brand-subtitle" Text="OPC UA · EtherNet/IP" />
+        </StackPanel>
+      </StackPanel>
       <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
-        <TextBox Grid.Column="0" x:Name="EndpointBox" KeyDown="OnEndpointKeyDown"
+        <TextBox Grid.Column="0" x:Name="EndpointBox" Classes="endpoint" KeyDown="OnEndpointKeyDown"
                  Text="{Binding EndpointUrl}" IsEnabled="{Binding IsDisconnected}"
                  PlaceholderText="opc.tcp://host:4840" VerticalContentAlignment="Center"
                  FontFamily="{StaticResource MonoFont}"
                  AutomationProperties.Name="Server endpoint URL"
                  ToolTip.Tip="Server endpoint URL. Enter connects, ↓ shows recent endpoints.">
           <TextBox.InnerLeftContent>
-            <TextBlock Text="Endpoint" Margin="10,0,4,0" VerticalAlignment="Center"
-                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+            <Border Classes="endpoint-label">
+              <TextBlock Text="Endpoint" />
+            </Border>
           </TextBox.InnerLeftContent>
           <TextBox.InnerRightContent>
             <Button x:Name="EndpointHistoryButton" Classes="icon-only" Margin="0,0,4,0"
@@ -41,8 +49,8 @@
               <PathIcon Data="{StaticResource IconChevronDown}" />
               <Button.Flyout>
                 <Flyout Placement="BottomEdgeAlignedRight">
-                  <StackPanel Width="460" Spacing="4">
-                    <TextBlock Classes="pane-title" Text="RECENT ENDPOINTS" Margin="4,0,0,4" />
+                  <StackPanel MinWidth="320" Spacing="2">
+                    <TextBlock Classes="pane-title" Text="RECENT ENDPOINTS" Margin="8,0,0,6" />
                     <ItemsControl x:Name="EndpointHistoryList" ItemsSource="{Binding RecentEndpoints}">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="x:String">
@@ -76,7 +84,7 @@
           </TextBox.KeyBindings>
         </TextBox>
 
-        <Button Grid.Column="1" Classes="toolbar" IsEnabled="{Binding IsDisconnected}"
+        <Button Grid.Column="1" Classes="toolbar subtle" IsEnabled="{Binding IsDisconnected}"
                 AutomationProperties.Name="Connection options"
                 ToolTip.Tip="Security, credentials and certificate options">
           <StackPanel Orientation="Horizontal" Spacing="6">
@@ -85,14 +93,15 @@
           </StackPanel>
           <Button.Flyout>
             <Flyout Placement="BottomEdgeAlignedRight">
-              <StackPanel Width="300" Spacing="12" Margin="4">
+              <StackPanel MinWidth="320" MaxWidth="400" Spacing="12" Margin="4">
                 <TextBlock Text="Connection options" FontWeight="SemiBold" />
                 <StackPanel Spacing="4">
                   <TextBlock Text="Default refresh time (ms)" />
-                  <NumericUpDown Value="{Binding DefaultRefreshMs}" Minimum="0" Maximum="3600000" Increment="50"
+                  <NumericUpDown Value="{Binding DefaultRefreshMs}" ButtonSpinnerLocation="Right" HorizontalAlignment="Stretch" Minimum="0" Maximum="3600000" Increment="50"
                                  FormatString="0"
                                  ToolTip.Tip="Sampling and publishing interval for items monitored in this session. Saved with the session; individual items can be changed by right-click." />
                 </StackPanel>
+                <StackPanel Spacing="12" IsVisible="{Binding IsOpcUaEndpoint}">
                 <CheckBox Content="Use secure endpoint" IsChecked="{Binding UseSecurity}"
                           ToolTip.Tip="Pick the most secure endpoint the server offers (Sign &amp; Encrypt)" />
                 <StackPanel Spacing="4">
@@ -109,9 +118,10 @@
                   <StackPanel Orientation="Horizontal" Spacing="6">
                     <PathIcon Data="{StaticResource IconWarning}" Width="14" Height="14"
                               Foreground="{StaticResource StatusUncertainBrush}" />
-                    <TextBlock Text="Auto-trust server certificates (insecure)" />
+                    <TextBlock Text="Auto-trust server certificates (insecure)" TextWrapping="Wrap" />
                   </StackPanel>
                 </CheckBox>
+                </StackPanel>
               </StackPanel>
             </Flyout>
           </Button.Flyout>
@@ -125,7 +135,7 @@
             <TextBlock Text="Connect" VerticalAlignment="Center" />
           </StackPanel>
         </Button>
-        <Button Grid.Column="2" Classes="toolbar" Command="{Binding DisconnectCommand}"
+        <Button Grid.Column="2" Classes="toolbar subtle" Command="{Binding DisconnectCommand}"
                 IsVisible="{Binding IsConnected}"
                 AutomationProperties.Name="Disconnect" ToolTip.Tip="Close the session">
           <StackPanel Orientation="Horizontal" Spacing="6">
@@ -137,6 +147,7 @@
         <ProgressBar Grid.Column="3" IsIndeterminate="True" IsVisible="{Binding IsBusy}"
                      Width="80" MinWidth="80" VerticalAlignment="Center" />
       </Grid>
+      </DockPanel>
     </Border>
 
     <!-- Error banner -->
@@ -153,23 +164,22 @@
     </Border>
 
     <!-- Status bar -->
-    <Border DockPanel.Dock="Bottom" Padding="12,4"
-            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-            BorderThickness="0,1,0,0" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+    <Border DockPanel.Dock="Bottom" Classes="status-bar">
       <DockPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
-          <Ellipse Width="8" Height="8" VerticalAlignment="Center"
-                   Fill="{Binding State, Converter={x:Static conv:ConnectionStateConverters.ToBrush}}" />
-          <TextBlock Text="{Binding State, Converter={x:Static conv:ConnectionStateConverters.ToText}}"
-                     FontSize="12" VerticalAlignment="Center" />
-        </StackPanel>
+        <Border DockPanel.Dock="Right" Classes="status-chip">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                     Fill="{Binding State, Converter={x:Static conv:ConnectionStateConverters.ToBrush}}" />
+            <TextBlock Text="{Binding State, Converter={x:Static conv:ConnectionStateConverters.ToText}}"
+                       FontSize="11" FontWeight="Medium" VerticalAlignment="Center" />
+          </StackPanel>
+        </Border>
         <TextBlock Text="{Binding StatusMessage}" FontSize="12" TextTrimming="CharacterEllipsis"
-                   VerticalAlignment="Center"
-                   Foreground="{DynamicResource SystemControlForegroundBaseMediumHighBrush}" />
+                   VerticalAlignment="Center" Foreground="{DynamicResource AppMutedTextBrush}" />
       </DockPanel>
     </Border>
 
-    <DockControl x:Name="DockHost" Layout="{Binding Layout}" Factory="{Binding DockFactory}"
+    <DockControl x:Name="DockHost" Margin="8,0,8,0" Layout="{Binding Layout}" Factory="{Binding DockFactory}"
                  InitializeFactory="True" InitializeLayout="True" />
   </DockPanel>
   </LayoutTransformControl>

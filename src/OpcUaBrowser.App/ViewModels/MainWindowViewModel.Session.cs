@@ -62,7 +62,7 @@ public sealed partial class MainWindowViewModel
 
         await ResetAsync();
         _suppressDirty = true;
-        EndpointUrl = "opc.tcp://localhost:4840";
+        EndpointUrl = DefaultEndpointUrl;
         UseSecurity = false;
         AutoAcceptCertificates = false;
         UserName = string.Empty;
@@ -294,15 +294,28 @@ public sealed partial class MainWindowViewModel
             ApplyTheme(updated.Theme);
             StatusMessage = "Settings saved";
         }
+        else
+        {
+            // The dialog previews themes live; cancelling returns to the saved one.
+            ApplyTheme(Settings.Theme);
+        }
     }
 
     [RelayCommand]
     private void UseRecentEndpoint(string? url)
     {
-        if (!string.IsNullOrEmpty(url) && IsDisconnected)
+        if (string.IsNullOrEmpty(url))
         {
-            EndpointUrl = url;
+            return;
         }
+
+        if (!IsDisconnected)
+        {
+            StatusMessage = "Disconnect first to switch to another endpoint";
+            return;
+        }
+
+        EndpointUrl = url;
     }
 
     [RelayCommand]
@@ -385,7 +398,7 @@ public sealed partial class MainWindowViewModel
         _settingsStore?.Save(settings);
     }
 
-    private static void ApplyTheme(ThemePreference theme)
+    internal static void ApplyTheme(ThemePreference theme)
     {
         if (Application.Current is { } app)
         {

@@ -94,6 +94,74 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
     }
 
     [Fact]
+    public void Cherry_picked_properties_are_grouped_under_their_parent_object()
+    {
+        var root = new NodeTree(new NodeId(1), "Objects", NodeClass.Object);
+        var motor = new NodeTree(new NodeId(2), "Motor", NodeClass.Object);
+        var pump = new NodeTree(new NodeId(3), "Pump", NodeClass.Object);
+        var speed = new NodeTree(new NodeId(4), "Speed", NodeClass.Variable) { Value = 1.5f };
+        var running = new NodeTree(new NodeId(5), "Running", NodeClass.Variable) { Value = true };
+        var flow = new NodeTree(new NodeId(6), "Flow", NodeClass.Variable) { Value = 2.0 };
+
+        var trees = NodeExport.ComposeSelection([([root, motor], speed), ([root, motor], running), ([root, pump], flow)]);
+
+        Assert.Equal(["Motor", "Pump"], trees.Select(t => t.DisplayName));
+        Assert.Equal(["Speed", "Running"], trees[0].Children.Select(c => c.DisplayName));
+        var code = NodeExport.ToCSharp(trees[0]);
+        Assert.Contains("public sealed class Motor", code);
+        Assert.Contains("public float Speed", code);
+        Assert.Contains("public bool Running", code);
+    }
+
+    [Fact]
+    public void Picked_object_with_picked_descendants_keeps_only_those()
+    {
+        var root = new NodeTree(new NodeId(1), "Objects", NodeClass.Object);
+        var motor = new NodeTree(new NodeId(2), "Motor", NodeClass.Object);
+        var status = new NodeTree(new NodeId(3), "Status", NodeClass.Object);
+        var speed = new NodeTree(new NodeId(4), "Speed", NodeClass.Variable) { Value = 1.5f };
+        var fault = new NodeTree(new NodeId(5), "Fault", NodeClass.Variable) { Value = false };
+        motor.Children.Add(new NodeTree(new NodeId(9), "Unpicked", NodeClass.Variable) { Value = 1 });
+
+        var trees = NodeExport.ComposeSelection([([root], motor), ([root, motor], speed), ([root, motor, status], fault)]);
+
+        var single = Assert.Single(trees);
+        Assert.Equal("Motor", single.DisplayName);
+        Assert.Equal(["Speed", "Status"], single.Children.Select(c => c.DisplayName));
+        Assert.Equal("Fault", Assert.Single(single.Children[1].Children).DisplayName);
+    }
+
+    [Fact]
+    public void Picks_in_a_nested_object_become_a_property_of_the_outer_group()
+    {
+        var server = new NodeTree(new NodeId(1), "Server", NodeClass.Object);
+        var status = new NodeTree(new NodeId(2), "ServerStatus", NodeClass.Variable);
+        var buildInfo = new NodeTree(new NodeId(3), "BuildInfo", NodeClass.Variable);
+        var state = new NodeTree(new NodeId(4), "State", NodeClass.Variable) { Value = 0 };
+        var manufacturer = new NodeTree(new NodeId(5), "ManufacturerName", NodeClass.Variable) { Value = "m" };
+        var product = new NodeTree(new NodeId(6), "ProductName", NodeClass.Variable) { Value = "p" };
+
+        var trees = NodeExport.ComposeSelection([([server, status], state), ([server, status, buildInfo], manufacturer), ([server, status, buildInfo], product)]);
+
+        var single = Assert.Single(trees);
+        Assert.Equal("ServerStatus", single.DisplayName);
+        Assert.Equal(["State", "BuildInfo"], single.Children.Select(c => c.DisplayName));
+        Assert.Equal(["ManufacturerName", "ProductName"], single.Children[1].Children.Select(c => c.DisplayName));
+        var code = NodeExport.ToCSharp(single);
+        Assert.Contains("public BuildInfo BuildInfo", code);
+    }
+
+    [Fact]
+    public void Single_picked_object_is_exported_on_its_own()
+    {
+        var root = new NodeTree(new NodeId(1), "Objects", NodeClass.Object);
+        var motor = new NodeTree(new NodeId(2), "Motor", NodeClass.Object);
+        motor.Children.Add(new NodeTree(new NodeId(3), "Speed", NodeClass.Variable) { Value = 1.5f });
+
+        Assert.Same(motor, Assert.Single(NodeExport.ComposeSelection([([root], motor)])));
+    }
+
+    [Fact]
     public async Task Monitor_many_reports_rejected_items_without_failing_the_batch()
     {
         var results = await _client.MonitorManyAsync(
