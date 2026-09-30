@@ -1,11 +1,38 @@
-# OpcUaBrowser
+# Machine Data Browser (OpcUaBrowser)
 
 [![ci](https://github.com/ZaoralJ/OpcUaBrowser/actions/workflows/ci.yml/badge.svg)](https://github.com/ZaoralJ/OpcUaBrowser/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Cross-platform OPC UA client to browse and monitor servers (.NET 10, Avalonia, OPC Foundation UA-.NETStandard).
-It can also browse and monitor Allen-Bradley Logix controllers (ControlLogix, CompactLogix) over EtherNet/IP (CIP),
-read-only: enter `eip://<ip>[:port][/backplane,slot]` as the endpoint, e.g. `eip://192.168.1.10/1,0` (path defaults to `1,0`).
+**Machine Data Browser** is a cross-platform, read-only viewer for machine data (.NET 10, Avalonia). It shows the data of one device at a time:
+
+| Protocol | Endpoint | Highlights |
+|---|---|---|
+| **OPC UA** | `opc.tcp://host:4840` | secure endpoints, user login, custom structures, subscriptions |
+| **EtherNet/IP** (Allen-Bradley Logix) | `eip://192.168.1.10/1,0` | controller and program tags, UDTs, arrays of UDTs |
+| **MQTT** | `mqtt://broker[:port][/topic/#]`, `mqtts://`, `ws://`, `wss://` | topic tree, JSON fields, Sparkplug B, CloudEvents |
+
+For any of these you can:
+
+- browse the address space and read attributes,
+- watch live values (stale and bad values stand out),
+- record values with limits, a schedule and live CSV files,
+- look at recordings as a table with a trend chart,
+- copy values as tables, JSON or C#, and save sessions.
+
+Everything has a keyboard shortcut.
+
+```mermaid
+flowchart LR
+    UA[(OPC UA server)] --- App
+    PLC[(Logix controller)] --- App
+    MQ[(MQTT broker<br/>Sparkplug B · CloudEvents)] --- App
+    App[Machine Data Browser] --> W[Watch] --> R[Recordings] --> V[Viewer + chart]
+    App --> X[Export · copy · sessions]
+```
+
+The app is called **Machine Data Browser**. The installed app bundle (`OPC UA Browser.app`), the Homebrew cask
+(`opcua-browser`), the data folder and the repository keep their original names, so updates and existing sessions
+keep working.
 
 ## Install (macOS, Homebrew)
 
@@ -13,7 +40,7 @@ read-only: enter `eip://<ip>[:port][/backplane,slot]` as the endpoint, e.g. `eip
 brew install --cask zaoralj/tap/opcua-browser
 ```
 
-The app is self-contained (ships its own .NET runtime). It is not notarized; if macOS blocks the first launch:
+The app is self-contained, so it needs no .NET installation. It is not notarized; if macOS blocks the first launch:
 
 ```sh
 xattr -dr com.apple.quarantine "/Applications/OPC UA Browser.app"
@@ -21,34 +48,53 @@ xattr -dr com.apple.quarantine "/Applications/OPC UA Browser.app"
 
 Update with `brew upgrade --cask opcua-browser`, remove with `brew uninstall --cask --zap opcua-browser`.
 
-## Build from source
+## Try it with the test servers
 
 ```sh
+just all     # Logix, OPC UA (two servers) and MQTT simulators in Docker
+dotnet run --project src/OpcUaBrowser.App
+```
+
+Then connect to one of these:
+
+- `opc.tcp://localhost:50000`
+- `opc.tcp://localhost:4841/`
+- `eip://localhost:44818/1,0`
+- `mqtt://localhost:1883`
+
+[docs/simulators.md](docs/simulators.md) describes what each simulator contains.
+
+## Documentation
+
+- [User manual](docs/user-manual.md): connecting, browsing, Watch, recordings, the chart, sessions, shortcuts,
+  troubleshooting
+- [Architecture](docs/architecture.md): projects, the protocol boundary, value flow, connection lifecycle, each
+  protocol, the App, packaging (with diagrams)
+- [Decisions](docs/decisions.md): why these libraries, why read-only, how MQTT and Sparkplug B are handled
+- [Simulators](docs/simulators.md): local test servers and the integration tests
+
+## Build and test
+
+```sh
+dotnet build                     # warnings are errors
+dotnet test                      # unit + integration + headless UI tests (needs Docker)
 dotnet run --project src/OpcUaBrowser.App
 ```
 
 ## Release
 
-Releases are driven by [release-please](https://github.com/googleapis/release-please). Every merge to `main`
-updates a release PR that bumps the version (from the Conventional Commit PR titles) and `CHANGELOG.md`.
-Merging that PR tags `vX.Y.Z`, creates the GitHub release and runs the `release` workflow, which tests again,
-builds self-contained `osx-arm64`/`osx-x64` app bundles, attaches them and updates the Homebrew cask in
-`ZaoralJ/homebrew-tap`.
+Releases are driven by [release-please](https://github.com/googleapis/release-please).
 
-Pre-releases are tagged by hand and skip the tap:
+- Every merge to `main` updates a release PR. It bumps the version (from the Conventional Commit PR titles) and
+  updates `CHANGELOG.md`.
+- Merging that PR tags `vX.Y.Z`, creates the GitHub release and runs the `release` workflow. The workflow tests
+  again, builds self-contained `osx-arm64`/`osx-x64` app bundles, attaches them and updates the Homebrew cask in
+  `ZaoralJ/homebrew-tap`.
 
-```sh
-scripts/release.sh 0.2.0-rc.1
-```
-
+Pre-releases are tagged by hand and skip the tap: `scripts/release.sh 0.2.0-rc.1`.
 Local package only: `packaging/macos/package.sh 0.2.0 arm64` → `artifacts/dist/`.
-
-## Documentation
-
-- [Architecture](docs/architecture.md) – projects, Core/App design, persistence, packaging
-- [Decisions](docs/decisions.md) – why this SDK, UI framework, docking and distribution
 
 ## Contributing
 
-Contributions are welcome – see [CONTRIBUTING.md](CONTRIBUTING.md). Licensed under the [MIT License](LICENSE);
-third-party components are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Licensed under the [MIT License](LICENSE).
+Third-party components are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

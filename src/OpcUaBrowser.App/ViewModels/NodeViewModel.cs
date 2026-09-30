@@ -153,6 +153,65 @@ public sealed partial class NodeViewModel : ObservableObject
         return level.Count > 0;
     }
 
+    /// <summary>
+    /// Re-browses expanded nodes of a live address space (MQTT topics and Sparkplug metrics appear over time) and
+    /// merges the result: existing child view models are kept, so expansion and selection survive.
+    /// </summary>
+    public async Task RefreshExpandedAsync()
+    {
+        if (_browse is null || !_loaded || !IsExpanded || !HasChildren)
+        {
+            return;
+        }
+
+        IReadOnlyList<BrowseItem> items;
+        try
+        {
+            items = await _browse(NodeId);
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            return; // a refresh is best effort; the next one retries
+        }
+
+        var existing = Children.Where(c => c != Placeholder).ToDictionary(c => c.NodeId);
+        var wanted = items.Select(item =>
+            existing.TryGetValue(item.NodeId, out var keep) && keep.NodeClass == item.NodeClass && keep.HasChildren == item.HasChildren
+                ? keep
+                : new NodeViewModel(item, _browse, _onError!, _formatId, this)).ToList();
+
+        for (var i = Children.Count - 1; i >= 0; i--)
+        {
+            if (!wanted.Contains(Children[i]))
+            {
+                Children.RemoveAt(i);
+            }
+        }
+
+        for (var i = 0; i < wanted.Count; i++)
+        {
+            if (i < Children.Count && ReferenceEquals(Children[i], wanted[i]))
+            {
+                continue;
+            }
+
+            var at = Children.IndexOf(wanted[i]);
+            if (at >= 0)
+            {
+                Children.Move(at, i);
+            }
+            else
+            {
+                Children.Insert(i, wanted[i]);
+            }
+        }
+
+        foreach (var child in wanted.Where(c => c.IsExpanded))
+        {
+            await child.RefreshExpandedAsync();
+        }
+    }
+
     private async Task LoadChildrenAsync()
     {
         if (_browse is null)

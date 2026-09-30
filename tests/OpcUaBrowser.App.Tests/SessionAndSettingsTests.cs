@@ -34,7 +34,7 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
 
             await vm.WriteSessionAsync(path);
             Assert.False(vm.IsDirty);
-            Assert.Equal("line1 — OPC UA Browser", vm.WindowTitle);
+            Assert.Equal("line1 — Machine Data Browser", vm.WindowTitle);
         }
 
         var json = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);

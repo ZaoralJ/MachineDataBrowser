@@ -9,7 +9,8 @@ using OpcUaBrowser.App.ViewModels;
 namespace OpcUaBrowser.App.Views;
 
 /// <summary>
-/// Minimal time/value line chart for recorded numeric samples. Points are reduced to a min/max pair per pixel
+/// Minimal time/value line chart for recorded numeric samples. Points with different <see cref="TrendPoint.Series"/>
+/// are drawn as separate coloured lines on a shared axis with a legend. Each line is reduced to a min/max pair per pixel
 /// column before drawing, so tens of thousands of samples stay cheap to render every refresh.
 /// </summary>
 public sealed class TrendChart : Control
@@ -21,6 +22,15 @@ public sealed class TrendChart : Control
         AvaloniaProperty.Register<TrendChart, TrendPoint?>(nameof(Highlight), defaultBindingMode: BindingMode.TwoWay);
 
     private const double AxisWidth = 64;
+    private const int MaxLegendEntries = 8;
+
+    private static readonly IBrush[] Palette =
+    [
+        new SolidColorBrush(Color.Parse("#2F9E6E")), new SolidColorBrush(Color.Parse("#E5484D")),
+        new SolidColorBrush(Color.Parse("#F5A524")), new SolidColorBrush(Color.Parse("#0091FF")),
+        new SolidColorBrush(Color.Parse("#AB4ABA")), new SolidColorBrush(Color.Parse("#12A594")),
+        new SolidColorBrush(Color.Parse("#D6409F")), new SolidColorBrush(Color.Parse("#8E8C99")),
+    ];
     private const double AxisHeight = 20;
     private const double Pad = 8;
 
@@ -60,7 +70,15 @@ public sealed class TrendChart : Control
             lo--;
         }
 
-        Highlight = points[lo];
+        // Several series: among the samples closest in time, take the one nearest to the clicked height.
+        // Compare heights as a fraction of the plot, so it also works when lines are scaled to their own ranges.
+        var (min, max) = Padded(points.Min(p => p.Value), points.Max(p => p.Value));
+        var clicked = 1 - ((e.GetPosition(this).Y - plot.Top) / plot.Height);
+        double Fraction(TrendPoint p) => _ranges is { } r && r.TryGetValue(p.Series, out var own) ? (p.Value - own.Min) / (own.Max - own.Min) : (p.Value - min) / (max - min);
+        var window = TimeSpan.FromMilliseconds(span / Math.Max(plot.Width, 1) * 4);
+        Highlight = points.Where(p => (p.Time - points[lo].Time).Duration() <= window)
+            .OrderBy(p => Math.Abs(Fraction(p) - clicked))
+            .FirstOrDefault() ?? points[lo];
         e.Handled = true;
     }
 
@@ -85,30 +103,97 @@ public sealed class TrendChart : Control
         var plot = PlotArea(bounds);
         var t0 = points[0].Time;
         var span = Math.Max((points[^1].Time - t0).TotalMilliseconds, 1);
-        var (min, max) = (points.Min(p => p.Value), points.Max(p => p.Value));
+        var (min, max) = Padded(points.Min(p => p.Value), points.Max(p => p.Value));
+
+        // Lines whose ranges differ a lot (e.g. 0–100 next to ±2·10⁹) would flatten each other on a shared axis:
+        // then every line is scaled to its own range and the axis shows percent of range.
+        var ranges = points.GroupBy(p => p.Series).ToDictionary(g => g.Key, g => Padded(g.Min(p => p.Value), g.Max(p => p.Value)));
+        var widths = ranges.Values.Select(r => r.Max - r.Min).ToList();
+        var normalized = ranges.Count > 1 && widths.Max() / widths.Min() > 10;
+        _ranges = normalized ? ranges : null;
+        double X(DateTimeOffset t) => plot.Left + ((t - t0).TotalMilliseconds / span * plot.Width);
+        Func<double, double> YOf(string series)
+        {
+            var (lo, hi) = normalized ? ranges[series] : (min, max);
+            return v => plot.Bottom - ((v - lo) / (hi - lo) * plot.Height);
+        }
+
+        var grid = new Pen(Brush("AppBorderBrush", Brushes.Gray), 1);
+        var text = Brush("AppMutedTextBrush", Brushes.Gray);
+        for (var i = 0; i <= 4; i++)
+        {
+            var y = Math.Round(plot.Bottom - (plot.Height * i / 4)) + 0.5;
+            context.DrawLine(grid, new Point(plot.Left, y), new Point(plot.Right, y));
+            DrawText(context, normalized ? $"{i * 25}%" : Format(min + ((max - min) * i / 4)), text, new Point(plot.Left - 6, y), alignRight: true);
+        }
+
+        DrawText(context, Timestamps.Format(points[0].Time), text, new Point(plot.Left, plot.Bottom + 12), alignRight: false);
+        DrawText(context, Timestamps.Format(points[^1].Time), text, new Point(plot.Right, plot.Bottom + 12), alignRight: true);
+
+        var accent = Brush("AppAccentBrush", Brushes.DodgerBlue);
+        var series = points.GroupBy(p => p.Series).ToList();
+        IBrush ColorOf(string name) => series.Count == 1 ? accent : series.FindIndex(s => s.Key == name) is var i and >= 0 ? (i == 0 ? accent : Palette[(i - 1) % Palette.Length]) : accent;
+
+        using (context.PushClip(plot.Inflate(1)))
+        {
+            foreach (var line in series)
+            {
+                context.DrawGeometry(null, new Pen(ColorOf(line.Key), 1.5), Line([.. line], X, YOf(line.Key)));
+            }
+        }
+
+        if (series.Count > 1)
+        {
+            var y = plot.Top + 4;
+            foreach (var line in series.Take(MaxLegendEntries))
+            {
+                context.DrawLine(new Pen(ColorOf(line.Key), 2.5), new Point(plot.Left + 8, y + 7), new Point(plot.Left + 22, y + 7));
+                var label = normalized ? $"{line.Key}  ({Format(line.Min(p => p.Value))} … {Format(line.Max(p => p.Value))})" : line.Key;
+                DrawText(context, label, text, new Point(plot.Left + 28, y + 7), alignRight: false);
+                y += 16;
+            }
+
+            if (series.Count > MaxLegendEntries)
+            {
+                DrawText(context, $"+{series.Count - MaxLegendEntries} more", text, new Point(plot.Left + 28, y + 7), alignRight: false);
+            }
+        }
+
+        if (Highlight is { } h && h.Time >= t0 && h.Time <= points[^1].Time)
+        {
+            var x = Math.Round(X(h.Time)) + 0.5;
+            var y = YOf(ranges.ContainsKey(h.Series) ? h.Series : series[0].Key)(h.Value);
+            var guide = Brush("AppMutedTextBrush", Brushes.Gray);
+            context.DrawLine(new Pen(guide, 1, new DashStyle([3, 3], 0)), new Point(x, plot.Top), new Point(x, plot.Bottom));
+            context.DrawEllipse(Brush("AppSurfaceBrush", Brushes.White), new Pen(ColorOf(h.Series), 2), new Point(x, y), 4.5, 4.5);
+
+            var label = new FormattedText(
+                $"{(series.Count > 1 ? h.Series + "  ·  " : string.Empty)}{Format(h.Value)}  ·  {Timestamps.Format(h.Time)}",
+                CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Typeface.Default, 11, Brush("SystemControlForegroundBaseHighBrush", Brushes.White));
+            var box = new Rect(0, 0, label.Width + 12, label.Height + 6);
+            var left = x + 8 + box.Width > plot.Right ? x - 8 - box.Width : x + 8;
+            var top = Math.Clamp(y - box.Height - 6, plot.Top, plot.Bottom - box.Height);
+            box = box.Translate(new Vector(left, top));
+            context.DrawRectangle(Brush("AppSurfaceAltBrush", Brushes.Black), new Pen(Brush("AppBorderStrongBrush", Brushes.Gray), 1), box, 4, 4);
+            context.DrawText(label, new Point(box.X + 6, box.Y + 3));
+        }
+    }
+
+    private Dictionary<string, (double Min, double Max)>? _ranges;
+
+    private static (double Min, double Max) Padded(double min, double max)
+    {
         if (max - min < 1e-12)
         {
             (min, max) = (min - 1, max + 1);
         }
 
         var pad = (max - min) * 0.05;
-        (min, max) = (min - pad, max + pad);
-        double X(DateTimeOffset t) => plot.Left + ((t - t0).TotalMilliseconds / span * plot.Width);
-        double Y(double v) => plot.Bottom - ((v - min) / (max - min) * plot.Height);
+        return (min - pad, max + pad);
+    }
 
-        var grid = new Pen(Brush("AppBorderBrush", Brushes.Gray), 1);
-        var text = Brush("AppMutedTextBrush", Brushes.Gray);
-        for (var i = 0; i <= 4; i++)
-        {
-            var value = min + ((max - min) * i / 4);
-            var y = Math.Round(Y(value)) + 0.5;
-            context.DrawLine(grid, new Point(plot.Left, y), new Point(plot.Right, y));
-            DrawText(context, Format(value), text, new Point(plot.Left - 6, y), alignRight: true);
-        }
-
-        DrawText(context, Timestamps.Format(points[0].Time), text, new Point(plot.Left, plot.Bottom + 12), alignRight: false);
-        DrawText(context, Timestamps.Format(points[^1].Time), text, new Point(plot.Right, plot.Bottom + 12), alignRight: true);
-
+    private static StreamGeometry Line(List<TrendPoint> points, Func<DateTimeOffset, double> X, Func<double, double> Y)
+    {
         var geometry = new StreamGeometry();
         using (var g = geometry.Open())
         {
@@ -145,36 +230,16 @@ public sealed class TrendChart : Control
                 last = p.Value;
             }
 
-            g.LineTo(new Point(column, Y(lo)));
-            g.LineTo(new Point(column, Y(hi)));
-            g.LineTo(new Point(column, Y(last)));
-            g.EndFigure(isClosed: false);
+            if (started)
+            {
+                g.LineTo(new Point(column, Y(lo)));
+                g.LineTo(new Point(column, Y(hi)));
+                g.LineTo(new Point(column, Y(last)));
+                g.EndFigure(isClosed: false);
+            }
         }
 
-        var accent = Brush("AppAccentBrush", Brushes.DodgerBlue);
-        using (context.PushClip(plot.Inflate(1)))
-        {
-            context.DrawGeometry(null, new Pen(accent, 1.5), geometry);
-        }
-
-        if (Highlight is { } h && h.Time >= t0 && h.Time <= points[^1].Time)
-        {
-            var x = Math.Round(X(h.Time)) + 0.5;
-            var y = Y(h.Value);
-            var guide = Brush("AppMutedTextBrush", Brushes.Gray);
-            context.DrawLine(new Pen(guide, 1, new DashStyle([3, 3], 0)), new Point(x, plot.Top), new Point(x, plot.Bottom));
-            context.DrawEllipse(Brush("AppSurfaceBrush", Brushes.White), new Pen(accent, 2), new Point(x, y), 4.5, 4.5);
-
-            var label = new FormattedText(
-                $"{Format(h.Value)}  ·  {Timestamps.Format(h.Time)}",
-                CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Typeface.Default, 11, Brush("SystemControlForegroundBaseHighBrush", Brushes.White));
-            var box = new Rect(0, 0, label.Width + 12, label.Height + 6);
-            var left = x + 8 + box.Width > plot.Right ? x - 8 - box.Width : x + 8;
-            var top = Math.Clamp(y - box.Height - 6, plot.Top, plot.Bottom - box.Height);
-            box = box.Translate(new Vector(left, top));
-            context.DrawRectangle(Brush("AppSurfaceAltBrush", Brushes.Black), new Pen(Brush("AppBorderStrongBrush", Brushes.Gray), 1), box, 4, 4);
-            context.DrawText(label, new Point(box.X + 6, box.Y + 3));
-        }
+        return geometry;
     }
 
     private static string Format(double value) =>

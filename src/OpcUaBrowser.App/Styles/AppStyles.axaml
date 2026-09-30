@@ -146,12 +146,28 @@
     <!-- Buttons get MinHeight from dialogs/toolbars; keep the label centred in the extra height. -->
     <Setter Property="VerticalContentAlignment" Value="Center" />
   </Style>
+  <!-- Form controls share one height, so text boxes, combo boxes and number fields line up in dialogs. -->
+  <Style Selector="TextBox, ComboBox">
+    <Setter Property="MinHeight" Value="32" />
+  </Style>
   <Style Selector="TextBox">
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="CornerRadius" Value="{StaticResource AppControlRadius}" />
   </Style>
+  <Style Selector="ComboBox">
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="CornerRadius" Value="{StaticResource AppControlRadius}" />
+  </Style>
+  <!-- Disabled number fields: dim the whole control; the spinner buttons otherwise show as grey blocks. -->
+  <Style Selector="NumericUpDown:disabled">
+    <Setter Property="Opacity" Value="0.45" />
+  </Style>
+  <Style Selector="NumericUpDown:disabled /template/ ButtonSpinner /template/ RepeatButton">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
   <Style Selector="NumericUpDown">
-    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="Height" Value="32" />
+    <Setter Property="MinHeight" Value="32" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="CornerRadius" Value="{StaticResource AppControlRadius}" />
   </Style>

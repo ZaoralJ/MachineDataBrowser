@@ -11,6 +11,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\OpcUaBrowser.Core.Tests\OpcPlcFixture.cs" Link="OpcPlcFixture.cs" />
+    <Compile Include="..\OpcUaBrowser.Core.Tests\MqttSimulatorFixture.cs" Link="MqttSimulatorFixture.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\OpcUaBrowser.App\OpcUaBrowser.App.csproj" />

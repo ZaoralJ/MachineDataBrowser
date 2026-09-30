@@ -136,6 +136,9 @@ public static class GridCopy
         return item => order.TryGetValue(item, out var index) ? index : int.MaxValue;
     }
 
+    /// <summary>The text a column shows for a row (its copy text), or null when the column has no member.</summary>
+    public static string? ValueText(object item, DataGridColumn column) => ValueOf(item, column);
+
     private static string? ValueOf(object item, DataGridColumn column)
     {
         var member = GetMember(column) ?? column.SortMemberPath;

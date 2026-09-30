@@ -2,6 +2,11 @@
 
 Short record of the choices behind the current stack. Facts were checked at the time (September 2026).
 
+The app started as an OPC UA browser and is now a machine data viewer for OPC UA, EtherNet/IP (Logix) and MQTT.
+The app is shown as "Machine Data Browser". The app bundle (`OPC UA Browser.app`), the Homebrew cask
+(`opcua-browser`), the data folder and the repository (`OpcUaBrowser`) keep their names, so updates and existing
+data keep working.
+
 ## OPC UA SDK: OPC Foundation UA-.NETStandard
 
 - Licensed under the OPC Foundation MIT License (`LICENSE.txt` in the repository; the former GPL-2.0/RCL
@@ -25,6 +30,28 @@ Short record of the choices behind the current stack. Facts were checked at the 
 - Tags are created with the synchronous `Initialize` on a pool thread: libplctag.NET 1.5 `InitializeAsync` leaks the
   native tag and its callback when creation fails, which crashed the process on a later libplctag event.
 
+## MQTT: MQTTnet, read-only, with Sparkplug B
+
+- `MQTTnet` (MIT) supports MQTT 3.1.1 and 5, TLS and WebSocket on every platform the app targets.
+- Read-only like the other protocols: the app subscribes, never publishes. Consequence for Sparkplug B: it cannot
+  send a rebirth request (NCMD), so metrics published by alias before the app saw the BIRTH show as `alias <n>` until
+  the edge node's next birth.
+- Discovery by subscription: MQTT has no browse service, so the tree is built from received messages (topic filter
+  `#` by default, narrowed by the endpoint path or `?topic=`), with a cap of 20 000 topics. The tree refreshes live
+  (`IDynamicAddressSpace`).
+- Sparkplug B is decoded by a small hand-written protobuf reader (`SparkplugB.cs`) instead of generated code: only
+  the payload/metric fields the viewer shows are needed, and it avoids a protobuf toolchain in the build.
+- Payloads are decoded as number, boolean, text, JSON (fields become nodes, addressed by JSON pointer) or binary.
+  CloudEvents (structured JSON and binary mode with MQTT 5 user properties) are recognised and labelled.
+- Monitoring delivers every message; the refresh time does not apply because the broker pushes.
+
+## Resilience and threading
+
+- A global handler (`AppErrors`) logs every unhandled exception to `logs/opcuabrowser.log` and shows it in the error
+  bar; library callbacks (OPC UA notifications, reconnect, CIP polling, MQTT messages, recording timers) catch their
+  own errors because an exception on a thread-pool thread would end the process.
+- Connect, disconnect and shutdown work runs off the UI thread; values reach the UI only through a 200 ms flush.
+
 ## UI: Avalonia 12
 
 - Only mature .NET UI framework that runs natively on macOS (incl. Apple Silicon), Windows and Linux.
@@ -47,5 +74,5 @@ may need `xattr -dr com.apple.quarantine "/Applications/OPC UA Browser.app"` or 
 
 - CLI (`OpcUaBrowser.Cli` sharing Core) – planned commands `endpoints`, `browse`, `read`, `monitor`, `record`.
 - Windows/Linux packages – the app builds for `win-x64`, but no release artifacts yet.
-- Server certificate trust prompt (currently an explicit, insecure "auto-trust" option), trend charts,
-  write/method call, notarization.
+- Server certificate trust prompt (currently an explicit, insecure "auto-trust" option), write/method call and
+  MQTT publishing (the app is read-only by design), notarization.

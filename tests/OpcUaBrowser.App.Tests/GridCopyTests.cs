@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Headless;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -102,5 +103,38 @@ public sealed class GridCopyTests
         Assert.Equal(Timestamps.Format(at), row.SourceTimeText);
         Assert.Matches(@"^\d{2}:\d{2}:\d{2}\.\d{3}$", row.SourceTimeText); // e.g. 22:05:54.569
         Assert.Contains("2026", row.SourceTimeToolTip, StringComparison.Ordinal); // the date is in the tooltip
+    }
+
+    [AvaloniaFact]
+    public void Double_clicking_a_header_edge_fits_the_column_to_the_whole_value()
+    {
+        var vm = new MainWindowViewModel();
+        var item = new WatchItemViewModel(new NodeId(1u, 2), "A rather long display name for a watched variable");
+        item.Apply(new ValueUpdate(item.NodeId, new string('x', 120), StatusCodes.Good, DateTime.UtcNow, DateTime.UtcNow));
+        vm.WatchItems.Add(item);
+        var window = new MainWindow { DataContext = vm, Width = 1280, Height = 800 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        var grid = window.GetVisualDescendants().OfType<DataGrid>().Single(g => g.Name == "WatchGrid");
+        var name = grid.Columns.Single(c => Equals(c.Header, "Name"));
+        var header = window.GetVisualDescendants().OfType<DataGridColumnHeader>().Single(h => Equals(h.Content, "Name") && h.FindAncestorOfType<DataGrid>() == grid);
+
+        var edge = header.TranslatePoint(new Point(header.Bounds.Width - 2, header.Bounds.Height / 2), window)!.Value;
+        for (var i = 0; i < 2; i++)
+        {
+            window.MouseDown(edge, Avalonia.Input.MouseButton.Left);
+            window.MouseUp(edge, Avalonia.Input.MouseButton.Left);
+        }
+        Dispatcher.UIThread.RunJobs();
+
+        var text = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == item.DisplayName);
+        var probe = new TextBlock { Text = text.Text, FontSize = text.FontSize, FontFamily = text.FontFamily };
+        probe.Measure(Size.Infinity);
+        Assert.True(text.Bounds.Width >= probe.DesiredSize.Width - 0.5, $"name still clipped: {text.Bounds.Width:0} of {probe.DesiredSize.Width:0}px (column {name.ActualWidth:0})");
+
+        ColumnFit.Fit(grid, grid.Columns.Single(c => Equals(c.Header, "Value")));
+        Assert.False(grid.Columns.Single(c => Equals(c.Header, "Value")).Width.IsStar);
+        Assert.True(grid.Columns.Single(c => Equals(c.Header, "Value")).Width.Value > 500);
+        window.Close();
     }
 }

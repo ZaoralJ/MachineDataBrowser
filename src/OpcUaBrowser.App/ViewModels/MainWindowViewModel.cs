@@ -39,6 +39,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         _client.StateChanged += OnClientStateChanged;
         AppErrors.Reported += OnAppError;
         _flushTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (_, _) => FlushUpdates());
+        _treeTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, async (_, _) => await RefreshTreeIfChangedAsync());
+        _treeTimer.Start();
         _flushTimer.Start();
 
         Attributes.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasAttributes));
@@ -92,6 +94,31 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     public Func<string, Task>? CopyToClipboard { get; set; }
 
+    private readonly DispatcherTimer _treeTimer;
+    private int _addressSpaceDirty;
+    private bool _refreshingTree;
+
+    /// <summary>MQTT thread: only flag it; the flush timer refreshes the expanded tree at most every few ticks.</summary>
+    private void OnAddressSpaceChanged(object? sender, EventArgs e) => Interlocked.Exchange(ref _addressSpaceDirty, 1);
+
+    private async Task RefreshTreeIfChangedAsync()
+    {
+        if (_refreshingTree || !IsConnected || RootNodes.Count == 0 || Interlocked.Exchange(ref _addressSpaceDirty, 0) == 0)
+        {
+            return;
+        }
+
+        _refreshingTree = true;
+        try
+        {
+            await RootNodes[0].RefreshExpandedAsync();
+        }
+        finally
+        {
+            _refreshingTree = false;
+        }
+    }
+
     private void OnClientStateChanged(object? sender, ConnectionState state) =>
         Dispatcher.UIThread.Post(() =>
         {
@@ -111,8 +138,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
         var old = _client;
         old.StateChanged -= OnClientStateChanged;
+        if (old is IDynamicAddressSpace oldDynamic)
+        {
+            oldDynamic.AddressSpaceChanged -= OnAddressSpaceChanged;
+        }
+
         _client = DeviceClient.Create(endpointUrl);
         _client.StateChanged += OnClientStateChanged;
+        if (_client is IDynamicAddressSpace dynamic)
+        {
+            dynamic.AddressSpaceChanged += OnAddressSpaceChanged;
+        }
         await Task.Run(() => old.DisposeAsync().AsTask());
     }
 
@@ -190,11 +226,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsOpcUaEndpoint), nameof(OptionsSummary))]
+    [NotifyPropertyChangedFor(nameof(IsOpcUaEndpoint), nameof(HasCredentials), nameof(OptionsSummary))]
     public partial string EndpointUrl { get; set; } = "opc.tcp://localhost:50000";
 
     /// <summary>Security, credentials and certificate trust only apply to OPC UA, not to EtherNet/IP (<c>eip://</c>).</summary>
-    public bool IsOpcUaEndpoint => !DeviceClient.IsEip(EndpointUrl ?? string.Empty);
+    public bool IsOpcUaEndpoint => !DeviceClient.IsEip(EndpointUrl ?? string.Empty) && !DeviceClient.IsMqtt(EndpointUrl ?? string.Empty);
+
+    /// <summary>User name, password and certificate trust apply to OPC UA and MQTT (mqtts://, wss://), not to EtherNet/IP.</summary>
+    public bool HasCredentials => !DeviceClient.IsEip(EndpointUrl ?? string.Empty);
 
     /// <summary>The last connected endpoint, or localhost when there is no history.</summary>
     private string DefaultEndpointUrl => Settings.RecentEndpoints.Count > 0 ? Settings.RecentEndpoints[0] : "opc.tcp://localhost:50000";
@@ -272,9 +311,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             var security = UseSecurity ? "Secure" : "No security";
             var user = string.IsNullOrWhiteSpace(UserName) ? "Anonymous" : UserName;
             var refresh = FormatRefresh(DefaultRefreshMs);
-            if (!IsOpcUaEndpoint)
+            if (DeviceClient.IsEip(EndpointUrl ?? string.Empty))
             {
                 return $"EtherNet/IP · {refresh}";
+            }
+
+            if (DeviceClient.IsMqtt(EndpointUrl ?? string.Empty))
+            {
+                return AutoAcceptCertificates ? $"MQTT · {user} · {refresh} · auto-trust" : $"MQTT · {user} · {refresh}";
             }
 
             return AutoAcceptCertificates ? $"{security} · {user} · {refresh} · auto-trust" : $"{security} · {user} · {refresh}";
@@ -944,6 +988,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     private async Task DisposeCoreAsync()
     {
         _flushTimer.Stop();
+        _treeTimer.Stop();
         AppErrors.Reported -= OnAppError;
 
         // Shutdown must not fail because a server is gone or a recording file is locked.

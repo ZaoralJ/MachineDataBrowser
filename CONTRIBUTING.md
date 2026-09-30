@@ -36,6 +36,7 @@ Local test servers ([`just`](https://github.com/casey/just) recipes, see [docs/s
 just opcua          # opc-plc                        -> opc.tcp://localhost:50000
 just opcua-custom   # custom structures, large tree  -> opc.tcp://localhost:4841/
 just cip            # Logix / EtherNet/IP            -> eip://localhost:44818/1,0
+just mqtt           # MQTT + Sparkplug B + CloudEvents -> mqtt://localhost:1883
 ```
 
 Tip: while the app is running, run tests with `--artifacts-path /tmp/opcua-artifacts` so the test build does not
@@ -43,7 +44,7 @@ overwrite the running app's binaries. `OPCUABROWSER_DATA_DIR` points settings/PK
 
 ## Code guidelines
 
-- Read [docs/architecture.md](docs/architecture.md) first; OPC UA logic belongs in `OpcUaBrowser.Core`
+- Read [docs/architecture.md](docs/architecture.md) first; protocol logic (OPC UA, EtherNet/IP, MQTT) belongs in `OpcUaBrowser.Core`
   (no UI dependencies), UI in `OpcUaBrowser.App`.
 - Follow `.editorconfig` and the existing style; nullable reference types are on.
 - Persist NodeIds in the `nsu=` form (`ToPortableId`), never namespace indexes.
