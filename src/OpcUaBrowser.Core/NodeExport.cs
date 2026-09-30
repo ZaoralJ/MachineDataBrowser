@@ -42,6 +42,129 @@ public static class NodeExport
         return result;
     }
 
+    /// <summary>
+    /// Combines cherry-picked nodes into the trees to export. Nodes are grouped under their parent, so picking
+    /// a few variables of an object yields that object (the class/record name) with only those properties.
+    /// A picked node that has picked descendants is kept as a container of just those descendants (and the
+    /// nodes on the way to them). A single picked object/structure is exported on its own, as before.
+    /// </summary>
+    /// <param name="selections">
+    /// Each picked node with its ancestors (root first, parent last; children ignored). <c>Tree</c> is the full
+    /// subtree for nodes without picked descendants; for the others only its identity is used.
+    /// </param>
+    public static List<NodeTree> ComposeSelection(IReadOnlyList<(IReadOnlyList<NodeTree> Ancestors, NodeTree Tree)> selections)
+    {
+        ArgumentNullException.ThrowIfNull(selections);
+        var picked = selections.Select(s => s.Tree.NodeId).ToHashSet();
+        var containers = selections.SelectMany(s => s.Ancestors).Select(a => a.NodeId).Where(picked.Contains).ToHashSet();
+
+        var roots = new List<(IReadOnlyList<NodeTree> Ancestors, NodeTree Root)>();
+        var rootsById = new Dictionary<NodeId, NodeTree>();
+        foreach (var (ancestors, tree) in selections)
+        {
+            if (!ancestors.Any(a => picked.Contains(a.NodeId)) && !rootsById.ContainsKey(tree.NodeId))
+            {
+                var root = containers.Contains(tree.NodeId) ? Shell(tree) : tree;
+                rootsById[tree.NodeId] = root;
+                roots.Add((ancestors, root));
+            }
+        }
+
+        foreach (var (ancestors, tree) in selections)
+        {
+            var outer = ancestors.Select((a, i) => (a, i)).FirstOrDefault(x => picked.Contains(x.a.NodeId));
+            if (outer.a is null)
+            {
+                continue;
+            }
+
+            var current = rootsById[outer.a.NodeId];
+            foreach (var step in ancestors.Skip(outer.i + 1))
+            {
+                current = GetOrAdd(current, step);
+            }
+
+            if (current.Children.All(c => c.NodeId != tree.NodeId))
+            {
+                current.Children.Add(containers.Contains(tree.NodeId) ? Shell(tree) : tree);
+            }
+        }
+
+        // Groups whose parent lies inside another group's tree are nested there (picks in ServerStatus and in
+        // ServerStatus/BuildInfo give one ServerStatus with a BuildInfo property), so process shallow groups first.
+        var result = new List<NodeTree>();
+        var placed = new List<(NodeTree Tree, IReadOnlyList<NodeTree> Ancestors)>();
+        foreach (var group in roots.GroupBy(r => r.Ancestors.Count > 0 ? r.Ancestors[^1].NodeId : NodeId.Null)
+                     .OrderBy(g => g.First().Ancestors.Count))
+        {
+            var items = group.ToList();
+            var ancestors = items[0].Ancestors;
+            var parent = ancestors.Count > 0 ? ancestors[^1] : null;
+
+            var host = placed
+                .Select(p => (p.Tree, Index: IndexOf(ancestors, p.Tree.NodeId)))
+                .Where(p => p.Index >= 0)
+                .OrderByDescending(p => p.Index)
+                .FirstOrDefault();
+            if (host.Tree is not null)
+            {
+                var current = host.Tree;
+                foreach (var step in ancestors.Skip(host.Index + 1))
+                {
+                    current = GetOrAdd(current, step);
+                }
+
+                current.Children.AddRange(items.Select(i => i.Root).Where(r => current.Children.All(c => c.NodeId != r.NodeId)));
+                continue;
+            }
+
+            if (parent is null || (items.Count == 1 && !IsLeaf(items[0].Root)))
+            {
+                foreach (var item in items)
+                {
+                    result.Add(item.Root);
+                    placed.Add((item.Root, item.Ancestors));
+                }
+
+                continue;
+            }
+
+            var shell = Shell(parent);
+            shell.Children.AddRange(items.Select(i => i.Root));
+            result.Add(shell);
+            placed.Add((shell, ancestors.Take(ancestors.Count - 1).ToList()));
+        }
+
+        return result;
+
+        static int IndexOf(IReadOnlyList<NodeTree> path, NodeId id)
+        {
+            for (var i = 0; i < path.Count; i++)
+            {
+                if (path[i].NodeId == id)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        static NodeTree Shell(NodeTree n) => new(n.NodeId, n.DisplayName, n.NodeClass) { Value = n.Value };
+
+        static NodeTree GetOrAdd(NodeTree parent, NodeTree step)
+        {
+            var existing = parent.Children.FirstOrDefault(c => c.NodeId == step.NodeId);
+            if (existing is null)
+            {
+                existing = Shell(step);
+                parent.Children.Add(existing);
+            }
+
+            return existing;
+        }
+    }
+
     public static string ToJsonString(NodeTree node) =>
         ToJson(node)?.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }) ?? "null";
 

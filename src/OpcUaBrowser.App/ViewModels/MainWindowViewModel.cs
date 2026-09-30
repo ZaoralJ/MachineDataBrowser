@@ -709,12 +709,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         IsBusy = true;
         try
         {
-            var trees = new List<NodeTree>();
+            // Only nodes without picked descendants need their subtree read; the others just hold the picks.
+            var picked = nodes.Select(n => n.NodeId).ToHashSet();
+            var containers = nodes.SelectMany(n => n.Ancestors).Where(a => picked.Contains(a.NodeId)).Select(a => a.NodeId).ToHashSet();
+            var selections = new List<(IReadOnlyList<NodeTree> Ancestors, NodeTree Tree)>();
             foreach (var node in nodes)
             {
-                trees.Add(await _client.ReadTreeAsync(node.NodeId, node.DisplayName, node.NodeClass, MaxRecursiveDepth, MaxRecursiveItems));
+                var tree = containers.Contains(node.NodeId)
+                    ? new NodeTree(node.NodeId, node.DisplayName, node.NodeClass)
+                    : await _client.ReadTreeAsync(node.NodeId, node.DisplayName, node.NodeClass, MaxRecursiveDepth, MaxRecursiveItems);
+                selections.Add(([.. node.Ancestors.Select(a => new NodeTree(a.NodeId, a.DisplayName, a.NodeClass))], tree));
             }
 
+            var trees = NodeExport.ComposeSelection(selections);
             await CopyAsync(format(trees));
         }
         catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)

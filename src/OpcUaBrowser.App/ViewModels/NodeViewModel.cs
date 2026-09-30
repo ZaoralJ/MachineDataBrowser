@@ -25,8 +25,10 @@ public sealed partial class NodeViewModel : ObservableObject
         BrowseItem item,
         Func<NodeId, Task<IReadOnlyList<BrowseItem>>> browse,
         Action<Exception> onError,
-        Func<NodeId, string>? formatId = null)
+        Func<NodeId, string>? formatId = null,
+        NodeViewModel? parent = null)
     {
+        Parent = parent;
         NodeId = item.NodeId;
         _formatId = formatId;
         NodeIdText = formatId?.Invoke(item.NodeId) ?? item.NodeId.ToString();
@@ -44,6 +46,24 @@ public sealed partial class NodeViewModel : ObservableObject
         else
         {
             _loaded = true;
+        }
+    }
+
+    /// <summary>The node this one was browsed from; null for the root.</summary>
+    public NodeViewModel? Parent { get; }
+
+    /// <summary>Ancestors from the root down to <see cref="Parent"/>.</summary>
+    public IReadOnlyList<NodeViewModel> Ancestors
+    {
+        get
+        {
+            var list = new List<NodeViewModel>();
+            for (var p = Parent; p is not null; p = p.Parent)
+            {
+                list.Insert(0, p);
+            }
+
+            return list;
         }
     }
 
@@ -145,7 +165,7 @@ public sealed partial class NodeViewModel : ObservableObject
             Children.Clear();
             foreach (var item in items)
             {
-                Children.Add(new NodeViewModel(item, _browse, _onError!, _formatId));
+                Children.Add(new NodeViewModel(item, _browse, _onError!, _formatId, this));
             }
         }
         catch (Exception ex) when (ex is ServiceResultException or InvalidOperationException)
