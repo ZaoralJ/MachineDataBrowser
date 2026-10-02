@@ -23,8 +23,8 @@ sips -z 1024 1024 "$ROOT/packaging/macos/AppIcon-1024.png" --out "$ICONSET_DIR/i
 iconutil -c icns "$ICONSET_DIR" -o "$ROOT/packaging/macos/AppIcon.icns"
 rm -rf "$(dirname "$ICONSET_DIR")"
 
-mkdir -p "$ROOT/src/OpcUaBrowser.App/Assets"
-sips -z 512 512 "$ROOT/packaging/macos/AppIcon-1024.png" --out "$ROOT/src/OpcUaBrowser.App/Assets/AppIcon.png" >/dev/null
+mkdir -p "$ROOT/src/MachineDataBrowser.App/Assets"
+sips -z 512 512 "$ROOT/packaging/macos/AppIcon-1024.png" --out "$ROOT/src/MachineDataBrowser.App/Assets/AppIcon.png" >/dev/null
 
 python3 - << 'PYEOF'
 import struct
@@ -53,7 +53,7 @@ for s, data in png_data:
     entries.append(entry)
     offset += len(data)
 
-with open("src/OpcUaBrowser.App/Assets/AppIcon.ico", "wb") as f:
+with open("src/MachineDataBrowser.App/Assets/AppIcon.ico", "wb") as f:
     f.write(header)
     for e in entries:
         f.write(e)

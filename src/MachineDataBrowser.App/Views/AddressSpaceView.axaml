@@ -1,0 +1,188 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MachineDataBrowser.App.ViewModels"
+             xmlns:core="using:MachineDataBrowser.Core"
+             xmlns:conv="using:MachineDataBrowser.App.Converters"
+             x:Class="MachineDataBrowser.App.Views.AddressSpaceView"
+             x:DataType="vm:MainWindowViewModel">
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Classes="pane-toolbar">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2" Margin="6,0,0,0">
+          <Button Classes="icon-only" AutomationProperties.Name="Bookmarks" IsEnabled="{Binding IsConnected}"
+                  ToolTip.Tip="Bookmarks of this session: click one to open the tree there. B bookmarks the selected node.">
+            <PathIcon Data="{StaticResource IconBookmark}" />
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedRight">
+                <StackPanel Spacing="2" MinWidth="240" MaxWidth="420">
+                  <TextBlock Classes="pane-title" Text="BOOKMARKS" Margin="8,0,0,6" />
+                  <TextBlock Text="No bookmarks yet: select a node and press B, or right-click ▸ Bookmark." TextWrapping="Wrap"
+                             Margin="8,0,8,4" FontSize="12" Foreground="{DynamicResource AppMutedTextBrush}"
+                             IsVisible="{Binding !HasBookmarks}" />
+                  <ItemsControl ItemsSource="{Binding Bookmarks}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="vm:Bookmark">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <Button Classes="history-entry" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                  Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).GoToBookmarkCommand}"
+                                  CommandParameter="{Binding}" ToolTip.Tip="{Binding ToolTip}" Click="OnBookmarkClicked">
+                            <StackPanel Spacing="1">
+                              <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                              <TextBlock Text="{Binding Path}" FontSize="11" TextTrimming="CharacterEllipsis"
+                                         Foreground="{DynamicResource AppMutedTextBrush}"
+                                         IsVisible="{Binding Path, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            </StackPanel>
+                          </Button>
+                          <Button Grid.Column="1" Classes="icon-only" VerticalAlignment="Center"
+                                  Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).RemoveBookmarkCommand}"
+                                  CommandParameter="{Binding}" AutomationProperties.Name="Remove bookmark" ToolTip.Tip="Remove bookmark">
+                            <PathIcon Data="{StaticResource IconClose}" />
+                          </Button>
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+          <Button Classes="icon-only" Command="{Binding ExpandAllCommand}"
+                  AutomationProperties.Name="Expand all"
+                  ToolTip.Tip="Expand all below the selection (or from Root), up to 5 levels">
+            <PathIcon Data="{StaticResource IconExpandAll}" />
+          </Button>
+          <Button Classes="icon-only" Command="{Binding CollapseAllCommand}"
+                  AutomationProperties.Name="Collapse all" ToolTip.Tip="Collapse all">
+            <PathIcon Data="{StaticResource IconCollapseAll}" />
+          </Button>
+        </StackPanel>
+        <TextBox x:Name="SearchBox" Text="{Binding SearchText}" PlaceholderText="Search names or ids (⌘F)" Classes="search"
+                 AutomationProperties.Name="Search address space"
+                 ToolTip.Tip="Searches below the selected folder, or the whole tree. * and ? are wildcards. Enter searches, Esc clears.">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding SearchCommand}" />
+            <KeyBinding Gesture="Escape" Command="{Binding ClearSearchCommand}" />
+          </TextBox.KeyBindings>
+        </TextBox>
+      </DockPanel>
+    </Border>
+    <Border DockPanel.Dock="Top" IsVisible="{Binding HasSearchPanel}" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource AppBorderBrush}">
+      <DockPanel MaxHeight="260">
+        <DockPanel DockPanel.Dock="Top" Margin="10,4,6,4">
+          <Button DockPanel.Dock="Right" Classes="icon-only" Command="{Binding ClearSearchCommand}"
+                  AutomationProperties.Name="Close search results" ToolTip.Tip="Close search results (Esc)">
+            <PathIcon Data="{StaticResource IconClose}" />
+          </Button>
+          <ProgressBar DockPanel.Dock="Right" IsIndeterminate="True" IsVisible="{Binding IsSearching}" Width="60" Margin="6,0" />
+          <TextBlock Text="{Binding SearchStatus}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                     Foreground="{DynamicResource AppMutedTextBrush}" />
+        </DockPanel>
+        <ListBox x:Name="SearchResultsList" ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedSearchHit}"
+                 DoubleTapped="OnSearchResultDoubleTapped" AutomationProperties.Name="Search results"
+                 IsVisible="{Binding SearchResults.Count}">
+          <ListBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding RevealSearchHitCommand}" />
+            <KeyBinding Gesture="Escape" Command="{Binding ClearSearchCommand}" />
+          </ListBox.KeyBindings>
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="core:SearchHit">
+              <StackPanel Spacing="1" ToolTip.Tip="Enter or double-click shows it in the tree">
+                <TextBlock Text="{Binding Item.DisplayName}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding PathText}" FontSize="11" TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource AppMutedTextBrush}" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+    <Grid>
+      <ListBox ItemsSource="{Binding TreeRows}" SelectedItem="{Binding SelectedNode}"
+               SelectionMode="Multiple" SelectionChanged="OnTreeSelectionChanged" Classes="address-tree"
+               x:Name="AddressTree" Tapped="OnTreeTapped" AutomationProperties.Name="Address space">
+        <ListBox.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Monitor selected variables" Command="{Binding AddToWatchCommand}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconMonitor}" /></MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Monitor with refresh time" IsEnabled="{Binding IsConnected}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconTimer}" /></MenuItem.Icon>
+              <MenuItem Header="100 ms" Command="{Binding MonitorSelectedWithRefreshCommand}"><MenuItem.CommandParameter><x:Int32>100</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="250 ms" Command="{Binding MonitorSelectedWithRefreshCommand}"><MenuItem.CommandParameter><x:Int32>250</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="500 ms" Command="{Binding MonitorSelectedWithRefreshCommand}"><MenuItem.CommandParameter><x:Int32>500</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="1 s" Command="{Binding MonitorSelectedWithRefreshCommand}"><MenuItem.CommandParameter><x:Int32>1000</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="2 s" Command="{Binding MonitorSelectedWithRefreshCommand}"><MenuItem.CommandParameter><x:Int32>2000</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="5 s" Command="{Binding MonitorSelectedWithRefreshCommand}"><MenuItem.CommandParameter><x:Int32>5000</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="10 s" Command="{Binding MonitorSelectedWithRefreshCommand}"><MenuItem.CommandParameter><x:Int32>10000</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <Separator />
+              <MenuItem Header="Custom…" Click="OnCustomRefresh" Tag="tree" />
+            </MenuItem>
+            <MenuItem Header="Monitor all variables in folder" Command="{Binding MonitorFolderCommand}"
+                      ToolTip.Tip="Includes subfolders (up to the limit set in Settings)">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconFolderMonitor}" /></MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Expand all below" Command="{Binding ExpandAllCommand}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconExpandAll}" /></MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Collapse all" Command="{Binding CollapseAllCommand}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconCollapseAll}" /></MenuItem.Icon>
+            </MenuItem>
+            <Separator IsVisible="{Binding SupportsEvents}" />
+            <MenuItem Header="Call method…" Command="{Binding CallMethodCommand}" IsVisible="{Binding SupportsMethods}"
+                      ToolTip.Tip="Call the selected method with arguments (double-click a method does the same)" />
+            <MenuItem Header="Show events &amp; alarms" Command="{Binding ShowEventsCommand}" IsVisible="{Binding SupportsEvents}"
+                      ToolTip.Tip="Live events and alarms of the selected object and everything below it (the whole server for Root or Objects)" />
+            <MenuItem Header="Show history" IsVisible="{Binding SupportsHistory}"
+                      ToolTip.Tip="Values the server stored for the selected variables (OPC UA HistoryRead), as a table and chart">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconChart}" /></MenuItem.Icon>
+              <MenuItem Header="Last 15 minutes" Command="{Binding ShowHistoryCommand}"><MenuItem.CommandParameter><x:Int32>15</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last hour" Command="{Binding ShowHistoryCommand}"><MenuItem.CommandParameter><x:Int32>60</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last 8 hours" Command="{Binding ShowHistoryCommand}"><MenuItem.CommandParameter><x:Int32>480</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last 24 hours" Command="{Binding ShowHistoryCommand}"><MenuItem.CommandParameter><x:Int32>1440</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last 7 days" Command="{Binding ShowHistoryCommand}"><MenuItem.CommandParameter><x:Int32>10080</x:Int32></MenuItem.CommandParameter></MenuItem>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Bookmark / remove bookmark" Command="{Binding ToggleBookmarkCommand}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconBookmark}" /></MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Copy NodeId" Command="{Binding CopyNodeIdCommand}" />
+            <MenuItem Header="Copy as JSON" Command="{Binding CopyNodeJsonCommand}"
+                      ToolTip.Tip="Current values of the node and its descendants as a JSON document. Multi-select properties to cherry-pick them: they are grouped under their parent object" />
+            <MenuItem Header="Copy as C# class" Command="{Binding CopyNodeClassCommand}"
+                      ToolTip.Tip="C# classes mirroring the node's structure, with property types from current values. Multi-select properties to cherry-pick them: they are grouped under their parent object" />
+            <MenuItem Header="Copy as C# record" Command="{Binding CopyNodeRecordCommand}"
+                      ToolTip.Tip="Immutable C# records (init-only properties) mirroring the node's structure. Multi-select properties to cherry-pick them: they are grouped under their parent object" />
+          </ContextMenu>
+        </ListBox.ContextMenu>
+        <ListBox.ItemTemplate>
+          <DataTemplate DataType="vm:NodeViewModel">
+            <Grid Classes="tree-row" ColumnDefinitions="16,Auto,*,Auto" ColumnSpacing="6"
+                  Margin="{Binding Depth, Converter={x:Static conv:TreeConverters.Indent}}"
+                  ToolTip.Tip="{Binding ToolTip}" Background="Transparent">
+              <ToggleButton Grid.Column="0" Classes="tree-expander" IsChecked="{Binding IsExpanded}"
+                            IsVisible="{Binding HasChildren}" Focusable="False"
+                            AutomationProperties.Name="Expand or collapse">
+                <PathIcon Data="{StaticResource IconChevronDown}" Width="12" Height="12" />
+              </ToggleButton>
+              <PathIcon Grid.Column="1" Width="14" Height="14" IsVisible="{Binding !IsPlaceholder}"
+                        Data="{Binding NodeClass, Converter={x:Static conv:NodeClassConverters.ToIcon}}"
+                        Foreground="{Binding NodeClass, Converter={x:Static conv:NodeClassConverters.ToBrush}}" />
+              <TextBlock Grid.Column="2" Text="{Binding DisplayName}" VerticalAlignment="Center"
+                         Classes.placeholder="{Binding IsPlaceholder}" Classes.error="{Binding IsError}" />
+              <Button Grid.Column="3" Classes="icon-only row-action" IsVisible="{Binding IsVariable}"
+                      Command="{Binding $parent[ListBox].((vm:MainWindowViewModel)DataContext).MonitorNodeCommand}"
+                      CommandParameter="{Binding}"
+                      AutomationProperties.Name="Monitor this variable" ToolTip.Tip="Monitor this variable">
+                <PathIcon Data="{StaticResource IconMonitor}" />
+              </Button>
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <TextBlock Classes="empty-hint" IsVisible="{Binding IsDisconnected}"
+                 Text="Enter an endpoint URL and press Connect to browse the server." />
+    </Grid>
+  </DockPanel>
+</UserControl>

@@ -1,4 +1,4 @@
-# Contributing to OpcUaBrowser
+# Contributing to MachineDataBrowser
 
 Thanks for helping! Bug reports, ideas and pull requests are welcome.
 
@@ -27,7 +27,7 @@ simulators in `simulators/`).
 ```sh
 dotnet build                     # warnings are errors
 dotnet test                      # Core integration + headless UI tests (needs Docker)
-dotnet run --project src/OpcUaBrowser.App
+dotnet run --project src/MachineDataBrowser.App
 ```
 
 Local test servers ([`just`](https://github.com/casey/just) recipes, see [docs/simulators.md](docs/simulators.md)):
@@ -40,12 +40,12 @@ just mqtt           # MQTT + Sparkplug B + CloudEvents -> mqtt://localhost:1883
 ```
 
 Tip: while the app is running, run tests with `--artifacts-path /tmp/opcua-artifacts` so the test build does not
-overwrite the running app's binaries. `OPCUABROWSER_DATA_DIR` points settings/PKI to another folder.
+overwrite the running app's binaries. `MACHINEDATABROWSER_DATA_DIR` points settings/PKI to another folder.
 
 ## Code guidelines
 
-- Read [docs/architecture.md](docs/architecture.md) first; protocol logic (OPC UA, EtherNet/IP, MQTT) belongs in `OpcUaBrowser.Core`
-  (no UI dependencies), UI in `OpcUaBrowser.App`.
+- Read [docs/architecture.md](docs/architecture.md) first; protocol logic (OPC UA, EtherNet/IP, MQTT) belongs in `MachineDataBrowser.Core`
+  (no UI dependencies), UI in `MachineDataBrowser.App`.
 - Follow `.editorconfig` and the existing style; nullable reference types are on.
 - Persist NodeIds in the `nsu=` form (`ToPortableId`), never namespace indexes.
 - Never persist passwords or secrets.

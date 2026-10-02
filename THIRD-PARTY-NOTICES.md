@@ -1,6 +1,6 @@
 # Third-party notices
 
-OpcUaBrowser is MIT licensed (see [LICENSE](LICENSE)). The released app bundles the following components.
+MachineDataBrowser is MIT licensed (see [LICENSE](LICENSE)). The released app bundles the following components.
 Their licenses allow redistribution in open-source and commercial software provided the notices are kept.
 
 | Component | License | Source |

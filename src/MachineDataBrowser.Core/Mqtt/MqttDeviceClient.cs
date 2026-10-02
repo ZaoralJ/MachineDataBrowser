@@ -1,0 +1,620 @@
+using System.Globalization;
+using MQTTnet;
+using MQTTnet.Protocol;
+using Opc.Ua;
+
+namespace MachineDataBrowser.Core.Mqtt;
+
+/// <summary>
+/// MQTT client (MQTT 3.1.1 / 5, TCP or WebSocket, optional TLS) behind <see cref="IDeviceClient"/>.
+/// It subscribes to one topic filter (default <c>#</c>), builds the tree from the messages it receives and decodes
+/// Sparkplug B. MQTT pushes values; the refresh time is a maximum update rate per monitored item (the latest value at
+/// most once per interval), and 0 delivers every message.
+/// </summary>
+public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
+{
+    public const int DefaultMaxTopics = 20_000;
+
+    private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(2);
+
+    private readonly Lock _lock = new();
+    private readonly Dictionary<string, List<Subscriber>> _subscribers = new(StringComparer.Ordinal);
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private IMqttClient? _client;
+    private MqttClientOptions? _options;
+    private MqttEndpoint? _endpoint;
+    private MqttModel _model = new(DefaultMaxTopics);
+    private CancellationTokenSource? _reconnect;
+    private ConnectionState _state = ConnectionState.Disconnected;
+
+    public MqttDeviceClient(int maxTopics = DefaultMaxTopics) => MaxTopics = maxTopics;
+
+    public event EventHandler<ConnectionState>? StateChanged;
+
+    /// <summary>Raised (on the MQTT thread) after a message added or removed nodes.</summary>
+    public event EventHandler? AddressSpaceChanged;
+
+    public int MaxTopics { get; }
+
+    public ConnectionState State
+    {
+        get => _state;
+        private set
+        {
+            if (_state != value)
+            {
+                _state = value;
+                StateChanged?.Invoke(this, value);
+            }
+        }
+    }
+
+    public string? ServerUri => _endpoint is { } e ? $"MQTT {e.Host}:{e.Port} · {e.TopicFilter}" : null;
+
+    public BrowseItem Root { get; } = new(MqttModel.Node(MqttModel.RootId), "Broker", "Broker", NodeClass.Object);
+
+    public string ToPortableId(NodeId nodeId)
+    {
+        ArgumentNullException.ThrowIfNull(nodeId);
+        return nodeId.Identifier as string ?? nodeId.ToString();
+    }
+
+    public string ToDisplayId(NodeId nodeId) => ToPortableId(nodeId);
+
+    public NodeId ParsePortableId(string text)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+        return MqttModel.IsValidId(text.Trim()) ? MqttModel.Node(text.Trim()) : throw new ServiceResultException(StatusCodes.BadNodeIdInvalid, $"'{text}' is not an MQTT node id.");
+    }
+
+    public async Task ConnectAsync(ConnectOptions options, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await CloseCoreAsync().ConfigureAwait(false);
+            State = ConnectionState.Connecting;
+            try
+            {
+                _endpoint = MqttEndpoint.Parse(options.EndpointUrl);
+            }
+            catch (FormatException ex)
+            {
+                State = ConnectionState.Disconnected;
+                throw new ServiceResultException(StatusCodes.BadTcpEndpointUrlInvalid, ex.Message);
+            }
+
+            _model = new MqttModel(MaxTopics);
+            _options = BuildOptions(_endpoint, options);
+            _client = new MqttClientFactory().CreateMqttClient();
+            _client.ApplicationMessageReceivedAsync += OnMessageAsync;
+            _client.DisconnectedAsync += OnDisconnectedAsync;
+            try
+            {
+                await ConnectAndSubscribeAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException && Errors.IsRecoverable(ex))
+            {
+                await CloseCoreAsync().ConfigureAwait(false);
+                throw new ServiceResultException(StatusCodes.BadCommunicationError, $"MQTT connection to {_endpoint?.Host ?? options.EndpointUrl} failed: {ex.Message}", ex);
+            }
+
+            State = ConnectionState.Connected;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task DisconnectAsync()
+    {
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await CloseCoreAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await DisconnectAsync().ConfigureAwait(false);
+        _gate.Dispose();
+    }
+
+    public Task<IReadOnlyList<BrowseItem>> BrowseAsync(NodeId nodeId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_model.Browse(Id(nodeId)));
+
+    public Task<IReadOnlyList<NodeId>> GetPathFromRootAsync(NodeId nodeId, int maxDepth = 32, CancellationToken cancellationToken = default)
+    {
+        var path = MqttModel.PathFromRoot(Id(nodeId));
+        return Task.FromResult<IReadOnlyList<NodeId>>(path.Count > maxDepth ? [] : path);
+    }
+
+    public Task<IReadOnlyList<AttributeValue>> ReadAttributesAsync(NodeId nodeId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_model.Attributes(Id(nodeId)));
+
+    /// <summary>
+    /// Publishes a write: topics and JSON fields get a new payload on their own topic (the broker accepting it is all
+    /// MQTT confirms); Sparkplug metrics get an NCMD/DCMD that the edge node may apply and report back.
+    /// </summary>
+    public async Task WriteValueAsync(NodeId nodeId, string text, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        if (_client is not { IsConnected: true } client)
+        {
+            throw new InvalidOperationException("Not connected.");
+        }
+
+        var write = _model.PrepareWrite(Id(nodeId), text, DateTime.UtcNow);
+        var builder = new MqttApplicationMessageBuilder()
+            .WithTopic(write.Topic)
+            .WithPayload(write.Payload)
+            .WithRetainFlag(write.Retain)
+            .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce);
+        if (write.ContentType is { Length: > 0 } contentType)
+        {
+            builder = builder.WithContentType(contentType);
+        }
+
+        foreach (var (key, value) in write.UserProperties)
+        {
+            builder = builder.WithUserProperty(key, System.Text.Encoding.UTF8.GetBytes(value));
+        }
+
+        var result = await client.PublishAsync(builder.Build(), cancellationToken).ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            throw new ServiceResultException(StatusCodes.BadNotWritable, $"Broker rejected the publish to '{write.Topic}': {result.ReasonCode} {result.ReasonString}");
+        }
+    }
+
+    public Task<IReadOnlyList<object?>> ReadValuesAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(nodeIds);
+        return Task.FromResult<IReadOnlyList<object?>>([.. nodeIds.Select(id => _model.Current(Id(id)) is { } u && StatusCode.IsGood(u.Status) ? u.Raw : null)]);
+    }
+
+    public Task<IReadOnlyList<MonitorResult>> MonitorManyAsync(
+        IReadOnlyList<NodeId> nodeIds,
+        Action<ValueUpdate> onUpdate,
+        double samplingIntervalMs = 250,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(nodeIds);
+        ArgumentNullException.ThrowIfNull(onUpdate);
+        var results = new List<MonitorResult>(nodeIds.Count);
+        foreach (var nodeId in nodeIds)
+        {
+            var id = Id(nodeId);
+            if (!(id.StartsWith("t:", StringComparison.Ordinal) || id.StartsWith("m:", StringComparison.Ordinal)))
+            {
+                results.Add(new MonitorResult(nodeId, null, new ServiceResult(StatusCodes.BadNodeIdInvalid, $"'{id}' is a folder, not a value.")));
+                continue;
+            }
+
+            var subscriber = new Subscriber(this, id, onUpdate, samplingIntervalMs);
+            lock (_lock)
+            {
+                if (!_subscribers.TryGetValue(id, out var list))
+                {
+                    _subscribers[id] = list = [];
+                }
+
+                list.Add(subscriber);
+            }
+
+            // Like an OPC UA subscription, deliver the value already known (e.g. a retained message) at once.
+            if (_model.Current(id) is { } current)
+            {
+                subscriber.Offer(current);
+            }
+
+            results.Add(new MonitorResult(nodeId, subscriber, ServiceResult.Good));
+        }
+
+        return Task.FromResult<IReadOnlyList<MonitorResult>>(results);
+    }
+
+    public async Task<IReadOnlyList<MonitorResult>> ChangeRefreshAsync(
+        IReadOnlyList<IAsyncDisposable> monitors,
+        Action<ValueUpdate> onUpdate,
+        double refreshMs,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(monitors);
+        var own = monitors.OfType<Subscriber>().Where(s => ReferenceEquals(s.Owner, this)).ToList();
+        var results = await MonitorManyAsync([.. own.Select(s => MqttModel.Node(s.Id))], onUpdate, refreshMs, cancellationToken).ConfigureAwait(false);
+        foreach (var subscriber in own)
+        {
+            await subscriber.DisposeAsync().ConfigureAwait(false);
+        }
+
+        return results;
+    }
+
+    private static string Id(NodeId nodeId)
+    {
+        ArgumentNullException.ThrowIfNull(nodeId);
+        return nodeId.Identifier as string ?? throw new ServiceResultException(StatusCodes.BadNodeIdInvalid, $"'{nodeId}' is not an MQTT node id.");
+    }
+
+    private static MqttClientOptions BuildOptions(MqttEndpoint endpoint, ConnectOptions options)
+    {
+        var builder = new MqttClientOptionsBuilder()
+            .WithClientId($"machinedatabrowser-{Guid.NewGuid():N}"[..23])
+            .WithProtocolVersion(MQTTnet.Formatter.MqttProtocolVersion.V500)
+            .WithCleanStart()
+            // Short keep-alive: a broker behind a port proxy (Docker, load balancer) can vanish without closing the TCP
+            // connection, and only the missing PINGRESP reveals it (after 1.5x the period).
+            .WithKeepAlivePeriod(TimeSpan.FromSeconds(5))
+            .WithTimeout(TimeSpan.FromSeconds(5));
+        builder = endpoint.WebSocket
+            ? builder.WithWebSocketServer(o => o.WithUri(endpoint.WebSocketUri))
+            : builder.WithTcpServer(endpoint.Host, endpoint.Port);
+
+        var user = string.IsNullOrEmpty(options.UserName) ? endpoint.UserName : options.UserName;
+        var password = string.IsNullOrEmpty(options.UserName) ? endpoint.Password : options.Password;
+        if (!string.IsNullOrEmpty(user))
+        {
+            builder = builder.WithCredentials(user, password ?? string.Empty);
+        }
+
+        if (endpoint.Tls)
+        {
+            builder = builder.WithTlsOptions(tls =>
+            {
+                tls.UseTls();
+                if (options.AutoAcceptUntrustedCertificates)
+                {
+                    tls.WithCertificateValidationHandler(_ => true);
+                }
+            });
+        }
+
+        return builder.Build();
+    }
+
+    private async Task ConnectAndSubscribeAsync(CancellationToken cancellationToken)
+    {
+        await _client!.ConnectAsync(_options!, cancellationToken).ConfigureAwait(false);
+        var subscribe = new MqttClientSubscribeOptionsBuilder()
+            .WithTopicFilter(f => f.WithTopic(_endpoint!.TopicFilter).WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtMostOnce))
+            .Build();
+        await _client.SubscribeAsync(subscribe, cancellationToken).ConfigureAwait(false);
+    }
+
+    private Task OnMessageAsync(MqttApplicationMessageReceivedEventArgs e)
+    {
+        // MQTTnet thread: never let an exception escape into the library.
+        try
+        {
+            var message = e.ApplicationMessage;
+            var version = _model.Version;
+            var changed = _model.Apply(
+                message.Topic,
+                message.Payload.IsSingleSegment ? message.Payload.FirstSpan : System.Buffers.BuffersExtensions.ToArray(message.Payload),
+                message.Retain,
+                (int)message.QualityOfServiceLevel,
+                message.ContentType,
+                DateTime.UtcNow,
+                message.UserProperties?.Select(p => new KeyValuePair<string, string>(p.Name, System.Text.Encoding.UTF8.GetString(p.ValueBuffer.Span))).ToList());
+            Notify(changed);
+            if (_model.Version != version)
+            {
+                AddressSpaceChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+        catch (Exception ex) when (Errors.IsRecoverable(ex))
+        {
+            System.Diagnostics.Trace.TraceError($"MQTT message on '{e.ApplicationMessage?.Topic}' could not be processed: {ex}");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void Notify(IReadOnlyList<string> changedKeys)
+    {
+        if (changedKeys.Count == 0)
+        {
+            return;
+        }
+
+        List<(Subscriber Subscriber, string Id)> targets;
+        lock (_lock)
+        {
+            if (_subscribers.Count == 0)
+            {
+                return;
+            }
+
+            targets = [];
+            foreach (var key in changedKeys)
+            {
+                // A topic message also updates the JSON fields inside it (keys "t:<topic>#...").
+                foreach (var (id, list) in _subscribers)
+                {
+                    if (id == key || (key.StartsWith("t:", StringComparison.Ordinal) && id.StartsWith(key + "#", StringComparison.Ordinal)))
+                    {
+                        targets.AddRange(list.Select(s => (s, id)));
+                    }
+                }
+            }
+        }
+
+        foreach (var group in targets.GroupBy(t => t.Id))
+        {
+            if (_model.Current(group.Key) is not { } update)
+            {
+                continue;
+            }
+
+            foreach (var (subscriber, _) in group)
+            {
+                subscriber.Offer(update);
+            }
+        }
+    }
+
+    private Task OnDisconnectedAsync(MqttClientDisconnectedEventArgs e)
+    {
+        if (_reconnect is not null || _client is null || State == ConnectionState.Disconnected)
+        {
+            return Task.CompletedTask;
+        }
+
+        State = ConnectionState.Reconnecting;
+        var cts = new CancellationTokenSource();
+        _reconnect = cts;
+        _ = Task.Run(() => ReconnectLoopAsync(cts));
+        return Task.CompletedTask;
+    }
+
+    private async Task ReconnectLoopAsync(CancellationTokenSource cts)
+    {
+        try
+        {
+            while (!cts.IsCancellationRequested)
+            {
+                await Task.Delay(ReconnectDelay, cts.Token).ConfigureAwait(false);
+                try
+                {
+                    await ConnectAndSubscribeAsync(cts.Token).ConfigureAwait(false);
+                    State = ConnectionState.Connected;
+                    return;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException && Errors.IsRecoverable(ex))
+                {
+                    System.Diagnostics.Trace.TraceWarning($"MQTT reconnect failed: {ex.Message}");
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(_reconnect, cts))
+            {
+                _reconnect = null;
+            }
+
+            cts.Dispose();
+        }
+    }
+
+    private async Task CloseCoreAsync()
+    {
+        var reconnect = Interlocked.Exchange(ref _reconnect, null);
+        if (reconnect is not null)
+        {
+            await reconnect.CancelAsync().ConfigureAwait(false);
+        }
+
+        if (_client is { } client)
+        {
+            _client = null;
+            State = ConnectionState.Disconnected;
+            client.ApplicationMessageReceivedAsync -= OnMessageAsync;
+            client.DisconnectedAsync -= OnDisconnectedAsync;
+            try
+            {
+                if (client.IsConnected)
+                {
+                    await client.DisconnectAsync().ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex) when (Errors.IsRecoverable(ex))
+            {
+                System.Diagnostics.Trace.TraceWarning($"MQTT disconnect failed: {ex.Message}");
+            }
+
+            client.Dispose();
+        }
+
+        lock (_lock)
+        {
+            _subscribers.Clear();
+        }
+
+        _endpoint = null;
+        State = ConnectionState.Disconnected;
+    }
+
+    private void Remove(Subscriber subscriber)
+    {
+        lock (_lock)
+        {
+            if (_subscribers.TryGetValue(subscriber.Id, out var list) && list.Remove(subscriber) && list.Count == 0)
+            {
+                _subscribers.Remove(subscriber.Id);
+            }
+        }
+    }
+
+    /// <summary>
+    /// One monitored item. With an interval it forwards at most one update per interval: the first at once, later
+    /// ones as the latest value when the interval has passed (like an OPC UA sampling interval). 0 forwards every message.
+    /// </summary>
+    private sealed class Subscriber(MqttDeviceClient owner, string id, Action<ValueUpdate> onUpdate, double intervalMs) : IAsyncDisposable
+    {
+        private readonly Lock _lock = new();
+        private readonly TimeSpan _interval = TimeSpan.FromMilliseconds(Math.Max(0, intervalMs));
+        private long _lastDelivered = long.MinValue / 2;
+        private ValueUpdate? _pending;
+        private Timer? _timer;
+        private bool _disposed;
+
+        public MqttDeviceClient Owner { get; } = owner;
+
+        public string Id { get; } = id;
+
+        public void Offer(ValueUpdate update)
+        {
+            if (_interval == TimeSpan.Zero)
+            {
+                Deliver(update);
+                return;
+            }
+
+            lock (_lock)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                var now = Environment.TickCount64;
+                var due = _lastDelivered + (long)_interval.TotalMilliseconds - now;
+                if (due <= 0 && _pending is null)
+                {
+                    _lastDelivered = now;
+                }
+                else
+                {
+                    // Keep only the newest value; the timer sends it when the interval is over.
+                    var schedule = _pending is null;
+                    _pending = update;
+                    if (schedule)
+                    {
+                        _timer ??= new Timer(_ => Flush());
+                        _timer.Change(TimeSpan.FromMilliseconds(Math.Max(0, due)), Timeout.InfiniteTimeSpan);
+                    }
+
+                    return;
+                }
+            }
+
+            Deliver(update);
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            lock (_lock)
+            {
+                _disposed = true;
+                _pending = null;
+                _timer?.Dispose();
+                _timer = null;
+            }
+
+            Owner.Remove(this);
+            return ValueTask.CompletedTask;
+        }
+
+        private void Flush()
+        {
+            ValueUpdate? update;
+            lock (_lock)
+            {
+                update = _pending;
+                _pending = null;
+                _lastDelivered = Environment.TickCount64;
+            }
+
+            if (update is not null)
+            {
+                Deliver(update);
+            }
+        }
+
+        private void Deliver(ValueUpdate update)
+        {
+            // MQTT or timer thread: never let a handler exception escape.
+            try
+            {
+                onUpdate(update);
+            }
+            catch (Exception ex) when (Errors.IsRecoverable(ex))
+            {
+                System.Diagnostics.Trace.TraceError($"MQTT value handler failed: {ex}");
+            }
+        }
+    }
+}
+
+/// <summary>
+/// <c>mqtt://[user:password@]host[:port][/topic/filter]</c> (TLS: <c>mqtts://</c>; WebSocket: <c>ws://</c>/<c>wss://</c>,
+/// where the path is the WebSocket path). The topic filter can also be given as <c>?topic=plant/%23</c>; default <c>#</c>.
+/// </summary>
+public sealed record MqttEndpoint(string Host, int Port, bool Tls, bool WebSocket, string WebSocketUri, string TopicFilter, string? UserName, string? Password)
+{
+    public static readonly string[] Schemes = ["mqtt", "mqtts", "ws", "wss"];
+
+    public static bool IsMqtt(string endpointUrl)
+    {
+        var trimmed = endpointUrl.TrimStart();
+        return Schemes.Any(s => trimmed.StartsWith(s + "://", StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static MqttEndpoint Parse(string url)
+    {
+        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) || !Schemes.Contains(uri.Scheme.ToLowerInvariant()) || uri.Host.Length == 0)
+        {
+            throw new FormatException($"'{url}' is not an MQTT address. Expected mqtt://host[:port][/topic/#], mqtts://, ws:// or wss://");
+        }
+
+        var scheme = uri.Scheme.ToLowerInvariant();
+        var tls = scheme is "mqtts" or "wss";
+        var webSocket = scheme is "ws" or "wss";
+        var port = uri.IsDefaultPort || uri.Port <= 0 ? scheme switch { "mqtt" => 1883, "mqtts" => 8883, "ws" => 80, _ => 443 } : uri.Port;
+
+        string? filter = null;
+        foreach (var pair in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var kv = pair.Split('=', 2);
+            if (kv[0].Equals("topic", StringComparison.OrdinalIgnoreCase) && kv.Length == 2)
+            {
+                filter = Uri.UnescapeDataString(kv[1]);
+            }
+        }
+
+        var path = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'));
+        if (!webSocket && filter is null && path.Length > 0)
+        {
+            filter = path;
+        }
+
+        // '#' in the URL is a fragment: mqtt://host/plant/# arrives as path "plant/" plus fragment "".
+        if (!webSocket && filter is not null && url.TrimEnd().EndsWith('#') && !filter.EndsWith('#'))
+        {
+            filter += "#";
+        }
+
+        string? user = null, password = null;
+        if (uri.UserInfo.Length > 0)
+        {
+            var parts = uri.UserInfo.Split(':', 2);
+            user = Uri.UnescapeDataString(parts[0]);
+            password = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : null;
+        }
+
+        var wsUri = webSocket ? $"{scheme}://{uri.Host}:{port.ToString(CultureInfo.InvariantCulture)}{(uri.AbsolutePath.Length > 1 ? uri.AbsolutePath : "/mqtt")}" : string.Empty;
+        return new MqttEndpoint(uri.Host, port, tls, webSocket, wsUri, string.IsNullOrWhiteSpace(filter) ? "#" : filter, user, password);
+    }
+}

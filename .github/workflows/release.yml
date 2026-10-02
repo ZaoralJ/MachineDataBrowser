@@ -62,7 +62,7 @@ jobs:
           sed -e "s/version \".*\"/version \"$v\"/" \
               -e "s/REPLACE_WITH_ARM64_SHA256/$arm/" \
               -e "s/REPLACE_WITH_X64_SHA256/$x64/" \
-              packaging/homebrew/opcua-browser.rb > artifacts/dist/opcua-browser.rb
+              packaging/homebrew/machine-data-browser.rb > artifacts/dist/machine-data-browser.rb
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
@@ -71,7 +71,7 @@ jobs:
           prerelease: ${{ contains(env.TAG, '-') }}
           files: |
             artifacts/dist/*.zip
-            artifacts/dist/opcua-browser.rb
+            artifacts/dist/machine-data-browser.rb
             artifacts/dist/checksums.txt
       - name: Update Homebrew tap
         if: ${{ !contains(env.TAG, '-') }}
@@ -82,9 +82,13 @@ jobs:
           mkdir -p ~/.ssh && echo "$TAP_DEPLOY_KEY" > ~/.ssh/tap && chmod 600 ~/.ssh/tap
           export GIT_SSH_COMMAND="ssh -i ~/.ssh/tap -o StrictHostKeyChecking=accept-new"
           git clone -q git@github.com:ZaoralJ/homebrew-tap.git tap
-          mkdir -p tap/Casks && cp artifacts/dist/opcua-browser.rb tap/Casks/opcua-browser.rb
+          mkdir -p tap/Casks && cp artifacts/dist/machine-data-browser.rb tap/Casks/machine-data-browser.rb
           cd tap
+          # The cask was renamed from opcua-browser: Homebrew moves installed users over on their next upgrade.
+          git rm -q --ignore-unmatch Casks/opcua-browser.rb
+          [ -f cask_renames.json ] || echo '{}' > cask_renames.json
+          jq '. + {"opcua-browser": "machine-data-browser"}' cask_renames.json > cask_renames.tmp && mv cask_renames.tmp cask_renames.json
           git config user.name "Jaroslav Zaoral"
           git config user.email "zaoralj@gmail.com"
-          git add Casks/opcua-browser.rb
-          git diff --cached --quiet || { git commit -q -m "opcua-browser ${TAG#v}"; git push -q; }
+          git add Casks/machine-data-browser.rb cask_renames.json
+          git diff --cached --quiet || { git commit -q -m "machine-data-browser ${TAG#v}"; git push -q; }

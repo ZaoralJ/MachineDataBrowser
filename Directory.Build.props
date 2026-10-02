@@ -8,9 +8,9 @@
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <Authors>Jaroslav Zaoral and contributors</Authors>
-    <Product>OPC UA Browser</Product>
-    <Copyright>Copyright (c) 2026 Jaroslav Zaoral and OpcUaBrowser contributors</Copyright>
+    <Product>Machine Data Browser</Product>
+    <Copyright>Copyright (c) 2026 Jaroslav Zaoral and MachineDataBrowser contributors</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/ZaoralJ/OpcUaBrowser</RepositoryUrl>
+    <RepositoryUrl>https://github.com/ZaoralJ/MachineDataBrowser</RepositoryUrl>
   </PropertyGroup>
 </Project>
