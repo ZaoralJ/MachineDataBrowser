@@ -91,7 +91,7 @@
             <MenuItem Header="Collapse all" Command="{Binding CollapseAllCommand}">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconCollapseAll}" /></MenuItem.Icon>
             </MenuItem>
-            <Separator />
+            <Separator IsVisible="{Binding SupportsEvents}" />
             <MenuItem Header="Show events &amp; alarms" Command="{Binding ShowEventsCommand}" IsVisible="{Binding SupportsEvents}"
                       ToolTip.Tip="Live events and alarms of the selected object and everything below it (the whole server for Root or Objects)" />
             <Separator />
