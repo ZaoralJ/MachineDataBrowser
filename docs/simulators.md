@@ -119,6 +119,19 @@ Mosquitto (anonymous; MQTT on 1883, MQTT over WebSocket on 9001) plus a Python p
 | `MQTT_SIM_DEATH_PERIOD_S` | `30` | how often `Press2` dies (0 = never) |
 | `MQTT_SIM_REBIRTH_S` | `15` | births are re-published periodically, so a browser connecting later learns metric names |
 
+### Writing
+
+"Write value…" publishes to the broker, so any topic can be written; values the publisher republishes are
+overwritten at its next tick. Values that keep what is written:
+
+- **Topics**: the retained ones published once, e.g. `plant/info/version`, `bulk/sensor/NNNN`, `deep/l1/…/l8/value`.
+  The payload keeps its kind (number, boolean, text, JSON, hex for binary) and its retain flag.
+- **JSON fields**: `config/line1` (`cycleMs`, `limits/max`, …), `acme/billund/moulding/lineN/shift` (`crew`,
+  `supervisor`) and the `_meta` documents. The last document is republished with the one field changed.
+- **Sparkplug B**: a write sends a DCMD (device) or NCMD (edge node). `Press1`/`Press2` apply writes to their static
+  metrics `Config/Recipe` and `Types/Int8`, `Types/Int16`, `Types/UInt8`, `Types/UInt32` and report them in DDATA;
+  animated metrics ignore commands. NCMD `Node Control/Rebirth` = true on `Edge1` re-sends its births.
+
 ## Integration tests
 
 `tests/OpcUaBrowser.Core.Tests` builds `simulators/cip`, `simulators/opcua-custom` and `simulators/mqtt` with

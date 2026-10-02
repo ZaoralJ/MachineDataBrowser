@@ -14,7 +14,9 @@ Topics (all under the default '#' subscription):
                       values, counters, OEE, alarms and retained metadata; per line order, shift and KPIs;
                       per site energy (MQTT_SIM_UNS_LINES lines x press/robot/conveyor, default 4)
   spBv1.0/...         Sparkplug B: group Plant1, edge nodes Edge1 (devices Press1, Press2) and Edge2;
-                      Press2 dies and is reborn every MQTT_SIM_DEATH_PERIOD_S seconds
+                      Press2 dies and is reborn every MQTT_SIM_DEATH_PERIOD_S seconds. DCMD writes to the static
+                      device metrics (Config/Recipe, Types/*) are applied and reported in DDATA; NCMD
+                      "Node Control/Rebirth" re-sends the births of Edge1
 """
 
 import json
@@ -22,6 +24,7 @@ import math
 import os
 import random
 import struct
+import threading
 import time
 
 import uuid
@@ -166,6 +169,69 @@ def metric(name, alias, datatype, value, timestamp):
     return body
 
 
+def read_varint(data, pos):
+    result = shift = 0
+    while True:
+        byte = data[pos]
+        pos += 1
+        result |= (byte & 0x7F) << shift
+        if not byte & 0x80:
+            return result, pos
+        shift += 7
+
+
+def decode_fields(data):
+    """Protobuf fields as (number, wire type, value); length-delimited values stay bytes."""
+    pos, fields = 0, []
+    while pos < len(data):
+        tag, pos = read_varint(data, pos)
+        number, wire = tag >> 3, tag & 7
+        if wire == 0:
+            value, pos = read_varint(data, pos)
+        elif wire == 1:
+            value, pos = data[pos:pos + 8], pos + 8
+        elif wire == 5:
+            value, pos = data[pos:pos + 4], pos + 4
+        elif wire == 2:
+            length, pos = read_varint(data, pos)
+            value, pos = data[pos:pos + length], pos + length
+        else:
+            raise ValueError("wire type {}".format(wire))
+        fields.append((number, wire, value))
+    return fields
+
+
+def decode_command(data):
+    """Metrics of an NCMD/DCMD payload as (name, alias, value)."""
+    metrics = []
+    for number, _, body in decode_fields(data):
+        if number != 2:
+            continue
+        name = alias = value = None
+        datatype = 0
+        for field, wire, raw in decode_fields(body):
+            if field == 1:
+                name = raw.decode()
+            elif field == 2:
+                alias = raw
+            elif field == 4:
+                datatype = raw
+            elif field == 10:
+                value = raw - (1 << 32) if datatype in (INT8, INT16, INT32) and raw >= 1 << 31 else raw
+            elif field == 11:
+                value = raw - (1 << 64) if datatype == INT64 and raw >= 1 << 63 else raw
+            elif field == 12:
+                value = struct.unpack("<f", raw)[0]
+            elif field == 13:
+                value = struct.unpack("<d", raw)[0]
+            elif field == 14:
+                value = bool(raw)
+            elif field == 15:
+                value = raw.decode()
+        metrics.append((name, alias, value))
+    return metrics
+
+
 def payload(metrics, seq):
     now = int(time.time() * 1000)
     body = field_varint(1, now)
@@ -175,9 +241,12 @@ def payload(metrics, seq):
 
 
 class Device:
-    """Metric definitions: name -> (alias, datatype, value function)."""
+    """Metric definitions: name -> (alias, datatype, value function). Static metrics accept DCMD writes."""
+
+    WRITABLE = ("Config/Recipe", "Types/Int8", "Types/Int16", "Types/UInt8", "Types/UInt32")
 
     def __init__(self, base_alias, phase):
+        self.written = {}
         self.metrics = {
             "Temperature": (base_alias + 1, DOUBLE, lambda t: 200 + 20 * math.sin(t + phase)),
             "Pressure": (base_alias + 2, FLOAT, lambda t: 5 + math.cos(t / 3 + phase)),
@@ -194,12 +263,28 @@ class Device:
             "Types/DateTime": (base_alias + 13, DATETIME, lambda t: int(time.time() * 1000)),
         }
 
+    def value(self, name, t):
+        return self.written.get(name, self.metrics[name][2](t))
+
     def birth(self, t):
-        return [(name, alias, dtype, fn(t)) for name, (alias, dtype, fn) in self.metrics.items()]
+        return [(name, alias, dtype, self.value(name, t)) for name, (alias, dtype, _) in self.metrics.items()]
 
     def data(self, t, names):
         # DATA messages use aliases only (no names), as Sparkplug allows after the birth.
-        return [(None, self.metrics[n][0], self.metrics[n][1], self.metrics[n][2](t)) for n in names]
+        return [(None, self.metrics[n][0], self.metrics[n][1], self.value(n, t)) for n in names]
+
+    def command(self, metrics):
+        """Applies a DCMD; returns the names whose value changed (animated metrics ignore writes, like PLC outputs)."""
+        changed = []
+        for name, alias, value in metrics:
+            if name is None:
+                name = next((n for n, (a, _, _) in self.metrics.items() if a == alias), None)
+            if name in self.WRITABLE and value is not None:
+                self.written[name] = value
+                changed.append(name)
+            else:
+                print("DCMD ignored for {} (not writable)".format(name), flush=True)
+        return changed
 
 
 # ------------------------------------------------------------------------------------------------ publisher
@@ -265,12 +350,42 @@ def main():
     devices = {"Press1": Device(100, 0.0), "Press2": Device(200, 1.5)}
     node_metrics = [("bdSeq", 1, INT64, 0), ("Node Control/Rebirth", 2, BOOLEAN, False), ("Properties/Hardware", 3, STRING, "OpcUaBrowser simulator")]
     seq = 0
+    send_lock = threading.Lock()
 
     def send(kind, edge, device, metrics):
         nonlocal seq
         topic = f"spBv1.0/{group}/{kind}/{edge}" + (f"/{device}" if device else "")
-        client.publish(topic, payload(metrics, seq), qos=0)
-        seq += 1
+        with send_lock:
+            client.publish(topic, payload(metrics, seq), qos=0)
+            seq += 1
+
+    def rebirth(t):
+        send("NBIRTH", edge1, None, node_metrics)
+        for name, device in devices.items():
+            if name != "Press2" or press2_dead_since is None:
+                send("DBIRTH", edge1, name, device.birth(t))
+
+    def on_command(_client, _userdata, message):
+        # Runs on the paho network thread; a bad command must not stop it.
+        try:
+            parts = message.topic.split("/")
+            metrics = decode_command(message.payload)
+            t = time.time() - start
+            if parts[2] == "NCMD" and parts[3] == edge1:
+                if any(name == "Node Control/Rebirth" and value for name, _, value in metrics):
+                    rebirth(t)
+            elif parts[2] == "DCMD" and parts[3] == edge1 and len(parts) > 4 and parts[4] in devices:
+                device = devices[parts[4]]
+                changed = device.command(metrics)
+                if changed:
+                    send("DDATA", edge1, parts[4], device.data(t, changed))
+        except Exception as ex:  # noqa: BLE001 - log and keep serving
+            print("Command on {} failed: {}".format(message.topic, ex), flush=True)
+
+    client.message_callback_add(f"spBv1.0/{group}/NCMD/#", on_command)
+    client.message_callback_add(f"spBv1.0/{group}/DCMD/#", on_command)
+    client.subscribe([(f"spBv1.0/{group}/NCMD/#", 1), (f"spBv1.0/{group}/DCMD/#", 1)])
+    press2_dead_since = None
 
     start = time.time()
     send("NBIRTH", edge1, None, node_metrics)
@@ -282,7 +397,6 @@ def main():
     print("MQTT simulator ready (mqtt://localhost:1883, ws://localhost:9001)", flush=True)
 
     tick = 0
-    press2_dead_since = None
     tick_s = TICK_MS / 1000.0
     while True:
         t = time.time() - start
@@ -336,10 +450,7 @@ def main():
                         "running": sum(s.state == "Running" for s in stations), "stations": len(stations),
                     }))
             if REBIRTH_S > 0 and int(t) > 0 and int(t) % int(REBIRTH_S) == 0:
-                send("NBIRTH", edge1, None, node_metrics)
-                send("DBIRTH", edge1, "Press1", devices["Press1"].birth(t))
-                if press2_dead_since is None:
-                    send("DBIRTH", edge1, "Press2", devices["Press2"].birth(t))
+                rebirth(t)
                 send("NBIRTH", edge2, None, edge2_birth)
             send("NDATA", edge2, None, [(None, 10, INT64, int(t)), (None, 11, DOUBLE, 21.5 + math.sin(t / 10))])
             send("DDATA", edge1, "Press1", devices["Press1"].data(t, ["Pressure", "Running", "Count", "State", "Motor/Current"]))
