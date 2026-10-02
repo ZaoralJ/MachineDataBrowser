@@ -85,6 +85,7 @@ public sealed partial class MainWindowViewModel
         _suppressDirty = true;
         EndpointUrl = DefaultEndpointUrl;
         UseSecurity = false;
+        Bookmarks.Clear();
         AutoAcceptCertificates = false;
         UserName = string.Empty;
         DefaultRefreshMs = DefaultRefreshFor(EndpointUrl);
@@ -145,6 +146,12 @@ public sealed partial class MainWindowViewModel
         _suppressDirty = true;
         EndpointUrl = document.EndpointUrl;
         UseSecurity = document.UseSecurity;
+        Bookmarks.Clear();
+        foreach (var bookmark in document.Bookmarks)
+        {
+            Bookmarks.Add(bookmark);
+        }
+
         AutoAcceptCertificates = document.AutoAcceptCertificates;
         UserName = document.UserName ?? string.Empty;
         DefaultRefreshMs = document.DefaultRefreshMs ?? DefaultRefreshFor(document.EndpointUrl);
@@ -236,6 +243,7 @@ public sealed partial class MainWindowViewModel
         {
             EndpointUrl = EndpointUrl.Trim(),
             UseSecurity = UseSecurity,
+            Bookmarks = [.. Bookmarks],
             AutoAcceptCertificates = AutoAcceptCertificates,
             UserName = string.IsNullOrWhiteSpace(UserName) ? null : UserName,
             DefaultRefreshMs = DefaultRefreshMs,

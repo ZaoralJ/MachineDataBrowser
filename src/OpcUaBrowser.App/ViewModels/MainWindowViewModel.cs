@@ -94,6 +94,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             ShowWatchHistoryCommand.NotifyCanExecuteChanged();
         };
         WatchItems.CollectionChanged += (_, _) => TakeSnapshotCommand.NotifyCanExecuteChanged();
+        Bookmarks.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasBookmarks));
         SelectedNodes.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(SelectionSummary));
@@ -277,7 +278,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsDisconnected), nameof(StateText), nameof(SupportsEvents), nameof(SupportsHistory), nameof(SupportsMethods), nameof(SupportsMonitoringSettings))]
-    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand), nameof(WriteAttributeValueCommand), nameof(WriteWatchValueCommand), nameof(ShowEventsCommand), nameof(ShowHistoryCommand), nameof(ShowWatchHistoryCommand), nameof(CallMethodCommand), nameof(EditMonitoringCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand), nameof(WriteAttributeValueCommand), nameof(WriteWatchValueCommand), nameof(ShowEventsCommand), nameof(ShowHistoryCommand), nameof(ShowWatchHistoryCommand), nameof(CallMethodCommand), nameof(EditMonitoringCommand), nameof(ToggleBookmarkCommand))]
     public partial ConnectionState State { get; private set; }
 
     [ObservableProperty]
@@ -291,7 +292,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     public partial string? ErrorMessage { get; private set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(AddToWatchCommand), nameof(CopyNodeIdCommand), nameof(MonitorFolderCommand), nameof(CopyNodeJsonCommand), nameof(CopyNodeClassCommand), nameof(CopyNodeRecordCommand), nameof(WriteAttributeValueCommand), nameof(CallMethodCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddToWatchCommand), nameof(CopyNodeIdCommand), nameof(MonitorFolderCommand), nameof(CopyNodeJsonCommand), nameof(CopyNodeClassCommand), nameof(CopyNodeRecordCommand), nameof(WriteAttributeValueCommand), nameof(CallMethodCommand), nameof(ToggleBookmarkCommand))]
     public partial NodeViewModel? SelectedNode { get; set; }
 
     [ObservableProperty]

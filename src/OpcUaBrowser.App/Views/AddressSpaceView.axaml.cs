@@ -296,6 +296,7 @@ public sealed partial class AddressSpaceView : UserControl
             new("F", vm.MonitorFolderCommand, Description: "Monitor all variables in folder"),
             new("E", vm.ExpandAllCommand, Description: "Expand all below"),
             new("Shift+E", vm.CollapseAllCommand, Description: "Collapse all"),
+            new("B", vm.ToggleBookmarkCommand, Description: "Bookmark / remove bookmark"),
             new("Cmd+Alt+N", vm.CopyNodeIdCommand, Description: "Copy NodeId"),
             new("Cmd+Shift+C", vm.CopyNodeJsonCommand, Description: "Copy as JSON"),
             new("Cmd+Shift+K", vm.CopyNodeClassCommand, Description: "Copy as C# class"),
@@ -329,6 +330,10 @@ public sealed partial class AddressSpaceView : UserControl
             await vm.RevealSearchHitCommand.ExecuteAsync(hit);
         }
     }
+
+    /// <summary>Choosing a bookmark closes the list.</summary>
+    private void OnBookmarkClicked(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+        (sender as Avalonia.Visual)?.FindAncestorOfType<Avalonia.Controls.Primitives.Popup>()?.Close();
 
     private async Task PromptRefreshAsync()
     {

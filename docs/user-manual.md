@@ -88,6 +88,12 @@ connection by itself. Watch items and recordings continue after that.
   - ⇧⌘K / ⌥⌘K copy C# classes or records that mirror the structure.
   - To cherry-pick properties, select several nodes first.
 
+### Bookmarks
+
+Select a node and press **B** (or right-click ▸ **Bookmark**) to bookmark it; again removes it. The bookmark button in
+the Address Space toolbar lists them with their path: click one to open the tree there, ✕ removes it. Bookmarks are
+saved with the session (node ids are per server) and work for OPC UA, EtherNet/IP and MQTT.
+
 ### Search
 
 ⌘F (View ▸ Find in Address Space…) or **/** in the tree puts the cursor in the search box above the tree.

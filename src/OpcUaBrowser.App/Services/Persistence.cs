@@ -21,6 +21,8 @@ public sealed record SessionDocument
 
     public IReadOnlyList<WatchEntry> Watch { get; init; } = [];
 
+    public IReadOnlyList<ViewModels.Bookmark> Bookmarks { get; init; } = [];
+
     public IReadOnlyList<ColumnState>? WatchColumns { get; init; }
 
     public string? WatchSortColumn { get; init; }
