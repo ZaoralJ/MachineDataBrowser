@@ -61,6 +61,10 @@ public class TestDialogs : IDialogService
 
     public void ShowMethodCall(MethodCallViewModel method) => MethodCall = method;
 
+    public SnapshotCompareViewModel? Compare { get; private set; }
+
+    public void ShowSnapshotCompare(SnapshotCompareViewModel compare) => Compare = compare;
+
     public Task<ActiveRecordingsChoice> AskActiveRecordingsAsync(int count)
     {
         RecordingsAsked++;

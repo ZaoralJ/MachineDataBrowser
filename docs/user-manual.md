@@ -140,6 +140,19 @@ order are saved with the session.
   - ⌥⌘C copies the value; ⌥⌘J copies the values as JSON; ⇧⌘C copies the rows as JSON.
   - File ▸ Export Watch List as CSV (⌘E).
 
+### Snapshots
+
+A snapshot saves the current values of the whole watch list, to compare later, e.g. before and after a change on the
+machine.
+
+- **Watch ▸ Take Snapshot** (⌥⌘T) saves it, named with the date and time.
+- **Watch ▸ Compare with Snapshot…** (⌥⌘Y) shows *Before* (a snapshot) next to *After*: the live watch values,
+  updated every second, or another snapshot.
+  - Items are matched by NodeId. *Change* shows the difference for numbers, *changed* for other values, and
+    *only before* / *only after* for items in one side only. A status change counts as a change.
+  - **Changed only** hides equal values. ⌘C copies the rows as a table. **Delete snapshot** removes the *Before* one.
+- Snapshots are JSON files in the `snapshots` folder of the settings folder (Help ▸ Show Settings Folder).
+
 ## Writing values
 
 The app writes to a device only when you ask it to.

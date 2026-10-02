@@ -134,6 +134,8 @@ public sealed partial class MainWindow
                 Item("Monitor All Variables in _Folder", vm.MonitorFolderCommand, new KeyGesture(Key.M, cmd | KeyModifiers.Alt | KeyModifiers.Shift)),
                 new NativeMenuItemSeparator(),
                 Item("Show Recorded _Values", vm.ViewItemRecordingCommand, new KeyGesture(Key.Y, cmd)),
+                Item("Take _Snapshot", vm.TakeSnapshotCommand, new KeyGesture(Key.T, cmd | KeyModifiers.Alt)),
+                Item("Compare with S_napshot…", vm.CompareSnapshotCommand, new KeyGesture(Key.Y, cmd | KeyModifiers.Alt)),
                 Item("_Remove Selected", vm.RemoveFromWatchCommand, new KeyGesture(Key.Back, cmd)),
                 Item("_Clear Watch List", vm.ClearWatchCommand, new KeyGesture(Key.Back, cmd | KeyModifiers.Shift))),
             Submenu("_Recording",

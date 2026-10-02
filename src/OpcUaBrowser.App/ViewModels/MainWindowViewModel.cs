@@ -90,6 +90,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             CopyWatchValuesJsonCommand.NotifyCanExecuteChanged();
             WriteWatchValueCommand.NotifyCanExecuteChanged();
         };
+        WatchItems.CollectionChanged += (_, _) => TakeSnapshotCommand.NotifyCanExecuteChanged();
         SelectedNodes.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(SelectionSummary));

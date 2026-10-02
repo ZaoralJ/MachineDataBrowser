@@ -41,6 +41,9 @@ public interface IDialogService
 
     /// <summary>Opens the call form of a method.</summary>
     void ShowMethodCall(ViewModels.MethodCallViewModel method);
+
+    /// <summary>Opens the snapshot comparison.</summary>
+    void ShowSnapshotCompare(ViewModels.SnapshotCompareViewModel compare);
 }
 
 public enum CertificateTrustChoice

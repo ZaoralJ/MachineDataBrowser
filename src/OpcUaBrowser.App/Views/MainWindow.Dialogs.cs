@@ -177,6 +177,9 @@ public sealed partial class MainWindow : IDialogService
     public void ShowMethodCall(MethodCallViewModel method) =>
         new MethodCallWindow { DataContext = method }.Show(this);
 
+    public void ShowSnapshotCompare(SnapshotCompareViewModel compare) =>
+        new SnapshotCompareWindow { DataContext = compare }.Show(this);
+
     public async Task<string?> PickRecordingFileAsync()
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
