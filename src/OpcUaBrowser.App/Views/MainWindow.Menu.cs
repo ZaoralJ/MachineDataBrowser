@@ -9,8 +9,9 @@ namespace OpcUaBrowser.App.Views;
 
 public sealed partial class MainWindow
 {
-    private readonly NativeMenu _recentSessionsMenu = new();
-    private readonly NativeMenu _recentEndpointsMenu = new();
+    // Recreated with the menu: a NativeMenu can belong to one item only, and the menu is rebuilt per connection tab.
+    private NativeMenu _recentSessionsMenu = new();
+    private NativeMenu _recentEndpointsMenu = new();
     private readonly Dictionary<ThemePreference, NativeMenuItem> _themeItems = [];
     private MainWindowViewModel? _menuViewModel;
     private readonly List<Shortcut> _menuShortcuts = [];
@@ -82,12 +83,19 @@ public sealed partial class MainWindow
         var cmd = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
         KeyBindings.Clear();
         _themeItems.Clear();
+        _recentSessionsMenu = new NativeMenu();
+        _recentEndpointsMenu = new NativeMenu();
         _menuShortcuts.Clear();
 
         return
         [
             Submenu("_File",
                 Item("New _Instance", new RelayCommandAdapter(StartNewInstance), new KeyGesture(Key.N, cmd | KeyModifiers.Shift)),
+                Item("New Connection _Tab", new RelayCommandAdapter(NewConnectionTab), new KeyGesture(Key.T, cmd)),
+                Item("_Close Connection Tab", new RelayCommandAdapter(() => _ = CloseConnectionTabAsync(vm), CanCloseTab), new KeyGesture(Key.W, cmd)),
+                Item("Ne_xt Connection Tab", new RelayCommandAdapter(() => ShowNextTab(1)), new KeyGesture(Key.Tab, KeyModifiers.Control)),
+                Item("Pre_vious Connection Tab", new RelayCommandAdapter(() => ShowNextTab(-1)), new KeyGesture(Key.Tab, KeyModifiers.Control | KeyModifiers.Shift)),
+                new NativeMenuItemSeparator(),
                 Item("_New Session", vm.NewSessionCommand, new KeyGesture(Key.N, cmd)),
                 Item("_Open Session…", vm.OpenSessionCommand, new KeyGesture(Key.O, cmd)),
                 new NativeMenuItem(Label("Open _Recent")) { Menu = _recentSessionsMenu },
@@ -320,7 +328,7 @@ public sealed partial class MainWindow
         }
     }
 
-    private sealed class RelayCommandAdapter(Action action) : ICommand
+    private sealed class RelayCommandAdapter(Action action, Func<bool>? canExecute = null) : ICommand
     {
         public event EventHandler? CanExecuteChanged
         {
@@ -328,7 +336,7 @@ public sealed partial class MainWindow
             remove { }
         }
 
-        public bool CanExecute(object? parameter) => true;
+        public bool CanExecute(object? parameter) => canExecute?.Invoke() ?? true;
 
         public void Execute(object? parameter) => action();
     }
