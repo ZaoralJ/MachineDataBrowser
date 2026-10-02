@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.6.0...v0.7.0) (2026-10-02)
+
+
+### Features
+
+* OPC UA events, history, methods, certificate trust, diagnostics and watch tools ([#29](https://github.com/ZaoralJ/OpcUaBrowser/issues/29)) ([3a2ccd4](https://github.com/ZaoralJ/OpcUaBrowser/commit/3a2ccd4d8ee11cf022397922e8b674aa29460b27))
+* write values over OPC UA, CIP and MQTT ([#25](https://github.com/ZaoralJ/OpcUaBrowser/issues/25)) ([0d7c947](https://github.com/ZaoralJ/OpcUaBrowser/commit/0d7c94732678b45517eabc060abc2c7326538ea6))
+
+
+### Performance
+
+* **app:** keep the UI responsive while browsing ([#27](https://github.com/ZaoralJ/OpcUaBrowser/issues/27)) ([8caa21d](https://github.com/ZaoralJ/OpcUaBrowser/commit/8caa21d948dac968e652d11359d761269c124409))
+
 ## [0.6.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.5.0...v0.6.0) (2026-09-30)
 
 
