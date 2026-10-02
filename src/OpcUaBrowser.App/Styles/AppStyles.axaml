@@ -351,7 +351,7 @@
 
   <!-- Slim action strip at the top of a docked pane (the tab above already shows the title) -->
   <Style Selector="Border.pane-toolbar">
-    <Setter Property="Padding" Value="8,3" />
+    <Setter Property="Padding" Value="8,6" />
     <Setter Property="MinHeight" Value="32" />
     <Setter Property="BorderThickness" Value="0,0,0,1" />
     <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
