@@ -9,6 +9,43 @@
     <Border DockPanel.Dock="Top" Classes="pane-toolbar">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2" Margin="6,0,0,0">
+          <Button Classes="icon-only" AutomationProperties.Name="Bookmarks" IsEnabled="{Binding IsConnected}"
+                  ToolTip.Tip="Bookmarks of this session: click one to open the tree there. B bookmarks the selected node.">
+            <PathIcon Data="{StaticResource IconBookmark}" />
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedRight">
+                <StackPanel Spacing="2" MinWidth="240" MaxWidth="420">
+                  <TextBlock Classes="pane-title" Text="BOOKMARKS" Margin="8,0,0,6" />
+                  <TextBlock Text="No bookmarks yet: select a node and press B, or right-click ▸ Bookmark." TextWrapping="Wrap"
+                             Margin="8,0,8,4" FontSize="12" Foreground="{DynamicResource AppMutedTextBrush}"
+                             IsVisible="{Binding !HasBookmarks}" />
+                  <ItemsControl ItemsSource="{Binding Bookmarks}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="vm:Bookmark">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <Button Classes="history-entry" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                  Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).GoToBookmarkCommand}"
+                                  CommandParameter="{Binding}" ToolTip.Tip="{Binding ToolTip}" Click="OnBookmarkClicked">
+                            <StackPanel Spacing="1">
+                              <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                              <TextBlock Text="{Binding Path}" FontSize="11" TextTrimming="CharacterEllipsis"
+                                         Foreground="{DynamicResource AppMutedTextBrush}"
+                                         IsVisible="{Binding Path, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            </StackPanel>
+                          </Button>
+                          <Button Grid.Column="1" Classes="icon-only" VerticalAlignment="Center"
+                                  Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).RemoveBookmarkCommand}"
+                                  CommandParameter="{Binding}" AutomationProperties.Name="Remove bookmark" ToolTip.Tip="Remove bookmark">
+                            <PathIcon Data="{StaticResource IconClose}" />
+                          </Button>
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
           <Button Classes="icon-only" Command="{Binding ExpandAllCommand}"
                   AutomationProperties.Name="Expand all"
                   ToolTip.Tip="Expand all below the selection (or from Root), up to 5 levels">
@@ -104,6 +141,10 @@
               <MenuItem Header="Last 8 hours" Command="{Binding ShowHistoryCommand}"><MenuItem.CommandParameter><x:Int32>480</x:Int32></MenuItem.CommandParameter></MenuItem>
               <MenuItem Header="Last 24 hours" Command="{Binding ShowHistoryCommand}"><MenuItem.CommandParameter><x:Int32>1440</x:Int32></MenuItem.CommandParameter></MenuItem>
               <MenuItem Header="Last 7 days" Command="{Binding ShowHistoryCommand}"><MenuItem.CommandParameter><x:Int32>10080</x:Int32></MenuItem.CommandParameter></MenuItem>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Bookmark / remove bookmark" Command="{Binding ToggleBookmarkCommand}">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconBookmark}" /></MenuItem.Icon>
             </MenuItem>
             <Separator />
             <MenuItem Header="Copy NodeId" Command="{Binding CopyNodeIdCommand}" />
