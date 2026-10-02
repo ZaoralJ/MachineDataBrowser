@@ -96,7 +96,7 @@ An [asyncua](https://github.com/FreeOpcUa/opcua-asyncio) server for what opc-plc
 | `Large` | `OPCUA_CUSTOM_LARGE` = `areas,lines,tags` (default `10,10,50`: 5000 variables) |
 | `Flat` | `OPCUA_CUSTOM_FLAT` (default 10 000) variables in one folder, to exercise browse continuation |
 | `Methods` | `Add(A, B) → Sum`, `Greet(Name, Times) → Greeting` (BadOutOfRange outside 0–10), `Stats(Values[]) → Min, Max, Mean` (BadInvalidArgument when empty) |
-| `History` | `Temperature`, `Pressure`, `Running`: historized (HistoryRead), two hours prefilled every 10 s, then a new value every second |
+| `History` | `Temperature` (°C), `Pressure` (bar), `Running`: historized (HistoryRead), two hours prefilled every 10 s, then a new value every second; Temperature and Pressure have EngineeringUnits |
 
 `OPCUA_CUSTOM_FAST_MS` (10) sets the base tick (`0` freezes values), `OPCUA_CUSTOM_PORT` (4841) the port and
 `OPCUA_CUSTOM_HOST` (`localhost`) the host in the advertised endpoint URL. Startup takes 20-30 s with the

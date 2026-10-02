@@ -183,6 +183,9 @@ public sealed partial class MainWindow : IDialogService
     public Task<MonitoringOptions?> EditMonitoringAsync(MonitoringOptions current, string target, int? refreshMs) =>
         new MonitoringSettingsWindow { DataContext = new MonitoringSettingsViewModel(current, target, refreshMs) }.ShowDialog<MonitoringOptions?>(this);
 
+    public Task<ValueDisplay?> EditDisplayAsync(ValueDisplay current, string target, WatchItemViewModel sample) =>
+        new ValueDisplayWindow { DataContext = new ValueDisplayViewModel(current, target, sample) }.ShowDialog<ValueDisplay?>(this);
+
     public void ShowDiagnostics(DiagnosticsViewModel diagnostics) =>
         new DiagnosticsWindow { DataContext = diagnostics }.Show(this);
 

@@ -143,6 +143,14 @@ order are saved with the session.
   - OPC UA uses it as the sampling interval, Logix as the poll interval.
   - For MQTT it is a maximum update rate: at most the latest value once per interval. **0** means every message;
     use it for events, CloudEvents or anything where each message matters.
+- **Display format:** right-click ▸ **Display format…** for the selected rows (every protocol).
+  - *Format*: as sent, a fixed number of decimals, or for integers hex (`0x00FF`, two's complement for negatives),
+    binary in groups of four, or *Bits*, the list of set bits (for status and alarm words).
+  - *Scale*: value × gain + offset, e.g. a raw analog input 0…27648 to 0…100 %.
+  - *Unit*: shown after numbers. OPC UA variables with an EngineeringUnits property show theirs automatically; type
+    another, or untick to hide it.
+  - Display only: filters, snapshots, recordings, exports and *Write value* use the device's value; the tooltip shows
+    it. Saved with the session.
 - **Monitoring settings** (OPC UA): right-click ▸ **Monitoring settings…** for the selected rows.
   - *Own sampling interval*: sample faster or slower than the refresh time, at which values are still published.
   - *Queue size*: how many samples the server keeps between publishes; above 1, every sample arrives, not only the
