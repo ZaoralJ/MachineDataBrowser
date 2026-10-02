@@ -108,6 +108,34 @@ public sealed class DragDropTests(OpcPlcFixture plc)
         window.Close();
     }
 
+    [AvaloniaFact]
+    public async Task Typing_selects_rows_and_collapsing_selects_the_folder()
+    {
+        await using var vm = new MainWindowViewModel { EndpointUrl = plc.EndpointUrl };
+        var window = new MainWindow { DataContext = vm, Width = 1280, Height = 800 };
+        window.Show();
+        await vm.ConnectCommand.ExecuteAsync(null);
+        var root = vm.RootNodes[0];
+        await Until(() => root.Children.Any(c => c.DisplayName == "Objects"));
+        var objects = root.Children.Single(c => c.DisplayName == "Objects");
+        objects.IsExpanded = true;
+        await Until(() => objects.Children.Any(c => c.DisplayName == "OpcPlc"));
+        Dispatcher.UIThread.RunJobs();
+
+        var tree = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "AddressTree");
+        tree.SelectedItem = root;
+        tree.ContainerFromItem(root)!.Focus();
+        window.KeyTextInput("Op");
+        Dispatcher.UIThread.RunJobs();
+        var opcPlc = objects.Children.Single(c => c.DisplayName == "OpcPlc");
+        Assert.Same(opcPlc, vm.SelectedNode);
+
+        objects.IsExpanded = false;
+        await Until(() => vm.SelectedNode == objects);
+        Assert.Same(objects, tree.SelectedItem);
+        window.Close();
+    }
+
     private static async Task Until(Func<bool> c)
     {
         var end = DateTime.UtcNow.AddSeconds(10);

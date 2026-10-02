@@ -21,6 +21,70 @@ public sealed class FlatTree
 
     public BulkObservableCollection<NodeViewModel> Rows { get; } = [];
 
+    /// <summary>Raised before a collapse removes rows: the collapsed node and the rows it hides.</summary>
+    public event Action<NodeViewModel, IReadOnlyList<NodeViewModel>>? Collapsing;
+
+    /// <summary>Raised after a collapse removed its rows.</summary>
+    public event Action<NodeViewModel>? Collapsed;
+
+    private int _deferrals;
+
+    /// <summary>
+    /// Suspends row updates (e.g. while Expand all opens hundreds of folders) and rebuilds the rows once at the end.
+    /// The rebuild resets the list, so callers restore the selection.
+    /// </summary>
+    public IDisposable DeferUpdates()
+    {
+        _deferrals++;
+        return new Deferral(this);
+    }
+
+    private sealed class Deferral(FlatTree tree) : IDisposable
+    {
+        private bool _done;
+
+        public void Dispose()
+        {
+            if (!_done && --tree._deferrals == 0)
+            {
+                tree.Rebuild();
+            }
+
+            _done = true;
+        }
+    }
+
+    /// <summary>Row of <paramref name="node"/>: found from its parent's row, so only the rows in between are scanned.</summary>
+    private int IndexOf(NodeViewModel node)
+    {
+        var start = 0;
+        if (node.Parent is { } parent)
+        {
+            var parentIndex = IndexOf(parent);
+            if (parentIndex < 0 || !parent.IsExpanded)
+            {
+                return -1;
+            }
+
+            start = parentIndex + 1;
+        }
+
+        for (var i = start; i < Rows.Count; i++)
+        {
+            if (ReferenceEquals(Rows[i], node))
+            {
+                return i;
+            }
+
+            if (Rows[i].Depth < node.Depth)
+            {
+                return -1;
+            }
+        }
+
+        return -1;
+    }
+
     private void Rebuild()
     {
         foreach (var node in _attached)
@@ -53,12 +117,12 @@ public sealed class FlatTree
 
     private void OnStructureChanged(object? sender, EventArgs e)
     {
-        if (sender is not NodeViewModel node)
+        if (sender is not NodeViewModel node || _deferrals > 0)
         {
             return;
         }
 
-        var index = Rows.IndexOf(node);
+        var index = IndexOf(node);
         if (index < 0)
         {
             return;
@@ -107,8 +171,17 @@ public sealed class FlatTree
             removed.Add(Rows[start + prefix + i]);
         }
 
+        if (!node.IsExpanded && removed.Count > 0)
+        {
+            Collapsing?.Invoke(node, removed);
+        }
+
         Rows.RemoveRangeAt(start + prefix, removeCount);
         Rows.InsertRange(start + prefix, inserted);
+        if (!node.IsExpanded && removed.Count > 0)
+        {
+            Collapsed?.Invoke(node);
+        }
 
         var keep = new HashSet<NodeViewModel>(inserted, ReferenceEqualityComparer.Instance);
         foreach (var gone in removed.Where(r => !keep.Contains(r)))

@@ -63,4 +63,82 @@ public sealed class FlatTreeTests
         Assert.Equal("Root,…", Names(tree));
         Assert.Same(root, tree.Rows[1].Parent);
     }
+
+    [Fact]
+    public async Task Probe_drops_the_expander_of_leaves_after_a_quick_browse()
+    {
+        var probed = new TaskCompletionSource<IReadOnlyList<bool>?>();
+        var root = new NodeViewModel(Folder(1, "Root"), Browse, _ => { }, probe: _ => probed.Task);
+        await root.EnsureChildrenLoadedAsync();
+        Assert.All(root.Children, c => Assert.True(c.HasChildren)); // provisional until the probe answers
+
+        probed.SetResult([false, true]);
+        await Task.Yield();
+        Assert.False(root.Children[0].HasChildren);
+        Assert.Empty(root.Children[0].Children);
+        Assert.True(root.Children[1].HasChildren);
+    }
+
+    [Fact]
+    public async Task Failed_browse_shows_an_error_row_that_retries()
+    {
+        var fail = true;
+        var root = new NodeViewModel(Folder(1, "Root"), id => fail ? Task.FromException<IReadOnlyList<BrowseItem>>(new TimeoutException("slow server")) : Browse(id), _ => { });
+        var tree = new FlatTree(new ObservableCollection<NodeViewModel> { root });
+
+        await root.EnsureChildrenLoadedAsync();
+        var error = Assert.Single(root.Children);
+        Assert.True(error.IsError);
+        Assert.Contains("slow server", error.ToolTip, StringComparison.Ordinal);
+        Assert.Equal(2, tree.Rows.Count);
+
+        fail = false;
+        root.RetryLoad();
+        await root.EnsureChildrenLoadedAsync();
+        Assert.Equal("Root,A,B", Names(tree));
+    }
+
+    [Fact]
+    public async Task Long_collapsed_folders_are_unloaded_unless_they_hold_the_selection()
+    {
+        var root = new NodeViewModel(Folder(1, "Root"), Browse, _ => { });
+        await root.EnsureChildrenLoadedAsync();
+        var (a, b) = (root.Children[0], root.Children[1]);
+        await a.EnsureChildrenLoadedAsync();
+        await b.EnsureChildrenLoadedAsync();
+        a.IsExpanded = false;
+        b.IsExpanded = false;
+
+        var later = DateTime.UtcNow.AddHours(1);
+        var keep = new HashSet<NodeViewModel> { root, b, b.Children[0] };
+        Assert.Equal(1, root.UnloadCollapsed(TimeSpan.FromMinutes(10), later, keep));
+        Assert.False(a.IsLoaded);
+        Assert.True(Assert.Single(a.Children).IsPlaceholder);
+        Assert.True(b.IsLoaded);
+
+        await a.EnsureChildrenLoadedAsync();
+        Assert.Equal(["A1", "A2"], a.Children.Select(c => c.DisplayName));
+    }
+
+    [Fact]
+    public async Task Collapsing_reports_the_hidden_rows_and_deferral_rebuilds_once()
+    {
+        var root = new NodeViewModel(Folder(1, "Root"), Browse, _ => { });
+        var tree = new FlatTree(new ObservableCollection<NodeViewModel> { root });
+        await root.EnsureChildrenLoadedAsync();
+
+        IReadOnlyList<NodeViewModel>? hidden = null;
+        tree.Collapsing += (owner, rows) => hidden = owner == root ? rows : null;
+        root.IsExpanded = false;
+        Assert.Equal(["A", "B"], hidden!.Select(r => r.DisplayName));
+
+        using (tree.DeferUpdates())
+        {
+            root.IsExpanded = true;
+            await root.Children[0].EnsureChildrenLoadedAsync();
+            Assert.Equal("Root", Names(tree));
+        }
+
+        Assert.Equal("Root,A,A1,A2,B", Names(tree));
+    }
 }

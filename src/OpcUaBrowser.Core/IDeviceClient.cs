@@ -34,6 +34,17 @@ public interface IDeviceClient : IAsyncDisposable
 
     Task<IReadOnlyList<BrowseItem>> BrowseAsync(NodeId nodeId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Children in one round trip, possibly with a provisional <see cref="BrowseItem.HasChildren"/>; resolve it later
+    /// with <see cref="ProbeHasChildrenAsync"/>. Clients whose browse is already exact keep the default.
+    /// </summary>
+    Task<IReadOnlyList<BrowseItem>> BrowseQuickAsync(NodeId nodeId, CancellationToken cancellationToken = default) =>
+        BrowseAsync(nodeId, cancellationToken);
+
+    /// <summary>Which of <paramref name="nodeIds"/> have children; <c>null</c> when <see cref="BrowseQuickAsync"/> is already exact.</summary>
+    Task<IReadOnlyList<bool>?> ProbeHasChildrenAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<bool>?>(null);
+
     /// <summary>Ids from <see cref="Root"/> down to <paramref name="nodeId"/> (inclusive); empty when unknown.</summary>
     Task<IReadOnlyList<NodeId>> GetPathFromRootAsync(NodeId nodeId, int maxDepth = 32, CancellationToken cancellationToken = default);
 

@@ -114,7 +114,8 @@
               <PathIcon Grid.Column="1" Width="14" Height="14" IsVisible="{Binding !IsPlaceholder}"
                         Data="{Binding NodeClass, Converter={x:Static conv:NodeClassConverters.ToIcon}}"
                         Foreground="{Binding NodeClass, Converter={x:Static conv:NodeClassConverters.ToBrush}}" />
-              <TextBlock Grid.Column="2" Text="{Binding DisplayName}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="2" Text="{Binding DisplayName}" VerticalAlignment="Center"
+                         Classes.placeholder="{Binding IsPlaceholder}" Classes.error="{Binding IsError}" />
               <Button Grid.Column="3" Classes="icon-only row-action" IsVisible="{Binding IsVariable}"
                       Command="{Binding $parent[ListBox].((vm:MainWindowViewModel)DataContext).MonitorNodeCommand}"
                       CommandParameter="{Binding}"

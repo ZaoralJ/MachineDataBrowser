@@ -170,7 +170,17 @@ public sealed class OpcUaClient : IDeviceClient
     /// Hierarchical forward references of <paramref name="nodeId"/>, following continuation points.
     /// Each child's <see cref="BrowseItem.HasChildren"/> is resolved with one extra batched Browse for all children.
     /// </summary>
-    public async Task<IReadOnlyList<BrowseItem>> BrowseAsync(NodeId nodeId, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<BrowseItem>> BrowseAsync(NodeId nodeId, CancellationToken cancellationToken = default) =>
+        BrowseCoreAsync(nodeId, probe: true, cancellationToken);
+
+    /// <summary>Like <see cref="BrowseAsync"/> without the HasChildren probe: every container child reports children.</summary>
+    public Task<IReadOnlyList<BrowseItem>> BrowseQuickAsync(NodeId nodeId, CancellationToken cancellationToken = default) =>
+        BrowseCoreAsync(nodeId, probe: false, cancellationToken);
+
+    public async Task<IReadOnlyList<bool>?> ProbeHasChildrenAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken cancellationToken = default) =>
+        nodeIds.Count == 0 ? [] : await HasHierarchicalChildrenAsync(RequireSession(), [.. nodeIds], cancellationToken).ConfigureAwait(false);
+
+    private async Task<IReadOnlyList<BrowseItem>> BrowseCoreAsync(NodeId nodeId, bool probe, CancellationToken cancellationToken)
     {
         var session = RequireSession();
 
@@ -200,8 +210,9 @@ public sealed class OpcUaClient : IDeviceClient
             .Select(r => (Reference: r, NodeId: ExpandedNodeId.ToNodeId(r.NodeId, session.NamespaceUris)))
             .ToList();
 
-        var hasChildren = await HasHierarchicalChildrenAsync(session, children.Select(c => c.NodeId).ToList(), cancellationToken)
-            .ConfigureAwait(false);
+        var hasChildren = probe
+            ? await HasHierarchicalChildrenAsync(session, children.Select(c => c.NodeId).ToList(), cancellationToken).ConfigureAwait(false)
+            : null;
 
         return children
             .Select((c, i) => new BrowseItem(
@@ -209,7 +220,7 @@ public sealed class OpcUaClient : IDeviceClient
                 c.Reference.DisplayName?.Text ?? c.Reference.BrowseName?.Name ?? c.Reference.NodeId.ToString(),
                 c.Reference.BrowseName?.ToString() ?? string.Empty,
                 c.Reference.NodeClass,
-                hasChildren[i]))
+                hasChildren?[i] ?? true))
             .ToList();
     }
 

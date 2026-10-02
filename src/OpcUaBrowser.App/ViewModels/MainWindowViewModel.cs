@@ -39,7 +39,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         _client.StateChanged += OnClientStateChanged;
         AppErrors.Reported += OnAppError;
         _flushTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (_, _) => FlushUpdates());
-        _treeTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, async (_, _) => await RefreshTreeIfChangedAsync());
+        _treeTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, async (_, _) =>
+        {
+            await RefreshTreeIfChangedAsync();
+            UnloadCollapsedNodes();
+        });
         _treeTimer.Start();
         _flushTimer.Start();
 
@@ -340,7 +344,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     private FlatTree? _treeRows;
 
     /// <summary>The visible tree rows (flattened for the virtualized address-space list).</summary>
-    public BulkObservableCollection<NodeViewModel> TreeRows => (_treeRows ??= new FlatTree(RootNodes)).Rows;
+    public BulkObservableCollection<NodeViewModel> TreeRows => (_treeRows ??= CreateFlatTree()).Rows;
+
+    private FlatTree CreateFlatTree()
+    {
+        var tree = new FlatTree(RootNodes);
+        tree.Collapsing += OnTreeCollapsing;
+        tree.Collapsed += OnTreeCollapsed;
+        return tree;
+    }
 
     public ObservableCollection<NodeViewModel> SelectedNodes { get; } = [];
 
@@ -379,7 +391,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 _client.Root,
                 Browse,
                 ReportError,
-                _client.ToDisplayId);
+                _client.ToDisplayId,
+                probe: ProbeHasChildren);
             RootNodes.Add(root);
             root.IsExpanded = true;
 
@@ -810,6 +823,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
 
         IsBusy = true;
+        var selection = SelectedNodes.ToList();
+        var current = SelectedNode;
+        var deferral = _treeRows?.DeferUpdates();
         try
         {
             var limited = false;
@@ -828,6 +844,20 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
         finally
         {
+            // One rebuild instead of a row update per expanded folder; it resets the list, so restore the selection.
+            deferral?.Dispose();
+            if (deferral is not null && current is not null)
+            {
+                SelectedNodes.Clear();
+                foreach (var node in selection)
+                {
+                    SelectedNodes.Add(node);
+                }
+
+                SelectedNode = current;
+                RevealRequested?.Invoke(this, current);
+            }
+
             IsBusy = false;
         }
     }
@@ -1106,10 +1136,68 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
     }
 
+    /// <summary>A hung server shows an error row with a retry instead of "Loading…" until the SDK gives up.</summary>
+    internal static TimeSpan BrowseTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
     private Task<IReadOnlyList<BrowseItem>> Browse(NodeId nodeId)
     {
         var client = _client;
-        return Task.Run(() => client.BrowseAsync(nodeId));
+        return Task.Run(() => client.BrowseQuickAsync(nodeId)).WaitAsync(BrowseTimeout);
+    }
+
+    private Task<IReadOnlyList<bool>?> ProbeHasChildren(IReadOnlyList<NodeId> nodeIds)
+    {
+        var client = _client;
+        return Task.Run(() => client.ProbeHasChildrenAsync(nodeIds)).WaitAsync(BrowseTimeout);
+    }
+
+    private static readonly TimeSpan UnloadAfter = TimeSpan.FromMinutes(10);
+    private DateTime _lastUnloadSweep = DateTime.UtcNow;
+
+    /// <summary>Frees folders collapsed for a long time (they are browsed again when expanded).</summary>
+    private void UnloadCollapsedNodes()
+    {
+        var now = DateTime.UtcNow;
+        if (now - _lastUnloadSweep < TimeSpan.FromMinutes(1) || RootNodes.Count == 0)
+        {
+            return;
+        }
+
+        _lastUnloadSweep = now;
+        var keep = new HashSet<NodeViewModel>(System.Collections.Generic.ReferenceEqualityComparer.Instance);
+        foreach (var selected in SelectedNodes.Append(SelectedNode).OfType<NodeViewModel>())
+        {
+            for (var n = selected; n is not null; n = n.Parent)
+            {
+                keep.Add(n);
+            }
+        }
+
+        foreach (var root in RootNodes)
+        {
+            root.UnloadCollapsed(UnloadAfter, now, keep);
+        }
+    }
+
+    private NodeViewModel? _reselectAfterCollapse;
+
+    /// <summary>Collapsing a folder that hides the selection selects the folder, so the Attributes pane follows.</summary>
+    private void OnTreeCollapsing(NodeViewModel owner, IReadOnlyList<NodeViewModel> hidden)
+    {
+        var set = new HashSet<NodeViewModel>(hidden, System.Collections.Generic.ReferenceEqualityComparer.Instance);
+        _reselectAfterCollapse = (SelectedNode is { } s && set.Contains(s)) || SelectedNodes.Any(set.Contains) ? owner : null;
+    }
+
+    private void OnTreeCollapsed(NodeViewModel owner)
+    {
+        if (!ReferenceEquals(Interlocked.Exchange(ref _reselectAfterCollapse, null), owner))
+        {
+            return;
+        }
+
+        SelectedNodes.Clear();
+        SelectedNodes.Add(owner);
+        SelectedNode = owner;
     }
 
     private async Task CopyAsync(string? text)

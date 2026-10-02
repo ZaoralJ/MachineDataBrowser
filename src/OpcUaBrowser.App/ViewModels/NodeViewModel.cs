@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Opc.Ua;
 using OpcUaBrowser.Core;
@@ -9,29 +8,38 @@ namespace OpcUaBrowser.App.ViewModels;
 
 public sealed partial class NodeViewModel : ObservableObject
 {
-    private readonly NodeViewModel? _placeholder;
     private readonly Func<NodeId, Task<IReadOnlyList<BrowseItem>>>? _browse;
+    private readonly Func<IReadOnlyList<NodeId>, Task<IReadOnlyList<bool>?>>? _probe;
     private readonly Action<Exception>? _onError;
     private readonly Func<NodeId, string>? _formatId;
+    private NodeViewModel? _placeholder;
     private bool _loaded;
     private Task? _loading;
+    private DateTime _collapsedAt = DateTime.MaxValue;
 
-    // One placeholder per node: the flattened tree shows it as a row, and rows must be distinct objects.
-    private NodeViewModel(NodeViewModel parent)
+    // Placeholder ("Loading…") and error rows. One per node: the flattened tree shows it as a row, and rows must be distinct objects.
+    private NodeViewModel(NodeViewModel parent, string text = "Loading…", string? error = null)
     {
         Parent = parent;
         Depth = parent.Depth + 1;
-        DisplayName = "Loading…";
+        DisplayName = text;
         NodeId = NodeId.Null;
         IsPlaceholder = true;
+        Error = error;
     }
 
+    /// <param name="probe">
+    /// Resolves which children really have children when <paramref name="browse"/> only reports it provisionally
+    /// (it returns null when the browse was exact). The tree shows children after one round trip and drops the
+    /// expanders of leaves when the probe answers.
+    /// </param>
     public NodeViewModel(
         BrowseItem item,
         Func<NodeId, Task<IReadOnlyList<BrowseItem>>> browse,
         Action<Exception> onError,
         Func<NodeId, string>? formatId = null,
-        NodeViewModel? parent = null)
+        NodeViewModel? parent = null,
+        Func<IReadOnlyList<NodeId>, Task<IReadOnlyList<bool>?>>? probe = null)
     {
         Parent = parent;
         Depth = parent is null ? 0 : parent.Depth + 1;
@@ -41,14 +49,14 @@ public sealed partial class NodeViewModel : ObservableObject
         DisplayName = item.DisplayName;
         NodeClass = item.NodeClass;
         _browse = browse;
+        _probe = probe;
         _onError = onError;
 
         // The placeholder makes the expander visible until the first browse replaces it with real children.
         HasChildren = item.HasChildren;
         if (item.HasChildren)
         {
-            _placeholder = new NodeViewModel(this);
-            Children.Add(_placeholder);
+            Children.Add(Placeholder);
         }
         else
         {
@@ -64,7 +72,13 @@ public sealed partial class NodeViewModel : ObservableObject
     /// <summary>Nesting level: 0 for the root.</summary>
     public int Depth { get; }
 
+    /// <summary>A "Loading…" or error row, not a server node.</summary>
     public bool IsPlaceholder { get; }
+
+    /// <summary>Why browsing the parent failed; set on the error row that offers a retry.</summary>
+    public string? Error { get; }
+
+    public bool IsError => Error is not null;
 
     /// <summary>The node this one was browsed from; null for the root.</summary>
     public NodeViewModel? Parent { get; }
@@ -93,23 +107,35 @@ public sealed partial class NodeViewModel : ObservableObject
 
     public NodeClass NodeClass { get; }
 
-    public string ToolTip => IsVariable
-        ? $"{NodeClass}  ·  {NodeIdText}\nDouble-click, Enter or drag to Watch to monitor · right-click for more"
-        : HasChildren
-            ? $"{NodeClass}  ·  {NodeIdText}\nDrag to Watch or right-click to monitor all variables inside (including subfolders)"
-            : $"{NodeClass}  ·  {NodeIdText}";
+    public string ToolTip => IsError
+        ? $"{Error}\nClick to retry"
+        : IsPlaceholder
+            ? DisplayName
+            : IsVariable
+                ? $"{NodeClass}  ·  {NodeIdText}\nDouble-click, Enter or drag to Watch to monitor · right-click for more"
+                : HasChildren
+                    ? $"{NodeClass}  ·  {NodeIdText}\nDrag to Watch or right-click to monitor all variables inside (including subfolders)"
+                    : $"{NodeClass}  ·  {NodeIdText}";
 
     public bool IsVariable => NodeClass == NodeClass.Variable;
 
-    public bool HasChildren { get; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ToolTip))]
+    public partial bool HasChildren { get; private set; }
 
     public BulkObservableCollection<NodeViewModel> Children { get; } = [];
+
+    /// <summary>Children were browsed and are held in memory.</summary>
+    public bool IsLoaded => _loaded && HasChildren;
 
     [ObservableProperty]
     public partial bool IsExpanded { get; set; }
 
+    private NodeViewModel Placeholder => _placeholder ??= new NodeViewModel(this);
+
     partial void OnIsExpandedChanged(bool value)
     {
+        _collapsedAt = value ? DateTime.MaxValue : DateTime.UtcNow;
         if (value && !_loaded)
         {
             _loading = LoadChildrenAsync();
@@ -127,6 +153,24 @@ public sealed partial class NodeViewModel : ObservableObject
         }
     }
 
+    /// <summary>Browses again after a failed load (the error row's action).</summary>
+    public void RetryLoad()
+    {
+        if (_loaded || _loading is { IsCompleted: false })
+        {
+            return;
+        }
+
+        if (IsExpanded)
+        {
+            _loading = LoadChildrenAsync();
+        }
+        else
+        {
+            IsExpanded = true;
+        }
+    }
+
     public void CollapseAll()
     {
         foreach (var child in Children)
@@ -135,6 +179,32 @@ public sealed partial class NodeViewModel : ObservableObject
         }
 
         IsExpanded = false;
+    }
+
+    /// <summary>
+    /// Drops the children of descendants that have been collapsed for longer than <paramref name="age"/>, so a long
+    /// session (or a growing MQTT tree) doesn't hold every folder ever opened. Nodes in <paramref name="keep"/>
+    /// (ancestors of the selection) are left alone. They are browsed again when expanded. Returns the number unloaded.
+    /// </summary>
+    public int UnloadCollapsed(TimeSpan age, DateTime now, IReadOnlySet<NodeViewModel> keep)
+    {
+        var count = 0;
+        foreach (var child in Children)
+        {
+            if (child.IsExpanded)
+            {
+                count += child.UnloadCollapsed(age, now, keep);
+            }
+            else if (child.IsLoaded && child._browse is not null && now - child._collapsedAt > age && !keep.Contains(child))
+            {
+                child._loaded = false;
+                child._loading = null;
+                child.Children.ReplaceAll([child.Placeholder]);
+                count++;
+            }
+        }
+
+        return count;
     }
 
     /// <summary>
@@ -193,16 +263,26 @@ public sealed partial class NodeViewModel : ObservableObject
         var existing = new Dictionary<NodeId, NodeViewModel>();
         foreach (var child in Children)
         {
-            if (child != _placeholder)
+            if (!child.IsPlaceholder)
             {
                 existing.TryAdd(child.NodeId, child);
             }
         }
 
+        // A provisional HasChildren (probe pending) must not replace a node the probe already resolved.
+        var added = new List<NodeViewModel>();
         var wanted = items.Select(item =>
-            existing.TryGetValue(item.NodeId, out var keep) && keep.NodeClass == item.NodeClass && keep.HasChildren == item.HasChildren
-                ? keep
-                : new NodeViewModel(item, _browse, _onError!, _formatId, this)).ToList();
+        {
+            if (existing.TryGetValue(item.NodeId, out var keep) && keep.NodeClass == item.NodeClass
+                && (_probe is not null || keep.HasChildren == item.HasChildren))
+            {
+                return keep;
+            }
+
+            var node = Create(item);
+            added.Add(node);
+            return node;
+        }).ToList();
 
         if (!Children.SequenceEqual(wanted))
         {
@@ -235,11 +315,14 @@ public sealed partial class NodeViewModel : ObservableObject
             }
         }
 
+        _ = ProbeAsync(added);
         foreach (var child in wanted.Where(c => c.IsExpanded))
         {
             await child.RefreshExpandedAsync();
         }
     }
+
+    private NodeViewModel Create(BrowseItem item) => new(item, _browse!, _onError!, _formatId, this, _probe);
 
     private async Task LoadChildrenAsync()
     {
@@ -249,16 +332,59 @@ public sealed partial class NodeViewModel : ObservableObject
         }
 
         _loaded = true;
+        if (Children is not [{ IsPlaceholder: true, IsError: false }])
+        {
+            Children.ReplaceAll([Placeholder]);
+        }
+
         try
         {
             var items = await _browse(NodeId);
-            Children.ReplaceAll(items.Select(item => new NodeViewModel(item, _browse, _onError!, _formatId, this)));
+            var children = items.Select(Create).ToList();
+            Children.ReplaceAll(children);
+            if (children.Count == 0)
+            {
+                HasChildren = false;
+            }
+
+            _ = ProbeAsync(children);
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
-            Children.Clear();
             _loaded = false;
+            Children.ReplaceAll([new NodeViewModel(this, "Couldn't load — click to retry", AppErrors.Describe(ex))]);
             _onError?.Invoke(ex);
+        }
+    }
+
+    /// <summary>Drops the expander of children the server says have no children of their own (best effort).</summary>
+    private async Task ProbeAsync(IReadOnlyList<NodeViewModel> nodes)
+    {
+        var candidates = nodes.Where(n => n.HasChildren && !n._loaded).ToList();
+        if (_probe is null || candidates.Count == 0)
+        {
+            return;
+        }
+
+        IReadOnlyList<bool>? result;
+        try
+        {
+            result = await _probe([.. candidates.Select(n => n.NodeId)]);
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            return; // unresolved children keep their expander; expanding them browses as usual
+        }
+
+        for (var i = 0; result is not null && i < candidates.Count && i < result.Count; i++)
+        {
+            var node = candidates[i];
+            if (!result[i] && !node._loaded)
+            {
+                node._loaded = true;
+                node.HasChildren = false;
+                node.Children.Clear();
+            }
         }
     }
 }

@@ -17,6 +17,7 @@ public sealed partial class AddressSpaceView : UserControl
         // Double-click expands (the first click may have toggled it) and monitors.
         AddressTree.AddHandler(InputElement.DoubleTappedEvent, OnTreeDoubleTapped, handledEventsToo: true);
         AddressTree.AddHandler(InputElement.KeyDownEvent, OnTreeKeyDown, RoutingStrategies.Tunnel);
+        AddressTree.AddHandler(InputElement.TextInputEvent, OnTreeTextInput, RoutingStrategies.Bubble);
         AddressTree.AddHandler(InputElement.PointerPressedEvent, OnTreePointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddressTree.AddHandler(InputElement.PointerMovedEvent, OnTreePointerMoved, handledEventsToo: true);
         AddressTree.AddHandler(InputElement.PointerReleasedEvent, (_, _) => _dragStart = null, handledEventsToo: true);
@@ -139,9 +140,75 @@ public sealed partial class AddressSpaceView : UserControl
     private void OnTreeTapped(object? sender, TappedEventArgs e)
     {
         var extendingSelection = (e.KeyModifiers & (KeyModifiers.Shift | KeyModifiers.Control | KeyModifiers.Meta)) != 0;
-        if (!extendingSelection && ClickedNode(e) is { HasChildren: true } node)
+        if (extendingSelection)
         {
-            node.IsExpanded = !node.IsExpanded;
+            return;
+        }
+
+        switch (ClickedNode(e))
+        {
+            case { IsError: true, Parent: { } parent }:
+                parent.RetryLoad();
+                break;
+            case { HasChildren: true } node:
+                node.IsExpanded = !node.IsExpanded;
+                break;
+        }
+    }
+
+    private bool _keyWasShortcut;
+    private string _typed = string.Empty;
+    private DateTime _lastTyped;
+    private TopLevel? _topLevel;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _topLevel = TopLevel.GetTopLevel(this);
+
+        // Pane shortcuts (E, F, T, 1–7…) are KeyBindings on ancestors; seeing the key after bubbling tells whether one
+        // consumed it, so its text doesn't also type-select.
+        _topLevel?.AddHandler(InputElement.KeyDownEvent, OnTopLevelKeyDown, RoutingStrategies.Bubble, handledEventsToo: true);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _topLevel?.RemoveHandler(InputElement.KeyDownEvent, OnTopLevelKeyDown);
+        _topLevel = null;
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnTopLevelKeyDown(object? sender, KeyEventArgs e) =>
+        _keyWasShortcut = e.Handled || e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Shift);
+
+    /// <summary>Typing a name jumps to the next visible row starting with it (unless the key was a shortcut).</summary>
+    private void OnTreeTextInput(object? sender, TextInputEventArgs e)
+    {
+        if (_keyWasShortcut || string.IsNullOrEmpty(e.Text) || char.IsControl(e.Text[0]) || DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        _typed = now - _lastTyped > TimeSpan.FromSeconds(1) ? e.Text : _typed + e.Text;
+        _lastTyped = now;
+
+        var rows = vm.TreeRows;
+        var from = AddressTree.SelectedItem is NodeViewModel current ? rows.IndexOf(current) : -1;
+
+        // A fresh single character moves on to the next match; a longer prefix may stay on the current row.
+        var offset = _typed.Length == 1 ? 1 : 0;
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var row = rows[(Math.Max(from, 0) + offset + i) % rows.Count];
+            if (!row.IsPlaceholder && row.DisplayName.StartsWith(_typed, StringComparison.OrdinalIgnoreCase))
+            {
+                AddressTree.SelectedItems?.Clear();
+                AddressTree.SelectedItem = row;
+                FocusRow(row);
+                e.Handled = true;
+                return;
+            }
         }
     }
 
