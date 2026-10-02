@@ -91,6 +91,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             CopyWatchValuesJsonCommand.NotifyCanExecuteChanged();
             WriteWatchValueCommand.NotifyCanExecuteChanged();
             EditMonitoringCommand.NotifyCanExecuteChanged();
+            EditDisplayCommand.NotifyCanExecuteChanged();
             ShowWatchHistoryCommand.NotifyCanExecuteChanged();
         };
         WatchItems.CollectionChanged += (_, _) => TakeSnapshotCommand.NotifyCanExecuteChanged();
@@ -303,7 +304,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     public bool IsValueAttributeSelected => SelectedAttribute?.Name == "Value";
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RemoveFromWatchCommand), nameof(CopyWatchValueCommand), nameof(CopyWatchNodeIdCommand), nameof(WriteWatchValueCommand), nameof(EditMonitoringCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RemoveFromWatchCommand), nameof(CopyWatchValueCommand), nameof(CopyWatchNodeIdCommand), nameof(WriteWatchValueCommand), nameof(EditMonitoringCommand), nameof(EditDisplayCommand))]
     public partial WatchItemViewModel? SelectedWatchItem { get; set; }
 
     partial void OnSelectedWatchItemChanged(WatchItemViewModel? value) => OnPropertyChanged(nameof(WatchSelectionLabel));
@@ -707,6 +708,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             }
 
             WatchItems.RemoveRange(rejected.Select(r => byNodeId[r.NodeId]));
+            _ = LoadUnitsAsync([.. items.Where(i => i.Monitor is not null)]);
 
             if (rejected.Count > 0)
             {

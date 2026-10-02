@@ -173,6 +173,7 @@ public sealed partial class MainWindowViewModel
         var resolved = new List<(NodeId, string, int)>();
         var unresolved = new List<string>();
         var monitoring = new Dictionary<NodeId, OpcUaBrowser.Core.MonitoringOptions>();
+        var displays = new Dictionary<NodeId, OpcUaBrowser.Core.ValueDisplay>();
         foreach (var entry in document.Watch)
         {
             try
@@ -182,6 +183,11 @@ public sealed partial class MainWindowViewModel
                 if (entry.Monitoring is { IsDefault: false } options)
                 {
                     monitoring[nodeId] = options;
+                }
+
+                if (entry.Display is { IsDefault: false } display)
+                {
+                    displays[nodeId] = display;
                 }
             }
             catch (Exception parseError) when (AppErrors.IsRecoverable(parseError))
@@ -195,6 +201,11 @@ public sealed partial class MainWindowViewModel
         foreach (var item in WatchItems.Where(w => monitoring.ContainsKey(w.NodeId)))
         {
             item.Monitoring = monitoring[item.NodeId];
+        }
+
+        foreach (var item in WatchItems.Where(w => displays.ContainsKey(w.NodeId)))
+        {
+            item.Display = displays[item.NodeId];
         }
 
         await ReapplyMonitoringAsync([.. WatchItems.Where(w => !w.Monitoring.IsDefault)]);
@@ -242,7 +253,7 @@ public sealed partial class MainWindowViewModel
             WatchColumns = WatchColumns.Capture(),
             WatchSortColumn = WatchColumns.SortColumn,
             WatchSortDescending = WatchColumns.SortDescending,
-            Watch = [.. WatchItems.Select(w => new WatchEntry(w.PortableId, w.DisplayName, w.RefreshMs == DefaultRefreshMs ? null : w.RefreshMs, w.Monitoring.IsDefault ? null : w.Monitoring))],
+            Watch = [.. WatchItems.Select(w => new WatchEntry(w.PortableId, w.DisplayName, w.RefreshMs == DefaultRefreshMs ? null : w.RefreshMs, w.Monitoring.IsDefault ? null : w.Monitoring, w.Display.IsDefault ? null : w.Display))],
         };
 
         try
