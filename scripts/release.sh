@@ -18,6 +18,6 @@ artifacts="$(mktemp -d)"
 dotnet build -c Release --artifacts-path "$artifacts"
 dotnet test -c Release --no-build --artifacts-path "$artifacts"
 
-git tag -a "$TAG" -m "OPC UA Browser $VERSION"
+git tag -a "$TAG" -m "Machine Data Browser $VERSION"
 git push origin "$TAG"
 echo "Pushed $TAG. Follow the build: gh run watch \$(gh run list --workflow release.yml --limit 1 --json databaseId --jq '.[0].databaseId')"

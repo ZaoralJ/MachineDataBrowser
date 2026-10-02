@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Client" />
+    <PackageReference Include="libplctag" />
+    <PackageReference Include="MQTTnet" />
+    <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Client.ComplexTypes" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="MachineDataBrowser.Core.Tests" />
+  </ItemGroup>
+</Project>

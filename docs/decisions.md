@@ -3,9 +3,19 @@
 Short record of the choices behind the current stack. Facts were checked at the time (September 2026).
 
 The app started as an OPC UA browser and is now a machine data viewer for OPC UA, EtherNet/IP (Logix) and MQTT.
-The app is shown as "Machine Data Browser". The app bundle (`OPC UA Browser.app`), the Homebrew cask
-(`opcua-browser`), the data folder and the repository (`OpcUaBrowser`) keep their names, so updates and existing
-data keep working.
+## Name: Machine Data Browser (renamed from OPC UA Browser after 0.8)
+
+- Everything carries the new name: repository, projects and namespaces, app bundle (`Machine Data Browser.app`,
+  `com.zaoralj.machinedatabrowser`), Homebrew cask (`machine-data-browser`), data folder, session files (`.mdbsession`)
+  and the OPC UA client identity (`MachineDataBrowser`). An earlier choice kept the old technical names to avoid
+  breaking installs; the rename instead migrates:
+  - Homebrew: the tap's `cask_renames.json` maps `opcua-browser` to `machine-data-browser`, so `brew upgrade` replaces
+    the old cask and app.
+  - Data: on first start the old `OpcUaBrowser` data folder is copied (left in place for older versions);
+    `OPCUABROWSER_DATA_DIR` is still honoured.
+  - Sessions: `.opcsession` files still open and save back to the same file.
+- Not migrated: the OPC UA application certificate. Its subject and application URI carry the name, so a new one is
+  created and servers that trusted the old one must trust it once.
 
 ## OPC UA SDK: OPC Foundation UA-.NETStandard
 
@@ -51,7 +61,7 @@ data keep working.
 
 ## Resilience and threading
 
-- A global handler (`AppErrors`) logs every unhandled exception to `logs/opcuabrowser.log` and shows it in the error
+- A global handler (`AppErrors`) logs every unhandled exception to `logs/machinedatabrowser.log` and shows it in the error
   bar; library callbacks (OPC UA notifications, reconnect, CIP polling, MQTT messages, recording timers) catch their
   own errors because an exception on a thread-pool thread would end the process.
 - Connect, disconnect and shutdown work runs off the UI thread; values reach the UI only through a 200 ms flush.
@@ -72,10 +82,10 @@ is an explicit command; every pane can always be restored from *View ▸ Panes*.
 ## Distribution: self-contained app + Homebrew cask
 
 No .NET installation required on the target Mac. Not notarized (needs an Apple Developer ID), so the first launch
-may need `xattr -dr com.apple.quarantine "/Applications/OPC UA Browser.app"` or *Open Anyway*.
+may need `xattr -dr com.apple.quarantine "/Applications/Machine Data Browser.app"` or *Open Anyway*.
 
 ## Deferred
 
-- CLI (`OpcUaBrowser.Cli` sharing Core) – planned commands `endpoints`, `browse`, `read`, `monitor`, `record`.
+- CLI (`MachineDataBrowser.Cli` sharing Core) – planned commands `endpoints`, `browse`, `read`, `monitor`, `record`.
 - Windows/Linux packages – the app builds for `win-x64`, but no release artifacts yet.
 - Notarization.

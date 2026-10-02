@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MachineDataBrowser.App/MachineDataBrowser.App.csproj" />
+    <Project Path="src/MachineDataBrowser.Core/MachineDataBrowser.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MachineDataBrowser.App.Tests/MachineDataBrowser.App.Tests.csproj" />
+    <Project Path="tests/MachineDataBrowser.Core.Tests/MachineDataBrowser.Core.Tests.csproj" />
+  </Folder>
+</Solution>

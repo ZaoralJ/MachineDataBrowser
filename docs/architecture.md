@@ -1,6 +1,6 @@
 # Architecture
 
-Machine Data Browser (repository `OpcUaBrowser`) is a machine data viewer. It connects to one device at a time:
+Machine Data Browser (repository `MachineDataBrowser`) is a machine data viewer. It connects to one device at a time:
 
 - an OPC UA server,
 - an Allen-Bradley Logix controller over EtherNet/IP (CIP), or
@@ -13,7 +13,7 @@ them. It writes to a device only on an explicit user action (Write value…), th
 
 ```mermaid
 flowchart LR
-    subgraph App["OpcUaBrowser.App (Avalonia)"]
+    subgraph App["MachineDataBrowser.App (Avalonia)"]
         Views["Views<br/>Address Space · Attributes · Watch · Recordings · Recording viewer"]
         VM["MainWindowViewModel<br/>(+ .Session, .Recordings)"]
         Services["Services<br/>settings · layout · sessions · AppErrors"]
@@ -21,7 +21,7 @@ flowchart LR
         VM --> Services
     end
 
-    subgraph Core["OpcUaBrowser.Core (no UI)"]
+    subgraph Core["MachineDataBrowser.Core (no UI)"]
         IDC{{"IDeviceClient"}}
         Rec["Recording<br/>bounded history · live CSV · export"]
         Fmt["ValueFormatter · ValueJson · NodeExport"]
@@ -45,10 +45,10 @@ flowchart LR
 
 | Project | Role |
 |---|---|
-| `src/OpcUaBrowser.Core` | Protocol clients, recordings, value formatting/JSON/C# export. No UI dependencies. |
-| `src/OpcUaBrowser.App` | Avalonia 12 desktop app (MVVM with CommunityToolkit.Mvvm, docking with Dock.Avalonia). |
-| `tests/OpcUaBrowser.Core.Tests` | Integration tests against containers (opc-plc and the `simulators/` images, via Testcontainers) plus unit tests. |
-| `tests/OpcUaBrowser.App.Tests` | Headless Avalonia UI tests with real rendering (screenshots) against the same containers. |
+| `src/MachineDataBrowser.Core` | Protocol clients, recordings, value formatting/JSON/C# export. No UI dependencies. |
+| `src/MachineDataBrowser.App` | Avalonia 12 desktop app (MVVM with CommunityToolkit.Mvvm, docking with Dock.Avalonia). |
+| `tests/MachineDataBrowser.Core.Tests` | Integration tests against containers (opc-plc and the `simulators/` images, via Testcontainers) plus unit tests. |
+| `tests/MachineDataBrowser.App.Tests` | Headless Avalonia UI tests with real rendering (screenshots) against the same containers. |
 | `simulators/` | Test servers for development and tests: Logix, opc-plc, OPC UA custom types, MQTT. See [simulators.md](simulators.md). |
 
 The target is .NET 10. Package versions are pinned in `Directory.Packages.props`. Warnings are errors and the
@@ -264,7 +264,7 @@ flowchart TB
   schedule and live file in place.
 - Export to CSV and JSON. `RecordingFileReader` tails a CSV that is still being written.
 
-## App (`OpcUaBrowser.App`)
+## App (`MachineDataBrowser.App`)
 
 - **View model:** `MainWindowViewModel` owns the client, the tree (`NodeViewModel`), the watch list
   (`WatchItemViewModel`), recordings, settings and sessions.
@@ -273,17 +273,19 @@ flowchart TB
   They are also shown in context menus, in tooltips and in Help ▸ Keyboard Shortcuts. `GridCopy` adds "copy as
   table" to every grid.
 - **Errors:** `AppErrors` handles every unhandled exception, whether on the UI thread, in an unobserved task or on a
-  background thread. It logs the exception to `logs/opcuabrowser.log` and shows it in the error bar instead of
+  background thread. It logs the exception to `logs/machinedatabrowser.log` and shows it in the error bar instead of
   crashing. Library callbacks catch their own exceptions.
 - **Quit:** there is one "unsaved changes" prompt, and nothing stops while it is open. After confirming, a graceful
   shutdown stops recordings, flushes live files and closes the session (5 s timeout). Holding the quit shortcut skips
   the prompt.
 - **Persistence:**
-  - `.opcsession` files: endpoint, options, default refresh, watch list and columns. Never passwords.
+  - `.mdbsession` files (`.opcsession` still read): endpoint, options, default refresh, watch list and columns. Never
+    passwords.
   - `settings.json`: theme, zoom, defaults, recent lists.
   - `layout.json`: the pane arrangement.
-  - All of this lives under the data folder: `~/Library/Application Support/OpcUaBrowser` on macOS, or
-    `OPCUABROWSER_DATA_DIR`.
+  - All of this lives under the data folder: `~/Library/Application Support/MachineDataBrowser` on macOS, or
+    `MACHINEDATABROWSER_DATA_DIR` (or the older `OPCUABROWSER_DATA_DIR`). `ClientPaths` copies the old `OpcUaBrowser`
+    folder on first start.
 
 ## Packaging
 

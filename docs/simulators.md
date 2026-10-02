@@ -79,12 +79,12 @@ Microsoft's [opc-plc](https://github.com/Azure-Samples/iot-edge-opc-plc), pinned
   (`--ses`) are raised on the Server object. Its alarm notifications carry an all-zero EventId, so they cannot be
   acknowledged.
 - Security None and anonymous allowed, certificates auto-accepted; users `admin`/`admin` and `user1`/`password`.
-- Extra opc-plc arguments go after the image name: `docker run --rm -p 50000:50000 opcuabrowser-opcua-simulator:dev --chaos`.
+- Extra opc-plc arguments go after the image name: `docker run --rm -p 50000:50000 machinedatabrowser-opcua-simulator:dev --chaos`.
 
 ## Custom types server (`simulators/opcua-custom`)
 
 An [asyncua](https://github.com/FreeOpcUa/opcua-asyncio) server for what opc-plc lacks. Everything is under
-`Objects/Custom`, namespace `urn:opcuabrowser:simulator:custom`:
+`Objects/Custom`, namespace `urn:machinedatabrowser:simulator:custom`:
 
 | Folder | Content |
 |--------|---------|
@@ -139,7 +139,7 @@ overwritten at its next tick. Values that keep what is written:
 
 ## Integration tests
 
-`tests/OpcUaBrowser.Core.Tests` builds `simulators/cip`, `simulators/opcua-custom` and `simulators/mqtt` with
+`tests/MachineDataBrowser.Core.Tests` builds `simulators/cip`, `simulators/opcua-custom` and `simulators/mqtt` with
 Testcontainers (`LogixSimulatorFixture`, `CustomTypesServerFixture`, `MqttSimulatorFixture`); the custom server runs
 with a small address space and the MQTT publisher with faster deaths and rebirths there. `CipClientTests`,
 `CipConnectionLossTests`, `CustomTypesTests`, `MqttClientTests` and the App's `MqttAppTests` run in CI with the rest

@@ -26,7 +26,7 @@ import time
 from asyncua import Server, ua, uamethod
 from asyncua.common.structures104 import new_enum, new_struct, new_struct_field
 
-NAMESPACE = "urn:opcuabrowser:simulator:custom"
+NAMESPACE = "urn:machinedatabrowser:simulator:custom"
 log = logging.getLogger("opcua-custom")
 
 
@@ -325,7 +325,7 @@ async def main():
     server = Server()
     await server.init()
     server.set_endpoint("opc.tcp://0.0.0.0:{}/".format(port))
-    server.set_server_name("OpcUaBrowser Custom Types Simulator")
+    server.set_server_name("MachineDataBrowser Custom Types Simulator")
     server.set_security_policy([ua.SecurityPolicyType.NoSecurity])
     idx = await server.register_namespace(NAMESPACE)
     types = await create_types(server, idx)
