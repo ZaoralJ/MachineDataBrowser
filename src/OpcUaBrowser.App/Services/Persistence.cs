@@ -58,7 +58,7 @@ public sealed record WatchSnapshot(
 
 public sealed record ColumnState(string Header, bool Visible, double? Width, int Order);
 
-public sealed record WatchEntry(string NodeId, string DisplayName, int? RefreshMs = null);
+public sealed record WatchEntry(string NodeId, string DisplayName, int? RefreshMs = null, Core.MonitoringOptions? Monitoring = null);
 
 public enum ThemePreference
 {

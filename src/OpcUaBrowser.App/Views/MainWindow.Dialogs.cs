@@ -180,6 +180,9 @@ public sealed partial class MainWindow : IDialogService
     public void ShowSnapshotCompare(SnapshotCompareViewModel compare) =>
         new SnapshotCompareWindow { DataContext = compare }.Show(this);
 
+    public Task<MonitoringOptions?> EditMonitoringAsync(MonitoringOptions current, string target, int? refreshMs) =>
+        new MonitoringSettingsWindow { DataContext = new MonitoringSettingsViewModel(current, target, refreshMs) }.ShowDialog<MonitoringOptions?>(this);
+
     public void ShowDiagnostics(DiagnosticsViewModel diagnostics) =>
         new DiagnosticsWindow { DataContext = diagnostics }.Show(this);
 

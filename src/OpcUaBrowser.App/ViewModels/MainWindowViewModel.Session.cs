@@ -170,11 +170,17 @@ public sealed partial class MainWindowViewModel
 
         var resolved = new List<(NodeId, string, int)>();
         var unresolved = new List<string>();
+        var monitoring = new Dictionary<NodeId, OpcUaBrowser.Core.MonitoringOptions>();
         foreach (var entry in document.Watch)
         {
             try
             {
-                resolved.Add((_client.ParsePortableId(entry.NodeId), entry.DisplayName, entry.RefreshMs ?? DefaultRefreshMs));
+                var nodeId = _client.ParsePortableId(entry.NodeId);
+                resolved.Add((nodeId, entry.DisplayName, entry.RefreshMs ?? DefaultRefreshMs));
+                if (entry.Monitoring is { IsDefault: false } options)
+                {
+                    monitoring[nodeId] = options;
+                }
             }
             catch (Exception parseError) when (AppErrors.IsRecoverable(parseError))
             {
@@ -184,6 +190,12 @@ public sealed partial class MainWindowViewModel
 
         _suppressDirty = true;
         await AddWatchItemsAsync(resolved);
+        foreach (var item in WatchItems.Where(w => monitoring.ContainsKey(w.NodeId)))
+        {
+            item.Monitoring = monitoring[item.NodeId];
+        }
+
+        await ReapplyMonitoringAsync([.. WatchItems.Where(w => !w.Monitoring.IsDefault)]);
         _suppressDirty = false;
         IsDirty = false;
 
@@ -228,7 +240,7 @@ public sealed partial class MainWindowViewModel
             WatchColumns = WatchColumns.Capture(),
             WatchSortColumn = WatchColumns.SortColumn,
             WatchSortDescending = WatchColumns.SortDescending,
-            Watch = [.. WatchItems.Select(w => new WatchEntry(w.PortableId, w.DisplayName, w.RefreshMs == DefaultRefreshMs ? null : w.RefreshMs))],
+            Watch = [.. WatchItems.Select(w => new WatchEntry(w.PortableId, w.DisplayName, w.RefreshMs == DefaultRefreshMs ? null : w.RefreshMs, w.Monitoring.IsDefault ? null : w.Monitoring))],
         };
 
         try

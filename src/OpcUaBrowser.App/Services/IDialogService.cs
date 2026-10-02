@@ -47,6 +47,9 @@ public interface IDialogService
 
     /// <summary>Opens the live connection diagnostics.</summary>
     void ShowDiagnostics(ViewModels.DiagnosticsViewModel diagnostics);
+
+    /// <summary>Asks for monitoring settings (sampling, queue, deadband); null when cancelled.</summary>
+    Task<OpcUaBrowser.Core.MonitoringOptions?> EditMonitoringAsync(OpcUaBrowser.Core.MonitoringOptions current, string target, int? refreshMs);
 }
 
 public enum CertificateTrustChoice

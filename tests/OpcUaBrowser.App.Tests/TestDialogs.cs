@@ -69,6 +69,10 @@ public class TestDialogs : IDialogService
 
     public void ShowDiagnostics(DiagnosticsViewModel diagnostics) => Diagnostics = diagnostics;
 
+    public MonitoringOptions? MonitoringAnswer { get; set; }
+
+    public Task<MonitoringOptions?> EditMonitoringAsync(MonitoringOptions current, string target, int? refreshMs) => Task.FromResult(MonitoringAnswer);
+
     public Task<ActiveRecordingsChoice> AskActiveRecordingsAsync(int count)
     {
         RecordingsAsked++;

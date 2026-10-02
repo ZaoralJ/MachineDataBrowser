@@ -185,6 +185,10 @@ stateDiagram-v2
 - **Methods (`OpcUaClient.Methods.cs`, `IMethodCaller`):** the InputArguments/OutputArguments properties are found
   by browsing the method (not every server resolves the browse path) and read as `Argument[]`. Text inputs are parsed
   with `ValueParser` into each argument's built-in type; a bad call reports the first rejected argument.
+- **Monitoring settings (`OpcUaClient.Monitoring.cs`, `IMonitoringSettings`):** sampling interval, queue size, discard
+  policy and a DataChangeFilter deadband applied to existing items in place (ModifyMonitoredItems). Rejected items are
+  restored to their previous settings. The App re-applies a row's settings after `ChangeRefreshAsync` and when a
+  session is opened (`WatchEntry.Monitoring`).
 - **History (`OpcUaClient.History.cs`, `IHistorySource`):** HistoryRead with ReadRawModifiedDetails in pages of 1 000,
   following continuation points up to a value cap and releasing the last one. The App shows the result in the
   recording viewer (`RecordingViewerViewModel.ForRows`).

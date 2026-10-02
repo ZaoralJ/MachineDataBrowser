@@ -21,7 +21,17 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
     [NotifyPropertyChangedFor(nameof(RefreshText))]
     public partial int RefreshMs { get; set; } = 250;
 
-    public string RefreshText => MainWindowViewModel.FormatRefresh(RefreshMs);
+    /// <summary>Sampling, queue and deadband (OPC UA); <see cref="MonitoringOptions.Default"/> unless changed.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RefreshText), nameof(RefreshToolTip))]
+    public partial MonitoringOptions Monitoring { get; set; } = MonitoringOptions.Default;
+
+    /// <summary>The refresh time, with a ⚙ when monitoring settings were changed.</summary>
+    public string RefreshText => MainWindowViewModel.FormatRefresh(RefreshMs) + (Monitoring.IsDefault ? string.Empty : " ⚙");
+
+    public string RefreshToolTip => Monitoring.IsDefault
+        ? "Sampling/publishing interval. Right-click to change."
+        : $"Publishing every {MainWindowViewModel.FormatRefresh(RefreshMs)} · {Monitoring.Describe()}. Right-click ▸ Monitoring settings to change.";
 
     [ObservableProperty]
     public partial string Value { get; private set; } = "…";

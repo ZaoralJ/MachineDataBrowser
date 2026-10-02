@@ -111,6 +111,69 @@ public interface IMethodCaller
     Task<IReadOnlyList<string>> CallMethodAsync(NodeId objectId, NodeId methodId, IReadOnlyList<string> inputs, CancellationToken cancellationToken = default);
 }
 
+public enum DeadbandKind
+{
+    None,
+    Absolute,
+    Percent,
+}
+
+/// <summary>
+/// How the server samples and queues one monitored value. The defaults are what Watch has always used: sampling at the
+/// refresh time, a queue of one, no deadband.
+/// </summary>
+public sealed record MonitoringOptions
+{
+    public static MonitoringOptions Default { get; } = new();
+
+    /// <summary>Sampling interval; null = the item's refresh time (which is also the publishing interval).</summary>
+    public double? SamplingIntervalMs { get; init; }
+
+    /// <summary>Values the server keeps between publishes; more than 1 delivers every sample, not only the last.</summary>
+    public uint QueueSize { get; init; } = 1;
+
+    public bool DiscardOldest { get; init; } = true;
+
+    public DeadbandKind Deadband { get; init; }
+
+    /// <summary>Absolute change in the value's units, or percent of its EURange (servers need an EURange for percent).</summary>
+    public double DeadbandValue { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsDefault => this == Default;
+
+    public string Describe()
+    {
+        var parts = new List<string>(3);
+        if (SamplingIntervalMs is { } sampling)
+        {
+            parts.Add($"sampling {sampling.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)} ms");
+        }
+
+        if (QueueSize > 1)
+        {
+            parts.Add($"queue {QueueSize}{(DiscardOldest ? string.Empty : ", keep oldest")}");
+        }
+
+        if (Deadband != DeadbandKind.None)
+        {
+            parts.Add($"deadband {DeadbandValue.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}{(Deadband == DeadbandKind.Percent ? " %" : string.Empty)}");
+        }
+
+        return parts.Count == 0 ? "default" : string.Join(" · ", parts);
+    }
+}
+
+/// <summary>Clients whose monitored items can be tuned (OPC UA: sampling, queue, deadband).</summary>
+public interface IMonitoringSettings
+{
+    /// <summary>
+    /// Applies <paramref name="options"/> to existing monitors in place. Returns one result per monitor; a rejected one
+    /// keeps its previous settings. Handles not created by this client are ignored (reported as Good).
+    /// </summary>
+    Task<IReadOnlyList<ServiceResult>> ApplyMonitoringOptionsAsync(IReadOnlyList<IAsyncDisposable> monitors, MonitoringOptions options, CancellationToken cancellationToken = default);
+}
+
 /// <summary>A point-in-time view of the connection, for Connection ▸ Diagnostics.</summary>
 public sealed record ConnectionDiagnostics(
     IReadOnlyList<(string Name, string Value)> Session,

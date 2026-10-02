@@ -139,6 +139,14 @@ order are saved with the session.
   - OPC UA uses it as the sampling interval, Logix as the poll interval.
   - For MQTT it is a maximum update rate: at most the latest value once per interval. **0** means every message;
     use it for events, CloudEvents or anything where each message matters.
+- **Monitoring settings** (OPC UA): right-click ▸ **Monitoring settings…** for the selected rows.
+  - *Own sampling interval*: sample faster or slower than the refresh time, at which values are still published.
+  - *Queue size*: how many samples the server keeps between publishes; above 1, every sample arrives, not only the
+    last. *Discard oldest* decides which ones are dropped when the queue overflows.
+  - *Deadband*: report only changes larger than an absolute amount, or a percent of the variable's EURange (the
+    server rejects percent without one; the row keeps its previous settings).
+  - Rows with changed settings show ⚙ next to the refresh time; the tooltip lists them. They are saved with the
+    session and kept when the refresh time changes. Recordings use their own monitored items and are not affected.
 - **Recorded values:**
   - A red dot marks a row that is being recorded; *Recorded* shows how many samples are kept.
   - Space, G, double-click or the chart button in the Name cell opens that item's recorded values. Double-click on a

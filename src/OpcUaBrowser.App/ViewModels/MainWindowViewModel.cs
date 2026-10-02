@@ -89,6 +89,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             CopyWatchJsonCommand.NotifyCanExecuteChanged();
             CopyWatchValuesJsonCommand.NotifyCanExecuteChanged();
             WriteWatchValueCommand.NotifyCanExecuteChanged();
+            EditMonitoringCommand.NotifyCanExecuteChanged();
+            ShowWatchHistoryCommand.NotifyCanExecuteChanged();
         };
         WatchItems.CollectionChanged += (_, _) => TakeSnapshotCommand.NotifyCanExecuteChanged();
         SelectedNodes.CollectionChanged += (_, _) =>
@@ -273,8 +275,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     };
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsDisconnected), nameof(StateText), nameof(SupportsEvents), nameof(SupportsHistory), nameof(SupportsMethods))]
-    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand), nameof(WriteAttributeValueCommand), nameof(WriteWatchValueCommand), nameof(ShowEventsCommand), nameof(ShowHistoryCommand), nameof(ShowWatchHistoryCommand), nameof(CallMethodCommand))]
+    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsDisconnected), nameof(StateText), nameof(SupportsEvents), nameof(SupportsHistory), nameof(SupportsMethods), nameof(SupportsMonitoringSettings))]
+    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand), nameof(WriteAttributeValueCommand), nameof(WriteWatchValueCommand), nameof(ShowEventsCommand), nameof(ShowHistoryCommand), nameof(ShowWatchHistoryCommand), nameof(CallMethodCommand), nameof(EditMonitoringCommand))]
     public partial ConnectionState State { get; private set; }
 
     [ObservableProperty]
@@ -300,7 +302,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     public bool IsValueAttributeSelected => SelectedAttribute?.Name == "Value";
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RemoveFromWatchCommand), nameof(CopyWatchValueCommand), nameof(CopyWatchNodeIdCommand), nameof(WriteWatchValueCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RemoveFromWatchCommand), nameof(CopyWatchValueCommand), nameof(CopyWatchNodeIdCommand), nameof(WriteWatchValueCommand), nameof(EditMonitoringCommand))]
     public partial WatchItemViewModel? SelectedWatchItem { get; set; }
 
     partial void OnSelectedWatchItemChanged(WatchItemViewModel? value) => OnPropertyChanged(nameof(WatchSelectionLabel));
@@ -566,6 +568,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 }
             }
 
+            // Re-created monitors start with default settings: apply the items' own again.
+            await ReapplyMonitoringAsync([.. items.Where(i => !i.Monitoring.IsDefault && i.Monitor is not null)]);
             MarkDirty();
             StatusMessage = $"Refresh time {FormatRefresh(refreshMs)} for {items.Count} item(s)";
         }
