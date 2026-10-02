@@ -19,6 +19,20 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
     public void Dispose() => Directory.Delete(_dir, recursive: true);
 
     [AvaloniaFact]
+    public async Task Session_files_without_newer_lists_open()
+    {
+        // Saved before bookmarks existed (and without a watch list): the missing lists must load as empty.
+        var old = Path.Combine(_dir, "old.opcsession");
+        await File.WriteAllTextAsync(old, "{\"endpointUrl\":\"opc.tcp://old:4840\"}", TestContext.Current.CancellationToken);
+
+        await using var vm = new MainWindowViewModel();
+        await vm.LoadSessionAsync(old);
+        Assert.Equal("opc.tcp://old:4840", vm.EndpointUrl);
+        Assert.Empty(vm.Bookmarks);
+        Assert.Empty(vm.WatchItems);
+    }
+
+    [AvaloniaFact]
     public async Task Session_round_trip_restores_endpoint_and_watch_list_with_namespace_uris()
     {
         var path = Path.Combine(_dir, "line1.opcsession");

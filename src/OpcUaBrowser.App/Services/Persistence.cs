@@ -35,8 +35,11 @@ public sealed record SessionDocument
     public static async Task<SessionDocument> LoadAsync(string path, CancellationToken cancellationToken = default)
     {
         await using var stream = File.OpenRead(path);
-        return await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.SessionDocument, cancellationToken)
+        var document = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.SessionDocument, cancellationToken)
             ?? throw new InvalidDataException($"'{Path.GetFileName(path)}' is not a valid session file.");
+
+        // Lists added in later versions are missing from older files; the serializer leaves them null, not empty.
+        return document with { Watch = document.Watch ?? [], Bookmarks = document.Bookmarks ?? [] };
     }
 
     public async Task SaveAsync(string path, CancellationToken cancellationToken = default)
