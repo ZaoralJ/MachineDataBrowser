@@ -68,8 +68,14 @@ public sealed partial class AlarmRow(NodeId conditionId) : ObservableObject
 
     public bool IsUnacked => Latest.IsAcked == false;
 
-    /// <summary>Acknowledge needs the id of the latest notification; a missing or all-zero id cannot be acknowledged.</summary>
-    public bool CanAcknowledge => IsUnacked && Latest.EventId is { Length: > 0 } id && id.Any(b => b != 0);
+    /// <summary>Any unacknowledged alarm can be tried; the server decides (see <see cref="HasEventId"/>).</summary>
+    public bool CanAcknowledge => IsUnacked && Latest.EventId is not null;
+
+    /// <summary>
+    /// The server matches an acknowledgement to the alarm by the EventId of its latest notification. Some servers
+    /// (opc-plc among them) send all-zero ids, and those acknowledgements are rejected.
+    /// </summary>
+    public bool HasEventId => Latest.EventId is { Length: > 0 } id && id.Any(b => b != 0);
 }
 
 public static class EventSeverity
@@ -150,9 +156,10 @@ public sealed partial class EventsViewModel : ObservableObject, IAsyncDisposable
     /// <summary>Why the selected alarm can't be acknowledged; empty when it can (or nothing is selected).</summary>
     public string AcknowledgeHint => SelectedAlarm switch
     {
-        null or { CanAcknowledge: true } => string.Empty,
+        null => "Select an alarm to acknowledge",
         { IsUnacked: false } => "Already acknowledged",
-        _ => "The server sent no event id for this alarm",
+        { HasEventId: false } => "This server sent no event id for the alarm: it will likely refuse",
+        _ => string.Empty,
     };
 
     [ObservableProperty]
@@ -357,8 +364,9 @@ public sealed partial class EventsViewModel : ObservableObject, IAsyncDisposable
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
-            StatusText = $"Acknowledge failed: {AppErrors.Describe(ex)}";
-            _reportError(ex);
+            StatusText = alarm.HasEventId
+                ? $"Acknowledge failed: {AppErrors.Describe(ex)}"
+                : $"The server refused the acknowledgement ({AppErrors.Describe(ex)}): it sent this alarm without an event id, so it can't be matched. Acknowledge it on the server or in its own tools.";
         }
     }
 

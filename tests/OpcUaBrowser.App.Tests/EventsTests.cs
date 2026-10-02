@@ -97,11 +97,12 @@ public sealed class EventsTests(OpcPlcFixture plc)
         vm.Flush();
         Assert.Equal(["Alarm2"], vm.Alarms.Select(a => a.Name));
 
-        // An all-zero EventId (some simulators) cannot be acknowledged.
+        // An all-zero EventId (opc-plc) can still be tried; the hint warns that the server will likely refuse.
         source.Sink!(Alarm(3, 300, active: true, acked: false, eventId: 0));
         vm.Flush();
         vm.SelectedAlarm = vm.Alarms.Single(a => a.Name == "Alarm3");
-        Assert.False(vm.AcknowledgeCommand.CanExecute(null));
+        Assert.True(vm.AcknowledgeCommand.CanExecute(null));
+        Assert.Contains("no event id", vm.AcknowledgeHint, StringComparison.Ordinal);
 
         await vm.DisposeAsync();
         Assert.True(source.Unsubscribed);

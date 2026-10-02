@@ -160,8 +160,10 @@ source, right-click it in the address space ▸ **Show events & alarms**. Each w
 
 - **Alarms tab:** alarms the server keeps (active or not yet acknowledged), one row each, most severe first, updated
   live. Alarms that are already active when the window opens appear at once.
-  - **Acknowledge** (A) the selected alarm, with an optional comment. If the server sent no event id for an alarm, it
-    cannot be acknowledged; the hint next to the button says so.
+  - **Acknowledge:** click an alarm row that says *Unacked*, optionally type a comment, then click **Acknowledge** (or
+    press A). The row changes to *Acked*, or disappears once the alarm is also inactive.
+  - The server matches the acknowledgement by the alarm's event id. Some servers send alarms without one (opc-plc,
+    the test server, does); they refuse it, and the status bar says why.
 - **Events tab:** every event and alarm change, newest first: time, severity, source, type, message and alarm state.
   - *Minimum severity* hides less severe events (OPC UA severity is 1–1000: high ≥ 700, medium ≥ 400).
   - **Pause** (Space) keeps the list still; **Clear** (⌘K) empties it. ⌘C copies the selected rows as a table.
