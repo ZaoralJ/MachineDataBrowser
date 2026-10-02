@@ -10,6 +10,12 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
 
     public string DisplayName { get; } = displayName;
 
+    /// <summary>Where the item sits in the address space: its parent's path (display names joined by <c>/</c>).</summary>
+    public string Path { get; init; } = string.Empty;
+
+    /// <summary>Header of the item's group when the watch list is grouped by path.</summary>
+    public string Group => Path.Length == 0 ? "(no path)" : Path;
+
     /// <summary>Id as shown in the NodeId column and copied; set from the client's display form.</summary>
     public string NodeIdText { get; init; } = nodeId.ToString();
 

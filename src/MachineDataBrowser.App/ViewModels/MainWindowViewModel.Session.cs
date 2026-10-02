@@ -90,6 +90,7 @@ public sealed partial class MainWindowViewModel
         AutoAcceptCertificates = false;
         UserName = string.Empty;
         DefaultRefreshMs = DefaultRefreshFor(EndpointUrl);
+        GroupWatchByPath = false;
         WatchColumns.Reset();
         Password = string.Empty;
         _suppressDirty = false;
@@ -159,6 +160,7 @@ public sealed partial class MainWindowViewModel
         DefaultRefreshMs = document.DefaultRefreshMs ?? DefaultRefreshFor(document.EndpointUrl);
         WatchColumns.SetSort(document.WatchSortColumn, document.WatchSortDescending);
         WatchColumns.Apply(document.WatchColumns);
+        GroupWatchByPath = document.GroupWatchByPath;
         Password = string.Empty;
         _suppressDirty = false;
 
@@ -179,7 +181,7 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        var resolved = new List<(NodeId, string, int)>();
+        var resolved = new List<(NodeId, string, string, int)>();
         var unresolved = new List<string>();
         var monitoring = new Dictionary<NodeId, MachineDataBrowser.Core.MonitoringOptions>();
         var displays = new Dictionary<NodeId, MachineDataBrowser.Core.ValueDisplay>();
@@ -188,7 +190,7 @@ public sealed partial class MainWindowViewModel
             try
             {
                 var nodeId = _client.ParsePortableId(entry.NodeId);
-                resolved.Add((nodeId, entry.DisplayName, entry.RefreshMs ?? DefaultRefreshMs));
+                resolved.Add((nodeId, entry.DisplayName, entry.Path ?? string.Empty, entry.RefreshMs ?? DefaultRefreshMs));
                 if (entry.Monitoring is { IsDefault: false } options)
                 {
                     monitoring[nodeId] = options;
@@ -264,7 +266,8 @@ public sealed partial class MainWindowViewModel
             WatchColumns = WatchColumns.Capture(),
             WatchSortColumn = WatchColumns.SortColumn,
             WatchSortDescending = WatchColumns.SortDescending,
-            Watch = [.. WatchItems.Select(w => new WatchEntry(w.PortableId, w.DisplayName, w.RefreshMs == DefaultRefreshMs ? null : w.RefreshMs, w.Monitoring.IsDefault ? null : w.Monitoring, w.Display.IsDefault ? null : w.Display))],
+            GroupWatchByPath = GroupWatchByPath,
+            Watch = [.. WatchItems.Select(w => new WatchEntry(w.PortableId, w.DisplayName, w.RefreshMs == DefaultRefreshMs ? null : w.RefreshMs, w.Monitoring.IsDefault ? null : w.Monitoring, w.Display.IsDefault ? null : w.Display, w.Path.Length == 0 ? null : w.Path))],
         };
 
         try

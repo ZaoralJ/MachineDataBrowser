@@ -39,6 +39,8 @@ public sealed record SessionDocument
 
     public bool WatchSortDescending { get; init; }
 
+    public bool GroupWatchByPath { get; init; }
+
     public static async Task<SessionDocument> LoadAsync(string path, CancellationToken cancellationToken = default)
     {
         await using var stream = File.OpenRead(path);
@@ -73,7 +75,7 @@ public sealed record WatchSnapshot(
 
 public sealed record ColumnState(string Header, bool Visible, double? Width, int Order);
 
-public sealed record WatchEntry(string NodeId, string DisplayName, int? RefreshMs = null, Core.MonitoringOptions? Monitoring = null, Core.ValueDisplay? Display = null);
+public sealed record WatchEntry(string NodeId, string DisplayName, int? RefreshMs = null, Core.MonitoringOptions? Monitoring = null, Core.ValueDisplay? Display = null, string? Path = null);
 
 public enum ThemePreference
 {

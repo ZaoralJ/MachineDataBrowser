@@ -98,6 +98,12 @@ public sealed partial class NodeViewModel : ObservableObject
         }
     }
 
+    /// <summary>Display names of the ancestors below the root, joined by <c>/</c>; empty for the root and its children.</summary>
+    public string ParentPath => string.Join('/', Ancestors.Skip(1).Select(a => a.DisplayName));
+
+    /// <summary><see cref="ParentPath"/> plus this node; empty for the root.</summary>
+    public string Path => Parent is null ? string.Empty : ParentPath.Length == 0 ? DisplayName : $"{ParentPath}/{DisplayName}";
+
     public NodeId NodeId { get; }
 
     /// <summary>Id as shown to people (tooltip, drag text): <c>ns=…</c> for OPC UA, the tag path for CIP.</summary>

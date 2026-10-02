@@ -12,7 +12,7 @@ public sealed partial class MainWindowViewModel
     /// <summary>What the Watch grid shows: <see cref="WatchItems"/> through the filter (sorting is applied by the grid).</summary>
     public DataGridCollectionView WatchView => _watchView ??= CreateWatchView();
 
-    /// <summary>Text that a row's name, NodeId, value or status must contain (case-insensitive); empty shows all.</summary>
+    /// <summary>Text that a row's name, path, NodeId, value or status must contain (case-insensitive); empty shows all.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsWatchFiltered), nameof(WatchFilterSummary))]
     public partial string WatchFilter { get; set; } = string.Empty;
@@ -22,6 +22,10 @@ public sealed partial class MainWindowViewModel
     [NotifyPropertyChangedFor(nameof(IsWatchFiltered), nameof(WatchFilterSummary))]
     public partial bool ShowWatchProblemsOnly { get; set; }
 
+    /// <summary>Groups the watch list under collapsible headers, one per parent path in the address space.</summary>
+    [ObservableProperty]
+    public partial bool GroupWatchByPath { get; set; }
+
     public bool IsWatchFiltered => !string.IsNullOrWhiteSpace(WatchFilter) || ShowWatchProblemsOnly;
 
     /// <summary>"12 of 40 shown" while a filter is on; empty otherwise.</summary>
@@ -30,6 +34,29 @@ public sealed partial class MainWindowViewModel
     partial void OnWatchFilterChanged(string value) => RefreshWatchFilter(force: true);
 
     partial void OnShowWatchProblemsOnlyChanged(bool value) => RefreshWatchFilter(force: true);
+
+    partial void OnGroupWatchByPathChanged(bool value)
+    {
+        ApplyWatchGrouping();
+        MarkDirty();
+    }
+
+    [RelayCommand]
+    private void ToggleGroupWatchByPath() => GroupWatchByPath = !GroupWatchByPath;
+
+    private void ApplyWatchGrouping()
+    {
+        if (_watchView is not { } view)
+        {
+            return;
+        }
+
+        view.GroupDescriptions.Clear();
+        if (GroupWatchByPath)
+        {
+            view.GroupDescriptions.Add(new DataGridPathGroupDescription(nameof(WatchItemViewModel.Group)));
+        }
+    }
 
     [RelayCommand]
     private void ClearWatchFilter()
@@ -45,6 +72,8 @@ public sealed partial class MainWindowViewModel
     {
         var view = new DataGridCollectionView(WatchItems) { Filter = item => !IsWatchFiltered || (item is WatchItemViewModel w && _watchShown.Contains(w)) };
         WatchItems.CollectionChanged += (_, _) => RefreshWatchFilter(force: false);
+        _watchView = view;
+        ApplyWatchGrouping();
         RefreshWatchFilter(force: true);
         return view;
     }
@@ -60,6 +89,7 @@ public sealed partial class MainWindowViewModel
         return text.Length == 0
             || item.DisplayName.Contains(text, StringComparison.OrdinalIgnoreCase)
             || item.NodeIdText.Contains(text, StringComparison.OrdinalIgnoreCase)
+            || item.Path.Contains(text, StringComparison.OrdinalIgnoreCase)
             || item.Value.Contains(text, StringComparison.OrdinalIgnoreCase)
             || item.Status.Contains(text, StringComparison.OrdinalIgnoreCase);
     }
