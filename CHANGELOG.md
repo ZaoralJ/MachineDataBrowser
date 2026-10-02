@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.7.0...v0.8.0) (2026-10-02)
+
+
+### Features
+
+* **app:** bookmarks in the address space ([#36](https://github.com/ZaoralJ/OpcUaBrowser/issues/36)) ([33c0d06](https://github.com/ZaoralJ/OpcUaBrowser/commit/33c0d06907551ccb4b3c033d5be79ce7d5c07695))
+* **app:** colour themes with light and dark ([#31](https://github.com/ZaoralJ/OpcUaBrowser/issues/31)) ([5f48498](https://github.com/ZaoralJ/OpcUaBrowser/commit/5f4849890ba6ebcf3cf1948d969be6767d98234d))
+* **app:** read-only sessions ([#34](https://github.com/ZaoralJ/OpcUaBrowser/issues/34)) ([dad55bc](https://github.com/ZaoralJ/OpcUaBrowser/commit/dad55bc2cfd3c33dc56fedd7d46857a69238309c))
+* **app:** several connections in one window (tabs) ([#37](https://github.com/ZaoralJ/OpcUaBrowser/issues/37)) ([dda8bdd](https://github.com/ZaoralJ/OpcUaBrowser/commit/dda8bdd243a6cf46fb341e5814bb80757f7f821e))
+* **app:** value display formats, scaling and units in Watch ([#35](https://github.com/ZaoralJ/OpcUaBrowser/issues/35)) ([5c7d6b8](https://github.com/ZaoralJ/OpcUaBrowser/commit/5c7d6b898624e8d9315f767197db65314a195458))
+
+
+### Fixes
+
+* **app:** pane toolbars give text boxes room (6 px above and below) ([e2601c8](https://github.com/ZaoralJ/OpcUaBrowser/commit/e2601c8d8ad999799945b28aff724b7a8f5ff4a5))
+* **app:** themed text boxes and drop-downs; toggle matches their height ([7651cc0](https://github.com/ZaoralJ/OpcUaBrowser/commit/7651cc0d0ed286a000d1d354d1cf0cfe943fdb6e))
+
 ## [0.7.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.6.0...v0.7.0) (2026-10-02)
 
 
