@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Buffers.Binary;
 using System.Text;
+using Opc.Ua;
 
 namespace OpcUaBrowser.Core.Cip;
 
@@ -205,6 +207,83 @@ public static class LogixCodec
         length = Math.Clamp(length, 0, Math.Min(chars.ElementCount, Math.Max(0, data.Length - chars.Offset)));
         return Encoding.Latin1.GetString(data.Slice(chars.Offset, length));
     }
+
+    /// <summary>Little-endian bytes of one atomic value or of every element of an atomic array.</summary>
+    public static byte[] EncodeAtomic(LogixAtomic atomic, object value)
+    {
+        var size = LogixType.AtomicSize(atomic);
+        if (size == 0)
+        {
+            throw new NotSupportedException($"Type 0x{(byte)atomic:X2} is not atomic.");
+        }
+
+        var values = value is Array array ? array.Cast<object>().ToArray() : [value];
+        var data = new byte[values.Length * size];
+        for (var i = 0; i < values.Length; i++)
+        {
+            EncodeOne(atomic, values[i], data.AsSpan(i * size, size));
+        }
+
+        return data;
+    }
+
+    /// <summary>Stores <paramref name="text"/> into a STRING-like structure buffer (LEN + DATA).</summary>
+    public static void EncodeString(LogixTemplate template, Span<byte> data, string text)
+    {
+        var len = template.Members[0];
+        var chars = template.Members[1];
+        var bytes = Encoding.Latin1.GetBytes(text);
+        if (bytes.Length > chars.ElementCount)
+        {
+            throw new FormatException($"Text is {bytes.Length} characters; {template.Name} holds at most {chars.ElementCount}.");
+        }
+
+        if (data.Length < chars.Offset + chars.ElementCount)
+        {
+            throw new FormatException($"{template.Name} buffer is too small.");
+        }
+
+        BinaryPrimitives.WriteInt32LittleEndian(data[len.Offset..], bytes.Length);
+        var target = data.Slice(chars.Offset, chars.ElementCount);
+        target.Clear();
+        bytes.CopyTo(target);
+    }
+
+    private static void EncodeOne(LogixAtomic atomic, object value, Span<byte> d)
+    {
+        switch (atomic)
+        {
+            case LogixAtomic.Bool: d[0] = Convert.ToBoolean(value, CultureInfo.InvariantCulture) ? (byte)1 : (byte)0; break;
+            case LogixAtomic.Sint: d[0] = unchecked((byte)Convert.ToSByte(value, CultureInfo.InvariantCulture)); break;
+            case LogixAtomic.Usint or LogixAtomic.Byte: d[0] = Convert.ToByte(value, CultureInfo.InvariantCulture); break;
+            case LogixAtomic.Int: BinaryPrimitives.WriteInt16LittleEndian(d, Convert.ToInt16(value, CultureInfo.InvariantCulture)); break;
+            case LogixAtomic.Uint or LogixAtomic.Word: BinaryPrimitives.WriteUInt16LittleEndian(d, Convert.ToUInt16(value, CultureInfo.InvariantCulture)); break;
+            case LogixAtomic.Dint: BinaryPrimitives.WriteInt32LittleEndian(d, Convert.ToInt32(value, CultureInfo.InvariantCulture)); break;
+            case LogixAtomic.Udint or LogixAtomic.Dword: BinaryPrimitives.WriteUInt32LittleEndian(d, Convert.ToUInt32(value, CultureInfo.InvariantCulture)); break;
+            case LogixAtomic.Lint: BinaryPrimitives.WriteInt64LittleEndian(d, Convert.ToInt64(value, CultureInfo.InvariantCulture)); break;
+            case LogixAtomic.Ulint or LogixAtomic.Lword: BinaryPrimitives.WriteUInt64LittleEndian(d, Convert.ToUInt64(value, CultureInfo.InvariantCulture)); break;
+            case LogixAtomic.Real: BinaryPrimitives.WriteSingleLittleEndian(d, Convert.ToSingle(value, CultureInfo.InvariantCulture)); break;
+            case LogixAtomic.Lreal: BinaryPrimitives.WriteDoubleLittleEndian(d, Convert.ToDouble(value, CultureInfo.InvariantCulture)); break;
+            default: throw new NotSupportedException($"Type 0x{(byte)atomic:X2} is not atomic.");
+        }
+    }
+
+    /// <summary>The OPC UA type user input for <paramref name="atomic"/> is parsed as.</summary>
+    public static BuiltInType ToBuiltInType(LogixAtomic atomic) => atomic switch
+    {
+        LogixAtomic.Bool => BuiltInType.Boolean,
+        LogixAtomic.Sint => BuiltInType.SByte,
+        LogixAtomic.Usint or LogixAtomic.Byte => BuiltInType.Byte,
+        LogixAtomic.Int => BuiltInType.Int16,
+        LogixAtomic.Uint or LogixAtomic.Word => BuiltInType.UInt16,
+        LogixAtomic.Dint => BuiltInType.Int32,
+        LogixAtomic.Udint or LogixAtomic.Dword => BuiltInType.UInt32,
+        LogixAtomic.Lint => BuiltInType.Int64,
+        LogixAtomic.Ulint or LogixAtomic.Lword => BuiltInType.UInt64,
+        LogixAtomic.Real => BuiltInType.Float,
+        LogixAtomic.Lreal => BuiltInType.Double,
+        _ => throw new NotSupportedException($"Type 0x{(byte)atomic:X2} is not atomic."),
+    };
 
     private static object DecodeOne(LogixAtomic atomic, ReadOnlySpan<byte> d) => atomic switch
     {

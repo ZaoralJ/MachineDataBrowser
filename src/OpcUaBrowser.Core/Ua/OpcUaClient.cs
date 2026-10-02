@@ -446,6 +446,49 @@ public sealed class OpcUaClient : IDeviceClient
         return result;
     }
 
+    public async Task WriteValueAsync(NodeId nodeId, string text, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var session = RequireSession();
+
+        var toRead = new ReadValueIdCollection
+        {
+            new ReadValueId { NodeId = nodeId, AttributeId = Attributes.Value },
+            new ReadValueId { NodeId = nodeId, AttributeId = Attributes.DataType },
+            new ReadValueId { NodeId = nodeId, AttributeId = Attributes.ValueRank },
+        };
+        var read = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, toRead, cancellationToken).ConfigureAwait(false);
+
+        var current = read.Results[0];
+        BuiltInType type;
+        bool isArray;
+        if (!StatusCode.IsBad(current.StatusCode) && current.Value is not null)
+        {
+            type = current.WrappedValue.TypeInfo.BuiltInType;
+            isArray = current.WrappedValue.TypeInfo.ValueRank >= ValueRanks.OneDimension;
+        }
+        else if (read.Results[1].Value is NodeId dataType)
+        {
+            type = TypeInfo.GetBuiltInType(dataType, session.TypeTree);
+            isArray = read.Results[2].Value is int rank && rank >= ValueRanks.OneDimension;
+        }
+        else
+        {
+            throw new InvalidOperationException("Cannot determine the data type of the value.");
+        }
+
+        var value = ValueParser.Parse(text, type, isArray);
+        var toWrite = new WriteValueCollection
+        {
+            new WriteValue { NodeId = nodeId, AttributeId = Attributes.Value, Value = new DataValue(new Variant(value)) },
+        };
+        var response = await session.WriteAsync(null, toWrite, cancellationToken).ConfigureAwait(false);
+        if (response.Results.Count > 0 && StatusCode.IsBad(response.Results[0]))
+        {
+            throw new ServiceResultException(response.Results[0]);
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         await DisconnectAsync().ConfigureAwait(false);

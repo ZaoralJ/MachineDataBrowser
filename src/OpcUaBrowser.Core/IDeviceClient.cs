@@ -43,6 +43,13 @@ public interface IDeviceClient : IAsyncDisposable
     Task<IReadOnlyList<object?>> ReadValuesAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Writes the Value attribute of a variable, parsing <paramref name="text"/> into the variable's data type.
+    /// Arrays are written as comma-separated elements, optionally in brackets.
+    /// </summary>
+    Task WriteValueAsync(NodeId nodeId, string text, CancellationToken cancellationToken = default) =>
+        Task.FromException(new NotSupportedException("Writing values is not supported for this connection type."));
+
+    /// <summary>
     /// Monitors many values; items with the same refresh time are sampled together.
     /// Rejected items are returned with <see cref="MonitorResult.Error"/> set and no handle.
     /// </summary>

@@ -6,7 +6,7 @@ using Opc.Ua;
 namespace OpcUaBrowser.Core.Cip;
 
 /// <summary>
-/// Read-only EtherNet/IP (CIP) client for Logix controllers (ControlLogix, CompactLogix) built on libplctag.
+/// EtherNet/IP (CIP) client for Logix controllers (ControlLogix, CompactLogix) built on libplctag.
 /// Tags are exposed through the OPC UA-shaped <see cref="IDeviceClient"/> model:
 /// <list type="bullet">
 /// <item>ns=2 folders: <c>Root</c>, <c>Controller</c>, <c>Programs</c>, <c>Program:&lt;name&gt;</c>;</item>
@@ -245,7 +245,7 @@ public sealed class CipClient : IDeviceClient
             }
 
             result.Add(new("Value", value));
-            result.Add(new("AccessLevel", "Read"));
+            result.Add(new("AccessLevel", item.IsWritable ? "Read, Write" : "Read"));
         }
 
         return result;
@@ -268,6 +268,59 @@ public sealed class CipClient : IDeviceClient
             }
         });
         return await Task.WhenAll(reads).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Writes an atomic, an atomic array (all elements) or a STRING. The tag is read first so libplctag knows its
+    /// type and size, then the buffer is changed and written back.
+    /// </summary>
+    public async Task WriteValueAsync(NodeId nodeId, string text, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(nodeId);
+        ArgumentNullException.ThrowIfNull(text);
+        var endpoint = RequireEndpoint();
+        var item = await ResolveAsync(nodeId, cancellationToken).ConfigureAwait(false);
+        if (!item.IsWritable)
+        {
+            throw new ServiceResultException(StatusCodes.BadNotWritable, $"Writing {item.TypeName} values is not supported.");
+        }
+
+        using var tag = CreateTag(endpoint, item);
+        await ReadTagAsync(tag, cancellationToken).ConfigureAwait(false);
+        var buffer = tag.GetBuffer();
+        if (item.Template is { } template)
+        {
+            var value = text.Trim();
+            if (value.Length >= 2 && value.StartsWith('"') && value.EndsWith('"'))
+            {
+                value = value[1..^1];
+            }
+
+            LogixCodec.EncodeString(template, buffer, value);
+        }
+        else
+        {
+            var isArray = item.Dimensions.Length > 0;
+            var value = ValueParser.Parse(text, LogixCodec.ToBuiltInType(item.Type.Atomic), isArray);
+            if (isArray && ((Array)value).Length != item.ElementCount)
+            {
+                throw new FormatException($"{item.Path} has {item.ElementCount} elements; {((Array)value).Length} given.");
+            }
+
+            var data = LogixCodec.EncodeAtomic(item.Type.Atomic, value);
+            data.AsSpan(0, Math.Min(data.Length, buffer.Length)).CopyTo(buffer);
+        }
+
+        tag.SetBuffer(buffer);
+        try
+        {
+            await tag.WriteAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (LibPlcTagException ex)
+        {
+            var status = ToStatus(ex);
+            throw new ServiceResultException(status == StatusCodes.BadNotReadable ? StatusCodes.BadNotWritable : status, $"{tag.Name}: {ex.Message}");
+        }
     }
 
     public async Task<IReadOnlyList<MonitorResult>> MonitorManyAsync(
@@ -611,6 +664,9 @@ public sealed class CipClient : IDeviceClient
     private sealed record CipItem(string Path, string DisplayName, string? Program, LogixType Type, int[] Dimensions, LogixTemplate? Template)
     {
         public bool IsVariable => Template is null || (Template.IsString && Dimensions.Length == 0);
+
+        /// <summary>Atomics, atomic arrays (except packed BOOL arrays) and STRINGs can be written.</summary>
+        public bool IsWritable => IsVariable && !(Template is null && Type.Atomic == LogixAtomic.Bool && Dimensions.Length > 0);
 
         public int ElementCount => Dimensions.Aggregate(1, (a, d) => a * d);
 
