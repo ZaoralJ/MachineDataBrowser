@@ -262,6 +262,18 @@ Opened with Enter or double-click in Recordings, or from Watch for a single item
 - Times are local (`HH:mm:ss.fff`). Hover a time to see the full date and UTC offset.
 - The status bar shows kept vs received samples and the per-item limit.
 
+## Several connections in one window
+
+File ▸ **New Connection Tab** (⌘T) opens another connection in the same window; a tab strip appears under the header.
+Each tab is a full connection with its own endpoint, address space, Watch list, recordings and session file.
+
+- Click a tab, or ⌃⇥ / ⌃⇧⇥, to switch. The dot shows the connection state (green connected, amber connecting), •
+  marks unsaved changes.
+- Each tab keeps its own panes: tree expansion, selection and scroll position stay as you left them.
+- **Close Connection Tab** (⌘W, or ✕ on the tab) asks about unsaved changes and disconnects that connection only.
+  Quitting asks for every tab with unsaved changes and closes all connections.
+- The layout of the panes, settings and themes are shared.
+
 ## Several instances
 
 File ▸ **New Instance** (⇧⌘N) starts another copy of the app. Each copy has its own connection, watch list and

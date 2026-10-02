@@ -179,8 +179,46 @@
       </DockPanel>
     </Border>
 
-    <DockControl x:Name="DockHost" Margin="8,0,8,0" Layout="{Binding Layout}" Factory="{Binding DockFactory}"
-                 InitializeFactory="True" InitializeLayout="True" />
+    <!-- Connection tabs: shown once a second connection is open (File ▸ New Connection Tab). -->
+    <Border x:Name="TabStrip" DockPanel.Dock="Top" Classes="connection-tabs" x:DataType="vm:ConnectionTabs"
+            IsVisible="{Binding HasMany}">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Classes="icon-only" Click="OnNewTab" VerticalAlignment="Center"
+                AutomationProperties.Name="New connection tab" ToolTip.Tip="New connection tab (⌘T)">
+          <PathIcon Data="{StaticResource IconAdd}" />
+        </Button>
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+          <ItemsControl ItemsSource="{Binding Tabs}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="vm:ConnectionTab">
+                <Border Classes="connection-tab" Classes.active="{Binding IsActive}" ToolTip.Tip="{Binding ToolTip}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Classes="connection-tab-title" Click="OnTabClicked" Tag="{Binding}">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Ellipse Width="7" Height="7" VerticalAlignment="Center" Classes="state"
+                                 Classes.connected="{Binding IsConnected}" Classes.reconnecting="{Binding IsReconnecting}" />
+                        <TextBlock Text="{Binding Title}" MaxWidth="220" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <TextBlock Text="•" IsVisible="{Binding IsDirty}" VerticalAlignment="Center" />
+                      </StackPanel>
+                    </Button>
+                    <Button Classes="icon-only connection-tab-close" Click="OnTabCloseClicked" Tag="{Binding}"
+                            AutomationProperties.Name="Close connection tab" ToolTip.Tip="Close this connection (⌘W)">
+                      <PathIcon Data="{StaticResource IconClose}" Width="10" Height="10" />
+                    </Button>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+
+    <!-- The active connection's own dock (each connection keeps its panes, so their state and shortcuts stay its own). -->
+    <ContentControl x:Name="DockHost" Margin="8,0,8,0" />
   </DockPanel>
   </LayoutTransformControl>
 </Window>

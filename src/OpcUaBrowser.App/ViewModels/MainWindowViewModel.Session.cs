@@ -390,6 +390,15 @@ public sealed partial class MainWindowViewModel
     [RelayCommand]
     private void RevealSettings() => Dialogs?.RevealInFileManager(Path.GetDirectoryName(SettingsStore.DefaultPath)!);
 
+    /// <summary>Reloads the shared settings (another connection tab may have changed recent lists or defaults).</summary>
+    public void RefreshSettings()
+    {
+        if (_settingsStore is not null)
+        {
+            Settings = _settingsStore.Load();
+        }
+    }
+
     public async Task<bool> ConfirmDiscardAsync()
     {
         if (!IsDirty || Dialogs is null)

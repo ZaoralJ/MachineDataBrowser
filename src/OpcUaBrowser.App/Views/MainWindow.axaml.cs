@@ -10,6 +10,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        InitializeTabs();
 
         EndpointHistoryList.AddHandler(Button.ClickEvent, (_, e) =>
         {
@@ -27,6 +28,7 @@ public sealed partial class MainWindow : Window
         base.OnDataContextChanged(e);
         if (DataContext is MainWindowViewModel vm)
         {
+            ShowConnection(vm);
             vm.CopyToClipboard = async text =>
             {
                 if (Clipboard is { } clipboard)

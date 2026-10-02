@@ -82,9 +82,13 @@ public sealed class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var viewModel = new MainWindowViewModel(new SettingsStore(), new LayoutStore());
-            var window = new MainWindow { DataContext = viewModel };
+            var window = new MainWindow
+            {
+                CreateConnection = () => new MainWindowViewModel(new SettingsStore(), new LayoutStore()),
+                DataContext = viewModel,
+            };
             desktop.MainWindow = window;
-            window.Closed += (_, _) => viewModel.SaveLayout();
+            window.Closed += (_, _) => (window.DataContext as MainWindowViewModel)?.SaveLayout();
             // No cleanup on ShutdownRequested: it fires before the "unsaved changes" prompt, so disposing here
             // disconnected and stopped recordings while the user was still deciding. MainWindow.OnClosing shuts
             // down gently once quitting is confirmed; if the prompt is cancelled everything keeps running.

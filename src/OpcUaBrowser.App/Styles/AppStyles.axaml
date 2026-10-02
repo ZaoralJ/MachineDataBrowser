@@ -246,6 +246,44 @@
     <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
   </Style>
 
+  <!-- Connection tabs under the header -->
+  <Style Selector="Border.connection-tabs">
+    <Setter Property="Padding" Value="12,0,12,6" />
+  </Style>
+  <Style Selector="Border.connection-tab">
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="Padding" Value="4,2,4,2" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+  <Style Selector="Border.connection-tab:pointerover">
+    <Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
+  </Style>
+  <Style Selector="Border.connection-tab.active">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderStrongBrush}" />
+  </Style>
+  <Style Selector="Button.connection-tab-title">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Padding" Value="6,3" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="Button.connection-tab-close">
+    <Setter Property="Height" Value="20" />
+    <Setter Property="MinWidth" Value="20" />
+    <Setter Property="Padding" Value="4" />
+  </Style>
+  <Style Selector="Ellipse.state">
+    <Setter Property="Fill" Value="{StaticResource StatusIdleBrush}" />
+  </Style>
+  <Style Selector="Ellipse.state.connected">
+    <Setter Property="Fill" Value="{StaticResource StatusGoodBrush}" />
+  </Style>
+  <Style Selector="Ellipse.state.reconnecting">
+    <Setter Property="Fill" Value="{StaticResource StatusUncertainBrush}" />
+  </Style>
+
   <!-- Endpoint field: a tall pill with an inline label chip -->
   <Style Selector="TextBox.endpoint">
     <Setter Property="MinHeight" Value="36" />
