@@ -16,10 +16,11 @@ data keep working.
 - Alternatives considered: `async-opcua` (Rust, MPL-2.0, younger), open62541 (C, MPL-2.0; runtime structure
   decoding is manual), node-opcua (MIT, heavier runtime), Eclipse Milo (Java). No maintained MIT Rust SDK exists.
 
-## EtherNet/IP (Logix): libplctag.NET, read-only
+## EtherNet/IP (Logix): libplctag.NET
 
 - `libplctag` (MPL-2.0) wraps the mature C libplctag and ships native binaries for macOS (x64/arm64), Windows and Linux.
-- Scope: Logix only (tag listing via `@tags` / `@udt/<id>` exists only there) and read-only.
+- Scope: Logix only (tag listing via `@tags` / `@udt/<id>` exists only there). Writes cover atomics, atomic arrays
+  and STRINGs.
 - The OPC UA information model (`NodeId`, `NodeClass`, `StatusCode`) is kept as the shared vocabulary behind
   `IDeviceClient` instead of a new neutral model: the App, recordings and exports work unchanged and the refactor
   stays small. Tags map to `ns=1;s=<tag path>`, folders to `ns=2`.
@@ -30,12 +31,13 @@ data keep working.
 - Tags are created with the synchronous `Initialize` on a pool thread: libplctag.NET 1.5 `InitializeAsync` leaks the
   native tag and its callback when creation fails, which crashed the process on a later libplctag event.
 
-## MQTT: MQTTnet, read-only, with Sparkplug B
+## MQTT: MQTTnet, with Sparkplug B
 
 - `MQTTnet` (MIT) supports MQTT 3.1.1 and 5, TLS and WebSocket on every platform the app targets.
-- Read-only like the other protocols: the app subscribes, never publishes. Consequence for Sparkplug B: it cannot
-  send a rebirth request (NCMD), so metrics published by alias before the app saw the BIRTH show as `alias <n>` until
-  the edge node's next birth.
+- The app subscribes, and publishes only when you write a value: a topic is republished with the same payload kind,
+  retain flag and properties; a JSON field republishes the last document with the field changed; a Sparkplug B metric
+  is sent as an NCMD/DCMD. It does not send rebirth requests, so metrics published by alias before the app saw the
+  BIRTH show as `alias <n>` until the edge node's next birth.
 - Discovery by subscription: MQTT has no browse service, so the tree is built from received messages (topic filter
   `#` by default, narrowed by the endpoint path or `?topic=`), with a cap of 20 000 topics. The tree refreshes live
   (`IDynamicAddressSpace`).
@@ -76,5 +78,4 @@ may need `xattr -dr com.apple.quarantine "/Applications/OPC UA Browser.app"` or 
 
 - CLI (`OpcUaBrowser.Cli` sharing Core) – planned commands `endpoints`, `browse`, `read`, `monitor`, `record`.
 - Windows/Linux packages – the app builds for `win-x64`, but no release artifacts yet.
-- Server certificate trust prompt (currently an explicit, insecure "auto-trust" option), write/method call and
-  MQTT publishing (the app is read-only by design), notarization.
+- Server certificate trust prompt (currently an explicit, insecure "auto-trust" option), method calls, notarization.

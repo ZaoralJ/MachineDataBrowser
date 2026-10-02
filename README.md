@@ -3,7 +3,7 @@
 [![ci](https://github.com/ZaoralJ/OpcUaBrowser/actions/workflows/ci.yml/badge.svg)](https://github.com/ZaoralJ/OpcUaBrowser/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Machine Data Browser** is a cross-platform, read-only viewer for machine data (.NET 10, Avalonia). It shows the data of one device at a time:
+**Machine Data Browser** is a cross-platform viewer for machine data (.NET 10, Avalonia). It shows the data of one device at a time:
 
 | Protocol | Endpoint | Highlights |
 |---|---|---|
@@ -14,7 +14,7 @@
 For any of these you can:
 
 - browse the address space and read attributes,
-- watch live values (stale and bad values stand out),
+- watch live values (stale and bad values stand out) and write new values,
 - record values with limits, a schedule and live CSV files,
 - look at recordings as a table with a trend chart,
 - copy values as tables, JSON or C#, and save sessions.
@@ -70,7 +70,7 @@ Then connect to one of these:
   troubleshooting
 - [Architecture](docs/architecture.md): projects, the protocol boundary, value flow, connection lifecycle, each
   protocol, the App, packaging (with diagrams)
-- [Decisions](docs/decisions.md): why these libraries, why read-only, how MQTT and Sparkplug B are handled
+- [Decisions](docs/decisions.md): why these libraries, how writing works per protocol, how MQTT and Sparkplug B are handled
 - [Simulators](docs/simulators.md): local test servers and the integration tests
 
 ## Build and test

@@ -1,13 +1,13 @@
 # User manual
 
-Machine Data Browser is a read-only viewer for machine data. It connects to:
+Machine Data Browser is a viewer for machine data. It connects to:
 
 - **OPC UA** servers (`opc.tcp://`),
 - Allen-Bradley **Logix** controllers over EtherNet/IP (`eip://`),
 - **MQTT** brokers (`mqtt://`, `mqtts://`, `ws://`, `wss://`), including **Sparkplug B** and **CloudEvents**.
 
-It shows the address space and attributes, watches live values, records them and exports them. It never writes to
-a device.
+It shows the address space and attributes, watches live values, records them and exports them. It can also write
+values to a device, but only when you ask it to (see [Writing values](#writing-values)).
 
 ```mermaid
 flowchart LR
@@ -103,7 +103,7 @@ connection by itself. Watch items and recordings continue after that.
   becomes a folder.
   - When a node or device dies (NDEATH/DDEATH), its metrics turn **Bad (no communication)** until it is reborn.
   - Metrics named `alias 101` were published before the app saw the device's BIRTH message. They get their real
-    names at the next birth; the app is read-only, so it cannot request one.
+    names at the next birth. The app does not request a rebirth.
 
 ## Watch
 
@@ -133,6 +133,21 @@ order are saved with the session.
   - ⌘C copies the selected rows (or all rows) as a table that pastes into Excel or Numbers.
   - ⌥⌘C copies the value; ⌥⌘J copies the values as JSON; ⇧⌘C copies the rows as JSON.
   - File ▸ Export Watch List as CSV (⌘E).
+
+## Writing values
+
+The app writes to a device only when you ask it to.
+
+- **Where:** right-click a variable in Attributes (on the *Value* row) or one or more rows in Watch ▸ **Write value…**.
+- **Format:** type the value as text; it is converted to the variable's data type. Arrays are comma-separated,
+  optionally in brackets: `[1, 2, 3]`.
+- **Per protocol:**
+  - **OPC UA:** writes the Value attribute. The server decides whether the variable is writable (AccessLevel).
+  - **EtherNet/IP:** atomics, atomic arrays and STRINGs. Tags the controller program owns may be rejected
+    (`BadNotWritable`).
+  - **MQTT:** a topic is republished with the same payload kind, retain flag and properties; a JSON field republishes
+    the last document with the field changed; a Sparkplug B metric is sent as a command (NCMD/DCMD).
+- Several Watch rows get the same value; failures are listed per item.
 
 ## Recordings
 

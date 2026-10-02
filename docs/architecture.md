@@ -7,7 +7,7 @@ Machine Data Browser (repository `OpcUaBrowser`) is a machine data viewer. It co
 - an MQTT broker, including Sparkplug B.
 
 Whichever device it is, you browse its address space, inspect attributes, watch live values, record them and export
-them. It is read-only by design: it never writes to a device.
+them. It writes to a device only on an explicit user action (Write value…), through `IDeviceClient.WriteValueAsync`.
 
 ## Overview
 
@@ -215,8 +215,8 @@ flowchart TB
   - BIRTH messages define metric names, aliases and data types; DATA messages update values by name or alias.
   - DEATH messages turn all metrics of that node or device `BadNoCommunication`.
   - A `/` in a metric name becomes a folder, e.g. `Motor/Speed`.
-  - Values published under an alias whose BIRTH was missed show as `alias <n>` until the next birth. The client is
-    read-only, so it cannot request a rebirth.
+  - Values published under an alias whose BIRTH was missed show as `alias <n>` until the next birth. The client does
+    not send rebirth requests.
   - The raw `spBv1.0/…` topics are not listed under Topics.
 - **Live tree:** the client implements `IDynamicAddressSpace`. The App re-browses expanded nodes about once a second
   after the address space changes, and merges the result so expansion and selection survive.
