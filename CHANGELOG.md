@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.9.0...v0.10.0) (2026-10-02)
+
+
+### Features
+
+* **app:** group the watch list by path ([#44](https://github.com/ZaoralJ/MachineDataBrowser/issues/44)) ([559ae12](https://github.com/ZaoralJ/MachineDataBrowser/commit/559ae12a7168e337aa9d3fc1714d1ef795959328))
+
 ## [0.9.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.8.0...v0.9.0) (2026-10-02)
 
 
