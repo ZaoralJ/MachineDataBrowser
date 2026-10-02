@@ -34,6 +34,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         DefaultRefreshMs = DefaultRefreshFor(EndpointUrl);
         IsDirty = false;
         ApplyTheme(Settings.Theme);
+        ApplyColorTheme(Settings.ColorTheme);
         Layout = layoutStore?.TryLoad(DockFactory) ?? DockFactory.CreateLayout();
 
         _client.StateChanged += OnClientStateChanged;

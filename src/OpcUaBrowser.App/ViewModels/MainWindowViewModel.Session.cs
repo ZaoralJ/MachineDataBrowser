@@ -20,7 +20,7 @@ public sealed partial class MainWindowViewModel
     public IDialogService? Dialogs { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RecentSessions), nameof(RecentEndpoints), nameof(HasRecentEndpoints), nameof(Theme), nameof(UiScale))]
+    [NotifyPropertyChangedFor(nameof(RecentSessions), nameof(RecentEndpoints), nameof(HasRecentEndpoints), nameof(Theme), nameof(ColorTheme), nameof(UiScale))]
     public partial AppSettings Settings { get; private set; }
 
     [ObservableProperty]
@@ -42,6 +42,8 @@ public sealed partial class MainWindowViewModel
     public bool HasRecentEndpoints => Settings.RecentEndpoints.Count > 0;
 
     public ThemePreference Theme => Settings.Theme;
+
+    public string ColorTheme => ColorThemes.Find(Settings.ColorTheme).Name;
 
     partial void OnEndpointUrlChanged(string oldValue, string newValue)
     {
@@ -320,18 +322,29 @@ public sealed partial class MainWindowViewModel
     }
 
     [RelayCommand]
+    private void SetColorTheme(string? name)
+    {
+        var theme = ColorThemes.Find(name);
+        UpdateSettings(Settings with { ColorTheme = theme.Name });
+        ApplyColorTheme(theme.Name);
+        StatusMessage = $"Colour theme {theme.Name}";
+    }
+
+    [RelayCommand]
     private async Task OpenSettingsAsync()
     {
         if (Dialogs is not null && await Dialogs.EditSettingsAsync(Settings) is { } updated)
         {
             UpdateSettings(updated);
             ApplyTheme(updated.Theme);
+            ApplyColorTheme(updated.ColorTheme);
             StatusMessage = "Settings saved";
         }
         else
         {
             // The dialog previews themes live; cancelling returns to the saved one.
             ApplyTheme(Settings.Theme);
+            ApplyColorTheme(Settings.ColorTheme);
         }
     }
 
@@ -430,6 +443,14 @@ public sealed partial class MainWindowViewModel
     {
         Settings = settings;
         _settingsStore?.Save(settings);
+    }
+
+    internal static void ApplyColorTheme(string? name)
+    {
+        if (Application.Current is { } app)
+        {
+            ColorThemes.Apply(app, ColorThemes.Find(name));
+        }
     }
 
     internal static void ApplyTheme(ThemePreference theme)

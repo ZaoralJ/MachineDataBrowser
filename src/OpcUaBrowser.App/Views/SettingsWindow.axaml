@@ -21,11 +21,15 @@
     <StackPanel Margin="24,20" Spacing="22">
       <StackPanel Spacing="8">
         <TextBlock Classes="pane-title" Text="APPEARANCE" />
-        <Grid ColumnDefinitions="200,*" RowDefinitions="Auto">
+        <Grid ColumnDefinitions="200,*" RowDefinitions="Auto,Auto" RowSpacing="10">
           <TextBlock Text="Theme" VerticalAlignment="Center" />
           <ComboBox Grid.Column="1" Width="180" HorizontalAlignment="Left"
                     ItemsSource="{x:Static vm:SettingsViewModel.Themes}" SelectedItem="{Binding Theme}"
                     AutomationProperties.Name="Theme" />
+          <TextBlock Grid.Row="1" Text="Colours" VerticalAlignment="Center" />
+          <ComboBox Grid.Row="1" Grid.Column="1" Width="180" HorizontalAlignment="Left"
+                    ItemsSource="{x:Static vm:SettingsViewModel.ColorThemeChoices}" SelectedItem="{Binding ColorTheme}"
+                    ToolTip.Tip="{Binding ColorTheme.Description}" AutomationProperties.Name="Colour theme" />
         </Grid>
       </StackPanel>
 

@@ -42,7 +42,7 @@
           <TextBlock Text="JSON" FontSize="10" FontWeight="SemiBold" />
         </Button>
         <Button Classes="icon-only" Command="{Binding CloseRecordingCommand}" AutomationProperties.Name="Close recording" ToolTip.Tip="Close recording (discards history)">
-          <PathIcon Data="{StaticResource IconClose}" />
+          <PathIcon Data="{StaticResource IconRemove}" />
         </Button>
       </StackPanel>
     </Border>
@@ -66,7 +66,7 @@
             <MenuItem Header="Export JSON…" Command="{Binding ExportRecordingJsonCommand}" />
             <Separator />
             <MenuItem Header="Close recording" Command="{Binding CloseRecordingCommand}">
-              <MenuItem.Icon><PathIcon Data="{StaticResource IconClose}" /></MenuItem.Icon>
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconRemove}" /></MenuItem.Icon>
             </MenuItem>
           </ContextMenu>
         </DataGrid.ContextMenu>

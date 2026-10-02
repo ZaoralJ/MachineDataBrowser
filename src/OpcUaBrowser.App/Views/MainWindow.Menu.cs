@@ -127,9 +127,13 @@ public sealed partial class MainWindow
                 Item("_Actual Size", vm.ZoomResetCommand, new KeyGesture(Key.D0, cmd)),
                 new NativeMenuItemSeparator(),
                 Submenu("_Theme",
+                [
                     ThemeItem(vm, "Follow _System", ThemePreference.System, new KeyGesture(Key.D7, cmd | KeyModifiers.Alt)),
                     ThemeItem(vm, "_Light", ThemePreference.Light, new KeyGesture(Key.D8, cmd | KeyModifiers.Alt)),
-                    ThemeItem(vm, "_Dark", ThemePreference.Dark, new KeyGesture(Key.D9, cmd | KeyModifiers.Alt)))),
+                    ThemeItem(vm, "_Dark", ThemePreference.Dark, new KeyGesture(Key.D9, cmd | KeyModifiers.Alt)),
+                    new NativeMenuItemSeparator(),
+                    .. ColorThemeItems(vm),
+                ])),
             Submenu("_Watch",
                 Item("_Monitor Selected Variables", vm.AddToWatchCommand, new KeyGesture(Key.M, cmd | KeyModifiers.Shift)),
                 Item("Monitor All Variables in _Folder", vm.MonitorFolderCommand, new KeyGesture(Key.M, cmd | KeyModifiers.Alt | KeyModifiers.Shift)),
@@ -201,6 +205,35 @@ public sealed partial class MainWindow
         {
             item.IsChecked = vm.Theme == theme;
         }
+
+        foreach (var (name, item) in _colorThemeItems)
+        {
+            item.IsChecked = vm.ColorTheme == name;
+        }
+    }
+
+    private readonly Dictionary<string, NativeMenuItem> _colorThemeItems = [];
+
+    /// <summary>One radio item per colour theme; they follow the light/dark choice above them.</summary>
+    private NativeMenuItemBase[] ColorThemeItems(MainWindowViewModel vm)
+    {
+        _colorThemeItems.Clear();
+        return
+        [
+            .. ColorThemes.All.Select(theme =>
+            {
+                var item = new NativeMenuItem(theme.Name)
+                {
+                    Command = vm.SetColorThemeCommand,
+                    CommandParameter = theme.Name,
+                    ToggleType = MenuItemToggleType.Radio,
+                    IsChecked = vm.ColorTheme == theme.Name,
+                    ToolTip = theme.Description,
+                };
+                _colorThemeItems[theme.Name] = item;
+                return item;
+            }),
+        ];
     }
 
     private NativeMenuItem ThemeItem(MainWindowViewModel vm, string header, ThemePreference theme, KeyGesture gesture)

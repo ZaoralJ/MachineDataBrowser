@@ -71,6 +71,9 @@ public sealed record AppSettings
 {
     public ThemePreference Theme { get; init; } = ThemePreference.System;
 
+    /// <summary>Name of the colour theme (<see cref="ColorThemes"/>); each has a light and a dark appearance.</summary>
+    public string ColorTheme { get; init; } = ColorThemes.DefaultName;
+
     public int SamplingIntervalMs { get; init; } = 250;
 
     public int MaxRecursiveItems { get; init; } = 500;

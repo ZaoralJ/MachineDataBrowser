@@ -176,6 +176,10 @@ stateDiagram-v2
 - **Browse:** follows hierarchical forward references. The tree uses `BrowseQuickAsync` (one round trip, every child
   gets an expander) and then `ProbeHasChildrenAsync` in the background (one batched Browse), which removes the
   expanders of children that have nothing below them.
+- **Themes (`Services/ColorThemes.cs`):** the colours live in named tokens (`App*Brush` in `AppStyles.axaml` and the
+  Fluent `ColorPaletteResources`), each with a Light and a Dark value. A colour theme is data: one set of colours per
+  appearance. Applying it recolours the shared brush instances and the palettes in place, so `DynamicResource` users,
+  Dock and DataGrid follow at once; `RequestedThemeVariant` still switches light/dark.
 - **Address space view:** `FlatTree` flattens the expanded nodes into rows for a virtualized `ListBox` (Avalonia's
   `TreeView` builds every expanded node). Browses run on the pool with a 30 s timeout; a failure leaves an error row
   that retries on click. Folders collapsed for 10 minutes drop their children and are browsed again when expanded.
