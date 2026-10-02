@@ -59,8 +59,10 @@ connection by itself. Watch items and recordings continue after that.
 
 ## Address Space
 
-- Expand nodes with a click or the arrow keys. **E** expands everything below the selection (up to 5 levels);
-  **⇧E** collapses all.
+- Expand nodes with a click or the arrow keys (→ expands or steps into the first child, ← collapses or goes to the
+  parent). **E** expands everything below the selection (up to 5 levels); **⇧E** collapses all.
+- Type the start of a name to jump to the next visible node with that name.
+- If a folder can't be browsed, it shows a red *Couldn't load* row: hover it for the reason, click it to retry.
 - The selected node's attributes appear in the Attributes pane.
 - **Monitor** a variable: Enter, double-click, drag it to Watch, or right-click ▸ Monitor. **1–7** monitor with a
   refresh of 100 ms … 10 s; **T** asks for a custom refresh time. **F** monitors every variable in a folder,
