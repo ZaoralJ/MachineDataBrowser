@@ -371,7 +371,7 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
 
         Assert.Equal("StepUp", vm.SelectedNode?.DisplayName);
         Assert.Equal(step.NodeId, vm.SelectedNode!.NodeId);
-        var tree = window.GetVisualDescendants().OfType<Avalonia.Controls.TreeView>().Single();
+        var tree = window.GetVisualDescendants().OfType<Avalonia.Controls.ListBox>().Single(l => l.Name == "AddressTree");
         Assert.Same(vm.SelectedNode, tree.SelectedItem);
         window.Close();
     }

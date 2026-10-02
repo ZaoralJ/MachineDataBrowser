@@ -39,7 +39,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         _client.StateChanged += OnClientStateChanged;
         AppErrors.Reported += OnAppError;
         _flushTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (_, _) => FlushUpdates());
-        _treeTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, async (_, _) => await RefreshTreeIfChangedAsync());
+        _treeTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, async (_, _) =>
+        {
+            await RefreshTreeIfChangedAsync();
+            UnloadCollapsedNodes();
+        });
         _treeTimer.Start();
         _flushTimer.Start();
 
@@ -337,6 +341,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     public ObservableCollection<NodeViewModel> RootNodes { get; } = [];
 
+    private FlatTree? _treeRows;
+
+    /// <summary>The visible tree rows (flattened for the virtualized address-space list).</summary>
+    public BulkObservableCollection<NodeViewModel> TreeRows => (_treeRows ??= CreateFlatTree()).Rows;
+
+    private FlatTree CreateFlatTree()
+    {
+        var tree = new FlatTree(RootNodes);
+        tree.Collapsing += OnTreeCollapsing;
+        tree.Collapsed += OnTreeCollapsed;
+        return tree;
+    }
+
     public ObservableCollection<NodeViewModel> SelectedNodes { get; } = [];
 
     public string SelectionSummary => SelectedNodes.Count > 1 ? $"{SelectedNodes.Count} nodes selected" : string.Empty;
@@ -374,7 +391,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 _client.Root,
                 Browse,
                 ReportError,
-                _client.ToDisplayId);
+                _client.ToDisplayId,
+                probe: ProbeHasChildren);
             RootNodes.Add(root);
             root.IsExpanded = true;
 
@@ -805,6 +823,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
 
         IsBusy = true;
+        var selection = SelectedNodes.ToList();
+        var current = SelectedNode;
+        var deferral = _treeRows?.DeferUpdates();
         try
         {
             var limited = false;
@@ -823,6 +844,20 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
         finally
         {
+            // One rebuild instead of a row update per expanded folder; it resets the list, so restore the selection.
+            deferral?.Dispose();
+            if (deferral is not null && current is not null)
+            {
+                SelectedNodes.Clear();
+                foreach (var node in selection)
+                {
+                    SelectedNodes.Add(node);
+                }
+
+                SelectedNode = current;
+                RevealRequested?.Invoke(this, current);
+            }
+
             IsBusy = false;
         }
     }
@@ -1057,7 +1092,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     [RelayCommand(CanExecute = nameof(HasSelectedWatchItem))]
     private Task CopyWatchNodeIdAsync() => CopyAsync(string.Join(Environment.NewLine, WatchSelectionOrCurrent().Select(w => w.NodeIdText)));
 
-    partial void OnSelectedNodeChanged(NodeViewModel? value) => _ = LoadAttributesAsync(value);
+    partial void OnSelectedNodeChanged(NodeViewModel? value) => _ = LoadAttributesAsync(value, debounce: true);
 
     private Task? _shutdown;
 
@@ -1101,7 +1136,69 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
     }
 
-    private Task<IReadOnlyList<BrowseItem>> Browse(NodeId nodeId) => _client.BrowseAsync(nodeId);
+    /// <summary>A hung server shows an error row with a retry instead of "Loading…" until the SDK gives up.</summary>
+    internal static TimeSpan BrowseTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    private Task<IReadOnlyList<BrowseItem>> Browse(NodeId nodeId)
+    {
+        var client = _client;
+        return Task.Run(() => client.BrowseQuickAsync(nodeId)).WaitAsync(BrowseTimeout);
+    }
+
+    private Task<IReadOnlyList<bool>?> ProbeHasChildren(IReadOnlyList<NodeId> nodeIds)
+    {
+        var client = _client;
+        return Task.Run(() => client.ProbeHasChildrenAsync(nodeIds)).WaitAsync(BrowseTimeout);
+    }
+
+    private static readonly TimeSpan UnloadAfter = TimeSpan.FromMinutes(10);
+    private DateTime _lastUnloadSweep = DateTime.UtcNow;
+
+    /// <summary>Frees folders collapsed for a long time (they are browsed again when expanded).</summary>
+    private void UnloadCollapsedNodes()
+    {
+        var now = DateTime.UtcNow;
+        if (now - _lastUnloadSweep < TimeSpan.FromMinutes(1) || RootNodes.Count == 0)
+        {
+            return;
+        }
+
+        _lastUnloadSweep = now;
+        var keep = new HashSet<NodeViewModel>(System.Collections.Generic.ReferenceEqualityComparer.Instance);
+        foreach (var selected in SelectedNodes.Append(SelectedNode).OfType<NodeViewModel>())
+        {
+            for (var n = selected; n is not null; n = n.Parent)
+            {
+                keep.Add(n);
+            }
+        }
+
+        foreach (var root in RootNodes)
+        {
+            root.UnloadCollapsed(UnloadAfter, now, keep);
+        }
+    }
+
+    private NodeViewModel? _reselectAfterCollapse;
+
+    /// <summary>Collapsing a folder that hides the selection selects the folder, so the Attributes pane follows.</summary>
+    private void OnTreeCollapsing(NodeViewModel owner, IReadOnlyList<NodeViewModel> hidden)
+    {
+        var set = new HashSet<NodeViewModel>(hidden, System.Collections.Generic.ReferenceEqualityComparer.Instance);
+        _reselectAfterCollapse = (SelectedNode is { } s && set.Contains(s)) || SelectedNodes.Any(set.Contains) ? owner : null;
+    }
+
+    private void OnTreeCollapsed(NodeViewModel owner)
+    {
+        if (!ReferenceEquals(Interlocked.Exchange(ref _reselectAfterCollapse, null), owner))
+        {
+            return;
+        }
+
+        SelectedNodes.Clear();
+        SelectedNodes.Add(owner);
+        SelectedNode = owner;
+    }
 
     private async Task CopyAsync(string? text)
     {
@@ -1124,7 +1221,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         {
             try
             {
-                await monitor.DisposeAsync();
+                await Task.Run(() => monitor.DisposeAsync().AsTask());
             }
             catch (Exception ex) when (AppErrors.IsRecoverable(ex))
             {
@@ -1182,9 +1279,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
     }
 
-    private async Task LoadAttributesAsync(NodeViewModel? node)
+    private CancellationTokenSource? _attributesCts;
+
+    /// <summary>Selection delay before reading attributes, so arrowing through the tree doesn't queue server calls per node.</summary>
+    private static readonly TimeSpan SelectionDebounce = TimeSpan.FromMilliseconds(150);
+
+    private async Task LoadAttributesAsync(NodeViewModel? node, bool debounce = false)
     {
+        _attributesCts?.Cancel();
+        var cts = _attributesCts = new CancellationTokenSource();
+        var token = cts.Token;
+
         await StopSelectedValueMonitorAsync();
+        if (token.IsCancellationRequested)
+        {
+            return;
+        }
+
         Attributes.Clear();
         if (node is null || !IsConnected)
         {
@@ -1193,8 +1304,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
         try
         {
-            var attributes = await _client.ReadAttributesAsync(node.NodeId);
-            if (SelectedNode != node)
+            if (debounce)
+            {
+                await Task.Delay(SelectionDebounce, token);
+            }
+
+            var client = _client;
+            var refreshMs = DefaultRefreshMs;
+            var attributes = await Task.Run(() => client.ReadAttributesAsync(node.NodeId, token), token);
+            if (SelectedNode != node || token.IsCancellationRequested)
             {
                 return;
             }
@@ -1206,21 +1324,34 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
             if (node.IsVariable)
             {
-                var monitor = await _client.MonitorAsync(node.NodeId, update => ApplySelectedValue(node, update), DefaultRefreshMs);
-                if (SelectedNode == node && _selectedValueMonitor is null)
+                var monitor = await Task.Run(() => client.MonitorAsync(node.NodeId, update => ApplySelectedValue(node, update), refreshMs), CancellationToken.None);
+                if (SelectedNode == node && !token.IsCancellationRequested && _selectedValueMonitor is null)
                 {
                     _selectedValueMonitor = monitor;
                     IsSelectedValueLive = true;
                 }
                 else
                 {
-                    await monitor.DisposeAsync();
+                    _ = Task.Run(() => monitor.DisposeAsync().AsTask());
                 }
             }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // superseded by a newer selection
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
+        }
+        finally
+        {
+            if (ReferenceEquals(_attributesCts, cts))
+            {
+                _attributesCts = null;
+            }
+
+            cts.Dispose();
         }
     }
 

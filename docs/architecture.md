@@ -170,8 +170,12 @@ stateDiagram-v2
   - Creates the application certificate on first use.
   - Loads the complex type definitions (`ComplexTypeSystem`), so server-specific structures decode instead of
     showing as bytes.
-- **Browse:** follows hierarchical forward references. One extra batched Browse sets `HasChildren`, so the tree
-  shows expanders only where there is something to expand.
+- **Browse:** follows hierarchical forward references. The tree uses `BrowseQuickAsync` (one round trip, every child
+  gets an expander) and then `ProbeHasChildrenAsync` in the background (one batched Browse), which removes the
+  expanders of children that have nothing below them.
+- **Address space view:** `FlatTree` flattens the expanded nodes into rows for a virtualized `ListBox` (Avalonia's
+  `TreeView` builds every expanded node). Browses run on the pool with a 30 s timeout; a failure leaves an error row
+  that retries on click. Folders collapsed for 10 minutes drop their children and are browsed again when expanded.
 - **Monitoring:** `MonitorManyAsync` creates many items in one round trip. Items with the same refresh time share a
   subscription (`Watch@<ms>`); `ChangeRefreshAsync` moves items between these subscriptions.
 - **Portable ids:** `nsu=<namespace URI>`, because namespace indexes can change between server restarts.

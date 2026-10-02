@@ -87,22 +87,42 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
 
     public static RecordingViewerViewModel ForFile(string path)
     {
+        // The file is read on the pool (opening a large CSV used to block the window); polls take what has been read.
         var reader = new RecordingFileReader(path);
+        var pending = new System.Collections.Concurrent.ConcurrentQueue<HistoryRow>();
+        Task? reading = null;
         string? error = null;
         return new RecordingViewerViewModel(
             Path.GetFileName(path),
             () =>
             {
-                try
+                if (reading is null or { IsCompleted: true })
                 {
-                    error = null;
-                    return [.. reader.ReadNew().Select(r => new HistoryRow(r.ReceivedAt, r.Name, r.NodeId, r.Value, r.Status, r.SourceTimestamp, ParseNumeric(r.Value)))];
+                    reading = Task.Run(() =>
+                    {
+                        try
+                        {
+                            foreach (var r in reader.ReadNew())
+                            {
+                                pending.Enqueue(new HistoryRow(r.ReceivedAt, r.Name, r.NodeId, r.Value, r.Status, r.SourceTimestamp, ParseNumeric(r.Value)));
+                            }
+
+                            error = null;
+                        }
+                        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+                        {
+                            error = ex.Message;
+                        }
+                    });
                 }
-                catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+
+                var rows = new List<HistoryRow>();
+                while (pending.TryDequeue(out var row))
                 {
-                    error = ex.Message;
-                    return [];
+                    rows.Add(row);
                 }
+
+                return rows;
             },
             () => error ?? $"File · last change {Timestamps.FormatSeconds(File.GetLastWriteTime(path))}");
     }
@@ -111,7 +131,7 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
 
     public string Title { get; }
 
-    public ObservableCollection<HistoryRow> Rows { get; } = [];
+    public BulkObservableCollection<HistoryRow> Rows { get; } = [];
 
     public ObservableCollection<string> ItemNames { get; } = [AllItems];
 
@@ -227,7 +247,8 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
             ItemNames.Add(name);
         }
 
-        if (trimmed || Rows.Count + fresh.Count > MaxRows)
+        // Large batches (opening a file, catching up) are one Reset; a trickle of new samples is appended row by row.
+        if (trimmed || Rows.Count + fresh.Count > MaxRows || fresh.Count > 200)
         {
             Rebuild();
         }
@@ -302,12 +323,8 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
 
     private void Rebuild()
     {
-        Rows.Clear();
-        foreach (var row in _all.Where(Matches))
-        {
-            Rows.Add(row);
-        }
-
+        // One Reset instead of up to MaxRows Add events (each re-laid out the grid) when the item filter changes.
+        Rows.ReplaceAll(_all.Where(Matches));
         UpdateChart();
         RowsAppended?.Invoke(this, EventArgs.Empty);
     }

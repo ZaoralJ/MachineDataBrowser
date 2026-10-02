@@ -14,9 +14,10 @@ public sealed partial class AddressSpaceView : UserControl
     {
         InitializeComponent();
 
-        // TreeViewItem toggles IsExpanded on double-tap and marks the event handled, which would collapse
-        // the node the first click just expanded. handledEventsToo lets us see it and keep the node open.
+        // Double-click expands (the first click may have toggled it) and monitors.
         AddressTree.AddHandler(InputElement.DoubleTappedEvent, OnTreeDoubleTapped, handledEventsToo: true);
+        AddressTree.AddHandler(InputElement.KeyDownEvent, OnTreeKeyDown, RoutingStrategies.Tunnel);
+        AddressTree.AddHandler(InputElement.TextInputEvent, OnTreeTextInput, RoutingStrategies.Bubble);
         AddressTree.AddHandler(InputElement.PointerPressedEvent, OnTreePointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddressTree.AddHandler(InputElement.PointerMovedEvent, OnTreePointerMoved, handledEventsToo: true);
         AddressTree.AddHandler(InputElement.PointerReleasedEvent, (_, _) => _dragStart = null, handledEventsToo: true);
@@ -31,9 +32,9 @@ public sealed partial class AddressSpaceView : UserControl
         // Right-click acts on the clicked node: an unselected node becomes the selection, a node that is
         // already selected keeps the whole multi-selection for the context menu.
         if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed && ClickedNode(e.Source) is { } clicked
-            && !AddressTree.SelectedItems.Contains(clicked))
+            && AddressTree.SelectedItems?.Contains(clicked) != true)
         {
-            AddressTree.SelectedItems.Clear();
+            AddressTree.SelectedItems?.Clear();
             AddressTree.SelectedItem = clicked;
         }
 
@@ -88,22 +89,126 @@ public sealed partial class AddressSpaceView : UserControl
         Avalonia.Threading.Dispatcher.UIThread.Post(
             () =>
             {
-                AddressTree.SelectedItems.Clear();
+                AddressTree.SelectedItems?.Clear();
                 AddressTree.SelectedItem = node;
-                if (AddressTree.TreeContainerFromItem(node) is TreeViewItem container)
-                {
-                    container.BringIntoView();
-                    container.Focus();
-                }
+                FocusRow(node);
             },
             Avalonia.Threading.DispatcherPriority.Loaded);
+
+    private void FocusRow(NodeViewModel node)
+    {
+        AddressTree.ScrollIntoView(node);
+        AddressTree.ContainerFromItem(node)?.Focus();
+    }
+
+    /// <summary>Tree keys for the flattened list: → expands or steps into the first child, ← collapses or goes to the parent.</summary>
+    private void OnTreeKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyModifiers != KeyModifiers.None || AddressTree.SelectedItem is not NodeViewModel node)
+        {
+            return;
+        }
+
+        NodeViewModel? select = null;
+        switch (e.Key)
+        {
+            case Key.Right when node.HasChildren && !node.IsExpanded:
+                node.IsExpanded = true;
+                break;
+            case Key.Right when node.IsExpanded && node.Children.Count > 0:
+                select = node.Children[0];
+                break;
+            case Key.Left when node.IsExpanded:
+                node.IsExpanded = false;
+                break;
+            case Key.Left when node.Parent is { } parent:
+                select = parent;
+                break;
+            default:
+                return;
+        }
+
+        e.Handled = true;
+        if (select is not null)
+        {
+            AddressTree.SelectedItems?.Clear();
+            AddressTree.SelectedItem = select;
+            FocusRow(select);
+        }
+    }
 
     private void OnTreeTapped(object? sender, TappedEventArgs e)
     {
         var extendingSelection = (e.KeyModifiers & (KeyModifiers.Shift | KeyModifiers.Control | KeyModifiers.Meta)) != 0;
-        if (!extendingSelection && ClickedNode(e) is { HasChildren: true } node)
+        if (extendingSelection)
         {
-            node.IsExpanded = !node.IsExpanded;
+            return;
+        }
+
+        switch (ClickedNode(e))
+        {
+            case { IsError: true, Parent: { } parent }:
+                parent.RetryLoad();
+                break;
+            case { HasChildren: true } node:
+                node.IsExpanded = !node.IsExpanded;
+                break;
+        }
+    }
+
+    private bool _keyWasShortcut;
+    private string _typed = string.Empty;
+    private DateTime _lastTyped;
+    private TopLevel? _topLevel;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _topLevel = TopLevel.GetTopLevel(this);
+
+        // Pane shortcuts (E, F, T, 1–7…) are KeyBindings on ancestors; seeing the key after bubbling tells whether one
+        // consumed it, so its text doesn't also type-select.
+        _topLevel?.AddHandler(InputElement.KeyDownEvent, OnTopLevelKeyDown, RoutingStrategies.Bubble, handledEventsToo: true);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _topLevel?.RemoveHandler(InputElement.KeyDownEvent, OnTopLevelKeyDown);
+        _topLevel = null;
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnTopLevelKeyDown(object? sender, KeyEventArgs e) =>
+        _keyWasShortcut = e.Handled || e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Shift);
+
+    /// <summary>Typing a name jumps to the next visible row starting with it (unless the key was a shortcut).</summary>
+    private void OnTreeTextInput(object? sender, TextInputEventArgs e)
+    {
+        if (_keyWasShortcut || string.IsNullOrEmpty(e.Text) || char.IsControl(e.Text[0]) || DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        _typed = now - _lastTyped > TimeSpan.FromSeconds(1) ? e.Text : _typed + e.Text;
+        _lastTyped = now;
+
+        var rows = vm.TreeRows;
+        var from = AddressTree.SelectedItem is NodeViewModel current ? rows.IndexOf(current) : -1;
+
+        // A fresh single character moves on to the next match; a longer prefix may stay on the current row.
+        var offset = _typed.Length == 1 ? 1 : 0;
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var row = rows[(Math.Max(from, 0) + offset + i) % rows.Count];
+            if (!row.IsPlaceholder && row.DisplayName.StartsWith(_typed, StringComparison.OrdinalIgnoreCase))
+            {
+                AddressTree.SelectedItems?.Clear();
+                AddressTree.SelectedItem = row;
+                FocusRow(row);
+                e.Handled = true;
+                return;
+            }
         }
     }
 
@@ -112,7 +217,7 @@ public sealed partial class AddressSpaceView : UserControl
         if (DataContext is MainWindowViewModel vm)
         {
             // Mirror the tree's real selection: a Clear() raises no RemovedItems, so applying deltas leaves stale nodes.
-            var actual = AddressTree.SelectedItems.OfType<NodeViewModel>().ToList();
+            var actual = (AddressTree.SelectedItems ?? Array.Empty<object>()).OfType<NodeViewModel>().ToList();
             foreach (var stale in vm.SelectedNodes.Except(actual).ToList())
             {
                 vm.SelectedNodes.Remove(stale);
@@ -149,7 +254,7 @@ public sealed partial class AddressSpaceView : UserControl
             {
                 case Button:
                     return null;
-                case TreeViewItem { DataContext: NodeViewModel node }:
+                case ListBoxItem { DataContext: NodeViewModel node }:
                     return node;
             }
         }

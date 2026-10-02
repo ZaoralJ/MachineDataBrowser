@@ -60,10 +60,10 @@
       </DockPanel>
     </Border>
     <Grid>
-      <TreeView ItemsSource="{Binding RootNodes}" SelectedItem="{Binding SelectedNode}"
-                SelectionMode="Multiple" SelectionChanged="OnTreeSelectionChanged"
-                x:Name="AddressTree" Tapped="OnTreeTapped" AutomationProperties.Name="Address space">
-        <TreeView.ContextMenu>
+      <ListBox ItemsSource="{Binding TreeRows}" SelectedItem="{Binding SelectedNode}"
+               SelectionMode="Multiple" SelectionChanged="OnTreeSelectionChanged" Classes="address-tree"
+               x:Name="AddressTree" Tapped="OnTreeTapped" AutomationProperties.Name="Address space">
+        <ListBox.ContextMenu>
           <ContextMenu>
             <MenuItem Header="Monitor selected variables" Command="{Binding AddToWatchCommand}">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconMonitor}" /></MenuItem.Icon>
@@ -100,31 +100,32 @@
             <MenuItem Header="Copy as C# record" Command="{Binding CopyNodeRecordCommand}"
                       ToolTip.Tip="Immutable C# records (init-only properties) mirroring the node's structure. Multi-select properties to cherry-pick them: they are grouped under their parent object" />
           </ContextMenu>
-        </TreeView.ContextMenu>
-        <TreeView.Styles>
-          <Style Selector="TreeViewItem" x:DataType="vm:NodeViewModel">
-            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
-            <Setter Property="MinHeight" Value="26" />
-          </Style>
-        </TreeView.Styles>
-        <TreeView.ItemTemplate>
-          <TreeDataTemplate DataType="vm:NodeViewModel" ItemsSource="{Binding Children}">
-            <Grid Classes="tree-row" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
+        </ListBox.ContextMenu>
+        <ListBox.ItemTemplate>
+          <DataTemplate DataType="vm:NodeViewModel">
+            <Grid Classes="tree-row" ColumnDefinitions="16,Auto,*,Auto" ColumnSpacing="6"
+                  Margin="{Binding Depth, Converter={x:Static conv:TreeConverters.Indent}}"
                   ToolTip.Tip="{Binding ToolTip}" Background="Transparent">
-              <PathIcon Grid.Column="0" Width="14" Height="14"
+              <ToggleButton Grid.Column="0" Classes="tree-expander" IsChecked="{Binding IsExpanded}"
+                            IsVisible="{Binding HasChildren}" Focusable="False"
+                            AutomationProperties.Name="Expand or collapse">
+                <PathIcon Data="{StaticResource IconChevronDown}" Width="12" Height="12" />
+              </ToggleButton>
+              <PathIcon Grid.Column="1" Width="14" Height="14" IsVisible="{Binding !IsPlaceholder}"
                         Data="{Binding NodeClass, Converter={x:Static conv:NodeClassConverters.ToIcon}}"
                         Foreground="{Binding NodeClass, Converter={x:Static conv:NodeClassConverters.ToBrush}}" />
-              <TextBlock Grid.Column="1" Text="{Binding DisplayName}" VerticalAlignment="Center" />
-              <Button Grid.Column="2" Classes="icon-only row-action" IsVisible="{Binding IsVariable}"
-                      Command="{Binding $parent[TreeView].((vm:MainWindowViewModel)DataContext).MonitorNodeCommand}"
+              <TextBlock Grid.Column="2" Text="{Binding DisplayName}" VerticalAlignment="Center"
+                         Classes.placeholder="{Binding IsPlaceholder}" Classes.error="{Binding IsError}" />
+              <Button Grid.Column="3" Classes="icon-only row-action" IsVisible="{Binding IsVariable}"
+                      Command="{Binding $parent[ListBox].((vm:MainWindowViewModel)DataContext).MonitorNodeCommand}"
                       CommandParameter="{Binding}"
                       AutomationProperties.Name="Monitor this variable" ToolTip.Tip="Monitor this variable">
                 <PathIcon Data="{StaticResource IconMonitor}" />
               </Button>
             </Grid>
-          </TreeDataTemplate>
-        </TreeView.ItemTemplate>
-      </TreeView>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
       <TextBlock Classes="empty-hint" IsVisible="{Binding IsDisconnected}"
                  Text="Enter an endpoint URL and press Connect to browse the server." />
     </Grid>
