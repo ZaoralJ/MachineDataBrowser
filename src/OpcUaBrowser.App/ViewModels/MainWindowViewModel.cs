@@ -383,7 +383,30 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             // The SDKs do synchronous work while connecting (endpoint discovery, certificates, type system,
             // libplctag tag creation); run it on the pool so the window stays responsive.
             var client = _client;
-            await Task.Run(() => client.ConnectAsync(options));
+            try
+            {
+                await Task.Run(() => client.ConnectAsync(options));
+            }
+            catch (Exception ex) when (AppErrors.IsRecoverable(ex)
+                && client is IServerCertificateTrust { LastUntrustedCertificate: { } certificate } trust
+                && Dialogs is not null)
+            {
+                // An untrusted server certificate: show it and let the user decide instead of failing.
+                var choice = await Dialogs.AskTrustCertificateAsync(certificate, EndpointUrl.Trim());
+                if (choice == CertificateTrustChoice.Cancel)
+                {
+                    throw;
+                }
+
+                if (choice == CertificateTrustChoice.Always)
+                {
+                    trust.TrustPermanently(certificate);
+                }
+
+                StatusMessage = $"Connecting to {EndpointUrl}…";
+                var trusted = options with { AcceptedCertificateThumbprints = [certificate.Thumbprint] };
+                await Task.Run(() => client.ConnectAsync(trusted));
+            }
 
             ClearSearch();
             RootNodes.Clear();

@@ -53,6 +53,9 @@ Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ but
 - For OPC UA only: "Use secure endpoint".
 - "Auto-trust server certificates" accepts OPC UA server certificates and TLS certificates of MQTT brokers without
   checking them. Use it on lab networks only.
+- With auto-trust off, an OPC UA server whose certificate is not trusted yet shows it (subject, issuer, validity,
+  thumbprint and the reason) and asks: **Trust Once** connects this time only, **Always Trust** adds it to
+  `pki/trusted` so later connections don't ask, **Cancel** doesn't connect.
 
 **Disconnect:** ⇧⌘D. If the connection drops, the app shows *Connection lost. Reconnecting…* and restores the
 connection by itself. Watch items and recordings continue after that.
@@ -228,7 +231,7 @@ right-click menus and the tooltips. **Help ▸ Keyboard Shortcuts** (⌘/) lists
 
 | Symptom | What to check |
 |---|---|
-| OPC UA: `BadCertificateUntrusted` | Trust the server certificate in the certificate folder, or use "auto-trust" on a lab network |
+| OPC UA: `BadCertificateUntrusted` | Answer the trust prompt, or copy the certificate into `pki/trusted/certs` in the certificate folder |
 | OPC UA structure shows as bytes | The server does not publish its type definitions; the raw value is still shown |
 | EtherNet/IP: no tags | Only Logix (ControlLogix/CompactLogix) lists tags; check the path (`/1,0` = backplane 1, slot 0) |
 | MQTT: empty tree | Nothing has been published yet on the filter (only retained messages appear at once); check the topic filter in the URL |

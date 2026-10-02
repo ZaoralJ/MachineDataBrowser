@@ -32,6 +32,16 @@ public interface IDialogService
 
     /// <summary>Asks for a value to write to <paramref name="target"/>; null when cancelled.</summary>
     Task<string?> AskWriteValueAsync(string target, string currentValue);
+
+    /// <summary>Shows a server certificate the app does not trust and asks whether to trust it.</summary>
+    Task<CertificateTrustChoice> AskTrustCertificateAsync(OpcUaBrowser.Core.ServerCertificate certificate, string endpointUrl);
+}
+
+public enum CertificateTrustChoice
+{
+    Cancel,
+    Once,
+    Always,
 }
 
 public enum ActiveRecordingsChoice

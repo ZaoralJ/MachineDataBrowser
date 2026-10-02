@@ -78,4 +78,4 @@ may need `xattr -dr com.apple.quarantine "/Applications/OPC UA Browser.app"` or 
 
 - CLI (`OpcUaBrowser.Cli` sharing Core) – planned commands `endpoints`, `browse`, `read`, `monitor`, `record`.
 - Windows/Linux packages – the app builds for `win-x64`, but no release artifacts yet.
-- Server certificate trust prompt (currently an explicit, insecure "auto-trust" option), method calls, notarization.
+- Method calls, notarization.

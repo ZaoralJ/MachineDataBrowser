@@ -9,6 +9,16 @@ internal static class ClientConfiguration
 
     public static string PkiRoot { get; } = Path.Combine(ClientPaths.DataRoot, "pki");
 
+    public static string TrustedStorePath { get; } = Path.Combine(PkiRoot, "trusted");
+
+    /// <summary>Writes <paramref name="rawData"/> (DER) where the trusted-peer directory store reads it.</summary>
+    public static void AddTrusted(byte[] rawData, string thumbprint)
+    {
+        var certs = Path.Combine(TrustedStorePath, "certs");
+        Directory.CreateDirectory(certs);
+        File.WriteAllBytes(Path.Combine(certs, $"{thumbprint}.der"), rawData);
+    }
+
     public static async Task<ApplicationConfiguration> CreateAsync(
         ITelemetryContext telemetry,
         Func<CertificateValidationEventArgs, bool> acceptUntrusted,

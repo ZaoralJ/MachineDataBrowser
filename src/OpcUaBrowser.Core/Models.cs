@@ -17,6 +17,32 @@ public sealed record ConnectOptions
     public string? Password { get; init; }
 
     public uint SessionTimeoutMs { get; init; } = 60_000;
+
+    /// <summary>Server certificates (SHA-1 thumbprints) the user trusted for this connection only.</summary>
+    public IReadOnlyCollection<string> AcceptedCertificateThumbprints { get; init; } = [];
+}
+
+/// <summary>A server certificate the client did not trust, as shown to the user before trusting it.</summary>
+public sealed record ServerCertificate(
+    string Subject,
+    string Issuer,
+    string Thumbprint,
+    DateTime NotBefore,
+    DateTime NotAfter,
+    string Problem,
+    byte[] RawData)
+{
+    public bool IsExpired => DateTime.UtcNow > NotAfter.ToUniversalTime() || DateTime.UtcNow < NotBefore.ToUniversalTime();
+}
+
+/// <summary>Clients that validate server certificates and can be told to trust one.</summary>
+public interface IServerCertificateTrust
+{
+    /// <summary>The certificate that made the last connect fail because it is not trusted; null otherwise.</summary>
+    ServerCertificate? LastUntrustedCertificate { get; }
+
+    /// <summary>Adds the certificate to the trusted store, so later connections accept it without asking.</summary>
+    void TrustPermanently(ServerCertificate certificate);
 }
 
 public sealed record BrowseItem(NodeId NodeId, string DisplayName, string BrowseName, NodeClass NodeClass, bool HasChildren = true);

@@ -168,6 +168,9 @@ stateDiagram-v2
   - Picks the endpoint; `UseSecurity` chooses the most secure one.
   - Anonymous or user/password login.
   - Creates the application certificate on first use.
+  - Server certificates: without auto-trust, an untrusted certificate fails the connect and is kept in
+    `IServerCertificateTrust.LastUntrustedCertificate`. The App shows it and connects again with its thumbprint in
+    `ConnectOptions.AcceptedCertificateThumbprints` (once), or after `TrustPermanently` wrote it to `pki/trusted/certs`.
   - Loads the complex type definitions (`ComplexTypeSystem`), so server-specific structures decode instead of
     showing as bytes.
 - **Browse:** follows hierarchical forward references. The tree uses `BrowseQuickAsync` (one round trip, every child

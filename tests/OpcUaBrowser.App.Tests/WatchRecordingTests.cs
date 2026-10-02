@@ -21,7 +21,7 @@ public sealed class WatchRecordingTests(OpcPlcFixture plc)
     [AvaloniaFact]
     public async Task Recorded_items_show_indicator_and_open_their_values_with_a_chart()
     {
-        var dialogs = new CapturingDialogs();
+        var dialogs = new TestDialogs();
         await using var vm = new MainWindowViewModel { EndpointUrl = plc.EndpointUrl };
         var window = new MainWindow { DataContext = vm, Width = 1280, Height = 800 };
         window.Show();
@@ -222,51 +222,6 @@ public sealed class WatchRecordingTests(OpcPlcFixture plc)
             Assert.True(DateTime.UtcNow < deadline, "timeout");
             Dispatcher.UIThread.RunJobs();
             await Task.Delay(50, TestContext.Current.CancellationToken);
-        }
-    }
-
-    private sealed class CapturingDialogs : IDialogService
-    {
-        public RecordingViewerViewModel? Viewer { get; set; }
-
-        public void ShowRecordingViewer(RecordingViewerViewModel viewer) => Viewer = viewer;
-
-        public Task<string?> PickSessionToOpenAsync() => Task.FromResult<string?>(null);
-
-        public Task<string?> PickSessionSaveTargetAsync(string suggestedName) => Task.FromResult<string?>(null);
-
-        public Task<string?> PickCsvSaveTargetAsync(string suggestedName) => Task.FromResult<string?>(null);
-
-        public Task<UnsavedChangesChoice> AskUnsavedChangesAsync(string documentName) => Task.FromResult(UnsavedChangesChoice.Discard);
-
-        public Task<AppSettings?> EditSettingsAsync(AppSettings current) => Task.FromResult<AppSettings?>(null);
-
-        public Task ShowAboutAsync() => Task.CompletedTask;
-
-        public Task<string?> PickRecordingFileAsync() => Task.FromResult<string?>(null);
-
-        public Task<RecordingOptions?> EditNewRecordingAsync(NewRecordingDraft draft) => Task.FromResult<RecordingOptions?>(null);
-
-        public Task<string?> PickExportTargetAsync(string suggestedName, string extension) => Task.FromResult<string?>(null);
-
-        public void RevealInFileManager(string path)
-        {
-        }
-
-        public RecordingOptions? SettingsAnswer { get; set; }
-
-        public Task<RecordingOptions?> EditRecordingSettingsAsync(NewRecordingViewModel form) => Task.FromResult(SettingsAnswer);
-
-        public ActiveRecordingsChoice RecordingsAnswer { get; set; } = ActiveRecordingsChoice.Keep;
-
-        public int RecordingsAsked { get; private set; }
-
-        public Task<string?> AskWriteValueAsync(string target, string currentValue) => Task.FromResult<string?>(null);
-
-        public Task<ActiveRecordingsChoice> AskActiveRecordingsAsync(int count)
-        {
-            RecordingsAsked++;
-            return Task.FromResult(RecordingsAnswer);
         }
     }
 }
