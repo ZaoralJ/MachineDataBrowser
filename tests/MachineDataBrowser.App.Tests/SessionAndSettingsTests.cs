@@ -176,11 +176,14 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
         vm.SelectedNode = await Navigate(vm, "Objects", "OpcPlc", "Telemetry");
         await vm.MonitorFolderCommand.ExecuteAsync(null);
         vm.GroupWatchByPath = true;
-        await WaitUntil(() => vm.WatchItems.All(w => w.Status == "Good"));
 
-        window.CaptureRenderedFrame()?.Dispose();
-        Dispatcher.UIThread.RunJobs();
-        var headers = window.GetVisualDescendants().OfType<Avalonia.Controls.DataGridRowGroupHeader>().ToList();
+        var headers = new List<Avalonia.Controls.DataGridRowGroupHeader>();
+        await WaitUntil(() =>
+        {
+            window.CaptureRenderedFrame()?.Dispose();
+            headers = [.. window.GetVisualDescendants().OfType<Avalonia.Controls.DataGridRowGroupHeader>()];
+            return headers.Count > 0;
+        });
         Assert.NotEmpty(headers);
 
         using var frame = window.CaptureRenderedFrame();
