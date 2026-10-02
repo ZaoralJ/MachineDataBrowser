@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.9.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.8.0...v0.9.0) (2026-10-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **app:** the OPC UA client identity is now MachineDataBrowser, so a new application certificate is created and servers that trusted the old one must trust it once.
+
+### Fixes
+
+* **app:** session files saved before 0.8 open again ([#41](https://github.com/ZaoralJ/MachineDataBrowser/issues/41)) ([5c1a847](https://github.com/ZaoralJ/MachineDataBrowser/commit/5c1a8479c219509e92af6135006b3ac941b2595c))
+
 ## [0.8.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.7.0...v0.8.0) (2026-10-02)
 
 
