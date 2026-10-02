@@ -159,19 +159,32 @@ public static class DeviceClientExtensions
         int maxDepth,
         int maxCount,
         bool descendIntoVariables,
+        CancellationToken cancellationToken = default) =>
+        [.. (await client.CollectVariablesWithPathsAsync(nodeId, maxDepth, maxCount, descendIntoVariables, cancellationToken).ConfigureAwait(false)).Select(v => v.Item)];
+
+    /// <summary>
+    /// As <see cref="CollectVariablesAsync(IDeviceClient, NodeId, int, int, bool, CancellationToken)"/>, with each
+    /// variable's parent path below <paramref name="nodeId"/> (display names joined by <c>/</c>; empty for direct children).
+    /// </summary>
+    public static async Task<IReadOnlyList<(BrowseItem Item, string Path)>> CollectVariablesWithPathsAsync(
+        this IDeviceClient client,
+        NodeId nodeId,
+        int maxDepth,
+        int maxCount,
+        bool descendIntoVariables,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(client);
-        var found = new List<BrowseItem>();
+        var found = new List<(BrowseItem, string)>();
         var visited = new HashSet<NodeId> { nodeId };
-        var level = new List<NodeId> { nodeId };
+        var level = new List<(NodeId NodeId, string Path)> { (nodeId, string.Empty) };
 
         for (var depth = 0; depth < maxDepth && level.Count > 0 && found.Count < maxCount; depth++)
         {
-            var next = new List<NodeId>();
+            var next = new List<(NodeId, string)>();
             foreach (var parent in level)
             {
-                foreach (var child in await client.BrowseAsync(parent, cancellationToken).ConfigureAwait(false))
+                foreach (var child in await client.BrowseAsync(parent.NodeId, cancellationToken).ConfigureAwait(false))
                 {
                     if (!visited.Add(child.NodeId))
                     {
@@ -180,7 +193,7 @@ public static class DeviceClientExtensions
 
                     if (child.NodeClass == NodeClass.Variable)
                     {
-                        found.Add(child);
+                        found.Add((child, parent.Path));
                         if (found.Count >= maxCount)
                         {
                             return found;
@@ -189,7 +202,7 @@ public static class DeviceClientExtensions
 
                     if (child.HasChildren && (child.NodeClass == NodeClass.Object || (descendIntoVariables && child.NodeClass == NodeClass.Variable)))
                     {
-                        next.Add(child.NodeId);
+                        next.Add((child.NodeId, parent.Path.Length == 0 ? child.DisplayName : $"{parent.Path}/{child.DisplayName}"));
                     }
                 }
             }

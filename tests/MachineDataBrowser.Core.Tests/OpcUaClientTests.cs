@@ -52,6 +52,11 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
         Assert.All(shallow, v => Assert.Equal(NodeClass.Variable, v.NodeClass));
         Assert.Equal(5, capped.Count);
         Assert.Equal(capped.Count, capped.Select(v => v.NodeId).Distinct().Count());
+
+        var telemetry = Assert.Single(await _client.BrowseAsync(plcNode, Ct), c => c.DisplayName == "Telemetry").NodeId;
+        var withPaths = await _client.CollectVariablesWithPathsAsync(telemetry, maxDepth: 10, maxCount: 1000, descendIntoVariables: false, Ct);
+        Assert.Equal("Basic", Assert.Single(withPaths, v => v.Item.DisplayName == "StepUp").Path);
+        Assert.Equal(withPaths.Count, (await _client.CollectVariablesAsync(telemetry, maxDepth: 10, maxCount: 1000, Ct)).Count);
     }
 
     [Fact]

@@ -491,11 +491,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     [RelayCommand(CanExecute = nameof(CanAddToWatch))]
     private Task AddToWatchAsync() =>
-        AddWatchItemsAsync(SelectionOrCurrent().Where(n => n.IsVariable).Select(n => (n.NodeId, n.DisplayName)).ToList());
+        AddWatchItemsAsync(SelectionOrCurrent().Where(n => n.IsVariable).Select(n => (n.NodeId, n.DisplayName, n.ParentPath)).ToList());
 
     [RelayCommand(CanExecute = nameof(CanAddToWatch))]
     private Task MonitorSelectedWithRefreshAsync(int refreshMs) =>
-        AddWatchItemsAsync(SelectionOrCurrent().Where(n => n.IsVariable).Select(n => (n.NodeId, n.DisplayName)).ToList(), refreshMs);
+        AddWatchItemsAsync(SelectionOrCurrent().Where(n => n.IsVariable).Select(n => (n.NodeId, n.DisplayName, n.ParentPath)).ToList(), refreshMs);
 
     /// <summary>Raised with the items the Watch grid should select (the grid owns the multi-selection).</summary>
     public event EventHandler<IReadOnlyList<WatchItemViewModel>>? WatchSelectionRequested;
@@ -590,7 +590,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     [RelayCommand]
     private Task MonitorNodeAsync(NodeViewModel? node) =>
-        node is { IsVariable: true } && IsConnected ? AddWatchItemsAsync([(node.NodeId, node.DisplayName)]) : Task.CompletedTask;
+        node is { IsVariable: true } && IsConnected ? AddWatchItemsAsync([(node.NodeId, node.DisplayName, node.ParentPath)]) : Task.CompletedTask;
 
     private bool CanMonitorContents() => IsConnected && SelectionOrCurrent().Any(n => n.HasChildren);
 
@@ -613,7 +613,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
 
         var before = WatchItems.Count;
-        await AddWatchItemsAsync([.. nodes.Where(n => n.IsVariable).Select(n => (n.NodeId, n.DisplayName))]);
+        await AddWatchItemsAsync([.. nodes.Where(n => n.IsVariable).Select(n => (n.NodeId, n.DisplayName, n.ParentPath))]);
         var containers = nodes.Where(n => n.HasChildren).ToList();
         if (containers.Count > 0)
         {
@@ -631,13 +631,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         {
             // Browsing thousands of nodes happens off the UI thread; only the result comes back.
             var client = _client;
-            var roots = parents.Select(p => p.NodeId).ToList();
+            var roots = parents.Select(p => (p.NodeId, p.Path)).ToList();
             var variables = await Task.Run(async () =>
             {
-                var found = new List<BrowseItem>();
+                var found = new List<(NodeId NodeId, string DisplayName, string Path)>();
                 foreach (var root in roots)
                 {
-                    found.AddRange(await client.CollectVariablesAsync(root, maxDepth, maxCount - found.Count, descendIntoVariables));
+                    var collected = await client.CollectVariablesWithPathsAsync(root.NodeId, maxDepth, maxCount - found.Count, descendIntoVariables);
+                    found.AddRange(collected.Select(v => (v.Item.NodeId, v.Item.DisplayName, JoinPath(root.Path, v.Path))));
                     if (found.Count >= maxCount)
                     {
                         break;
@@ -647,7 +648,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 return found;
             });
 
-            await AddWatchItemsAsync(variables.Select(v => (v.NodeId, v.DisplayName)).ToList());
+            await AddWatchItemsAsync(variables);
             StatusMessage = variables.Count >= maxCount
                 ? $"Monitoring limited to the first {maxCount} variables"
                 : $"Found {variables.Count} variable(s)";
@@ -662,23 +663,26 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
     }
 
-    private Task AddWatchItemsAsync(IReadOnlyList<(NodeId NodeId, string DisplayName)> nodes, int? refreshMs = null) =>
-        AddWatchItemsAsync([.. nodes.Select(n => (n.NodeId, n.DisplayName, refreshMs ?? DefaultRefreshMs))]);
+    private static string JoinPath(string parent, string child) =>
+        parent.Length == 0 ? child : child.Length == 0 ? parent : $"{parent}/{child}";
 
-    private async Task AddWatchItemsAsync(IReadOnlyList<(NodeId NodeId, string DisplayName, int RefreshMs)> nodes)
+    private Task AddWatchItemsAsync(IReadOnlyList<(NodeId NodeId, string DisplayName, string Path)> nodes, int? refreshMs = null) =>
+        AddWatchItemsAsync([.. nodes.Select(n => (n.NodeId, n.DisplayName, n.Path, refreshMs ?? DefaultRefreshMs))]);
+
+    private async Task AddWatchItemsAsync(IReadOnlyList<(NodeId NodeId, string DisplayName, string Path, int RefreshMs)> nodes)
     {
         foreach (var group in nodes.GroupBy(n => n.RefreshMs))
         {
-            await AddWatchGroupAsync([.. group.Select(n => (n.NodeId, n.DisplayName))], group.Key);
+            await AddWatchGroupAsync([.. group.Select(n => (n.NodeId, n.DisplayName, n.Path))], group.Key);
         }
     }
 
-    private async Task AddWatchGroupAsync(List<(NodeId NodeId, string DisplayName)> nodes, int refreshMs)
+    private async Task AddWatchGroupAsync(List<(NodeId NodeId, string DisplayName, string Path)> nodes, int refreshMs)
     {
         var watched = WatchItems.Select(w => w.NodeId).ToHashSet();
         var items = nodes
             .Where(n => watched.Add(n.NodeId))
-            .Select(n => new WatchItemViewModel(n.NodeId, n.DisplayName) { PortableId = _client.ToPortableId(n.NodeId), NodeIdText = _client.ToDisplayId(n.NodeId), RefreshMs = refreshMs })
+            .Select(n => new WatchItemViewModel(n.NodeId, n.DisplayName) { Path = n.Path, PortableId = _client.ToPortableId(n.NodeId), NodeIdText = _client.ToDisplayId(n.NodeId), RefreshMs = refreshMs })
             .ToList();
         if (items.Count == 0)
         {

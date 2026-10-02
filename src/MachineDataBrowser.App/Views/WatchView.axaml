@@ -13,12 +13,14 @@
           <TextBlock Text="{Binding WatchFilterSummary}" VerticalAlignment="Center" FontSize="12"
                      Foreground="{DynamicResource AppMutedTextBrush}" />
           <TextBox x:Name="FilterBox" Text="{Binding WatchFilter}" Width="220" Classes="search"
-                   PlaceholderText="Filter name, id, value, status (/)" AutomationProperties.Name="Filter watch list"
-                   ToolTip.Tip="Shows only rows whose name, NodeId, value or status contains the text. Esc clears.">
+                   PlaceholderText="Filter name, path, id, value, status (/)" AutomationProperties.Name="Filter watch list"
+                   ToolTip.Tip="Shows only rows whose name, path, NodeId, value or status contains the text. Esc clears.">
             <TextBox.KeyBindings>
               <KeyBinding Gesture="Escape" Command="{Binding ClearWatchFilterCommand}" />
             </TextBox.KeyBindings>
           </TextBox>
+          <ToggleButton IsChecked="{Binding GroupWatchByPath}" Content="Group by path"
+                        ToolTip.Tip="Group rows by where they sit in the address space; click a group header to collapse it (Shift+G)" />
           <ToggleButton IsChecked="{Binding ShowWatchProblemsOnly}" Content="Problems only"
                         ToolTip.Tip="Show only Bad, Uncertain or stale rows (P)" />
         </StackPanel>

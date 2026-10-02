@@ -130,6 +130,66 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Watch_items_keep_their_path_and_group_by_it_across_sessions()
+    {
+        var path = Path.Combine(_dir, "grouped.mdbsession");
+        await using (var vm = new MainWindowViewModel { EndpointUrl = plc.EndpointUrl })
+        {
+            await vm.ConnectCommand.ExecuteAsync(null);
+            vm.SelectedNode = await Navigate(vm, "Objects", "OpcPlc", "Telemetry");
+            await vm.MonitorFolderCommand.ExecuteAsync(null);
+            Assert.All(vm.WatchItems, w => Assert.StartsWith("Objects/OpcPlc/Telemetry/", w.Path, StringComparison.Ordinal));
+            Assert.Equal("Objects/OpcPlc/Telemetry/Basic", vm.WatchItems.Single(w => w.DisplayName == "StepUp").Path);
+
+            var current = await Navigate(vm, "Objects", "Server", "ServerStatus", "CurrentTime");
+            await vm.MonitorNodeCommand.ExecuteAsync(current);
+            Assert.Equal("Objects/Server/ServerStatus", vm.WatchItems.Single(w => w.DisplayName == "CurrentTime").Path);
+
+            vm.WatchFilter = "Telemetry/Basic";
+            Assert.Equal(4, vm.WatchView.Count);
+            vm.WatchFilter = string.Empty;
+
+            Assert.Empty(vm.WatchView.GroupDescriptions);
+            vm.ToggleGroupWatchByPathCommand.Execute(null);
+            Assert.True(vm.GroupWatchByPath);
+            Assert.True(vm.IsDirty);
+            Assert.Equal(vm.WatchItems.Select(w => w.Path).Distinct().Count(), vm.WatchView.Groups!.Count);
+
+            await vm.WriteSessionAsync(path);
+        }
+
+        await using var reopened = new MainWindowViewModel();
+        await reopened.LoadSessionAsync(path);
+        Assert.True(reopened.GroupWatchByPath);
+        Assert.False(reopened.IsDirty);
+        Assert.Equal("Objects/OpcPlc/Telemetry/Basic", reopened.WatchItems.Single(w => w.DisplayName == "StepUp").Path);
+        Assert.Contains(reopened.WatchView.Groups!.Cast<Avalonia.Collections.DataGridCollectionViewGroup>(), g => Equals(g.Key, "Objects/Server/ServerStatus"));
+    }
+
+    [AvaloniaFact]
+    public async Task Grouped_watch_list_renders_collapsible_path_headers()
+    {
+        await using var vm = new MainWindowViewModel { EndpointUrl = plc.EndpointUrl };
+        var window = new MainWindow { DataContext = vm, Width = 1280, Height = 800 };
+        window.Show();
+        await vm.ConnectCommand.ExecuteAsync(null);
+        vm.SelectedNode = await Navigate(vm, "Objects", "OpcPlc", "Telemetry");
+        await vm.MonitorFolderCommand.ExecuteAsync(null);
+        vm.GroupWatchByPath = true;
+        await WaitUntil(() => vm.WatchItems.All(w => w.Status == "Good"));
+
+        window.CaptureRenderedFrame()?.Dispose();
+        Dispatcher.UIThread.RunJobs();
+        var headers = window.GetVisualDescendants().OfType<Avalonia.Controls.DataGridRowGroupHeader>().ToList();
+        Assert.NotEmpty(headers);
+
+        using var frame = window.CaptureRenderedFrame();
+        Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "screenshots"));
+        frame!.Save(Path.Combine(AppContext.BaseDirectory, "screenshots", "watch-grouped.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public async Task Refresh_time_per_item_and_default_round_trip_through_session()
     {
         var path = Path.Combine(_dir, "refresh.mdbsession");

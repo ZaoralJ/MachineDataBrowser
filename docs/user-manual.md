@@ -142,9 +142,12 @@ order are saved with the session.
   - ⇧S selects rows that are stale or bad.
   - ⇧Delete removes all rows. If recordings are still running, the app asks whether to stop them, close them or keep
     them running.
-- **Filter:** the box at the top right (or **/**) shows only rows whose name, NodeId, value or status contains the
-  text; Esc clears it. **Problems only** (P) shows Bad, Uncertain and stale rows. Rows join and leave the filtered list
-  as their values change. ⌘C and the stale/bad selection act on what is shown; the count says how many are hidden.
+- **Filter:** the box at the top right (or **/**) shows only rows whose name, path, NodeId, value or status contains
+  the text; Esc clears it. **Problems only** (P) shows Bad, Uncertain and stale rows. Rows join and leave the filtered
+  list as their values change. ⌘C and the stale/bad selection act on what is shown; the count says how many are hidden.
+- **Group by path** (⇧G): rows are grouped under the folder they sit in, such as `Objects/OpcPlc/Telemetry/Basic`;
+  click a group header to collapse it. The setting and each row's path are saved with the session. Rows from session
+  files saved before this version have no path and are grouped under *(no path)*; add them again to group them.
 - **Refresh time:** 1–7 (100 ms … 10 s), T for a custom time, or right-click ▸ Refresh time.
   - OPC UA uses it as the sampling interval, Logix as the poll interval.
   - For MQTT it is a maximum update rate: at most the latest value once per interval. **0** means every message;
