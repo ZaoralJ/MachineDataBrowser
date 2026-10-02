@@ -18,6 +18,19 @@
           <SolidColorBrush x:Key="AppSelectionTextBrush" Color="#3E3EB8" />
           <SolidColorBrush x:Key="AppAccentBrush" Color="#5B5BD6" />
           <SolidColorBrush x:Key="AppChipBrush" Color="#EEF0F4" />
+          <!-- Text boxes and drop-downs (Fluent keys): themed fill and a quiet border; the accent marks focus. -->
+          <StaticResource x:Key="TextControlBackground" ResourceKey="AppInputBrush" />
+          <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="AppInputBrush" />
+          <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="AppInputBrush" />
+          <StaticResource x:Key="TextControlBorderBrush" ResourceKey="AppBorderStrongBrush" />
+          <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="AppMutedTextBrush" />
+          <StaticResource x:Key="TextControlBorderBrushFocused" ResourceKey="AppAccentBrush" />
+          <StaticResource x:Key="ComboBoxBackground" ResourceKey="AppInputBrush" />
+          <StaticResource x:Key="ComboBoxBackgroundPointerOver" ResourceKey="AppInputBrush" />
+          <StaticResource x:Key="ComboBoxBackgroundPressed" ResourceKey="AppInputBrush" />
+          <StaticResource x:Key="ComboBoxBorderBrush" ResourceKey="AppBorderStrongBrush" />
+          <StaticResource x:Key="ComboBoxBorderBrushPointerOver" ResourceKey="AppMutedTextBrush" />
+          <StaticResource x:Key="ComboBoxBorderBrushPressed" ResourceKey="AppAccentBrush" />
           <!-- Dock tokens -->
           <StaticResource x:Key="DockSurfacePanelBrush" ResourceKey="AppSurfaceBrush" />
           <StaticResource x:Key="DockSurfaceSidebarBrush" ResourceKey="AppWindowBrush" />
@@ -62,6 +75,19 @@
           <SolidColorBrush x:Key="AppSelectionTextBrush" Color="#C9C8FF" />
           <SolidColorBrush x:Key="AppAccentBrush" Color="#8A87FF" />
           <SolidColorBrush x:Key="AppChipBrush" Color="#1D2029" />
+          <!-- Text boxes and drop-downs (Fluent keys): themed fill and a quiet border; the accent marks focus. -->
+          <StaticResource x:Key="TextControlBackground" ResourceKey="AppInputBrush" />
+          <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="AppInputBrush" />
+          <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="AppInputBrush" />
+          <StaticResource x:Key="TextControlBorderBrush" ResourceKey="AppBorderStrongBrush" />
+          <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="AppMutedTextBrush" />
+          <StaticResource x:Key="TextControlBorderBrushFocused" ResourceKey="AppAccentBrush" />
+          <StaticResource x:Key="ComboBoxBackground" ResourceKey="AppInputBrush" />
+          <StaticResource x:Key="ComboBoxBackgroundPointerOver" ResourceKey="AppInputBrush" />
+          <StaticResource x:Key="ComboBoxBackgroundPressed" ResourceKey="AppInputBrush" />
+          <StaticResource x:Key="ComboBoxBorderBrush" ResourceKey="AppBorderStrongBrush" />
+          <StaticResource x:Key="ComboBoxBorderBrushPointerOver" ResourceKey="AppMutedTextBrush" />
+          <StaticResource x:Key="ComboBoxBorderBrushPressed" ResourceKey="AppAccentBrush" />
           <!-- Dock tokens -->
           <StaticResource x:Key="DockSurfacePanelBrush" ResourceKey="AppSurfaceBrush" />
           <StaticResource x:Key="DockSurfaceSidebarBrush" ResourceKey="AppWindowBrush" />
@@ -151,6 +177,12 @@
     <Setter Property="MinHeight" Value="32" />
   </Style>
   <Style Selector="TextBox">
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="CornerRadius" Value="{StaticResource AppControlRadius}" />
+  </Style>
+  <!-- A toggle next to a text box (e.g. Watch's "Problems only") matches its height. -->
+  <Style Selector="StackPanel > ToggleButton:not(.tree-expander)">
+    <Setter Property="MinHeight" Value="32" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="CornerRadius" Value="{StaticResource AppControlRadius}" />
   </Style>
