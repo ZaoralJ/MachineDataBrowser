@@ -53,6 +53,10 @@ public class TestDialogs : IDialogService
         return Task.FromResult(TrustAnswer);
     }
 
+    public List<EventsViewModel> EventWindows { get; } = [];
+
+    public void ShowEvents(EventsViewModel events) => EventWindows.Add(events);
+
     public Task<ActiveRecordingsChoice> AskActiveRecordingsAsync(int count)
     {
         RecordingsAsked++;

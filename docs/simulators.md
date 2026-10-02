@@ -75,6 +75,9 @@ Microsoft's [opc-plc](https://github.com/Azure-Samples/iot-edge-opc-plc), pinned
 - `Objects/OpcPlc/Plant`: a writable folder tree from `nodesfile.json` with every built-in type and arrays. These
   values change only when a client writes them.
 - Boilers (complex type, DI companion spec), alarms and conditions, simple events, stacklight, pumps, `ReferenceTest`.
+- Alarms (`--alm`) live under *Objects ▸ Server* (e.g. *Green ▸ East ▸ Blue ▸ WestTank ▸ Gold*); simple events
+  (`--ses`) are raised on the Server object. Its alarm notifications carry an all-zero EventId, so they cannot be
+  acknowledged.
 - Security None and anonymous allowed, certificates auto-accepted; users `admin`/`admin` and `user1`/`password`.
 - Extra opc-plc arguments go after the image name: `docker run --rm -p 50000:50000 opcuabrowser-opcua-simulator:dev --chaos`.
 

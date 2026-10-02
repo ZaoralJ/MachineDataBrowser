@@ -171,6 +171,9 @@ public sealed partial class MainWindow : IDialogService
     public void ShowRecordingViewer(RecordingViewerViewModel viewer) =>
         new RecordingViewerWindow { DataContext = viewer }.Show(this);
 
+    public void ShowEvents(EventsViewModel events) =>
+        new EventsWindow { DataContext = events }.Show(this);
+
     public async Task<string?> PickRecordingFileAsync()
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions

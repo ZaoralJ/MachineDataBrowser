@@ -272,8 +272,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     };
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsDisconnected), nameof(StateText))]
-    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand), nameof(WriteAttributeValueCommand), nameof(WriteWatchValueCommand))]
+    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsDisconnected), nameof(StateText), nameof(SupportsEvents))]
+    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand), nameof(WriteAttributeValueCommand), nameof(WriteWatchValueCommand), nameof(ShowEventsCommand))]
     public partial ConnectionState State { get; private set; }
 
     [ObservableProperty]
@@ -444,6 +444,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         try
         {
             await StopAllMonitorsAsync();
+            await CloseEventViewersAsync();
             var client = _client;
             await Task.Run(client.DisconnectAsync);
             State = _client.State;
@@ -1151,6 +1152,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
         try
         {
+            await CloseEventViewersAsync();
             await _client.DisposeAsync();
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))

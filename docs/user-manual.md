@@ -152,6 +152,22 @@ The app writes to a device only when you ask it to.
     the last document with the field changed; a Sparkplug B metric is sent as a command (NCMD/DCMD).
 - Several Watch rows get the same value; failures are listed per item.
 
+## Events & Alarms (OPC UA)
+
+Connection ▸ **Events & Alarms…** (⌥⌘A) opens a live window for the whole server. To narrow it to one area or
+source, right-click it in the address space ▸ **Show events & alarms**. Each window is its own subscription; closing it
+(or disconnecting) ends it.
+
+- **Alarms tab:** alarms the server keeps (active or not yet acknowledged), one row each, most severe first, updated
+  live. Alarms that are already active when the window opens appear at once.
+  - **Acknowledge** (A) the selected alarm, with an optional comment. If the server sent no event id for an alarm, it
+    cannot be acknowledged; the hint next to the button says so.
+- **Events tab:** every event and alarm change, newest first: time, severity, source, type, message and alarm state.
+  - *Minimum severity* hides less severe events (OPC UA severity is 1–1000: high ≥ 700, medium ≥ 400).
+  - **Pause** (Space) keeps the list still; **Clear** (⌘K) empties it. ⌘C copies the selected rows as a table.
+  - The window keeps the latest 5 000 events.
+- In opc-plc (the test server), the alarms sit under *Objects ▸ Server* (e.g. *Green ▸ East ▸ Blue ▸ WestTank*).
+
 ## Recordings
 
 A recording captures the values of its items with timestamps. It keeps running when you remove the items from Watch.

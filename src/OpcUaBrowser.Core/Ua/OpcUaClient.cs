@@ -8,7 +8,7 @@ namespace OpcUaBrowser.Core.Ua;
 /// One OPC UA session: connect, browse, read attributes and monitor values.
 /// Thread-safe for the operations it exposes; events are raised on SDK threads.
 /// </summary>
-public sealed class OpcUaClient : IDeviceClient, IServerCertificateTrust
+public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
 {
     private static readonly ITelemetryContext Telemetry = DefaultTelemetry.Create(_ => { });
 

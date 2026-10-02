@@ -100,6 +100,8 @@ public sealed partial class MainWindow
                 Item("_Disconnect", vm.DisconnectCommand, new KeyGesture(Key.D, cmd | KeyModifiers.Shift)),
                 new NativeMenuItem(Label("Recent _Endpoints")) { Menu = _recentEndpointsMenu },
                 new NativeMenuItemSeparator(),
+                Item("Events & _Alarms…", vm.ShowEventsCommand, new KeyGesture(Key.A, cmd | KeyModifiers.Alt)),
+                new NativeMenuItemSeparator(),
                 Item("Show _Certificate Folder", vm.RevealCertificatesCommand, new KeyGesture(Key.K, cmd | KeyModifiers.Alt | KeyModifiers.Shift))),
             Submenu("_View",
                 Item("_Find in Address Space…", vm.FocusSearchCommand, new KeyGesture(Key.F, cmd)),

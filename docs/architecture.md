@@ -182,6 +182,11 @@ stateDiagram-v2
 - **Monitoring:** `MonitorManyAsync` creates many items in one round trip. Items with the same refresh time share a
   subscription (`Watch@<ms>`); `ChangeRefreshAsync` moves items between these subscriptions.
 - **Portable ids:** `nsu=<namespace URI>`, because namespace indexes can change between server restarts.
+- **Events (`OpcUaClient.Events.cs`, `IEventSource`):** one subscription per Events & Alarms window with an
+  EventNotifier monitored item. The EventFilter selects the BaseEventType fields plus ConditionName, Retain,
+  ActiveState/Id, AckedState/Id and the condition's NodeId; `ConditionRefresh` resends active alarms. Acknowledge
+  calls `AcknowledgeableConditionType.Acknowledge` on the condition with the latest EventId. Notifications are queued
+  on SDK threads and applied every 250 ms on the UI thread (`EventsViewModel`).
 
 ## EtherNet/IP (`Cip.CipClient`)
 

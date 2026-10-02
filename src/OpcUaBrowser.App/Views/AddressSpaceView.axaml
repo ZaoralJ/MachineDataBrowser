@@ -92,6 +92,9 @@
               <MenuItem.Icon><PathIcon Data="{StaticResource IconCollapseAll}" /></MenuItem.Icon>
             </MenuItem>
             <Separator />
+            <MenuItem Header="Show events &amp; alarms" Command="{Binding ShowEventsCommand}" IsVisible="{Binding SupportsEvents}"
+                      ToolTip.Tip="Live events and alarms of the selected object and everything below it (the whole server for Root or Objects)" />
+            <Separator />
             <MenuItem Header="Copy NodeId" Command="{Binding CopyNodeIdCommand}" />
             <MenuItem Header="Copy as JSON" Command="{Binding CopyNodeJsonCommand}"
                       ToolTip.Tip="Current values of the node and its descendants as a JSON document. Multi-select properties to cherry-pick them: they are grouped under their parent object" />

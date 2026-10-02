@@ -60,3 +60,36 @@ public enum ConnectionState
 }
 
 public sealed record MonitorResult(NodeId NodeId, IAsyncDisposable? Handle, ServiceResult Error);
+
+/// <summary>
+/// One event or alarm notification. Condition fields (<see cref="ConditionId"/>, <see cref="IsActive"/>,
+/// <see cref="IsAcked"/>, <see cref="Retain"/>) are set for alarms and conditions only.
+/// </summary>
+public sealed record EventNotification(
+    DateTime Time,
+    ushort Severity,
+    string SourceName,
+    string Message,
+    string EventType,
+    byte[]? EventId,
+    NodeId? ConditionId = null,
+    string? ConditionName = null,
+    bool? IsActive = null,
+    bool? IsAcked = null,
+    bool Retain = false)
+{
+    public bool IsCondition => ConditionId is not null && !NodeId.IsNull(ConditionId);
+}
+
+/// <summary>Clients that deliver events and alarms (OPC UA Alarms &amp; Conditions).</summary>
+public interface IEventSource
+{
+    /// <summary>
+    /// Subscribes to events of <paramref name="notifier"/> (the Server object for all of them) and asks the server to
+    /// resend the current state of its conditions. Dispose the handle to unsubscribe.
+    /// </summary>
+    Task<IAsyncDisposable> SubscribeEventsAsync(NodeId notifier, Action<EventNotification> onEvent, CancellationToken cancellationToken = default);
+
+    /// <summary>Acknowledges an alarm (the <paramref name="eventId"/> of its latest notification).</summary>
+    Task AcknowledgeAsync(NodeId conditionId, byte[] eventId, string comment, CancellationToken cancellationToken = default);
+}

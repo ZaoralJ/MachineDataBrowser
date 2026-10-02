@@ -1,0 +1,145 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:OpcUaBrowser.App.ViewModels"
+        xmlns:views="using:OpcUaBrowser.App.Views"
+        x:Class="OpcUaBrowser.App.Views.EventsWindow"
+        x:DataType="vm:EventsViewModel"
+        Title="{Binding Title}"
+        Icon="/Assets/AppIcon.png"
+        Width="1000" Height="600" MinWidth="620" MinHeight="320"
+        WindowStartupLocation="CenterOwner">
+  <Window.Styles>
+    <Style Selector="TabItem">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Padding" Value="12,0" />
+    </Style>
+    <Style Selector="TextBlock.sev-high">
+      <Setter Property="Foreground" Value="{StaticResource StatusBadBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.sev-medium">
+      <Setter Property="Foreground" Value="{StaticResource StatusUncertainBrush}" />
+    </Style>
+    <Style Selector="TextBlock.unacked">
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </Window.Styles>
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Padding="10,4"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+      <TextBlock FontSize="12" Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" />
+    </Border>
+    <TabControl x:Name="Tabs" Padding="0">
+      <TabItem Header="{Binding Alarms.Count, StringFormat='Alarms ({0})'}">
+        <DockPanel>
+          <Border DockPanel.Dock="Top" Classes="pane-toolbar" Padding="10,6">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="Acknowledge" Command="{Binding AcknowledgeCommand}" Classes="accent" Margin="8,0,0,0"
+                      ToolTip.Tip="Acknowledge the selected alarm (A), with the comment on the left" />
+              <TextBlock DockPanel.Dock="Right" Text="{Binding AcknowledgeHint}" FontSize="12" VerticalAlignment="Center" Margin="8,0,0,0"
+                         Foreground="{DynamicResource AppMutedTextBrush}" />
+              <TextBox Text="{Binding AckComment}" PlaceholderText="Comment for the acknowledgement (optional)"
+                       AutomationProperties.Name="Acknowledge comment" />
+            </DockPanel>
+          </Border>
+          <Grid>
+            <DataGrid x:Name="AlarmsGrid" ItemsSource="{Binding Alarms}" SelectedItem="{Binding SelectedAlarm}"
+                      AutomationProperties.Name="Alarms">
+              <DataGrid.Columns>
+                <DataGridTemplateColumn Header="Severity" views:GridCopy.Member="SeverityText" Width="120" SortMemberPath="Severity">
+                  <DataTemplate DataType="vm:AlarmRow">
+                    <TextBlock Classes="cell" Text="{Binding SeverityText}" Classes.sev-high="{Binding IsHigh}" Classes.sev-medium="{Binding IsMedium}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="State" views:GridCopy.Member="StateText" Width="140" SortMemberPath="StateText">
+                  <DataTemplate DataType="vm:AlarmRow">
+                    <TextBlock Classes="cell" Text="{Binding StateText}" Classes.unacked="{Binding IsUnacked}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Source" views:GridCopy.Member="Source" Width="140" SortMemberPath="Source">
+                  <DataTemplate DataType="vm:AlarmRow">
+                    <TextBlock Classes="cell" Text="{Binding Source}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Alarm" views:GridCopy.Member="Name" Width="140" SortMemberPath="Name">
+                  <DataTemplate DataType="vm:AlarmRow">
+                    <TextBlock Classes="cell" Text="{Binding Name}" ToolTip.Tip="{Binding Type}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Message" views:GridCopy.Member="Message" Width="*" SortMemberPath="Message">
+                  <DataTemplate DataType="vm:AlarmRow">
+                    <TextBlock Classes="cell" Text="{Binding Message}" ToolTip.Tip="{Binding Message}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Time" views:GridCopy.Member="TimeText" Width="120" SortMemberPath="Latest.Time">
+                  <DataTemplate DataType="vm:AlarmRow">
+                    <TextBlock Classes="cell mono" Text="{Binding TimeText}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn>
+              </DataGrid.Columns>
+            </DataGrid>
+            <TextBlock Classes="empty-hint" IsVisible="{Binding !Alarms.Count}"
+                       Text="No active or unacknowledged alarms." />
+          </Grid>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="{Binding Events.Count, StringFormat='Events ({0})'}">
+        <DockPanel>
+          <Border DockPanel.Dock="Top" Classes="pane-toolbar" Padding="10,6">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="Clear" Command="{Binding ClearCommand}" Margin="8,0,0,0"
+                      ToolTip.Tip="Remove the received events from the list (alarms stay)" />
+              <CheckBox DockPanel.Dock="Right" Content="Pause" IsChecked="{Binding IsPaused}" Margin="8,0,0,0"
+                        ToolTip.Tip="Keep the list still; events received meanwhile appear when you resume (Space)" />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Minimum severity" VerticalAlignment="Center" />
+                <ComboBox ItemsSource="{x:Static vm:EventsViewModel.SeverityChoices}" SelectedItem="{Binding MinSeverity}" MinWidth="90"
+                          AutomationProperties.Name="Minimum severity" />
+              </StackPanel>
+            </DockPanel>
+          </Border>
+          <Grid>
+            <DataGrid x:Name="EventsGrid" ItemsSource="{Binding Events}" SelectedItem="{Binding SelectedEvent}"
+                      SelectionMode="Extended" AutomationProperties.Name="Events">
+              <DataGrid.Columns>
+                <DataGridTemplateColumn Header="Time" views:GridCopy.Member="TimeText" Width="120">
+                  <DataTemplate DataType="vm:EventRow">
+                    <TextBlock Classes="cell mono" Text="{Binding TimeText}" ToolTip.Tip="{Binding TimeToolTip}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Severity" views:GridCopy.Member="SeverityText" Width="120" SortMemberPath="Severity">
+                  <DataTemplate DataType="vm:EventRow">
+                    <TextBlock Classes="cell" Text="{Binding SeverityText}" Classes.sev-high="{Binding IsHigh}" Classes.sev-medium="{Binding IsMedium}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Source" views:GridCopy.Member="Source" Width="140" SortMemberPath="Source">
+                  <DataTemplate DataType="vm:EventRow">
+                    <TextBlock Classes="cell" Text="{Binding Source}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Type" views:GridCopy.Member="Type" Width="170" SortMemberPath="Type">
+                  <DataTemplate DataType="vm:EventRow">
+                    <TextBlock Classes="cell" Text="{Binding Type}" ToolTip.Tip="{Binding Type}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Message" views:GridCopy.Member="Message" Width="*" SortMemberPath="Message">
+                  <DataTemplate DataType="vm:EventRow">
+                    <TextBlock Classes="cell" Text="{Binding Message}" ToolTip.Tip="{Binding Message}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Alarm" views:GridCopy.Member="Condition" Width="170">
+                  <DataTemplate DataType="vm:EventRow">
+                    <TextBlock Classes="cell" Text="{Binding Condition}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn>
+              </DataGrid.Columns>
+            </DataGrid>
+            <TextBlock Classes="empty-hint" IsVisible="{Binding !Events.Count}"
+                       Text="Waiting for events…" />
+          </Grid>
+        </DockPanel>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>

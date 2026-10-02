@@ -35,6 +35,9 @@ public interface IDialogService
 
     /// <summary>Shows a server certificate the app does not trust and asks whether to trust it.</summary>
     Task<CertificateTrustChoice> AskTrustCertificateAsync(OpcUaBrowser.Core.ServerCertificate certificate, string endpointUrl);
+
+    /// <summary>Opens a live Events &amp; Alarms window; closing it ends the subscription.</summary>
+    void ShowEvents(ViewModels.EventsViewModel events);
 }
 
 public enum CertificateTrustChoice
