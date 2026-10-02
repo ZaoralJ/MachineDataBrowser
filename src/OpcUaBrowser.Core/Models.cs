@@ -81,6 +81,18 @@ public sealed record EventNotification(
     public bool IsCondition => ConditionId is not null && !NodeId.IsNull(ConditionId);
 }
 
+/// <summary>Clients that can read a variable's stored history (OPC UA HistoryRead).</summary>
+public interface IHistorySource
+{
+    /// <summary>
+    /// Raw stored values of <paramref name="nodeId"/> between <paramref name="startTime"/> and <paramref name="endTime"/>, oldest
+    /// first, at most <paramref name="maxValues"/> (the rest is reported by <see cref="HistoryResult.Truncated"/>).
+    /// </summary>
+    Task<HistoryResult> ReadHistoryAsync(NodeId nodeId, DateTime startTime, DateTime endTime, int maxValues, CancellationToken cancellationToken = default);
+}
+
+public sealed record HistoryResult(IReadOnlyList<ValueUpdate> Values, bool Truncated);
+
 /// <summary>Clients that deliver events and alarms (OPC UA Alarms &amp; Conditions).</summary>
 public interface IEventSource
 {

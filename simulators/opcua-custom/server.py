@@ -219,7 +219,39 @@ async def build(server, idx, types):
     for n in range(flat_count):
         await flat.add_variable(ua.NodeId("Flat.{:05d}".format(n), idx), "Item{:05d}".format(n), ua.Variant(n, ua.VariantType.Int32))
     log.info("Large tree: %d variables, Flat: %d variables", areas * lines * tags, flat_count)
-    return animated
+
+    # Historized values (HistoryRead): a Temperature, Pressure and Running flag that change every second.
+    hist = await root.add_folder(idx, "History")
+    historized = []
+    for name, vtype, fn in [
+        ("Temperature", ua.VariantType.Double, lambda t: 60.0 + 15.0 * math.sin(t / 120.0) + random.gauss(0, 0.3)),
+        ("Pressure", ua.VariantType.Double, lambda t: 4.0 + 0.5 * math.cos(t / 45.0)),
+        ("Running", ua.VariantType.Boolean, lambda t: int(t / 300) % 4 != 3),
+    ]:
+        var = await hist.add_variable(idx, name, ua.Variant(fn(0), vtype))
+        await var.write_attribute(ua.AttributeIds.AccessLevel, ua.DataValue(ua.Variant(
+            ua.AccessLevel.CurrentRead.mask | ua.AccessLevel.HistoryRead.mask, ua.VariantType.Byte)))
+        await var.write_attribute(ua.AttributeIds.UserAccessLevel, ua.DataValue(ua.Variant(
+            ua.AccessLevel.CurrentRead.mask | ua.AccessLevel.HistoryRead.mask, ua.VariantType.Byte)))
+        await var.write_attribute(ua.AttributeIds.Historizing, ua.DataValue(ua.Variant(True, ua.VariantType.Boolean)))
+        animated.append((var, 1000, lambda t, fn=fn, vtype=vtype: ua.Variant(fn(t + HISTORY_PREFILL_S), vtype)))
+        historized.append((var, vtype, fn))
+    return animated, historized
+
+
+HISTORY_PREFILL_S = 2 * 3600
+
+
+async def start_history(server, historized):
+    """Historizes the History variables and fills in the last two hours (one sample every 10 s)."""
+    storage = server.iserver.history_manager.storage
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for var, vtype, fn in historized:
+        await server.historize_node_data_change(var, period=datetime.timedelta(hours=6), count=0)
+        for s in range(0, HISTORY_PREFILL_S, 10):
+            stamp = now - datetime.timedelta(seconds=HISTORY_PREFILL_S - s)
+            await storage.save_node_value(var.nodeid, ua.DataValue(ua.Variant(fn(s), vtype), SourceTimestamp=stamp, ServerTimestamp=stamp))
+    log.info("History: %d variables, %d prefilled samples each", len(historized), HISTORY_PREFILL_S // 10)
 
 
 async def animate(server, animated, tick_ms):
@@ -256,8 +288,9 @@ async def main():
     idx = await server.register_namespace(NAMESPACE)
     types = await create_types(server, idx)
     await server.load_data_type_definitions()
-    animated = await build(server, idx, types)
+    animated, historized = await build(server, idx, types)
     async with server:
+        await start_history(server, historized)
         # Advertise a host clients can reach instead of the 0.0.0.0 bind address.
         for endpoint in await server.get_endpoints():
             endpoint.EndpointUrl = "opc.tcp://{}:{}/".format(host, port)

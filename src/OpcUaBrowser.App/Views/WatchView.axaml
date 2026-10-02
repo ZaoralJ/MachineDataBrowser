@@ -96,6 +96,14 @@
             <MenuItem Header="Show recorded values" Command="{Binding ViewItemRecordingCommand}">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconChart}" /></MenuItem.Icon>
             </MenuItem>
+            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Show history{0}'}" IsVisible="{Binding SupportsHistory}"
+                      ToolTip.Tip="Values the server stored for these items (OPC UA HistoryRead), as a table and chart">
+              <MenuItem Header="Last 15 minutes" Command="{Binding ShowWatchHistoryCommand}"><MenuItem.CommandParameter><x:Int32>15</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last hour" Command="{Binding ShowWatchHistoryCommand}"><MenuItem.CommandParameter><x:Int32>60</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last 8 hours" Command="{Binding ShowWatchHistoryCommand}"><MenuItem.CommandParameter><x:Int32>480</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last 24 hours" Command="{Binding ShowWatchHistoryCommand}"><MenuItem.CommandParameter><x:Int32>1440</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last 7 days" Command="{Binding ShowWatchHistoryCommand}"><MenuItem.CommandParameter><x:Int32>10080</x:Int32></MenuItem.CommandParameter></MenuItem>
+            </MenuItem>
             <Separator />
             <MenuItem Header="Show in address space" Command="{Binding RevealInTreeCommand}" />
             <MenuItem Header="Select">

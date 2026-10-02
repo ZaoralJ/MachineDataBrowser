@@ -152,6 +152,17 @@ The app writes to a device only when you ask it to.
     the last document with the field changed; a Sparkplug B metric is sent as a command (NCMD/DCMD).
 - Several Watch rows get the same value; failures are listed per item.
 
+## History (OPC UA)
+
+Many OPC UA servers store past values. Right-click one or more variables in the address space or rows in Watch ▸
+**Show history ▸ Last 15 minutes … Last 7 days**. The values open in the recording viewer: a table and a trend
+chart, oldest first, timed by their source timestamp.
+
+- At most 20 000 values per item (the oldest); the status bar says when an item had more.
+- A variable without stored history shows a message instead. Whether a server stores history is visible in
+  Attributes: *Historizing* and *AccessLevel* (HistoryRead).
+- In the custom test server, *Custom ▸ History* has Temperature, Pressure and Running with two hours of history.
+
 ## Events & Alarms (OPC UA)
 
 Connection ▸ **Events & Alarms…** (⌥⌘A) opens a live window for the whole server. To narrow it to one area or
