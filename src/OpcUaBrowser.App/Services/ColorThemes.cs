@@ -82,11 +82,32 @@ public static class ColorThemes
         ArgumentNullException.ThrowIfNull(theme);
         ApplyBrushes(app, ThemeVariant.Light, theme.Light, dark: false);
         ApplyBrushes(app, ThemeVariant.Dark, theme.Dark, dark: true);
-        if (app.Styles.OfType<FluentTheme>().FirstOrDefault() is { } fluent)
+        ReplaceFluentTheme(app, theme);
+    }
+
+    private static ColorTheme? _fluentTheme;
+
+    /// <summary>
+    /// Swaps in a new FluentTheme built with the theme's palettes. Fluent turns its palettes into brushes once and keeps
+    /// them, so neither changing nor replacing the palettes reaches dialogs and controls; a new theme instance does
+    /// (controls resolve its brushes through dynamic resources).
+    /// </summary>
+    private static void ReplaceFluentTheme(Application app, ColorTheme theme)
+    {
+        var index = app.Styles.IndexOf(app.Styles.OfType<FluentTheme>().FirstOrDefault()!);
+        // App.axaml's palettes are the default theme's: nothing to swap until another theme is chosen.
+        _fluentTheme ??= All[0];
+        if (index < 0 || ReferenceEquals(_fluentTheme, theme))
         {
-            ApplyPalette(fluent, ThemeVariant.Light, theme.Light, dark: false);
-            ApplyPalette(fluent, ThemeVariant.Dark, theme.Dark, dark: true);
+            return;
         }
+
+        var old = (FluentTheme)app.Styles[index];
+        var fluent = new FluentTheme { DensityStyle = old.DensityStyle };
+        fluent.Palettes[ThemeVariant.Light] = Palette(theme.Light, dark: false);
+        fluent.Palettes[ThemeVariant.Dark] = Palette(theme.Dark, dark: true);
+        app.Styles[index] = fluent;
+        _fluentTheme = theme;
     }
 
     private static void ApplyBrushes(Application app, ThemeVariant variant, ThemeColors c, bool dark)
@@ -116,13 +137,9 @@ public static class ColorThemes
         }
     }
 
-    private static void ApplyPalette(FluentTheme fluent, ThemeVariant variant, ThemeColors c, bool dark)
+    private static ColorPaletteResources Palette(ThemeColors c, bool dark)
     {
-        if (!fluent.Palettes.TryGetValue(variant, out var palette))
-        {
-            return;
-        }
-
+        var palette = new ColorPaletteResources();
         var window = Color.Parse(c.Window);
         var region = Color.Parse(c.Region ?? c.Window);
         var surface = Color.Parse(c.Surface);
@@ -149,6 +166,7 @@ public static class ColorThemes
         palette.ListLow = Mix(surface, text, dark ? 0.06 : 0.04);
         palette.ListMedium = Mix(surface, accent, dark ? 0.18 : 0.10);
         palette.ErrorText = Color.Parse(c.Error);
+        return palette;
     }
 
     private static Color WithAlpha(Color color, byte alpha) => Color.FromArgb(alpha, color.R, color.G, color.B);
