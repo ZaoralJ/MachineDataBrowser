@@ -13,6 +13,9 @@ public sealed record SessionDocument
 
     public bool UseSecurity { get; init; }
 
+    /// <summary>The session never writes values, calls methods or acknowledges alarms.</summary>
+    public bool ReadOnly { get; init; }
+
     public bool AutoAcceptCertificates { get; init; }
 
     public string? UserName { get; init; }

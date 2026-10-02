@@ -101,6 +101,10 @@
                                  FormatString="0"
                                  ToolTip.Tip="Sampling and publishing interval for items monitored in this session. Saved with the session; individual items can be changed by right-click." />
                 </StackPanel>
+                <CheckBox IsChecked="{Binding IsReadOnly}"
+                          ToolTip.Tip="Nothing that changes the device: no writing values, calling methods or acknowledging alarms. Saved with the session.">
+                  <TextBlock Text="Read-only (no writes, method calls or acknowledgements)" TextWrapping="Wrap" />
+                </CheckBox>
                 <StackPanel Spacing="12" IsVisible="{Binding HasCredentials}">
                 <CheckBox Content="Use secure endpoint" IsChecked="{Binding UseSecurity}" IsVisible="{Binding IsOpcUaEndpoint}"
                           ToolTip.Tip="Pick the most secure endpoint the server offers (Sign &amp; Encrypt)" />

@@ -20,6 +20,8 @@
     <ScrollViewer>
       <StackPanel Spacing="14">
         <TextBlock Text="{Binding MethodName}" FontSize="16" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding ReadOnlyHint}" IsVisible="{Binding IsReadOnly}" TextWrapping="Wrap"
+                   Foreground="{StaticResource StatusUncertainBrush}" />
         <TextBlock Text="This method takes no arguments." IsVisible="{Binding !HasInputs}"
                    Foreground="{DynamicResource AppMutedTextBrush}" />
         <ItemsControl ItemsSource="{Binding Inputs}">

@@ -66,6 +66,11 @@ public sealed partial class MainWindow
             RefreshDynamicMenuItems();
         }
 
+        if (e.PropertyName is nameof(MainWindowViewModel.IsReadOnly) && _readOnlyItem is not null && sender is MainWindowViewModel readOnly)
+        {
+            _readOnlyItem.IsChecked = readOnly.IsReadOnly;
+        }
+
         if (e.PropertyName is nameof(MainWindowViewModel.Settings) or nameof(MainWindowViewModel.UiScale) && sender is MainWindowViewModel vm)
         {
             UiZoom.SetScale(vm.UiScale);
@@ -99,6 +104,8 @@ public sealed partial class MainWindow
                 Item("_Connect", vm.ConnectCommand, new KeyGesture(Key.Enter, cmd)),
                 Item("_Disconnect", vm.DisconnectCommand, new KeyGesture(Key.D, cmd | KeyModifiers.Shift)),
                 new NativeMenuItem(Label("Recent _Endpoints")) { Menu = _recentEndpointsMenu },
+                new NativeMenuItemSeparator(),
+                ReadOnlyItem(vm, new KeyGesture(Key.L, cmd | KeyModifiers.Shift)),
                 new NativeMenuItemSeparator(),
                 Item("Events & _Alarms…", vm.ShowEventsCommand, new KeyGesture(Key.A, cmd | KeyModifiers.Alt)),
                 Item("D_iagnostics…", vm.ShowDiagnosticsCommand, new KeyGesture(Key.I, cmd | KeyModifiers.Shift)),
@@ -213,6 +220,16 @@ public sealed partial class MainWindow
     }
 
     private readonly Dictionary<string, NativeMenuItem> _colorThemeItems = [];
+
+    private NativeMenuItem? _readOnlyItem;
+
+    private NativeMenuItem ReadOnlyItem(MainWindowViewModel vm, KeyGesture gesture)
+    {
+        _readOnlyItem = Item("_Read-Only", vm.ToggleReadOnlyCommand, gesture);
+        _readOnlyItem.ToggleType = MenuItemToggleType.CheckBox;
+        _readOnlyItem.IsChecked = vm.IsReadOnly;
+        return _readOnlyItem;
+    }
 
     /// <summary>One radio item per colour theme; they follow the light/dark choice above them.</summary>
     private NativeMenuItemBase[] ColorThemeItems(MainWindowViewModel vm)

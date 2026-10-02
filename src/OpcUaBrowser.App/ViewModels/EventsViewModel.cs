@@ -156,6 +156,7 @@ public sealed partial class EventsViewModel : ObservableObject, IAsyncDisposable
     /// <summary>Why the selected alarm can't be acknowledged; empty when it can (or nothing is selected).</summary>
     public string AcknowledgeHint => SelectedAlarm switch
     {
+        _ when IsReadOnly => "Read-only session: acknowledging is turned off",
         null => "Select an alarm to acknowledge",
         { IsUnacked: false } => "Already acknowledged",
         { HasEventId: false } => "This server sent no event id for the alarm: it will likely refuse",
@@ -344,7 +345,13 @@ public sealed partial class EventsViewModel : ObservableObject, IAsyncDisposable
         UpdateStatus();
     }
 
-    private bool CanAcknowledge() => SelectedAlarm is { CanAcknowledge: true } && IsSubscribed;
+    private bool CanAcknowledge() => SelectedAlarm is { CanAcknowledge: true } && IsSubscribed && !IsReadOnly;
+
+    /// <summary>The session is read-only: alarms are shown but not acknowledged.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AcknowledgeCommand))]
+    [NotifyPropertyChangedFor(nameof(AcknowledgeHint))]
+    public partial bool IsReadOnly { get; set; }
 
     [RelayCommand(CanExecute = nameof(CanAcknowledge))]
     private async Task AcknowledgeAsync()
