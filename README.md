@@ -1,6 +1,6 @@
-# Machine Data Browser (OpcUaBrowser)
+# Machine Data Browser (MachineDataBrowser)
 
-[![ci](https://github.com/ZaoralJ/OpcUaBrowser/actions/workflows/ci.yml/badge.svg)](https://github.com/ZaoralJ/OpcUaBrowser/actions/workflows/ci.yml)
+[![ci](https://github.com/ZaoralJ/MachineDataBrowser/actions/workflows/ci.yml/badge.svg)](https://github.com/ZaoralJ/MachineDataBrowser/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Machine Data Browser** is a cross-platform viewer for machine data (.NET 10, Avalonia). It shows the data of one device at a time:
@@ -30,29 +30,30 @@ flowchart LR
     App --> X[Export · copy · sessions]
 ```
 
-The app is called **Machine Data Browser**. The installed app bundle (`OPC UA Browser.app`), the Homebrew cask
-(`opcua-browser`), the data folder and the repository keep their original names, so updates and existing sessions
-keep working.
+The app was called *OPC UA Browser* until version 0.8. Existing installs move over by themselves:
+`brew upgrade` replaces the old cask (`opcua-browser`) and app, the first start copies the old data folder (settings,
+certificates, layout, snapshots), and `.opcsession` files still open. OPC UA servers that trusted the app's client
+certificate need to trust the new one (`MachineDataBrowser`) once.
 
 ## Install (macOS, Homebrew)
 
 ```sh
-brew install --cask zaoralj/tap/opcua-browser
+brew install --cask zaoralj/tap/machine-data-browser
 ```
 
 The app is self-contained, so it needs no .NET installation. It is not notarized; if macOS blocks the first launch:
 
 ```sh
-xattr -dr com.apple.quarantine "/Applications/OPC UA Browser.app"
+xattr -dr com.apple.quarantine "/Applications/Machine Data Browser.app"
 ```
 
-Update with `brew upgrade --cask opcua-browser`, remove with `brew uninstall --cask --zap opcua-browser`.
+Update with `brew upgrade --cask machine-data-browser`, remove with `brew uninstall --cask --zap machine-data-browser`.
 
 ## Try it with the test servers
 
 ```sh
 just all     # Logix, OPC UA (two servers) and MQTT simulators in Docker
-dotnet run --project src/OpcUaBrowser.App
+dotnet run --project src/MachineDataBrowser.App
 ```
 
 Then connect to one of these:
@@ -78,7 +79,7 @@ Then connect to one of these:
 ```sh
 dotnet build                     # warnings are errors
 dotnet test                      # unit + integration + headless UI tests (needs Docker)
-dotnet run --project src/OpcUaBrowser.App
+dotnet run --project src/MachineDataBrowser.App
 ```
 
 ## Release

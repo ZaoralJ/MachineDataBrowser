@@ -1,4 +1,4 @@
-"""Publishes test traffic to the local Mosquitto broker for OpcUaBrowser.
+"""Publishes test traffic to the local Mosquitto broker for MachineDataBrowser.
 
 Topics (all under the default '#' subscription):
   plant/...           plain values: numbers, booleans, text; plant/hall1 also carries its own payload
@@ -295,7 +295,7 @@ def main():
     ndeath = field_varint(1, int(time.time() * 1000)) + field_bytes(2, metric("bdSeq", 1, INT64, 0, int(time.time() * 1000)))
 
     # MQTT 5, so binary-mode CloudEvents can carry their attributes as user properties.
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="opcuabrowser-sim", protocol=mqtt.MQTTv5)
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="machinedatabrowser-sim", protocol=mqtt.MQTTv5)
     client.will_set(f"spBv1.0/{group}/NDEATH/{edge1}", ndeath, qos=0, retain=False)
     for _ in range(100):
         try:
@@ -348,7 +348,7 @@ def main():
         station.slow(pub, 0)
 
     devices = {"Press1": Device(100, 0.0), "Press2": Device(200, 1.5)}
-    node_metrics = [("bdSeq", 1, INT64, 0), ("Node Control/Rebirth", 2, BOOLEAN, False), ("Properties/Hardware", 3, STRING, "OpcUaBrowser simulator")]
+    node_metrics = [("bdSeq", 1, INT64, 0), ("Node Control/Rebirth", 2, BOOLEAN, False), ("Properties/Hardware", 3, STRING, "MachineDataBrowser simulator")]
     seq = 0
     send_lock = threading.Lock()
 

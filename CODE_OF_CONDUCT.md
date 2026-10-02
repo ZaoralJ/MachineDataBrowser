@@ -6,5 +6,5 @@ In short: be respectful and inclusive, assume good intent, and focus on what is 
 Harassment, insults and personal attacks are not tolerated.
 
 Report unacceptable behaviour privately to the maintainer via
-[GitHub private security/contact channels](https://github.com/ZaoralJ/OpcUaBrowser/security/advisories/new)
+[GitHub private security/contact channels](https://github.com/ZaoralJ/MachineDataBrowser/security/advisories/new)
 or by contacting [@ZaoralJ](https://github.com/ZaoralJ). Reports are handled confidentially.

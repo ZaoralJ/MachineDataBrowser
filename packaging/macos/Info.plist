@@ -2,10 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>OPC UA Browser</string>
-  <key>CFBundleDisplayName</key><string>OPC UA Browser</string>
-  <key>CFBundleIdentifier</key><string>com.zaoralj.opcuabrowser</string>
-  <key>CFBundleExecutable</key><string>OpcUaBrowser</string>
+  <key>CFBundleName</key><string>Machine Data Browser</string>
+  <key>CFBundleDisplayName</key><string>Machine Data Browser</string>
+  <key>CFBundleIdentifier</key><string>com.zaoralj.machinedatabrowser</string>
+  <key>CFBundleExecutable</key><string>MachineDataBrowser</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>__VERSION__</string>
@@ -16,9 +16,9 @@
   <key>CFBundleDocumentTypes</key>
   <array>
     <dict>
-      <key>CFBundleTypeName</key><string>OPC UA Browser Session</string>
+      <key>CFBundleTypeName</key><string>Machine Data Browser Session</string>
       <key>CFBundleTypeRole</key><string>Editor</string>
-      <key>CFBundleTypeExtensions</key><array><string>opcsession</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>mdbsession</string><string>opcsession</string></array>
       <key>LSHandlerRank</key><string>Owner</string>
     </dict>
   </array>

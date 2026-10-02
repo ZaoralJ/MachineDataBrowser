@@ -7,7 +7,7 @@ Only the latest release receives fixes.
 ## Reporting a vulnerability
 
 Please **do not** open a public issue. Report privately through
-[GitHub Security Advisories](https://github.com/ZaoralJ/OpcUaBrowser/security/advisories/new).
+[GitHub Security Advisories](https://github.com/ZaoralJ/MachineDataBrowser/security/advisories/new).
 Include steps to reproduce and the affected version. You should get a response within a few days.
 
 ## Notes

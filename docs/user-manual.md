@@ -297,24 +297,25 @@ Each tab is a full connection with its own endpoint, address space, Watch list, 
 
 File ▸ **New Instance** (⇧⌘N) starts another copy of the app. Each copy has its own connection, watch list and
 recordings, so you can look at several devices side by side. On macOS the Dock only brings the running app to the
-front, so use this menu item, or `open -n "/Applications/OPC UA Browser.app"` from a terminal.
+front, so use this menu item, or `open -n "/Applications/Machine Data Browser.app"` from a terminal.
 
 All copies share settings, certificates, the layout and the log. When two copies change settings, the last save
 wins.
 
 ## Sessions and settings
 
-- **Sessions (`.opcsession`):**
+- **Sessions (`.mdbsession`; `.opcsession` files from before the rename still open):**
   - A session holds the endpoint, the options (never passwords), the default refresh, the watch list and its
     columns.
   - New ⌘N, Open ⌘O, Save ⌘S, Save As ⇧⌘S, File ▸ Open Recent.
   - Settings can reopen the last session at start.
 - **Settings (⌘,):** theme, default refresh time, and the item limit for "monitor all variables in folder".
 - **Data folder:** Help ▸ Show Settings Folder (⌥⇧⌘,). On macOS it is
-  `~/Library/Application Support/OpcUaBrowser`. It holds:
+  `~/Library/Application Support/MachineDataBrowser`. It holds:
   - `settings.json` and `layout.json`,
   - the `pki/` certificate stores (Connection ▸ Show Certificate Folder),
-  - `logs/opcuabrowser.log` with details of every error shown.
+  - `logs/machinedatabrowser.log` with details of every error shown.
+  - The first start after updating from *OPC UA Browser* copies its `OpcUaBrowser` data folder here.
 
 ## Quitting
 
@@ -343,6 +344,6 @@ right-click menus and the tooltips. **Help ▸ Keyboard Shortcuts** (⌘/) lists
 | MQTT: empty tree | Nothing has been published yet on the filter (only retained messages appear at once); check the topic filter in the URL |
 | MQTT: `alias 101` instead of names | The Sparkplug device's BIRTH was published before connecting; names appear with the next birth |
 | MQTT: values stop, metrics Bad | The Sparkplug node or device sent a DEATH, or the broker connection is reconnecting (status bar) |
-| Something failed | The error bar shows it; details are in `logs/opcuabrowser.log` in the data folder |
+| Something failed | The error bar shows it; details are in `logs/machinedatabrowser.log` in the data folder |
 
 For local test servers (OPC UA, Logix, MQTT with Sparkplug B and CloudEvents) see [simulators.md](simulators.md).

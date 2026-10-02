@@ -1,0 +1,86 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MachineDataBrowser.App.ViewModels"
+        xmlns:views="using:MachineDataBrowser.App.Views"
+        x:Class="MachineDataBrowser.App.Views.RecordingViewerWindow"
+        x:DataType="vm:RecordingViewerViewModel"
+        Title="{Binding Title, StringFormat='Recording — {0}'}"
+        Icon="/Assets/AppIcon.png"
+        Width="900" Height="560" MinWidth="560" MinHeight="300"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Classes="pane-toolbar" Padding="10,6">
+      <DockPanel>
+        <Button x:Name="ColumnsButton" DockPanel.Dock="Right" Classes="icon-only" Margin="12,0,0,0"
+                AutomationProperties.Name="Columns" ToolTip.Tip="Show or hide columns (C)">
+          <PathIcon Data="{StaticResource IconColumns}" />
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedRight">
+              <StackPanel x:Name="ColumnToggles" Spacing="2" MinWidth="160">
+                <TextBlock Classes="pane-title" Text="COLUMNS" Margin="8,0,0,6" />
+              </StackPanel>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+        <CheckBox DockPanel.Dock="Right" Content="Follow latest" IsChecked="{Binding Follow}"
+                  ToolTip.Tip="Keep scrolled to the newest sample as it arrives (F)" />
+        <CheckBox DockPanel.Dock="Right" Content="Chart" IsChecked="{Binding ShowChart}" Margin="0,0,16,0"
+                  IsVisible="{Binding HasChart}" ToolTip.Tip="Show or hide the trend chart of the selected item (G)" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="Item" VerticalAlignment="Center" />
+          <ComboBox ItemsSource="{Binding ItemNames}" SelectedItem="{Binding SelectedItem}" MinWidth="220" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+    <Border DockPanel.Dock="Bottom" Padding="10,4"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Right" FontSize="12" Text="{Binding TotalRows, StringFormat='{}{0} rows'}" />
+        <TextBlock FontSize="12" Text="{Binding StatusText}" />
+      </DockPanel>
+    </Border>
+    <Border DockPanel.Dock="Top" Height="220" IsVisible="{Binding IsChartVisible}"
+            BorderThickness="0,0,0,1" BorderBrush="{DynamicResource AppBorderBrush}">
+      <views:TrendChart x:Name="Chart" Points="{Binding ChartPoints}" Highlight="{Binding HighlightedPoint}"
+                        AutomationProperties.Name="Trend chart" ToolTip.Tip="Click to select the nearest sample" />
+    </Border>
+    <Grid>
+      <DataGrid x:Name="RowsGrid" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}">
+        <DataGrid.Columns>
+          <DataGridTemplateColumn Header="Received" views:GridCopy.Member="TimeText" Width="136" MinWidth="120">
+            <DataTemplate DataType="vm:HistoryRow">
+              <TextBlock Classes="cell mono" Text="{Binding TimeText}" ToolTip.Tip="{Binding TimeToolTip}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Name" views:GridCopy.Member="Name" Width="Auto" MinWidth="140">
+            <DataTemplate DataType="vm:HistoryRow">
+              <TextBlock Classes="cell" Text="{Binding Name}" ToolTip.Tip="{Binding NodeId}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Status" views:GridCopy.Member="Status" Width="Auto" MinWidth="90">
+            <DataTemplate DataType="vm:HistoryRow">
+              <TextBlock Classes="cell" Text="{Binding Status}"
+                         Classes.status-bad="{Binding IsBad}" Classes.status-uncertain="{Binding IsUncertain}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Value" views:GridCopy.Member="Value" Width="*">
+            <DataTemplate DataType="vm:HistoryRow">
+              <TextBlock Classes="cell mono" Text="{Binding Value}" ToolTip.Tip="{Binding Value}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="NodeId" views:GridCopy.Member="NodeId" Width="Auto" MinWidth="120" IsVisible="False">
+            <DataTemplate DataType="vm:HistoryRow">
+              <TextBlock Classes="cell mono" Text="{Binding NodeId}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="Source time" views:GridCopy.Member="SourceTimeText" Width="136" MinWidth="120" IsVisible="False">
+            <DataTemplate DataType="vm:HistoryRow">
+              <TextBlock Classes="cell mono" Text="{Binding SourceTimeText}" ToolTip.Tip="{Binding SourceTimeToolTip}" />
+            </DataTemplate>
+          </DataGridTemplateColumn>
+        </DataGrid.Columns>
+      </DataGrid>
+      <TextBlock Classes="empty-hint" IsVisible="{Binding !Rows.Count}" Text="Waiting for samples…" />
+    </Grid>
+  </DockPanel>
+</Window>

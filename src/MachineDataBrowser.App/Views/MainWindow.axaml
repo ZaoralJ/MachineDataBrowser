@@ -1,0 +1,228 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MachineDataBrowser.App.ViewModels"
+        xmlns:core="using:MachineDataBrowser.Core"
+        xmlns:conv="using:MachineDataBrowser.App.Converters"
+        x:Class="MachineDataBrowser.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="{Binding WindowTitle}"
+        Icon="/Assets/AppIcon.png"
+        Width="1280" Height="800"
+        MinWidth="900" MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource AppWindowBrush}">
+
+  <LayoutTransformControl x:Name="ZoomHost">
+    <LayoutTransformControl.LayoutTransform>
+      <ScaleTransform ScaleX="{Binding UiScale}" ScaleY="{Binding UiScale}" />
+    </LayoutTransformControl.LayoutTransform>
+  <DockPanel>
+    <NativeMenuBar DockPanel.Dock="Top" />
+
+    <!-- Toolbar -->
+    <Border DockPanel.Dock="Top" Classes="app-header">
+      <DockPanel>
+      <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="10" Margin="0,0,16,0" VerticalAlignment="Center">
+        <Image Classes="brand-mark" Source="/Assets/AppIcon.png" />
+        <StackPanel VerticalAlignment="Center" Spacing="0">
+          <TextBlock Classes="brand-title" Text="Machine Data Browser" />
+          <TextBlock Classes="brand-subtitle" Text="OPC UA · EtherNet/IP · MQTT" />
+        </StackPanel>
+      </StackPanel>
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+        <TextBox Grid.Column="0" x:Name="EndpointBox" Classes="endpoint" KeyDown="OnEndpointKeyDown"
+                 Text="{Binding EndpointUrl}" IsEnabled="{Binding IsDisconnected}"
+                 PlaceholderText="opc.tcp://host:4840" VerticalContentAlignment="Center"
+                 FontFamily="{StaticResource MonoFont}"
+                 AutomationProperties.Name="Server endpoint URL"
+                 ToolTip.Tip="Endpoint URL: opc.tcp://host:port, eip://host[:port]/1,0 or mqtt://host[:port][/topic/#] (mqtts://, ws://, wss://). Enter connects, ↓ shows recent endpoints.">
+          <TextBox.InnerLeftContent>
+            <Border Classes="endpoint-label">
+              <TextBlock Text="Endpoint" />
+            </Border>
+          </TextBox.InnerLeftContent>
+          <TextBox.InnerRightContent>
+            <Button x:Name="EndpointHistoryButton" Classes="icon-only" Margin="0,0,4,0"
+                    IsVisible="{Binding HasRecentEndpoints}"
+                    AutomationProperties.Name="Recent endpoints"
+                    ToolTip.Tip="Recent endpoints (↓)">
+              <PathIcon Data="{StaticResource IconChevronDown}" />
+              <Button.Flyout>
+                <Flyout Placement="BottomEdgeAlignedRight">
+                  <StackPanel MinWidth="320" Spacing="2">
+                    <TextBlock Classes="pane-title" Text="RECENT ENDPOINTS" Margin="8,0,0,6" />
+                    <ItemsControl x:Name="EndpointHistoryList" ItemsSource="{Binding RecentEndpoints}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <Button Classes="history-entry" HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).UseRecentEndpointCommand}"
+                                    CommandParameter="{Binding}" ToolTip.Tip="Use this endpoint">
+                              <TextBlock Text="{Binding}" FontFamily="{StaticResource MonoFont}" TextTrimming="CharacterEllipsis" />
+                            </Button>
+                            <Button Grid.Column="1" Classes="icon-only"
+                                    Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).RemoveRecentEndpointCommand}"
+                                    CommandParameter="{Binding}"
+                                    AutomationProperties.Name="Remove from history" ToolTip.Tip="Remove from history">
+                              <PathIcon Data="{StaticResource IconClose}" />
+                            </Button>
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Separator />
+                    <Button Classes="history-entry" Content="Clear history" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left" Command="{Binding ClearRecentEndpointsCommand}" />
+                  </StackPanel>
+                </Flyout>
+              </Button.Flyout>
+            </Button>
+          </TextBox.InnerRightContent>
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding ConnectCommand}" />
+          </TextBox.KeyBindings>
+        </TextBox>
+
+        <Button Grid.Column="1" Classes="toolbar subtle" IsEnabled="{Binding IsDisconnected}"
+                AutomationProperties.Name="Connection options"
+                ToolTip.Tip="Security, credentials and certificate options">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Data="{StaticResource IconOptions}" />
+            <TextBlock Text="{Binding OptionsSummary}" VerticalAlignment="Center" />
+          </StackPanel>
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedRight">
+              <StackPanel MinWidth="320" MaxWidth="400" Spacing="12" Margin="4">
+                <TextBlock Text="Connection options" FontWeight="SemiBold" />
+                <StackPanel Spacing="4">
+                  <TextBlock Text="Default refresh time (ms)" />
+                  <NumericUpDown Value="{Binding DefaultRefreshMs}" ButtonSpinnerLocation="Right" HorizontalAlignment="Stretch" Minimum="0" Maximum="3600000" Increment="50"
+                                 FormatString="0"
+                                 ToolTip.Tip="Sampling and publishing interval for items monitored in this session. Saved with the session; individual items can be changed by right-click." />
+                </StackPanel>
+                <CheckBox IsChecked="{Binding IsReadOnly}"
+                          ToolTip.Tip="Nothing that changes the device: no writing values, calling methods or acknowledging alarms. Saved with the session.">
+                  <TextBlock Text="Read-only (no writes, method calls or acknowledgements)" TextWrapping="Wrap" />
+                </CheckBox>
+                <StackPanel Spacing="12" IsVisible="{Binding HasCredentials}">
+                <CheckBox Content="Use secure endpoint" IsChecked="{Binding UseSecurity}" IsVisible="{Binding IsOpcUaEndpoint}"
+                          ToolTip.Tip="Pick the most secure endpoint the server offers (Sign &amp; Encrypt)" />
+                <StackPanel Spacing="4">
+                  <TextBlock Text="User name" />
+                  <TextBox Text="{Binding UserName}" PlaceholderText="Anonymous if empty" />
+                </StackPanel>
+                <StackPanel Spacing="4">
+                  <TextBlock Text="Password" />
+                  <TextBox Text="{Binding Password}" PasswordChar="•" />
+                </StackPanel>
+                <Separator />
+                <CheckBox Classes="insecure" IsChecked="{Binding AutoAcceptCertificates}"
+                          ToolTip.Tip="Server certificates are trusted without verification. Only use on isolated lab networks.">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <PathIcon Data="{StaticResource IconWarning}" Width="14" Height="14"
+                              Foreground="{StaticResource StatusUncertainBrush}" />
+                    <TextBlock Text="Auto-trust server certificates (insecure)" TextWrapping="Wrap" />
+                  </StackPanel>
+                </CheckBox>
+                </StackPanel>
+              </StackPanel>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+
+        <Button Grid.Column="2" Classes="toolbar accent" Command="{Binding ConnectCommand}"
+                IsVisible="{Binding !IsConnected}"
+                AutomationProperties.Name="Connect" ToolTip.Tip="Connect to the server (Enter)">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Data="{StaticResource IconConnect}" />
+            <TextBlock Text="Connect" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Grid.Column="2" Classes="toolbar subtle" Command="{Binding DisconnectCommand}"
+                IsVisible="{Binding IsConnected}"
+                AutomationProperties.Name="Disconnect" ToolTip.Tip="Close the session">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Data="{StaticResource IconDisconnect}" />
+            <TextBlock Text="Disconnect" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+
+        <ProgressBar Grid.Column="3" IsIndeterminate="True" IsVisible="{Binding IsBusy}"
+                     Width="80" MinWidth="80" VerticalAlignment="Center" />
+      </Grid>
+      </DockPanel>
+    </Border>
+
+    <!-- Error banner -->
+    <Border DockPanel.Dock="Top" Classes="error-banner" IsVisible="{Binding HasError}">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Classes="icon-only" Command="{Binding DismissErrorCommand}"
+                AutomationProperties.Name="Dismiss error" ToolTip.Tip="Dismiss">
+          <PathIcon Data="{StaticResource IconClose}" />
+        </Button>
+        <PathIcon DockPanel.Dock="Left" Data="{StaticResource IconError}" Width="16" Height="16"
+                  Margin="0,0,8,0" Foreground="{StaticResource StatusBadBrush}" />
+        <SelectableTextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" VerticalAlignment="Center" />
+      </DockPanel>
+    </Border>
+
+    <!-- Status bar -->
+    <Border DockPanel.Dock="Bottom" Classes="status-bar">
+      <DockPanel>
+        <Border DockPanel.Dock="Right" Classes="status-chip">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                     Fill="{Binding State, Converter={x:Static conv:ConnectionStateConverters.ToBrush}}" />
+            <TextBlock Text="{Binding State, Converter={x:Static conv:ConnectionStateConverters.ToText}}"
+                       FontSize="11" FontWeight="Medium" VerticalAlignment="Center" />
+          </StackPanel>
+        </Border>
+        <TextBlock Text="{Binding StatusMessage}" FontSize="12" TextTrimming="CharacterEllipsis"
+                   VerticalAlignment="Center" Foreground="{DynamicResource AppMutedTextBrush}" />
+      </DockPanel>
+    </Border>
+
+    <!-- Connection tabs: shown once a second connection is open (File ▸ New Connection Tab). -->
+    <Border x:Name="TabStrip" DockPanel.Dock="Top" Classes="connection-tabs" x:DataType="vm:ConnectionTabs"
+            IsVisible="{Binding HasMany}">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Classes="icon-only" Click="OnNewTab" VerticalAlignment="Center"
+                AutomationProperties.Name="New connection tab" ToolTip.Tip="New connection tab (⌘T)">
+          <PathIcon Data="{StaticResource IconAdd}" />
+        </Button>
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+          <ItemsControl ItemsSource="{Binding Tabs}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="vm:ConnectionTab">
+                <Border Classes="connection-tab" Classes.active="{Binding IsActive}" ToolTip.Tip="{Binding ToolTip}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Classes="connection-tab-title" Click="OnTabClicked" Tag="{Binding}">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Ellipse Width="7" Height="7" VerticalAlignment="Center" Classes="state"
+                                 Classes.connected="{Binding IsConnected}" Classes.reconnecting="{Binding IsReconnecting}" />
+                        <TextBlock Text="{Binding Title}" MaxWidth="220" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <TextBlock Text="•" IsVisible="{Binding IsDirty}" VerticalAlignment="Center" />
+                      </StackPanel>
+                    </Button>
+                    <Button Classes="icon-only connection-tab-close" Click="OnTabCloseClicked" Tag="{Binding}"
+                            AutomationProperties.Name="Close connection tab" ToolTip.Tip="Close this connection (⌘W)">
+                      <PathIcon Data="{StaticResource IconClose}" Width="10" Height="10" />
+                    </Button>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+
+    <!-- The active connection's own dock (each connection keeps its panes, so their state and shortcuts stay its own). -->
+    <ContentControl x:Name="DockHost" Margin="8,0,8,0" />
+  </DockPanel>
+  </LayoutTransformControl>
+</Window>
