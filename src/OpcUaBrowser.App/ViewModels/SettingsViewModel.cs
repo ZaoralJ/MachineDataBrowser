@@ -13,6 +13,13 @@ public sealed partial class SettingsViewModel(AppSettings original) : Observable
     // Preview immediately; the caller restores the saved theme when the dialog is cancelled.
     partial void OnThemeChanged(ThemePreference value) => MainWindowViewModel.ApplyTheme(value);
 
+    public static IReadOnlyList<ColorTheme> ColorThemeChoices => ColorThemes.All;
+
+    [ObservableProperty]
+    public partial ColorTheme ColorTheme { get; set; } = ColorThemes.Find(original.ColorTheme);
+
+    partial void OnColorThemeChanged(ColorTheme value) => MainWindowViewModel.ApplyColorTheme(value.Name);
+
     [ObservableProperty]
     public partial decimal? SamplingIntervalMs { get; set; } = original.SamplingIntervalMs;
 
@@ -25,6 +32,7 @@ public sealed partial class SettingsViewModel(AppSettings original) : Observable
     public AppSettings ToSettings() => original with
     {
         Theme = Theme,
+        ColorTheme = ColorTheme.Name,
         SamplingIntervalMs = (int)(SamplingIntervalMs ?? original.SamplingIntervalMs),
         MaxRecursiveItems = (int)(MaxRecursiveItems ?? original.MaxRecursiveItems),
         ReopenLastSession = ReopenLastSession,
