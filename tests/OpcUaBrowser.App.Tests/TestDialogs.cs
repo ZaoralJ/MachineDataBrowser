@@ -65,6 +65,10 @@ public class TestDialogs : IDialogService
 
     public void ShowSnapshotCompare(SnapshotCompareViewModel compare) => Compare = compare;
 
+    public DiagnosticsViewModel? Diagnostics { get; private set; }
+
+    public void ShowDiagnostics(DiagnosticsViewModel diagnostics) => Diagnostics = diagnostics;
+
     public Task<ActiveRecordingsChoice> AskActiveRecordingsAsync(int count)
     {
         RecordingsAsked++;

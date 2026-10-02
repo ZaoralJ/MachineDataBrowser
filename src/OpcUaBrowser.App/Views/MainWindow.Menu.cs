@@ -101,6 +101,7 @@ public sealed partial class MainWindow
                 new NativeMenuItem(Label("Recent _Endpoints")) { Menu = _recentEndpointsMenu },
                 new NativeMenuItemSeparator(),
                 Item("Events & _Alarms…", vm.ShowEventsCommand, new KeyGesture(Key.A, cmd | KeyModifiers.Alt)),
+                Item("D_iagnostics…", vm.ShowDiagnosticsCommand, new KeyGesture(Key.I, cmd | KeyModifiers.Shift)),
                 new NativeMenuItemSeparator(),
                 Item("Show _Certificate Folder", vm.RevealCertificatesCommand, new KeyGesture(Key.K, cmd | KeyModifiers.Alt | KeyModifiers.Shift))),
             Submenu("_View",

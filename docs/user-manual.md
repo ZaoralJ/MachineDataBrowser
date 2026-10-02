@@ -57,6 +57,14 @@ Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ but
   thumbprint and the reason) and asks: **Trust Once** connects this time only, **Always Trust** adds it to
   `pki/trusted` so later connections don't ask, **Cancel** doesn't connect.
 
+**Diagnostics:** Connection ▸ **Diagnostics…** (⇧⌘I) shows the connection live, refreshed every second. Use it when
+values seem to stop:
+- *Session* (OPC UA): endpoint, security, user, keep-alive, reconnects, outstanding requests, and the server's state,
+  clock (with its offset from this computer), start time and product.
+- *This app*: watched items, value updates per second, and how many rows are stale, bad or uncertain.
+- *Subscriptions* (OPC UA): the publishing interval the server granted (it may differ from the refresh time), items,
+  notifications and when the last one arrived.
+
 **Disconnect:** ⇧⌘D. If the connection drops, the app shows *Connection lost. Reconnecting…* and restores the
 connection by itself. Watch items and recordings continue after that.
 

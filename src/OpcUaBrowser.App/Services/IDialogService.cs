@@ -44,6 +44,9 @@ public interface IDialogService
 
     /// <summary>Opens the snapshot comparison.</summary>
     void ShowSnapshotCompare(ViewModels.SnapshotCompareViewModel compare);
+
+    /// <summary>Opens the live connection diagnostics.</summary>
+    void ShowDiagnostics(ViewModels.DiagnosticsViewModel diagnostics);
 }
 
 public enum CertificateTrustChoice

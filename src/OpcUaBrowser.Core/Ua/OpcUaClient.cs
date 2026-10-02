@@ -166,6 +166,9 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             }
 
             _session = session;
+            _connectedAt = DateTime.UtcNow;
+            _reconnects = 0;
+            _lastReconnect = null;
             State = ConnectionState.Connected;
         }
         catch
@@ -667,6 +670,8 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
 
         handler.Dispose();
         _reconnectHandler = null;
+        _reconnects++;
+        _lastReconnect = DateTime.UtcNow;
         State = _session is { Connected: true } ? ConnectionState.Connected : ConnectionState.Disconnected;
     }
 

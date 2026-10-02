@@ -111,6 +111,28 @@ public interface IMethodCaller
     Task<IReadOnlyList<string>> CallMethodAsync(NodeId objectId, NodeId methodId, IReadOnlyList<string> inputs, CancellationToken cancellationToken = default);
 }
 
+/// <summary>A point-in-time view of the connection, for Connection ▸ Diagnostics.</summary>
+public sealed record ConnectionDiagnostics(
+    IReadOnlyList<(string Name, string Value)> Session,
+    IReadOnlyList<SubscriptionDiagnostics> Subscriptions);
+
+public sealed record SubscriptionDiagnostics(
+    string Name,
+    uint Id,
+    double PublishingIntervalMs,
+    uint MonitoredItems,
+    long Notifications,
+    DateTime? LastNotification,
+    uint KeepAliveCount,
+    uint LifetimeCount,
+    bool PublishingEnabled);
+
+/// <summary>Clients that can describe their connection in detail (OPC UA).</summary>
+public interface IConnectionDiagnosticsSource
+{
+    Task<ConnectionDiagnostics> GetDiagnosticsAsync(CancellationToken cancellationToken = default);
+}
+
 /// <summary>Clients that deliver events and alarms (OPC UA Alarms &amp; Conditions).</summary>
 public interface IEventSource
 {

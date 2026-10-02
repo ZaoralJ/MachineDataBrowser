@@ -37,6 +37,15 @@ public sealed partial class MainWindowViewModel
         }
     }
 
+    /// <summary>Live connection details (session, subscriptions, update rates); works for every protocol.</summary>
+    [RelayCommand]
+    private void ShowDiagnostics()
+    {
+        var diagnostics = new DiagnosticsViewModel(() => _client, () => EndpointUrl.Trim(), WatchItems);
+        Dialogs?.ShowDiagnostics(diagnostics);
+        _ = diagnostics.RefreshAsync();
+    }
+
     /// <summary>Opens the comparison of the newest snapshot with the live watch values.</summary>
     [RelayCommand]
     private void CompareSnapshot() => Dialogs?.ShowSnapshotCompare(new SnapshotCompareViewModel(Snapshots, () => CurrentSnapshot("Now")));

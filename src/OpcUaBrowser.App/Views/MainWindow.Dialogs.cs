@@ -180,6 +180,9 @@ public sealed partial class MainWindow : IDialogService
     public void ShowSnapshotCompare(SnapshotCompareViewModel compare) =>
         new SnapshotCompareWindow { DataContext = compare }.Show(this);
 
+    public void ShowDiagnostics(DiagnosticsViewModel diagnostics) =>
+        new DiagnosticsWindow { DataContext = diagnostics }.Show(this);
+
     public async Task<string?> PickRecordingFileAsync()
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
