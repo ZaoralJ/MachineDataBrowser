@@ -633,6 +633,181 @@ internal sealed class MqttModel
         }
     }
 
+    // ---------------------------------------------------------------- writes
+
+    /// <summary>
+    /// The message that writes <paramref name="text"/> to a node: a topic gets a new payload of the same kind (with its
+    /// retain flag, content type and user properties), a JSON field gets the last document with that field changed,
+    /// and a Sparkplug metric gets an NCMD/DCMD command to its edge node or device.
+    /// </summary>
+    public MqttWrite PrepareWrite(string id, string text, DateTime nowUtc)
+    {
+        lock (_lock)
+        {
+            if (id.StartsWith("t:", StringComparison.Ordinal))
+            {
+                var rest = id[2..];
+                var hash = rest.IndexOf('#', StringComparison.Ordinal);
+                var topic = hash < 0 ? rest : rest[..hash];
+                if (!_topics.TryGetValue(topic, out var entry))
+                {
+                    throw new ServiceResultException(StatusCodes.BadNotWritable, $"'{topic}' has no messages; only topics with a payload can be written.");
+                }
+
+                byte[] payload;
+                if (hash < 0)
+                {
+                    payload = EncodeTopicPayload(entry.Value, text);
+                }
+                else
+                {
+                    if (entry.Value is not JsonNode document)
+                    {
+                        throw new ServiceResultException(StatusCodes.BadNodeIdUnknown, $"'{topic}' no longer carries JSON.");
+                    }
+
+                    var copy = document.DeepClone();
+                    SetField(copy, rest[(hash + 1)..], text);
+                    payload = Encoding.UTF8.GetBytes(copy.ToJsonString());
+                }
+
+                return new MqttWrite(topic, payload, entry.Retain, entry.ContentType, entry.UserProperties);
+            }
+
+            if (id.StartsWith("m:", StringComparison.Ordinal) && FindMetric(id) is var (container, metric))
+            {
+                if (!container.Online)
+                {
+                    throw new ServiceResultException(StatusCodes.BadNoCommunication, $"{container.Group}/{container.Edge}{(container.Device.Length > 0 ? "/" + container.Device : string.Empty)} is offline.");
+                }
+
+                if (SparkplugB.ToBuiltInType(metric.DataType) is not { } type)
+                {
+                    throw new ServiceResultException(StatusCodes.BadNotWritable, $"Writing Sparkplug {SparkplugB.DataTypeName(metric.DataType)} metrics is not supported.");
+                }
+
+                var value = ValueParser.Parse(text, type, isArray: false);
+                var name = metric.Name.StartsWith(AliasPlaceholder, StringComparison.Ordinal) ? null : metric.Name;
+                var kind = container.Device.Length == 0 ? "NCMD" : "DCMD";
+                var commandTopic = $"{SparkplugB.Namespace}/{container.Group}/{kind}/{container.Edge}" + (container.Device.Length > 0 ? "/" + container.Device : string.Empty);
+                return new MqttWrite(commandTopic, SparkplugB.EncodeCommand(name, metric.Alias, metric.DataType, value, nowUtc), Retain: false, ContentType: null, UserProperties: []);
+            }
+
+            throw new ServiceResultException(StatusCodes.BadNotWritable, "Only topics, JSON fields and Sparkplug metrics can be written.");
+        }
+    }
+
+    /// <summary>A payload of the same kind as the current one: number, boolean, JSON, hex bytes or text.</summary>
+    internal static byte[] EncodeTopicPayload(object? current, string text)
+    {
+        switch (current)
+        {
+            case double:
+                return Encoding.UTF8.GetBytes(((double)ValueParser.Parse(text, BuiltInType.Double, isArray: false)).ToString("R", CultureInfo.InvariantCulture));
+            case bool:
+                return Encoding.UTF8.GetBytes((bool)ValueParser.Parse(text, BuiltInType.Boolean, isArray: false) ? "true" : "false");
+            case JsonNode:
+                try
+                {
+                    return Encoding.UTF8.GetBytes(JsonNode.Parse(text)?.ToJsonString() ?? "null");
+                }
+                catch (JsonException ex)
+                {
+                    throw new FormatException($"Not valid JSON: {ex.Message}", ex);
+                }
+
+            case byte[]:
+                return ParseHex(text);
+            default:
+                return Encoding.UTF8.GetBytes(text);
+        }
+    }
+
+    /// <summary>Hex bytes, as shown (<c>ByteString[3] FFFE00</c>) or typed with separators (<c>FF FE 00</c>, <c>0xFF,0xFE</c>).</summary>
+    private static byte[] ParseHex(string text)
+    {
+        var body = text.Trim();
+        if (body.StartsWith("ByteString[", StringComparison.Ordinal) && body.IndexOf(']', StringComparison.Ordinal) is var close and > 0)
+        {
+            body = body[(close + 1)..];
+        }
+
+        var hex = string.Concat(body.Replace("0x", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Where(c => !char.IsWhiteSpace(c) && c is not (',' or '-' or ':')));
+        try
+        {
+            return Convert.FromHexString(hex);
+        }
+        catch (FormatException ex)
+        {
+            throw new FormatException("Binary payloads are written as hex bytes, e.g. FF FE 00.", ex);
+        }
+    }
+
+    /// <summary>Sets the field at a JSON pointer, keeping its kind (number, boolean, string); null and containers take JSON.</summary>
+    private static void SetField(JsonNode document, string pointer, string text)
+    {
+        var segments = pointer.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Unescape).ToArray();
+        if (segments.Length == 0)
+        {
+            throw new FormatException("Empty JSON pointer.");
+        }
+
+        var parent = document;
+        foreach (var segment in segments[..^1])
+        {
+            parent = Child(parent, segment) ?? throw new ServiceResultException(StatusCodes.BadNodeIdUnknown, $"JSON field '{pointer}' no longer exists.");
+        }
+
+        var last = segments[^1];
+        var current = parent switch
+        {
+            JsonObject obj when obj.ContainsKey(last) => obj[last],
+            JsonArray arr when int.TryParse(last, NumberStyles.None, CultureInfo.InvariantCulture, out var i) && i < arr.Count => arr[i],
+            _ => throw new ServiceResultException(StatusCodes.BadNodeIdUnknown, $"JSON field '{pointer}' no longer exists."),
+        };
+
+        JsonNode? replacement = current switch
+        {
+            JsonValue v when v.TryGetValue<bool>(out _) => JsonValue.Create((bool)ValueParser.Parse(text, BuiltInType.Boolean, isArray: false)),
+            JsonValue v when v.TryGetValue<double>(out _) => JsonNode.Parse(((double)ValueParser.Parse(text, BuiltInType.Double, isArray: false)).ToString("R", CultureInfo.InvariantCulture)),
+            JsonValue v when v.TryGetValue<string>(out _) => JsonValue.Create(Unquote(text)),
+            _ => ParseJsonOrText(text),
+        };
+
+        switch (parent)
+        {
+            case JsonObject obj:
+                obj[last] = replacement;
+                break;
+            case JsonArray arr:
+                arr[int.Parse(last, CultureInfo.InvariantCulture)] = replacement;
+                break;
+        }
+    }
+
+    private static JsonNode? Child(JsonNode node, string segment) => node switch
+    {
+        JsonObject obj => obj[segment],
+        JsonArray arr when int.TryParse(segment, NumberStyles.None, CultureInfo.InvariantCulture, out var i) && i < arr.Count => arr[i],
+        _ => null,
+    };
+
+    private static string Unquote(string text) =>
+        text.Length >= 2 && text.StartsWith('"') && text.EndsWith('"') ? text[1..^1] : text;
+
+    private static JsonNode? ParseJsonOrText(string text)
+    {
+        try
+        {
+            return JsonNode.Parse(text);
+        }
+        catch (JsonException)
+        {
+            return JsonValue.Create(text);
+        }
+    }
+
     public static bool IsValidId(string id) =>
         id is RootId or TopicsId or SparkplugId || (id.Length > 2 && id[1] == ':' && id[0] is 't' or 'g' or 'e' or 'd' or 'f' or 'm');
 
@@ -863,3 +1038,6 @@ internal sealed class MqttModel
         public DateTime ReceivedUtc { get; set; }
     }
 }
+
+/// <summary>A message that writes a value: publish <see cref="Payload"/> to <see cref="Topic"/>.</summary>
+internal sealed record MqttWrite(string Topic, byte[] Payload, bool Retain, string? ContentType, IReadOnlyList<KeyValuePair<string, string>> UserProperties);

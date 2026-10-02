@@ -6,7 +6,7 @@ using Opc.Ua;
 namespace OpcUaBrowser.Core.Mqtt;
 
 /// <summary>
-/// Read-only MQTT client (MQTT 3.1.1 / 5, TCP or WebSocket, optional TLS) behind <see cref="IDeviceClient"/>.
+/// MQTT client (MQTT 3.1.1 / 5, TCP or WebSocket, optional TLS) behind <see cref="IDeviceClient"/>.
 /// It subscribes to one topic filter (default <c>#</c>), builds the tree from the messages it receives and decodes
 /// Sparkplug B. MQTT pushes values; the refresh time is a maximum update rate per monitored item (the latest value at
 /// most once per interval), and 0 delivers every message.
@@ -138,6 +138,41 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
 
     public Task<IReadOnlyList<AttributeValue>> ReadAttributesAsync(NodeId nodeId, CancellationToken cancellationToken = default) =>
         Task.FromResult(_model.Attributes(Id(nodeId)));
+
+    /// <summary>
+    /// Publishes a write: topics and JSON fields get a new payload on their own topic (the broker accepting it is all
+    /// MQTT confirms); Sparkplug metrics get an NCMD/DCMD that the edge node may apply and report back.
+    /// </summary>
+    public async Task WriteValueAsync(NodeId nodeId, string text, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        if (_client is not { IsConnected: true } client)
+        {
+            throw new InvalidOperationException("Not connected.");
+        }
+
+        var write = _model.PrepareWrite(Id(nodeId), text, DateTime.UtcNow);
+        var builder = new MqttApplicationMessageBuilder()
+            .WithTopic(write.Topic)
+            .WithPayload(write.Payload)
+            .WithRetainFlag(write.Retain)
+            .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce);
+        if (write.ContentType is { Length: > 0 } contentType)
+        {
+            builder = builder.WithContentType(contentType);
+        }
+
+        foreach (var (key, value) in write.UserProperties)
+        {
+            builder = builder.WithUserProperty(key, System.Text.Encoding.UTF8.GetBytes(value));
+        }
+
+        var result = await client.PublishAsync(builder.Build(), cancellationToken).ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            throw new ServiceResultException(StatusCodes.BadNotWritable, $"Broker rejected the publish to '{write.Topic}': {result.ReasonCode} {result.ReasonString}");
+        }
+    }
 
     public Task<IReadOnlyList<object?>> ReadValuesAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken cancellationToken = default)
     {

@@ -105,6 +105,8 @@
               <MenuItem Header="Stale or bad values" Command="{Binding SelectStaleOrBadCommand}" />
             </MenuItem>
             <Separator />
+            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Write value…{0}'}" Command="{Binding WriteWatchValueCommand}" />
+            <Separator />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy value{0}'}" Command="{Binding CopyWatchValueCommand}" />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy NodeId{0}'}" Command="{Binding CopyWatchNodeIdCommand}" />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy values as JSON{0}'}" Command="{Binding CopyWatchValuesJsonCommand}" ToolTip.Tip="Typed values only: one value, or an object keyed by name" />

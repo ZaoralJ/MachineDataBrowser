@@ -42,7 +42,7 @@ CLASS_SYMBOL, CLASS_TEMPLATE = 0x6B, 0x6C
 
 OK, CONNECTION_FAILURE, PATH_SEGMENT_ERROR, PATH_UNKNOWN, PARTIAL = 0x00, 0x01, 0x04, 0x05, 0x06
 SERVICE_NOT_SUPPORTED, ATTRIBUTE_NOT_SUPPORTED, NOT_ENOUGH_DATA, TOO_MUCH_DATA = 0x08, 0x14, 0x13, 0x15
-EMBEDDED_ERROR, GENERAL_ERROR = 0x1E, 0xFF
+PRIVILEGE_VIOLATION, EMBEDDED_ERROR, GENERAL_ERROR = 0x0F, 0x1E, 0xFF
 EXT_OUT_OF_RANGE, EXT_TYPE_MISMATCH = 0x2105, 0x2107
 
 VENDOR_ID, DEVICE_TYPE, PRODUCT_CODE, SERIAL = 1, 0x0E, 0x0037, 0x0C1A0B5E
@@ -280,6 +280,8 @@ class Cip:
             pos += 4
         data = body[pos:]
         if ref.bit is not None:
+            if _animated(ref.tag, ref.offset, ref.offset + 1):
+                return reply(service, PRIVILEGE_VIOLATION)
             if data[:1] and data[0]:
                 ref.tag.buffer[ref.offset] |= 1 << ref.bit
             else:
@@ -290,6 +292,9 @@ class Cip:
         if elements > ref.available or offset + len(data) > total:
             return reply(service, GENERAL_ERROR, ext=EXT_OUT_OF_RANGE)
         start = ref.offset + offset
+        if _animated(ref.tag, start, start + len(data)):
+            log.info("Rejected write to animated value in %s", ref.tag.name)
+            return reply(service, PRIVILEGE_VIOLATION)
         ref.tag.buffer[start:start + len(data)] = data
         log.info("Write %s (%d bytes at +%d)", ref.tag.name, len(data), offset)
         return reply(service)
@@ -297,10 +302,17 @@ class Cip:
     def _rmw(self, service, ref, body):
         size = struct.unpack_from("<H", body, 0)[0]
         or_mask, and_mask = body[2:2 + size], body[2 + size:2 + 2 * size]
+        if _animated(ref.tag, ref.offset, ref.offset + size):
+            return reply(service, PRIVILEGE_VIOLATION)
         buffer = ref.tag.buffer
         for i in range(size):
             buffer[ref.offset + i] = (buffer[ref.offset + i] | or_mask[i]) & and_mask[i]
         return reply(service)
+
+
+def _animated(tag, start, end):
+    """True when [start, end) overlaps a value the simulator animates (those are read-only, like PLC-owned outputs)."""
+    return any(start < a_end and a_start < end for a_start, a_end in tag.animated)
 
 
 def _format(segments):
@@ -447,6 +459,8 @@ async def animate(ctl, tick_ms):
     entries = animations(ctl)
     tick_s = tick_ms / 1000.0
     schedule = [(ref, max(1, round(period / tick_ms)), fn) for ref, period, fn in entries]
+    for ref, _, fn in schedule:
+        ref.tag.animated.append(ref.set(fn(0, 0.0)))  # also tells the write path which bytes are read-only
     rates = sorted({every * tick_ms for _, every, _ in schedule})
     print("Animating {} values, tick {} ms, rates {} ms".format(len(schedule), tick_ms, rates), flush=True)
     loop = asyncio.get_running_loop()

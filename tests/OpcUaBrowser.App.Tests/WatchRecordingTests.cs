@@ -261,6 +261,8 @@ public sealed class WatchRecordingTests(OpcPlcFixture plc)
 
         public int RecordingsAsked { get; private set; }
 
+        public Task<string?> AskWriteValueAsync(string target, string currentValue) => Task.FromResult<string?>(null);
+
         public Task<ActiveRecordingsChoice> AskActiveRecordingsAsync(int count)
         {
             RecordingsAsked++;

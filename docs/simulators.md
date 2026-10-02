@@ -41,6 +41,15 @@ instance addressing, Forward Open (small and large), Unconnected Send and the Id
 | Hidden by the browser | `Local:1:I`, `Local:2:O` (module types with colons), `__HiddenCounter`, `SystemClock` (system flag), `Task:MainTask`, `Map:Local`, `Routine:MainRoutine` in each program |
 | Paging | `Bulk_0001`…`Bulk_3000` push the controller `@tags` listing over many pages |
 
+### Writing
+
+Every value that is not animated accepts Write Tag, so it keeps whatever a client writes: the `Test*` atomics,
+strings and arrays, `Types.*`, `Arrays.*`, `Setpoints`, `Recipe_Active`, `Recipes`, `Motor1`/`Motor2`, static
+members such as `Stations[*].Name`, program tags such as `Program:Packaging.Mode`. Animated values (the
+*Changing values* row) are owned by the simulated program: writes that touch their bytes fail with CIP status
+`0x0F` (privilege violation), which the browser shows as `BadNotWritable`. With `CIP_SIM_FAST_TICK_MS=0` nothing
+is animated and every tag is writable.
+
 ### Settings
 
 | Variable | Default | Effect |
@@ -54,7 +63,7 @@ instance addressing, Forward Open (small and large), Unconnected Send and the Id
 
 Known simplifications: writes of whole structures are accepted as raw bytes, BOOL arrays are addressed by DWORD
 index (`Bits[1]` is the second 32-bit word, as pycomm3 expects) and reads of `n` BOOLs return `ceil(n/32)` DWORDs,
-there are no aliases, AOIs, produced/consumed tags or access restrictions.
+there are no aliases, AOIs, produced/consumed tags or External Access settings (only animated values are read-only).
 
 ## opc-plc (`simulators/opcua`)
 
@@ -109,6 +118,19 @@ Mosquitto (anonymous; MQTT on 1883, MQTT over WebSocket on 9001) plus a Python p
 | `MQTT_SIM_BULK` | `500` | number of `bulk/sensor/NNNN` topics |
 | `MQTT_SIM_DEATH_PERIOD_S` | `30` | how often `Press2` dies (0 = never) |
 | `MQTT_SIM_REBIRTH_S` | `15` | births are re-published periodically, so a browser connecting later learns metric names |
+
+### Writing
+
+"Write value…" publishes to the broker, so any topic can be written; values the publisher republishes are
+overwritten at its next tick. Values that keep what is written:
+
+- **Topics**: the retained ones published once, e.g. `plant/info/version`, `bulk/sensor/NNNN`, `deep/l1/…/l8/value`.
+  The payload keeps its kind (number, boolean, text, JSON, hex for binary) and its retain flag.
+- **JSON fields**: `config/line1` (`cycleMs`, `limits/max`, …), `acme/billund/moulding/lineN/shift` (`crew`,
+  `supervisor`) and the `_meta` documents. The last document is republished with the one field changed.
+- **Sparkplug B**: a write sends a DCMD (device) or NCMD (edge node). `Press1`/`Press2` apply writes to their static
+  metrics `Config/Recipe` and `Types/Int8`, `Types/Int16`, `Types/UInt8`, `Types/UInt32` and report them in DDATA;
+  animated metrics ignore commands. NCMD `Node Control/Rebirth` = true on `Edge1` re-sends its births.
 
 ## Integration tests
 

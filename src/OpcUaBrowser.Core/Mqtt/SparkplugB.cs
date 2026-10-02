@@ -23,6 +23,60 @@ public static class SparkplugB
         _ => $"Unknown({type})",
     };
 
+    /// <summary>The type user input for a metric of Sparkplug <paramref name="dataType"/> is parsed as; null when not writable.</summary>
+    public static Opc.Ua.BuiltInType? ToBuiltInType(uint dataType) => dataType switch
+    {
+        1 => Opc.Ua.BuiltInType.SByte, 2 => Opc.Ua.BuiltInType.Int16, 3 => Opc.Ua.BuiltInType.Int32, 4 => Opc.Ua.BuiltInType.Int64,
+        5 => Opc.Ua.BuiltInType.Byte, 6 => Opc.Ua.BuiltInType.UInt16, 7 => Opc.Ua.BuiltInType.UInt32, 8 => Opc.Ua.BuiltInType.UInt64,
+        9 => Opc.Ua.BuiltInType.Float, 10 => Opc.Ua.BuiltInType.Double, 11 => Opc.Ua.BuiltInType.Boolean,
+        12 or 14 or 15 => Opc.Ua.BuiltInType.String, 13 => Opc.Ua.BuiltInType.DateTime,
+        _ => null,
+    };
+
+    /// <summary>
+    /// Encodes a command payload (NCMD/DCMD) with one metric. <paramref name="name"/> or <paramref name="alias"/> (or
+    /// both) identify it; <paramref name="value"/> must match <paramref name="dataType"/> (see <see cref="ToBuiltInType"/>).
+    /// </summary>
+    public static byte[] EncodeCommand(string? name, ulong? alias, uint dataType, object value, DateTime timestampUtc)
+    {
+        var ms = (ulong)new DateTimeOffset(DateTime.SpecifyKind(timestampUtc, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+        var metric = new Writer();
+        if (!string.IsNullOrEmpty(name))
+        {
+            metric.Bytes(1, System.Text.Encoding.UTF8.GetBytes(name));
+        }
+
+        if (alias is { } a)
+        {
+            metric.Varint(2, a);
+        }
+
+        metric.Varint(3, ms);
+        metric.Varint(4, dataType);
+        switch (dataType)
+        {
+            case 1: metric.Varint(10, unchecked((uint)(sbyte)value)); break;
+            case 2: metric.Varint(10, unchecked((uint)(short)value)); break;
+            case 3: metric.Varint(10, unchecked((uint)(int)value)); break;
+            case 5: metric.Varint(10, (byte)value); break;
+            case 6: metric.Varint(10, (ushort)value); break;
+            case 7: metric.Varint(10, (uint)value); break;
+            case 4: metric.Varint(11, unchecked((ulong)(long)value)); break;
+            case 8: metric.Varint(11, (ulong)value); break;
+            case 13: metric.Varint(11, (ulong)new DateTimeOffset(DateTime.SpecifyKind((DateTime)value, DateTimeKind.Utc)).ToUnixTimeMilliseconds()); break;
+            case 9: metric.Fixed32(12, BitConverter.SingleToUInt32Bits((float)value)); break;
+            case 10: metric.Fixed64(13, BitConverter.DoubleToUInt64Bits((double)value)); break;
+            case 11: metric.Varint(14, (bool)value ? 1UL : 0UL); break;
+            case 12 or 14 or 15: metric.Bytes(15, System.Text.Encoding.UTF8.GetBytes((string)value)); break;
+            default: throw new NotSupportedException($"Writing Sparkplug {DataTypeName(dataType)} metrics is not supported.");
+        }
+
+        var payload = new Writer();
+        payload.Varint(1, ms);
+        payload.Bytes(2, metric.ToArray());
+        return payload.ToArray();
+    }
+
     public static Payload Decode(ReadOnlySpan<byte> data)
     {
         var reader = new Reader(data);
@@ -106,6 +160,53 @@ public static class SparkplugB
             _ => complex is not null ? $"<{complex}>" : (object?)stringValue ?? (object?)bytesValue ?? (object?)intValue ?? (object?)longValue ?? (object?)doubleValue ?? (object?)floatValue ?? boolValue,
         };
         return new Metric(name, alias, timestamp, type, isNull, historical, value);
+    }
+
+    private sealed class Writer
+    {
+        private readonly List<byte> _bytes = [];
+
+        public void Varint(int field, ulong value)
+        {
+            Raw((ulong)field << 3);
+            Raw(value);
+        }
+
+        public void Bytes(int field, byte[] data)
+        {
+            Raw(((ulong)field << 3) | 2);
+            Raw((ulong)data.Length);
+            _bytes.AddRange(data);
+        }
+
+        public void Fixed32(int field, uint value)
+        {
+            Raw(((ulong)field << 3) | 5);
+            Span<byte> b = stackalloc byte[4];
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(b, value);
+            _bytes.AddRange(b.ToArray());
+        }
+
+        public void Fixed64(int field, ulong value)
+        {
+            Raw(((ulong)field << 3) | 1);
+            Span<byte> b = stackalloc byte[8];
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt64LittleEndian(b, value);
+            _bytes.AddRange(b.ToArray());
+        }
+
+        public byte[] ToArray() => [.. _bytes];
+
+        private void Raw(ulong value)
+        {
+            while (value >= 0x80)
+            {
+                _bytes.Add((byte)(value | 0x80));
+                value >>= 7;
+            }
+
+            _bytes.Add((byte)value);
+        }
     }
 
     private ref struct Reader(ReadOnlySpan<byte> data)

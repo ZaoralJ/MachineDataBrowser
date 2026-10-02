@@ -167,6 +167,7 @@ class Tag:
         self.system = system
         self.raw_type = raw_type
         self.instance_id = 0
+        self.animated = []  # (start, end) byte ranges the animations own; external writes there are rejected
         self.bool_array = type_ is BOOL and bool(self.dims)
         if self.bool_array:
             self.buffer = bytearray(4 * ((self.dims[0] + 31) // 32))
@@ -220,32 +221,36 @@ class Ref:
     # -- value helpers used by the animations ---------------------------------------------------------
 
     def set(self, value):
+        """Stores `value` at this position; returns the (start, end) byte range written."""
         buffer = self.tag.buffer
         if self.bit is not None:
             if value:
                 buffer[self.offset] |= 1 << self.bit
             else:
                 buffer[self.offset] &= ~(1 << self.bit) & 0xFF
-        elif self.bool_array:
+            return self.offset, self.offset + 1
+        if self.bool_array:
             words = [0] * ((self.bool_count + 31) // 32)
             for i, bit in enumerate(value[:self.bool_count]):
                 if bit:
                     words[i // 32] |= 1 << (i % 32)
             buffer[self.offset:self.offset + 4 * len(words)] = b"".join(struct.pack("<I", w) for w in words)
-        elif isinstance(self.type, Udt) and self.type.is_string:
+            return self.offset, self.offset + 4 * len(words)
+        if isinstance(self.type, Udt) and self.type.is_string:
             if isinstance(value, (list, tuple)):
                 for i, text in enumerate(value[:self.available]):
                     self._set_string(self.offset + i * self.type.size, text)
-            else:
-                self._set_string(self.offset, value)
-        elif isinstance(self.type, Atomic):
+                return self.offset, self.offset + self.type.size * min(len(value), self.available)
+            self._set_string(self.offset, value)
+            return self.offset, self.offset + self.type.size
+        if isinstance(self.type, Atomic):
             if isinstance(value, (list, tuple)):
                 data = b"".join(self.type.pack(v) for v in value[:self.available])
             else:
                 data = self.type.pack(value)
             buffer[self.offset:self.offset + len(data)] = data
-        else:
-            raise TypeError("cannot assign a value to structure {}".format(self.type.name))
+            return self.offset, self.offset + len(data)
+        raise TypeError("cannot assign a value to structure {}".format(self.type.name))
 
     def _set_string(self, offset, text):
         capacity = self.type.members[1].count
