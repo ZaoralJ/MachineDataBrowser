@@ -50,6 +50,9 @@ public interface IDialogService
 
     /// <summary>Asks for monitoring settings (sampling, queue, deadband); null when cancelled.</summary>
     Task<OpcUaBrowser.Core.MonitoringOptions?> EditMonitoringAsync(OpcUaBrowser.Core.MonitoringOptions current, string target, int? refreshMs);
+
+    /// <summary>Asks how to show values (format, scaling, unit), previewed on <paramref name="sample"/>; null when cancelled.</summary>
+    Task<OpcUaBrowser.Core.ValueDisplay?> EditDisplayAsync(OpcUaBrowser.Core.ValueDisplay current, string target, ViewModels.WatchItemViewModel sample);
 }
 
 public enum CertificateTrustChoice

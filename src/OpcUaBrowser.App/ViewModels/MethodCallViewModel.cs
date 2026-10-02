@@ -92,7 +92,15 @@ public sealed partial class MethodCallViewModel : ObservableObject
         }
     }
 
-    private bool CanCall() => IsLoaded && !IsCalling;
+    private bool CanCall() => IsLoaded && !IsCalling && !IsReadOnly;
+
+    /// <summary>The session is read-only: the arguments can be read, the method is not called.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CallCommand))]
+    [NotifyPropertyChangedFor(nameof(ReadOnlyHint))]
+    public partial bool IsReadOnly { get; set; }
+
+    public string ReadOnlyHint => IsReadOnly ? "Read-only session: calling is turned off (Connection ▸ Read-Only)." : string.Empty;
 
     [RelayCommand(CanExecute = nameof(CanCall))]
     private async Task CallAsync()

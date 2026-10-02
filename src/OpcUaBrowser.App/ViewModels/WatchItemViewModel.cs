@@ -33,8 +33,25 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
         ? "Sampling/publishing interval. Right-click to change."
         : $"Publishing every {MainWindowViewModel.FormatRefresh(RefreshMs)} · {Monitoring.Describe()}. Right-click ▸ Monitoring settings to change.";
 
+    /// <summary>The device's value as text; filters, snapshots, recordings and exports use this one.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayValue), nameof(ValueToolTip))]
     public partial string Value { get; private set; } = "…";
+
+    /// <summary>Format, scaling and unit for <see cref="DisplayValue"/>.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayValue), nameof(ValueToolTip))]
+    public partial ValueDisplay Display { get; set; } = ValueDisplay.Default;
+
+    /// <summary>The variable's engineering unit from the server (OPC UA), if it has one.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayValue))]
+    public partial string? ServerUnit { get; set; }
+
+    /// <summary>The value as shown in the Value column.</summary>
+    public string DisplayValue => Display.Apply(RawValue, Value, ServerUnit);
+
+    public string ValueToolTip => Display.IsDefault ? Value : $"{Value} as sent · shown {Display.Describe()}";
 
     [ObservableProperty]
     public partial string Status { get; private set; } = string.Empty;

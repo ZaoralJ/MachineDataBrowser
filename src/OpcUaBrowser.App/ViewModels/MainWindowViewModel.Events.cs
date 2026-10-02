@@ -30,7 +30,7 @@ public sealed partial class MainWindowViewModel
             ? (ObjectIds.Server, "Server")
             : (target.NodeId, target.DisplayName);
 
-        var events = new EventsViewModel(source, notifier, name, ReportError);
+        var events = new EventsViewModel(source, notifier, name, ReportError) { IsReadOnly = IsReadOnly };
         _eventViewers.Add(events);
         Dialogs.ShowEvents(events);
         await events.StartAsync();

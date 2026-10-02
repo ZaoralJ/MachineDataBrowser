@@ -13,6 +13,9 @@ public sealed record SessionDocument
 
     public bool UseSecurity { get; init; }
 
+    /// <summary>The session never writes values, calls methods or acknowledges alarms.</summary>
+    public bool ReadOnly { get; init; }
+
     public bool AutoAcceptCertificates { get; init; }
 
     public string? UserName { get; init; }
@@ -60,7 +63,7 @@ public sealed record WatchSnapshot(
 
 public sealed record ColumnState(string Header, bool Visible, double? Width, int Order);
 
-public sealed record WatchEntry(string NodeId, string DisplayName, int? RefreshMs = null, Core.MonitoringOptions? Monitoring = null);
+public sealed record WatchEntry(string NodeId, string DisplayName, int? RefreshMs = null, Core.MonitoringOptions? Monitoring = null, Core.ValueDisplay? Display = null);
 
 public enum ThemePreference
 {

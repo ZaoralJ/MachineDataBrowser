@@ -149,6 +149,14 @@ order are saved with the session.
   - OPC UA uses it as the sampling interval, Logix as the poll interval.
   - For MQTT it is a maximum update rate: at most the latest value once per interval. **0** means every message;
     use it for events, CloudEvents or anything where each message matters.
+- **Display format:** right-click ▸ **Display format…** for the selected rows (every protocol).
+  - *Format*: as sent, a fixed number of decimals, or for integers hex (`0x00FF`, two's complement for negatives),
+    binary in groups of four, or *Bits*, the list of set bits (for status and alarm words).
+  - *Scale*: value × gain + offset, e.g. a raw analog input 0…27648 to 0…100 %.
+  - *Unit*: shown after numbers. OPC UA variables with an EngineeringUnits property show theirs automatically; type
+    another, or untick to hide it.
+  - Display only: filters, snapshots, recordings, exports and *Write value* use the device's value; the tooltip shows
+    it. Saved with the session.
 - **Monitoring settings** (OPC UA): right-click ▸ **Monitoring settings…** for the selected rows.
   - *Own sampling interval*: sample faster or slower than the refresh time, at which values are still published.
   - *Queue size*: how many samples the server keeps between publishes; above 1, every sample arrives, not only the
@@ -182,6 +190,11 @@ machine.
 ## Writing values
 
 The app writes to a device only when you ask it to.
+
+- **Read-only sessions:** Connection ▸ **Read-Only** (⇧⌘L), or the check box in the connection options (⚙), turns off
+  everything that changes the device: writing values, calling methods and acknowledging alarms. Browsing, Watch,
+  history, events and recordings work as usual; a method's form still opens to show its arguments. The header shows
+  *read-only*, and the setting is saved with the session, so a session for a production machine can stay read-only.
 
 - **Where:** right-click a variable in Attributes (on the *Value* row) or one or more rows in Watch ▸ **Write value…**.
 - **Format:** type the value as text; it is converted to the variable's data type. Arrays are comma-separated,
@@ -267,6 +280,18 @@ Opened with Enter or double-click in Recordings, or from Watch for a single item
 - **F** turns *Follow latest* on or off. C chooses columns. ⌘C copies the selected rows as a table.
 - Times are local (`HH:mm:ss.fff`). Hover a time to see the full date and UTC offset.
 - The status bar shows kept vs received samples and the per-item limit.
+
+## Several connections in one window
+
+File ▸ **New Connection Tab** (⌘T) opens another connection in the same window; a tab strip appears under the header.
+Each tab is a full connection with its own endpoint, address space, Watch list, recordings and session file.
+
+- Click a tab, or ⌃⇥ / ⌃⇧⇥, to switch. The dot shows the connection state (green connected, amber connecting), •
+  marks unsaved changes.
+- Each tab keeps its own panes: tree expansion, selection and scroll position stay as you left them.
+- **Close Connection Tab** (⌘W, or ✕ on the tab) asks about unsaved changes and disconnects that connection only.
+  Quitting asks for every tab with unsaved changes and closes all connections.
+- The layout of the panes, settings and themes are shared.
 
 ## Several instances
 

@@ -183,6 +183,9 @@ public sealed partial class MainWindow : IDialogService
     public Task<MonitoringOptions?> EditMonitoringAsync(MonitoringOptions current, string target, int? refreshMs) =>
         new MonitoringSettingsWindow { DataContext = new MonitoringSettingsViewModel(current, target, refreshMs) }.ShowDialog<MonitoringOptions?>(this);
 
+    public Task<ValueDisplay?> EditDisplayAsync(ValueDisplay current, string target, WatchItemViewModel sample) =>
+        new ValueDisplayWindow { DataContext = new ValueDisplayViewModel(current, target, sample) }.ShowDialog<ValueDisplay?>(this);
+
     public void ShowDiagnostics(DiagnosticsViewModel diagnostics) =>
         new DiagnosticsWindow { DataContext = diagnostics }.Show(this);
 
@@ -253,7 +256,8 @@ public sealed partial class MainWindow : IDialogService
         }
 
         e.Cancel = true;
-        if (!_closeConfirmed && vm.IsDirty)
+        var connections = Tabs.Tabs.Count > 0 ? [.. Tabs.Tabs.Select(t => t.Connection)] : new List<MainWindowViewModel> { vm };
+        if (!_closeConfirmed && connections.Any(c => c.IsDirty))
         {
             if (_closePromptOpenedAt is { } openedAt)
             {
@@ -266,7 +270,7 @@ public sealed partial class MainWindow : IDialogService
                         owned.Close();
                     }
 
-                    await ShutDownGentlyAsync(vm);
+                    await ShutDownGentlyAsync(connections);
                     return;
                 }
 
@@ -282,9 +286,18 @@ public sealed partial class MainWindow : IDialogService
             _closePromptOpenedAt = DateTime.UtcNow;
             try
             {
-                if (!await vm.ConfirmDiscardAsync() || _closeConfirmed)
+                // One prompt per connection with unsaved changes, each shown while it is asked about.
+                foreach (var connection in connections.Where(c => c.IsDirty).ToList())
                 {
-                    return;
+                    if (!ReferenceEquals(DataContext, connection))
+                    {
+                        DataContext = connection;
+                    }
+
+                    if (!await connection.ConfirmDiscardAsync() || _closeConfirmed)
+                    {
+                        return;
+                    }
                 }
             }
             finally
@@ -295,7 +308,7 @@ public sealed partial class MainWindow : IDialogService
             _closeConfirmed = true;
         }
 
-        await ShutDownGentlyAsync(vm);
+        await ShutDownGentlyAsync(connections);
     }
 
     private static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(5);
@@ -306,7 +319,7 @@ public sealed partial class MainWindow : IDialogService
     /// Stops recordings (flushing live files), unsubscribes and closes the session before the window goes away, so a
     /// quit never leaves half-written files or dangling server sessions. Bounded by a timeout for unreachable servers.
     /// </summary>
-    private async Task ShutDownGentlyAsync(MainWindowViewModel vm)
+    private async Task ShutDownGentlyAsync(IReadOnlyList<MainWindowViewModel> connections)
     {
         if (_shuttingDown)
         {
@@ -315,10 +328,11 @@ public sealed partial class MainWindow : IDialogService
 
         _shuttingDown = true;
         IsEnabled = false;
-        vm.ShowShutdownProgress();
+        (DataContext as MainWindowViewModel)?.ShowShutdownProgress();
         try
         {
-            await vm.ShutdownAsync().WaitAsync(ShutdownTimeout);
+            // All connections close in parallel, under one timeout for unreachable servers.
+            await Task.WhenAll(connections.Select(c => c.ShutdownAsync())).WaitAsync(ShutdownTimeout);
         }
         catch (TimeoutException ex)
         {

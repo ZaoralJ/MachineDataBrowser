@@ -176,6 +176,9 @@ stateDiagram-v2
 - **Browse:** follows hierarchical forward references. The tree uses `BrowseQuickAsync` (one round trip, every child
   gets an expander) and then `ProbeHasChildrenAsync` in the background (one batched Browse), which removes the
   expanders of children that have nothing below them.
+- **Connection tabs (`MainWindow.Tabs.cs`, `ConnectionTabs`):** each tab is its own `MainWindowViewModel`. The window's
+  DataContext is the active one (header, menu); each connection gets its own `DockControl`, created on first show and
+  kept while other tabs are shown, because pane views bind their shortcuts and state to their view model once.
 - **Themes (`Services/ColorThemes.cs`):** the colours live in named tokens (`App*Brush` in `AppStyles.axaml` and the
   Fluent `ColorPaletteResources`), each with a Light and a Dark value. A colour theme is data: one set of colours per
   appearance. Applying it recolours the shared brush instances and the palettes in place, so `DynamicResource` users,

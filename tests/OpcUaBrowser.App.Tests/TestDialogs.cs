@@ -73,6 +73,10 @@ public class TestDialogs : IDialogService
 
     public Task<MonitoringOptions?> EditMonitoringAsync(MonitoringOptions current, string target, int? refreshMs) => Task.FromResult(MonitoringAnswer);
 
+    public ValueDisplay? DisplayAnswer { get; set; }
+
+    public Task<ValueDisplay?> EditDisplayAsync(ValueDisplay current, string target, WatchItemViewModel sample) => Task.FromResult(DisplayAnswer);
+
     public Task<ActiveRecordingsChoice> AskActiveRecordingsAsync(int count)
     {
         RecordingsAsked++;

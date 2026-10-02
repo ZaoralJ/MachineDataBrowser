@@ -259,12 +259,18 @@ async def build(server, idx, types):
     # Historized values (HistoryRead): a Temperature, Pressure and Running flag that change every second.
     hist = await root.add_folder(idx, "History")
     historized = []
-    for name, vtype, fn in [
-        ("Temperature", ua.VariantType.Double, lambda t: 60.0 + 15.0 * math.sin(t / 120.0) + random.gauss(0, 0.3)),
-        ("Pressure", ua.VariantType.Double, lambda t: 4.0 + 0.5 * math.cos(t / 45.0)),
-        ("Running", ua.VariantType.Boolean, lambda t: int(t / 300) % 4 != 3),
+    for name, vtype, fn, unit in [
+        ("Temperature", ua.VariantType.Double, lambda t: 60.0 + 15.0 * math.sin(t / 120.0) + random.gauss(0, 0.3), ("°C", 4408652)),
+        ("Pressure", ua.VariantType.Double, lambda t: 4.0 + 0.5 * math.cos(t / 45.0), ("bar", 4342098)),
+        ("Running", ua.VariantType.Boolean, lambda t: int(t / 300) % 4 != 3, None),
     ]:
         var = await hist.add_variable(idx, name, ua.Variant(fn(0), vtype))
+        if unit:
+            # EngineeringUnits (UNECE codes, as OPC UA Part 8 recommends).
+            eu = ua.EUInformation(NamespaceUri="http://www.opcfoundation.org/UA/units/un/cefact", UnitId=unit[1],
+                                  DisplayName=ua.LocalizedText(unit[0]), Description=ua.LocalizedText(unit[0]))
+            await var.add_property(ua.NodeId("History.{}.EngineeringUnits".format(name), idx), ua.QualifiedName("EngineeringUnits", 0),
+                                   eu, datatype=ua.ObjectIds.EUInformation)
         await var.write_attribute(ua.AttributeIds.AccessLevel, ua.DataValue(ua.Variant(
             ua.AccessLevel.CurrentRead.mask | ua.AccessLevel.HistoryRead.mask, ua.VariantType.Byte)))
         await var.write_attribute(ua.AttributeIds.UserAccessLevel, ua.DataValue(ua.Variant(

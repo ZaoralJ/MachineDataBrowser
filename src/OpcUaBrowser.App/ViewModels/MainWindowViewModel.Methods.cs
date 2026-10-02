@@ -6,6 +6,8 @@ namespace OpcUaBrowser.App.ViewModels;
 
 public sealed partial class MainWindowViewModel
 {
+    private readonly List<MethodCallViewModel> _methodCalls = [];
+
     /// <summary>The connection can call methods (OPC UA).</summary>
     public bool SupportsMethods => _client is IMethodCaller;
 
@@ -22,7 +24,8 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        var call = new MethodCallViewModel(caller, owner.NodeId, method.NodeId, method.DisplayName, owner.DisplayName);
+        var call = new MethodCallViewModel(caller, owner.NodeId, method.NodeId, method.DisplayName, owner.DisplayName) { IsReadOnly = IsReadOnly };
+        _methodCalls.Add(call);
         Dialogs.ShowMethodCall(call);
         await call.LoadAsync();
     }
