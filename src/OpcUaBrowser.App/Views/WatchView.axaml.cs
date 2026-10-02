@@ -348,6 +348,8 @@ public sealed partial class WatchView : UserControl
         _shortcutsApplied = true;
         Shortcuts.Apply("Watch", WatchGrid,
         [
+            new("OemQuestion", new CommunityToolkit.Mvvm.Input.RelayCommand(() => { FilterBox.Focus(); FilterBox.SelectAll(); }), Description: "Filter the watch list (/)"),
+            new("P", vm.ToggleWatchProblemsOnlyCommand, Description: "Show only problem rows (Bad, Uncertain, stale)"),
             new("Enter", vm.RevealInTreeCommand, Description: "Show in address space"),
             new("Delete", vm.RemoveFromWatchCommand, Description: "Remove selected"),
             new("Back", vm.RemoveFromWatchCommand, Description: "Remove selected"),

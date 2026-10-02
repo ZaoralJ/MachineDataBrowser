@@ -1401,6 +1401,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 item.Apply(update);
             }
         }
+
+        // Values, status and staleness change: rows may enter or leave the filtered view.
+        if (IsWatchFiltered)
+        {
+            RefreshWatchFilter(force: false);
+        }
     }
 
     private async Task StopAllMonitorsAsync()

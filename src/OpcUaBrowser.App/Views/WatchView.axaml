@@ -9,7 +9,20 @@
   <DockPanel Background="Transparent" DragDrop.AllowDrop="True">
     <Border DockPanel.Dock="Top" Classes="pane-toolbar">
       <DockPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="8,0,4,0">
+          <TextBlock Text="{Binding WatchFilterSummary}" VerticalAlignment="Center" FontSize="12"
+                     Foreground="{DynamicResource AppMutedTextBrush}" />
+          <TextBox x:Name="FilterBox" Text="{Binding WatchFilter}" Width="220" Classes="search"
+                   PlaceholderText="Filter name, id, value, status (/)" AutomationProperties.Name="Filter watch list"
+                   ToolTip.Tip="Shows only rows whose name, NodeId, value or status contains the text. Esc clears.">
+            <TextBox.KeyBindings>
+              <KeyBinding Gesture="Escape" Command="{Binding ClearWatchFilterCommand}" />
+            </TextBox.KeyBindings>
+          </TextBox>
+          <ToggleButton IsChecked="{Binding ShowWatchProblemsOnly}" Content="Problems only"
+                        ToolTip.Tip="Show only Bad, Uncertain or stale rows (P)" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="2">
           <Button x:Name="ColumnsButton" Classes="icon-only" AutomationProperties.Name="Columns"
                   ToolTip.Tip="Show/hide columns (saved with the session). Drag headers to reorder, edges to resize.">
             <PathIcon Data="{StaticResource IconColumns}" />
@@ -60,7 +73,7 @@
       </DockPanel>
     </Border>
     <Grid>
-      <DataGrid x:Name="WatchGrid" DoubleTapped="OnRowDoubleTapped" DragDrop.AllowDrop="True" Background="Transparent" ItemsSource="{Binding WatchItems}" SelectedItem="{Binding SelectedWatchItem}"
+      <DataGrid x:Name="WatchGrid" DoubleTapped="OnRowDoubleTapped" DragDrop.AllowDrop="True" Background="Transparent" ItemsSource="{Binding WatchView}" SelectedItem="{Binding SelectedWatchItem}"
                 SelectionMode="Extended" SelectionChanged="OnWatchSelectionChanged"
                 AutomationProperties.Name="Watch list">
         <DataGrid.ContextMenu>
