@@ -33,9 +33,9 @@ flowchart LR
 - **Zoom:** ⌘+ / ⌘− / ⌘0.
 - **Theme:** View ▸ Theme, or Settings.
   - *Follow System*, *Light* or *Dark* (⌥⌘7/8/9) picks the appearance.
-  - The colour theme sets the palette for both appearances: **Indigo** (default), **Graphite** (neutral grey, blue),
-    **Ocean** (teal), **Forest** (green), **Amber** (warm), **Nord**. Settings previews it while you choose; Cancel
-    returns to the saved one.
+  - The colour theme sets the palette for both appearances: **Indigo** (default), **Graphite** (pure grey, blue),
+    **Ocean** (sea-glass / deep navy, teal), **Forest** (sage / deep green), **Amber** (sand / dark brown),
+    **Nord**, **Solarized** and **Dracula**. Settings previews it while you choose; Cancel returns to the saved one.
 - The **status bar** shows what just happened and the connection state (Connected, Reconnecting…).
 - The **red bar** under the header shows errors; nothing makes the app crash.
 
