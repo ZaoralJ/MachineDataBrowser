@@ -85,6 +85,7 @@ public sealed partial class MainWindowViewModel
         _suppressDirty = true;
         EndpointUrl = DefaultEndpointUrl;
         UseSecurity = false;
+        IsReadOnly = false;
         AutoAcceptCertificates = false;
         UserName = string.Empty;
         DefaultRefreshMs = DefaultRefreshFor(EndpointUrl);
@@ -145,6 +146,7 @@ public sealed partial class MainWindowViewModel
         _suppressDirty = true;
         EndpointUrl = document.EndpointUrl;
         UseSecurity = document.UseSecurity;
+        IsReadOnly = document.ReadOnly;
         AutoAcceptCertificates = document.AutoAcceptCertificates;
         UserName = document.UserName ?? string.Empty;
         DefaultRefreshMs = document.DefaultRefreshMs ?? DefaultRefreshFor(document.EndpointUrl);
@@ -236,6 +238,7 @@ public sealed partial class MainWindowViewModel
         {
             EndpointUrl = EndpointUrl.Trim(),
             UseSecurity = UseSecurity,
+            ReadOnly = IsReadOnly,
             AutoAcceptCertificates = AutoAcceptCertificates,
             UserName = string.IsNullOrWhiteSpace(UserName) ? null : UserName,
             DefaultRefreshMs = DefaultRefreshMs,

@@ -326,21 +326,27 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     {
         get
         {
-            var security = UseSecurity ? "Secure" : "No security";
-            var user = string.IsNullOrWhiteSpace(UserName) ? "Anonymous" : UserName;
-            var refresh = FormatRefresh(DefaultRefreshMs);
-            if (DeviceClient.IsEip(EndpointUrl ?? string.Empty))
-            {
-                return $"EtherNet/IP · {refresh}";
-            }
-
-            if (DeviceClient.IsMqtt(EndpointUrl ?? string.Empty))
-            {
-                return AutoAcceptCertificates ? $"MQTT · {user} · {refresh} · auto-trust" : $"MQTT · {user} · {refresh}";
-            }
-
-            return AutoAcceptCertificates ? $"{security} · {user} · {refresh} · auto-trust" : $"{security} · {user} · {refresh}";
+            var summary = OptionsSummaryCore();
+            return IsReadOnly ? summary + " · read-only" : summary;
         }
+    }
+
+    private string OptionsSummaryCore()
+    {
+        var security = UseSecurity ? "Secure" : "No security";
+        var user = string.IsNullOrWhiteSpace(UserName) ? "Anonymous" : UserName;
+        var refresh = FormatRefresh(DefaultRefreshMs);
+        if (DeviceClient.IsEip(EndpointUrl ?? string.Empty))
+        {
+            return $"EtherNet/IP · {refresh}";
+        }
+
+        if (DeviceClient.IsMqtt(EndpointUrl ?? string.Empty))
+        {
+            return AutoAcceptCertificates ? $"MQTT · {user} · {refresh} · auto-trust" : $"MQTT · {user} · {refresh}";
+        }
+
+        return AutoAcceptCertificates ? $"{security} · {user} · {refresh} · auto-trust" : $"{security} · {user} · {refresh}";
     }
 
     public ObservableCollection<NodeViewModel> RootNodes { get; } = [];
@@ -1026,7 +1032,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     private Task CopyAttributeValueAsync() => CopyAsync(SelectedAttribute?.Value);
 
     private bool CanWriteAttributeValue() =>
-        IsConnected && IsValueAttributeSelected && SelectedNode is { IsVariable: true };
+        IsConnected && !IsReadOnly && IsValueAttributeSelected && SelectedNode is { IsVariable: true };
 
     [RelayCommand(CanExecute = nameof(CanWriteAttributeValue))]
     private async Task WriteAttributeValueAsync()
@@ -1042,7 +1048,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
     }
 
-    private bool CanWriteWatchValue() => IsConnected && HasSelectedWatchItem();
+    private bool CanWriteWatchValue() => IsConnected && !IsReadOnly && HasSelectedWatchItem();
 
     [RelayCommand(CanExecute = nameof(CanWriteWatchValue))]
     private async Task WriteWatchValueAsync()
@@ -1059,6 +1065,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     {
         if (Dialogs is null)
         {
+            return false;
+        }
+
+        // The commands are disabled in read-only mode; this guards every other way in (shortcuts, future callers).
+        if (IsReadOnly)
+        {
+            StatusMessage = "Read-only mode: writing is turned off (Connection ▸ Read-Only)";
             return false;
         }
 
