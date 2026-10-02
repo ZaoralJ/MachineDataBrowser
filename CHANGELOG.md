@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.6.0...v0.7.0) (2026-10-02)
+
+
+### Features
+
+* write values over OPC UA, CIP and MQTT ([#25](https://github.com/ZaoralJ/OpcUaBrowser/issues/25)) ([0d7c947](https://github.com/ZaoralJ/OpcUaBrowser/commit/0d7c94732678b45517eabc060abc2c7326538ea6))
+
 ## [0.6.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.5.0...v0.6.0) (2026-09-30)
 
 
