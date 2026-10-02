@@ -152,6 +152,16 @@ The app writes to a device only when you ask it to.
     the last document with the field changed; a Sparkplug B metric is sent as a command (NCMD/DCMD).
 - Several Watch rows get the same value; failures are listed per item.
 
+## Calling methods (OPC UA)
+
+Double-click a method in the address space, or right-click ▸ **Call method…**. The form lists each input argument
+with its name, data type and description; type the values as text (like *Write value*: arrays comma-separated,
+`[1, 2, 3]`) and press **Call** (Enter). The outputs appear below the arguments; the form stays open to call again.
+
+- The method is called on the object it sits under in the tree.
+- A value that doesn't fit its type, a missing argument or an error from the server shows in red at the bottom.
+- In the custom test server, *Custom ▸ Methods* has `Add`, `Greet` and `Stats` (an array argument and three outputs).
+
 ## History (OPC UA)
 
 Many OPC UA servers store past values. Right-click one or more variables in the address space or rows in Watch ▸

@@ -93,6 +93,24 @@ public interface IHistorySource
 
 public sealed record HistoryResult(IReadOnlyList<ValueUpdate> Values, bool Truncated);
 
+/// <summary>One input or output argument of a method.</summary>
+public sealed record MethodArgument(string Name, string DataType, BuiltInType BuiltInType, bool IsArray, string Description);
+
+public sealed record MethodSignature(IReadOnlyList<MethodArgument> Inputs, IReadOnlyList<MethodArgument> Outputs);
+
+/// <summary>Clients that can call methods (OPC UA Call).</summary>
+public interface IMethodCaller
+{
+    /// <summary>The input and output arguments of <paramref name="methodId"/>.</summary>
+    Task<MethodSignature> GetMethodSignatureAsync(NodeId methodId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Calls <paramref name="methodId"/> on <paramref name="objectId"/> with <paramref name="inputs"/> as text, each parsed
+    /// into its argument's type like written values. Returns the outputs as display text.
+    /// </summary>
+    Task<IReadOnlyList<string>> CallMethodAsync(NodeId objectId, NodeId methodId, IReadOnlyList<string> inputs, CancellationToken cancellationToken = default);
+}
+
 /// <summary>Clients that deliver events and alarms (OPC UA Alarms &amp; Conditions).</summary>
 public interface IEventSource
 {

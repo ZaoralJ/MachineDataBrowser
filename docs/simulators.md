@@ -95,6 +95,7 @@ An [asyncua](https://github.com/FreeOpcUa/opcua-asyncio) server for what opc-plc
 | `EdgeCases` | special characters, a 3000-character NodeId, opaque and GUID NodeIds, null value, Bad and Uncertain status, a 100 kB string, a not-readable node, a folder 30 levels deep, a method |
 | `Large` | `OPCUA_CUSTOM_LARGE` = `areas,lines,tags` (default `10,10,50`: 5000 variables) |
 | `Flat` | `OPCUA_CUSTOM_FLAT` (default 10 000) variables in one folder, to exercise browse continuation |
+| `Methods` | `Add(A, B) → Sum`, `Greet(Name, Times) → Greeting` (BadOutOfRange outside 0–10), `Stats(Values[]) → Min, Max, Mean` (BadInvalidArgument when empty) |
 | `History` | `Temperature`, `Pressure`, `Running`: historized (HistoryRead), two hours prefilled every 10 s, then a new value every second |
 
 `OPCUA_CUSTOM_FAST_MS` (10) sets the base tick (`0` freezes values), `OPCUA_CUSTOM_PORT` (4841) the port and

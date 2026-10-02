@@ -38,6 +38,9 @@ public interface IDialogService
 
     /// <summary>Opens a live Events &amp; Alarms window; closing it ends the subscription.</summary>
     void ShowEvents(ViewModels.EventsViewModel events);
+
+    /// <summary>Opens the call form of a method.</summary>
+    void ShowMethodCall(ViewModels.MethodCallViewModel method);
 }
 
 public enum CertificateTrustChoice

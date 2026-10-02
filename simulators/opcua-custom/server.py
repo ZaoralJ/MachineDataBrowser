@@ -23,7 +23,7 @@ import os
 import random
 import time
 
-from asyncua import Server, ua
+from asyncua import Server, ua, uamethod
 from asyncua.common.structures104 import new_enum, new_struct, new_struct_field
 
 NAMESPACE = "urn:opcuabrowser:simulator:custom"
@@ -202,6 +202,42 @@ async def build(server, idx, types):
         deep = await deep.add_folder(idx, "Level{:02d}".format(level))
     await deep.add_variable(idx, "Bottom", "30 levels down")
     await edge.add_method(idx, "Reset", lambda parent: [], [], [])
+
+    # Methods with arguments (Call).
+    methods = await root.add_folder(idx, "Methods")
+
+    def arg(name, vtype, description, rank=-1):
+        a = ua.Argument()
+        a.Name, a.DataType, a.ValueRank = name, ua.NodeId(vtype.value), rank
+        a.ArrayDimensions = [] if rank < 0 else [0]
+        a.Description = ua.LocalizedText(description)
+        return a
+
+    @uamethod
+    def add(parent, a, b):
+        return a + b
+
+    @uamethod
+    def greet(parent, name, times):
+        if times < 0 or times > 10:
+            return ua.StatusCode(ua.StatusCodes.BadOutOfRange)
+        return " ".join(["Hello {}!".format(name)] * times)
+
+    @uamethod
+    def stats(parent, values):
+        if not values:
+            return ua.StatusCode(ua.StatusCodes.BadInvalidArgument)
+        return min(values), max(values), sum(values) / len(values)  # a tuple: one output argument each
+
+    await methods.add_method(idx, "Add", add,
+                             [arg("A", ua.VariantType.Double, "First addend"), arg("B", ua.VariantType.Double, "Second addend")],
+                             [arg("Sum", ua.VariantType.Double, "A + B")])
+    await methods.add_method(idx, "Greet", greet,
+                             [arg("Name", ua.VariantType.String, "Who to greet"), arg("Times", ua.VariantType.Int32, "Repetitions, 0-10")],
+                             [arg("Greeting", ua.VariantType.String, "The greeting")])
+    await methods.add_method(idx, "Stats", stats,
+                             [arg("Values", ua.VariantType.Double, "Numbers to summarize", rank=1)],
+                             [arg("Min", ua.VariantType.Double, "Smallest"), arg("Max", ua.VariantType.Double, "Largest"), arg("Mean", ua.VariantType.Double, "Average")])
 
     # Large address space.
     areas, lines, tags = (int(x) for x in os.environ.get("OPCUA_CUSTOM_LARGE", "10,10,50").split(","))

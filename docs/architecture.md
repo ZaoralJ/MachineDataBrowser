@@ -182,6 +182,9 @@ stateDiagram-v2
 - **Monitoring:** `MonitorManyAsync` creates many items in one round trip. Items with the same refresh time share a
   subscription (`Watch@<ms>`); `ChangeRefreshAsync` moves items between these subscriptions.
 - **Portable ids:** `nsu=<namespace URI>`, because namespace indexes can change between server restarts.
+- **Methods (`OpcUaClient.Methods.cs`, `IMethodCaller`):** the InputArguments/OutputArguments properties are found
+  by browsing the method (not every server resolves the browse path) and read as `Argument[]`. Text inputs are parsed
+  with `ValueParser` into each argument's built-in type; a bad call reports the first rejected argument.
 - **History (`OpcUaClient.History.cs`, `IHistorySource`):** HistoryRead with ReadRawModifiedDetails in pages of 1 000,
   following continuation points up to a value cap and releasing the last one. The App shows the result in the
   recording viewer (`RecordingViewerViewModel.ForRows`).

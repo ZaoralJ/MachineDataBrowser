@@ -57,6 +57,10 @@ public class TestDialogs : IDialogService
 
     public void ShowEvents(EventsViewModel events) => EventWindows.Add(events);
 
+    public MethodCallViewModel? MethodCall { get; private set; }
+
+    public void ShowMethodCall(MethodCallViewModel method) => MethodCall = method;
+
     public Task<ActiveRecordingsChoice> AskActiveRecordingsAsync(int count)
     {
         RecordingsAsked++;
