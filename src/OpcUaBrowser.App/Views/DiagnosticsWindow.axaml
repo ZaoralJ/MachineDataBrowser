@@ -1,0 +1,67 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:OpcUaBrowser.App.ViewModels"
+        xmlns:views="using:OpcUaBrowser.App.Views"
+        x:Class="OpcUaBrowser.App.Views.DiagnosticsWindow"
+        x:DataType="vm:DiagnosticsViewModel"
+        Title="Connection diagnostics"
+        Icon="/Assets/AppIcon.png"
+        Width="900" Height="640" MinWidth="560" MinHeight="360"
+        WindowStartupLocation="CenterOwner">
+  <Window.Styles>
+    <Style Selector="TextBlock.key">
+      <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
+      <Setter Property="Width" Value="150" />
+    </Style>
+  </Window.Styles>
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Padding="10,4"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+      <TextBlock FontSize="12" Text="{Binding UpdatedText}" />
+    </Border>
+    <ScrollViewer>
+      <StackPanel Margin="16" Spacing="18">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="pane-title" Text="SESSION" Margin="0,0,0,4" />
+          <ItemsControl ItemsSource="{Binding Session}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="vm:DiagnosticsRow">
+                <StackPanel Orientation="Horizontal" Margin="0,2">
+                  <TextBlock Classes="key" Text="{Binding Name}" />
+                  <SelectableTextBlock Text="{Binding Value}" TextWrapping="Wrap" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+        <StackPanel Spacing="4">
+          <TextBlock Classes="pane-title" Text="THIS APP" Margin="0,0,0,4" />
+          <ItemsControl ItemsSource="{Binding App}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="vm:DiagnosticsRow">
+                <StackPanel Orientation="Horizontal" Margin="0,2">
+                  <TextBlock Classes="key" Text="{Binding Name}" />
+                  <SelectableTextBlock Text="{Binding Value}" TextWrapping="Wrap" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+        <StackPanel Spacing="4" IsVisible="{Binding HasSubscriptions}">
+          <TextBlock Classes="pane-title" Text="SUBSCRIPTIONS" Margin="0,0,0,4" />
+          <DataGrid ItemsSource="{Binding Subscriptions}" MaxHeight="300" AutomationProperties.Name="Subscriptions">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Name" Binding="{Binding Name}" views:GridCopy.Member="Name" Width="*" />
+              <DataGridTextColumn Header="Interval" Binding="{Binding Interval}" views:GridCopy.Member="Interval" Width="90" />
+              <DataGridTextColumn Header="Items" Binding="{Binding Items}" views:GridCopy.Member="Items" Width="70" />
+              <DataGridTextColumn Header="Notifications" Binding="{Binding Notifications}" views:GridCopy.Member="Notifications" Width="110" />
+              <DataGridTextColumn Header="Last notification" Binding="{Binding LastNotification}" views:GridCopy.Member="LastNotification" Width="130" />
+              <DataGridTextColumn Header="Keep-alive" Binding="{Binding KeepAlive}" views:GridCopy.Member="KeepAlive" Width="150" />
+              <DataGridTextColumn Header="Publishing" Binding="{Binding Publishing}" views:GridCopy.Member="Publishing" Width="90" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

@@ -238,7 +238,16 @@ public sealed partial class AddressSpaceView : UserControl
         }
 
         node.IsExpanded = true;
-        if (DataContext is MainWindowViewModel vm)
+        if (DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        if (node.NodeClass == Opc.Ua.NodeClass.Method)
+        {
+            vm.CallMethodCommand.Execute(node);
+        }
+        else
         {
             vm.MonitorNodeCommand.Execute(node);
         }

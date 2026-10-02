@@ -8,7 +8,7 @@ namespace OpcUaBrowser.Core.Ua;
 /// One OPC UA session: connect, browse, read attributes and monitor values.
 /// Thread-safe for the operations it exposes; events are raised on SDK threads.
 /// </summary>
-public sealed class OpcUaClient : IDeviceClient
+public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
 {
     private static readonly ITelemetryContext Telemetry = DefaultTelemetry.Create(_ => { });
 
@@ -56,6 +56,14 @@ public sealed class OpcUaClient : IDeviceClient
 
     public string? ServerUri => _session?.Endpoint?.Server?.ApplicationUri;
 
+    public ServerCertificate? LastUntrustedCertificate { get; private set; }
+
+    public void TrustPermanently(ServerCertificate certificate)
+    {
+        ArgumentNullException.ThrowIfNull(certificate);
+        ClientConfiguration.AddTrusted(certificate.RawData, certificate.Thumbprint);
+    }
+
     public BrowseItem Root { get; } = new(ObjectIds.RootFolder, "Root", "Root", NodeClass.Object);
 
     /// <summary>
@@ -97,9 +105,27 @@ public sealed class OpcUaClient : IDeviceClient
             await CloseCoreAsync().ConfigureAwait(false);
             State = ConnectionState.Connecting;
 
+            var accepted = options.AcceptedCertificateThumbprints;
+            LastUntrustedCertificate = null;
             var config = await ClientConfiguration.CreateAsync(
                 Telemetry,
-                _ => options.AutoAcceptUntrustedCertificates,
+                e =>
+                {
+                    if (options.AutoAcceptUntrustedCertificates || accepted.Contains(e.Certificate.Thumbprint, StringComparer.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+
+                    LastUntrustedCertificate = new ServerCertificate(
+                        e.Certificate.Subject,
+                        e.Certificate.Issuer,
+                        e.Certificate.Thumbprint,
+                        e.Certificate.NotBefore,
+                        e.Certificate.NotAfter,
+                        e.Error.LocalizedText?.Text is { Length: > 0 } text ? text : e.Error.StatusCode.ToString(),
+                        e.Certificate.RawData);
+                    return false;
+                },
                 cancellationToken).ConfigureAwait(false);
 
             var description = await CoreClientUtils.SelectEndpointAsync(
@@ -140,6 +166,9 @@ public sealed class OpcUaClient : IDeviceClient
             }
 
             _session = session;
+            _connectedAt = DateTime.UtcNow;
+            _reconnects = 0;
+            _lastReconnect = null;
             State = ConnectionState.Connected;
         }
         catch
@@ -641,6 +670,8 @@ public sealed class OpcUaClient : IDeviceClient
 
         handler.Dispose();
         _reconnectHandler = null;
+        _reconnects++;
+        _lastReconnect = DateTime.UtcNow;
         State = _session is { Connected: true } ? ConnectionState.Connected : ConnectionState.Disconnected;
     }
 

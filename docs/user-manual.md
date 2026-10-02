@@ -1,13 +1,13 @@
 # User manual
 
-Machine Data Browser is a read-only viewer for machine data. It connects to:
+Machine Data Browser is a viewer for machine data. It connects to:
 
 - **OPC UA** servers (`opc.tcp://`),
 - Allen-Bradley **Logix** controllers over EtherNet/IP (`eip://`),
 - **MQTT** brokers (`mqtt://`, `mqtts://`, `ws://`, `wss://`), including **Sparkplug B** and **CloudEvents**.
 
-It shows the address space and attributes, watches live values, records them and exports them. It never writes to
-a device.
+It shows the address space and attributes, watches live values, records them and exports them. It can also write
+values to a device, but only when you ask it to (see [Writing values](#writing-values)).
 
 ```mermaid
 flowchart LR
@@ -53,6 +53,17 @@ Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ but
 - For OPC UA only: "Use secure endpoint".
 - "Auto-trust server certificates" accepts OPC UA server certificates and TLS certificates of MQTT brokers without
   checking them. Use it on lab networks only.
+- With auto-trust off, an OPC UA server whose certificate is not trusted yet shows it (subject, issuer, validity,
+  thumbprint and the reason) and asks: **Trust Once** connects this time only, **Always Trust** adds it to
+  `pki/trusted` so later connections don't ask, **Cancel** doesn't connect.
+
+**Diagnostics:** Connection ▸ **Diagnostics…** (⇧⌘I) shows the connection live, refreshed every second. Use it when
+values seem to stop:
+- *Session* (OPC UA): endpoint, security, user, keep-alive, reconnects, outstanding requests, and the server's state,
+  clock (with its offset from this computer), start time and product.
+- *This app*: watched items, value updates per second, and how many rows are stale, bad or uncertain.
+- *Subscriptions* (OPC UA): the publishing interval the server granted (it may differ from the refresh time), items,
+  notifications and when the last one arrived.
 
 **Disconnect:** ⇧⌘D. If the connection drops, the app shows *Connection lost. Reconnecting…* and restores the
 connection by itself. Watch items and recordings continue after that.
@@ -103,7 +114,7 @@ connection by itself. Watch items and recordings continue after that.
   becomes a folder.
   - When a node or device dies (NDEATH/DDEATH), its metrics turn **Bad (no communication)** until it is reborn.
   - Metrics named `alias 101` were published before the app saw the device's BIRTH message. They get their real
-    names at the next birth; the app is read-only, so it cannot request one.
+    names at the next birth. The app does not request a rebirth.
 
 ## Watch
 
@@ -121,10 +132,21 @@ order are saved with the session.
   - ⇧S selects rows that are stale or bad.
   - ⇧Delete removes all rows. If recordings are still running, the app asks whether to stop them, close them or keep
     them running.
+- **Filter:** the box at the top right (or **/**) shows only rows whose name, NodeId, value or status contains the
+  text; Esc clears it. **Problems only** (P) shows Bad, Uncertain and stale rows. Rows join and leave the filtered list
+  as their values change. ⌘C and the stale/bad selection act on what is shown; the count says how many are hidden.
 - **Refresh time:** 1–7 (100 ms … 10 s), T for a custom time, or right-click ▸ Refresh time.
   - OPC UA uses it as the sampling interval, Logix as the poll interval.
   - For MQTT it is a maximum update rate: at most the latest value once per interval. **0** means every message;
     use it for events, CloudEvents or anything where each message matters.
+- **Monitoring settings** (OPC UA): right-click ▸ **Monitoring settings…** for the selected rows.
+  - *Own sampling interval*: sample faster or slower than the refresh time, at which values are still published.
+  - *Queue size*: how many samples the server keeps between publishes; above 1, every sample arrives, not only the
+    last. *Discard oldest* decides which ones are dropped when the queue overflows.
+  - *Deadband*: report only changes larger than an absolute amount, or a percent of the variable's EURange (the
+    server rejects percent without one; the row keeps its previous settings).
+  - Rows with changed settings show ⚙ next to the refresh time; the tooltip lists them. They are saved with the
+    session and kept when the refresh time changes. Recordings use their own monitored items and are not affected.
 - **Recorded values:**
   - A red dot marks a row that is being recorded; *Recorded* shows how many samples are kept.
   - Space, G, double-click or the chart button in the Name cell opens that item's recorded values. Double-click on a
@@ -133,6 +155,73 @@ order are saved with the session.
   - ⌘C copies the selected rows (or all rows) as a table that pastes into Excel or Numbers.
   - ⌥⌘C copies the value; ⌥⌘J copies the values as JSON; ⇧⌘C copies the rows as JSON.
   - File ▸ Export Watch List as CSV (⌘E).
+
+### Snapshots
+
+A snapshot saves the current values of the whole watch list, to compare later, e.g. before and after a change on the
+machine.
+
+- **Watch ▸ Take Snapshot** (⌥⌘T) saves it, named with the date and time.
+- **Watch ▸ Compare with Snapshot…** (⌥⌘Y) shows *Before* (a snapshot) next to *After*: the live watch values,
+  updated every second, or another snapshot.
+  - Items are matched by NodeId. *Change* shows the difference for numbers, *changed* for other values, and
+    *only before* / *only after* for items in one side only. A status change counts as a change.
+  - **Changed only** hides equal values. ⌘C copies the rows as a table. **Delete snapshot** removes the *Before* one.
+- Snapshots are JSON files in the `snapshots` folder of the settings folder (Help ▸ Show Settings Folder).
+
+## Writing values
+
+The app writes to a device only when you ask it to.
+
+- **Where:** right-click a variable in Attributes (on the *Value* row) or one or more rows in Watch ▸ **Write value…**.
+- **Format:** type the value as text; it is converted to the variable's data type. Arrays are comma-separated,
+  optionally in brackets: `[1, 2, 3]`.
+- **Per protocol:**
+  - **OPC UA:** writes the Value attribute. The server decides whether the variable is writable (AccessLevel).
+  - **EtherNet/IP:** atomics, atomic arrays and STRINGs. Tags the controller program owns may be rejected
+    (`BadNotWritable`).
+  - **MQTT:** a topic is republished with the same payload kind, retain flag and properties; a JSON field republishes
+    the last document with the field changed; a Sparkplug B metric is sent as a command (NCMD/DCMD).
+- Several Watch rows get the same value; failures are listed per item.
+
+## Calling methods (OPC UA)
+
+Double-click a method in the address space, or right-click ▸ **Call method…**. The form lists each input argument
+with its name, data type and description; type the values as text (like *Write value*: arrays comma-separated,
+`[1, 2, 3]`) and press **Call** (Enter). The outputs appear below the arguments; the form stays open to call again.
+
+- The method is called on the object it sits under in the tree.
+- A value that doesn't fit its type, a missing argument or an error from the server shows in red at the bottom.
+- In the custom test server, *Custom ▸ Methods* has `Add`, `Greet` and `Stats` (an array argument and three outputs).
+
+## History (OPC UA)
+
+Many OPC UA servers store past values. Right-click one or more variables in the address space or rows in Watch ▸
+**Show history ▸ Last 15 minutes … Last 7 days**. The values open in the recording viewer: a table and a trend
+chart, oldest first, timed by their source timestamp.
+
+- At most 20 000 values per item (the oldest); the status bar says when an item had more.
+- A variable without stored history shows a message instead. Whether a server stores history is visible in
+  Attributes: *Historizing* and *AccessLevel* (HistoryRead).
+- In the custom test server, *Custom ▸ History* has Temperature, Pressure and Running with two hours of history.
+
+## Events & Alarms (OPC UA)
+
+Connection ▸ **Events & Alarms…** (⌥⌘A) opens a live window for the whole server. To narrow it to one area or
+source, right-click it in the address space ▸ **Show events & alarms**. Each window is its own subscription; closing it
+(or disconnecting) ends it.
+
+- **Alarms tab:** alarms the server keeps (active or not yet acknowledged), one row each, most severe first, updated
+  live. Alarms that are already active when the window opens appear at once.
+  - **Acknowledge:** click an alarm row that says *Unacked*, optionally type a comment, then click **Acknowledge** (or
+    press A). The row changes to *Acked*, or disappears once the alarm is also inactive.
+  - The server matches the acknowledgement by the alarm's event id. Some servers send alarms without one (opc-plc,
+    the test server, does); they refuse it, and the status bar says why.
+- **Events tab:** every event and alarm change, newest first: time, severity, source, type, message and alarm state.
+  - *Minimum severity* hides less severe events (OPC UA severity is 1–1000: high ≥ 700, medium ≥ 400).
+  - **Pause** (Space) keeps the list still; **Clear** (⌘K) empties it. ⌘C copies the selected rows as a table.
+  - The window keeps the latest 5 000 events.
+- In opc-plc (the test server), the alarms sit under *Objects ▸ Server* (e.g. *Green ▸ East ▸ Blue ▸ WestTank*).
 
 ## Recordings
 
@@ -213,7 +302,7 @@ right-click menus and the tooltips. **Help ▸ Keyboard Shortcuts** (⌘/) lists
 
 | Symptom | What to check |
 |---|---|
-| OPC UA: `BadCertificateUntrusted` | Trust the server certificate in the certificate folder, or use "auto-trust" on a lab network |
+| OPC UA: `BadCertificateUntrusted` | Answer the trust prompt, or copy the certificate into `pki/trusted/certs` in the certificate folder |
 | OPC UA structure shows as bytes | The server does not publish its type definitions; the raw value is still shown |
 | EtherNet/IP: no tags | Only Logix (ControlLogix/CompactLogix) lists tags; check the path (`/1,0` = backplane 1, slot 0) |
 | MQTT: empty tree | Nothing has been published yet on the filter (only retained messages appear at once); check the topic filter in the URL |

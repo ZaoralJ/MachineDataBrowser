@@ -75,6 +75,9 @@ Microsoft's [opc-plc](https://github.com/Azure-Samples/iot-edge-opc-plc), pinned
 - `Objects/OpcPlc/Plant`: a writable folder tree from `nodesfile.json` with every built-in type and arrays. These
   values change only when a client writes them.
 - Boilers (complex type, DI companion spec), alarms and conditions, simple events, stacklight, pumps, `ReferenceTest`.
+- Alarms (`--alm`) live under *Objects ▸ Server* (e.g. *Green ▸ East ▸ Blue ▸ WestTank ▸ Gold*); simple events
+  (`--ses`) are raised on the Server object. Its alarm notifications carry an all-zero EventId, so they cannot be
+  acknowledged.
 - Security None and anonymous allowed, certificates auto-accepted; users `admin`/`admin` and `user1`/`password`.
 - Extra opc-plc arguments go after the image name: `docker run --rm -p 50000:50000 opcuabrowser-opcua-simulator:dev --chaos`.
 
@@ -92,6 +95,8 @@ An [asyncua](https://github.com/FreeOpcUa/opcua-asyncio) server for what opc-plc
 | `EdgeCases` | special characters, a 3000-character NodeId, opaque and GUID NodeIds, null value, Bad and Uncertain status, a 100 kB string, a not-readable node, a folder 30 levels deep, a method |
 | `Large` | `OPCUA_CUSTOM_LARGE` = `areas,lines,tags` (default `10,10,50`: 5000 variables) |
 | `Flat` | `OPCUA_CUSTOM_FLAT` (default 10 000) variables in one folder, to exercise browse continuation |
+| `Methods` | `Add(A, B) → Sum`, `Greet(Name, Times) → Greeting` (BadOutOfRange outside 0–10), `Stats(Values[]) → Min, Max, Mean` (BadInvalidArgument when empty) |
+| `History` | `Temperature`, `Pressure`, `Running`: historized (HistoryRead), two hours prefilled every 10 s, then a new value every second |
 
 `OPCUA_CUSTOM_FAST_MS` (10) sets the base tick (`0` freezes values), `OPCUA_CUSTOM_PORT` (4841) the port and
 `OPCUA_CUSTOM_HOST` (`localhost`) the host in the advertised endpoint URL. Startup takes 20-30 s with the

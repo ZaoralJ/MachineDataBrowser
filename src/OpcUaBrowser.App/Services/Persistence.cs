@@ -58,7 +58,7 @@ public sealed record WatchSnapshot(
 
 public sealed record ColumnState(string Header, bool Visible, double? Width, int Order);
 
-public sealed record WatchEntry(string NodeId, string DisplayName, int? RefreshMs = null);
+public sealed record WatchEntry(string NodeId, string DisplayName, int? RefreshMs = null, Core.MonitoringOptions? Monitoring = null);
 
 public enum ThemePreference
 {
@@ -101,6 +101,9 @@ public sealed class SettingsStore(string? path = null)
 
     private readonly string _path = path ?? DefaultPath;
 
+    /// <summary>Folder of the settings file; snapshots and other data live next to it.</summary>
+    public string Folder => Path.GetDirectoryName(Path.GetFullPath(_path))!;
+
     public AppSettings Load()
     {
         try
@@ -139,4 +142,5 @@ public sealed class SettingsStore(string? path = null)
 [JsonSerializable(typeof(LayoutNode))]
 [JsonSerializable(typeof(WatchSnapshot))]
 [JsonSerializable(typeof(List<WatchSnapshot>))]
+[JsonSerializable(typeof(Snapshot))]
 internal sealed partial class AppJsonContext : JsonSerializerContext;

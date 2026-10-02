@@ -91,6 +91,20 @@
             <MenuItem Header="Collapse all" Command="{Binding CollapseAllCommand}">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconCollapseAll}" /></MenuItem.Icon>
             </MenuItem>
+            <Separator IsVisible="{Binding SupportsEvents}" />
+            <MenuItem Header="Call method…" Command="{Binding CallMethodCommand}" IsVisible="{Binding SupportsMethods}"
+                      ToolTip.Tip="Call the selected method with arguments (double-click a method does the same)" />
+            <MenuItem Header="Show events &amp; alarms" Command="{Binding ShowEventsCommand}" IsVisible="{Binding SupportsEvents}"
+                      ToolTip.Tip="Live events and alarms of the selected object and everything below it (the whole server for Root or Objects)" />
+            <MenuItem Header="Show history" IsVisible="{Binding SupportsHistory}"
+                      ToolTip.Tip="Values the server stored for the selected variables (OPC UA HistoryRead), as a table and chart">
+              <MenuItem.Icon><PathIcon Data="{StaticResource IconChart}" /></MenuItem.Icon>
+              <MenuItem Header="Last 15 minutes" Command="{Binding ShowHistoryCommand}"><MenuItem.CommandParameter><x:Int32>15</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last hour" Command="{Binding ShowHistoryCommand}"><MenuItem.CommandParameter><x:Int32>60</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last 8 hours" Command="{Binding ShowHistoryCommand}"><MenuItem.CommandParameter><x:Int32>480</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last 24 hours" Command="{Binding ShowHistoryCommand}"><MenuItem.CommandParameter><x:Int32>1440</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last 7 days" Command="{Binding ShowHistoryCommand}"><MenuItem.CommandParameter><x:Int32>10080</x:Int32></MenuItem.CommandParameter></MenuItem>
+            </MenuItem>
             <Separator />
             <MenuItem Header="Copy NodeId" Command="{Binding CopyNodeIdCommand}" />
             <MenuItem Header="Copy as JSON" Command="{Binding CopyNodeJsonCommand}"

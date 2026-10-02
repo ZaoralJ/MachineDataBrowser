@@ -85,6 +85,31 @@ public sealed partial class MainWindow : IDialogService
             new DialogButton<ActiveRecordingsChoice>("Keep Running", ActiveRecordingsChoice.Keep, DialogButtonRole.Cancel),
             new DialogButton<ActiveRecordingsChoice>(count == 1 ? "Stop" : "Stop All", ActiveRecordingsChoice.Stop, DialogButtonRole.Default));
 
+    public async Task<CertificateTrustChoice> AskTrustCertificateAsync(ServerCertificate certificate, string endpointUrl)
+    {
+        var validity = $"{certificate.NotBefore.ToLocalTime():yyyy-MM-dd} – {certificate.NotAfter.ToLocalTime():yyyy-MM-dd}"
+            + (certificate.IsExpired ? "  (not valid now)" : string.Empty);
+        var body =
+            $"{endpointUrl} presented a certificate this app does not trust yet. Check it with the server's administrator before trusting it.\n\n"
+            + $"Subject:      {certificate.Subject}\n"
+            + $"Issuer:       {certificate.Issuer}\n"
+            + $"Valid:        {validity}\n"
+            + $"Thumbprint:   {FormatThumbprint(certificate.Thumbprint)}\n\n"
+            + $"Reason: {certificate.Problem}\n\n"
+            + "Trust Once connects this time only. Always Trust adds it to the trusted certificates in the settings folder (pki/trusted).";
+        return await MessageDialog.ShowAsync(
+            this,
+            "Untrusted server certificate",
+            "Trust this server's certificate?",
+            body,
+            DialogIcon.Warning,
+            new DialogButton<CertificateTrustChoice>("Cancel", CertificateTrustChoice.Cancel, DialogButtonRole.Cancel),
+            new DialogButton<CertificateTrustChoice>("Always Trust", CertificateTrustChoice.Always),
+            new DialogButton<CertificateTrustChoice>("Trust Once", CertificateTrustChoice.Once, DialogButtonRole.Default));
+
+        static string FormatThumbprint(string hex) => string.Join(':', hex.Chunk(2).Select(c => new string(c)));
+    }
+
     public async Task<string?> AskWriteValueAsync(string target, string currentValue)
     {
         var input = new TextBox { Text = currentValue, MinWidth = 320, AcceptsReturn = false, FontFamily = new Avalonia.Media.FontFamily("Menlo, Consolas, monospace") };
@@ -145,6 +170,21 @@ public sealed partial class MainWindow : IDialogService
 
     public void ShowRecordingViewer(RecordingViewerViewModel viewer) =>
         new RecordingViewerWindow { DataContext = viewer }.Show(this);
+
+    public void ShowEvents(EventsViewModel events) =>
+        new EventsWindow { DataContext = events }.Show(this);
+
+    public void ShowMethodCall(MethodCallViewModel method) =>
+        new MethodCallWindow { DataContext = method }.Show(this);
+
+    public void ShowSnapshotCompare(SnapshotCompareViewModel compare) =>
+        new SnapshotCompareWindow { DataContext = compare }.Show(this);
+
+    public Task<MonitoringOptions?> EditMonitoringAsync(MonitoringOptions current, string target, int? refreshMs) =>
+        new MonitoringSettingsWindow { DataContext = new MonitoringSettingsViewModel(current, target, refreshMs) }.ShowDialog<MonitoringOptions?>(this);
+
+    public void ShowDiagnostics(DiagnosticsViewModel diagnostics) =>
+        new DiagnosticsWindow { DataContext = diagnostics }.Show(this);
 
     public async Task<string?> PickRecordingFileAsync()
     {

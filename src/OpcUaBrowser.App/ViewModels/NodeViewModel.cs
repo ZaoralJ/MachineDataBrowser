@@ -113,6 +113,8 @@ public sealed partial class NodeViewModel : ObservableObject
             ? DisplayName
             : IsVariable
                 ? $"{NodeClass}  ·  {NodeIdText}\nDouble-click, Enter or drag to Watch to monitor · right-click for more"
+                : NodeClass == NodeClass.Method
+                    ? $"{NodeClass}  ·  {NodeIdText}\nDouble-click to call it"
                 : HasChildren
                     ? $"{NodeClass}  ·  {NodeIdText}\nDrag to Watch or right-click to monitor all variables inside (including subfolders)"
                     : $"{NodeClass}  ·  {NodeIdText}";

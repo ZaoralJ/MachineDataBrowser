@@ -7,7 +7,7 @@ Machine Data Browser (repository `OpcUaBrowser`) is a machine data viewer. It co
 - an MQTT broker, including Sparkplug B.
 
 Whichever device it is, you browse its address space, inspect attributes, watch live values, record them and export
-them. It is read-only by design: it never writes to a device.
+them. It writes to a device only on an explicit user action (Write value…), through `IDeviceClient.WriteValueAsync`.
 
 ## Overview
 
@@ -168,6 +168,9 @@ stateDiagram-v2
   - Picks the endpoint; `UseSecurity` chooses the most secure one.
   - Anonymous or user/password login.
   - Creates the application certificate on first use.
+  - Server certificates: without auto-trust, an untrusted certificate fails the connect and is kept in
+    `IServerCertificateTrust.LastUntrustedCertificate`. The App shows it and connects again with its thumbprint in
+    `ConnectOptions.AcceptedCertificateThumbprints` (once), or after `TrustPermanently` wrote it to `pki/trusted/certs`.
   - Loads the complex type definitions (`ComplexTypeSystem`), so server-specific structures decode instead of
     showing as bytes.
 - **Browse:** follows hierarchical forward references. The tree uses `BrowseQuickAsync` (one round trip, every child
@@ -179,6 +182,21 @@ stateDiagram-v2
 - **Monitoring:** `MonitorManyAsync` creates many items in one round trip. Items with the same refresh time share a
   subscription (`Watch@<ms>`); `ChangeRefreshAsync` moves items between these subscriptions.
 - **Portable ids:** `nsu=<namespace URI>`, because namespace indexes can change between server restarts.
+- **Methods (`OpcUaClient.Methods.cs`, `IMethodCaller`):** the InputArguments/OutputArguments properties are found
+  by browsing the method (not every server resolves the browse path) and read as `Argument[]`. Text inputs are parsed
+  with `ValueParser` into each argument's built-in type; a bad call reports the first rejected argument.
+- **Monitoring settings (`OpcUaClient.Monitoring.cs`, `IMonitoringSettings`):** sampling interval, queue size, discard
+  policy and a DataChangeFilter deadband applied to existing items in place (ModifyMonitoredItems). Rejected items are
+  restored to their previous settings. The App re-applies a row's settings after `ChangeRefreshAsync` and when a
+  session is opened (`WatchEntry.Monitoring`).
+- **History (`OpcUaClient.History.cs`, `IHistorySource`):** HistoryRead with ReadRawModifiedDetails in pages of 1 000,
+  following continuation points up to a value cap and releasing the last one. The App shows the result in the
+  recording viewer (`RecordingViewerViewModel.ForRows`).
+- **Events (`OpcUaClient.Events.cs`, `IEventSource`):** one subscription per Events & Alarms window with an
+  EventNotifier monitored item. The EventFilter selects the BaseEventType fields plus ConditionName, Retain,
+  ActiveState/Id, AckedState/Id and the condition's NodeId; `ConditionRefresh` resends active alarms. Acknowledge
+  calls `AcknowledgeableConditionType.Acknowledge` on the condition with the latest EventId. Notifications are queued
+  on SDK threads and applied every 250 ms on the UI thread (`EventsViewModel`).
 
 ## EtherNet/IP (`Cip.CipClient`)
 
@@ -215,8 +233,8 @@ flowchart TB
   - BIRTH messages define metric names, aliases and data types; DATA messages update values by name or alias.
   - DEATH messages turn all metrics of that node or device `BadNoCommunication`.
   - A `/` in a metric name becomes a folder, e.g. `Motor/Speed`.
-  - Values published under an alias whose BIRTH was missed show as `alias <n>` until the next birth. The client is
-    read-only, so it cannot request a rebirth.
+  - Values published under an alias whose BIRTH was missed show as `alias <n>` until the next birth. The client does
+    not send rebirth requests.
   - The raw `spBv1.0/…` topics are not listed under Topics.
 - **Live tree:** the client implements `IDynamicAddressSpace`. The App re-browses expanded nodes about once a second
   after the address space changes, and merges the result so expansion and selection survive.

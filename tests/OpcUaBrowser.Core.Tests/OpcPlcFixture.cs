@@ -12,7 +12,7 @@ public sealed class OpcPlcFixture : IAsyncLifetime
 
     private readonly IContainer _container = new ContainerBuilder("mcr.microsoft.com/iotedge/opc-plc:latest")
         .WithPortBinding(OpcPort, true)
-        .WithCommand($"--pn={OpcPort}", "--autoaccept", "--unsecuretransport", "--ph=localhost")
+        .WithCommand($"--pn={OpcPort}", "--autoaccept", "--unsecuretransport", "--ph=localhost", "--ses", "--alm")
         .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("OPC UA Server started"))
         .Build();
 

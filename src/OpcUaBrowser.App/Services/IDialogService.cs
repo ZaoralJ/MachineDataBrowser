@@ -32,6 +32,31 @@ public interface IDialogService
 
     /// <summary>Asks for a value to write to <paramref name="target"/>; null when cancelled.</summary>
     Task<string?> AskWriteValueAsync(string target, string currentValue);
+
+    /// <summary>Shows a server certificate the app does not trust and asks whether to trust it.</summary>
+    Task<CertificateTrustChoice> AskTrustCertificateAsync(OpcUaBrowser.Core.ServerCertificate certificate, string endpointUrl);
+
+    /// <summary>Opens a live Events &amp; Alarms window; closing it ends the subscription.</summary>
+    void ShowEvents(ViewModels.EventsViewModel events);
+
+    /// <summary>Opens the call form of a method.</summary>
+    void ShowMethodCall(ViewModels.MethodCallViewModel method);
+
+    /// <summary>Opens the snapshot comparison.</summary>
+    void ShowSnapshotCompare(ViewModels.SnapshotCompareViewModel compare);
+
+    /// <summary>Opens the live connection diagnostics.</summary>
+    void ShowDiagnostics(ViewModels.DiagnosticsViewModel diagnostics);
+
+    /// <summary>Asks for monitoring settings (sampling, queue, deadband); null when cancelled.</summary>
+    Task<OpcUaBrowser.Core.MonitoringOptions?> EditMonitoringAsync(OpcUaBrowser.Core.MonitoringOptions current, string target, int? refreshMs);
+}
+
+public enum CertificateTrustChoice
+{
+    Cancel,
+    Once,
+    Always,
 }
 
 public enum ActiveRecordingsChoice

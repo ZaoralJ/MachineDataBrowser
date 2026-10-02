@@ -89,7 +89,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             CopyWatchJsonCommand.NotifyCanExecuteChanged();
             CopyWatchValuesJsonCommand.NotifyCanExecuteChanged();
             WriteWatchValueCommand.NotifyCanExecuteChanged();
+            EditMonitoringCommand.NotifyCanExecuteChanged();
+            ShowWatchHistoryCommand.NotifyCanExecuteChanged();
         };
+        WatchItems.CollectionChanged += (_, _) => TakeSnapshotCommand.NotifyCanExecuteChanged();
         SelectedNodes.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(SelectionSummary));
@@ -272,8 +275,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     };
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsDisconnected), nameof(StateText))]
-    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand), nameof(WriteAttributeValueCommand), nameof(WriteWatchValueCommand))]
+    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsDisconnected), nameof(StateText), nameof(SupportsEvents), nameof(SupportsHistory), nameof(SupportsMethods), nameof(SupportsMonitoringSettings))]
+    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand), nameof(WriteAttributeValueCommand), nameof(WriteWatchValueCommand), nameof(ShowEventsCommand), nameof(ShowHistoryCommand), nameof(ShowWatchHistoryCommand), nameof(CallMethodCommand), nameof(EditMonitoringCommand))]
     public partial ConnectionState State { get; private set; }
 
     [ObservableProperty]
@@ -287,7 +290,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     public partial string? ErrorMessage { get; private set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(AddToWatchCommand), nameof(CopyNodeIdCommand), nameof(MonitorFolderCommand), nameof(CopyNodeJsonCommand), nameof(CopyNodeClassCommand), nameof(CopyNodeRecordCommand), nameof(WriteAttributeValueCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddToWatchCommand), nameof(CopyNodeIdCommand), nameof(MonitorFolderCommand), nameof(CopyNodeJsonCommand), nameof(CopyNodeClassCommand), nameof(CopyNodeRecordCommand), nameof(WriteAttributeValueCommand), nameof(CallMethodCommand))]
     public partial NodeViewModel? SelectedNode { get; set; }
 
     [ObservableProperty]
@@ -299,7 +302,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     public bool IsValueAttributeSelected => SelectedAttribute?.Name == "Value";
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RemoveFromWatchCommand), nameof(CopyWatchValueCommand), nameof(CopyWatchNodeIdCommand), nameof(WriteWatchValueCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RemoveFromWatchCommand), nameof(CopyWatchValueCommand), nameof(CopyWatchNodeIdCommand), nameof(WriteWatchValueCommand), nameof(EditMonitoringCommand))]
     public partial WatchItemViewModel? SelectedWatchItem { get; set; }
 
     partial void OnSelectedWatchItemChanged(WatchItemViewModel? value) => OnPropertyChanged(nameof(WatchSelectionLabel));
@@ -383,7 +386,30 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             // The SDKs do synchronous work while connecting (endpoint discovery, certificates, type system,
             // libplctag tag creation); run it on the pool so the window stays responsive.
             var client = _client;
-            await Task.Run(() => client.ConnectAsync(options));
+            try
+            {
+                await Task.Run(() => client.ConnectAsync(options));
+            }
+            catch (Exception ex) when (AppErrors.IsRecoverable(ex)
+                && client is IServerCertificateTrust { LastUntrustedCertificate: { } certificate } trust
+                && Dialogs is not null)
+            {
+                // An untrusted server certificate: show it and let the user decide instead of failing.
+                var choice = await Dialogs.AskTrustCertificateAsync(certificate, EndpointUrl.Trim());
+                if (choice == CertificateTrustChoice.Cancel)
+                {
+                    throw;
+                }
+
+                if (choice == CertificateTrustChoice.Always)
+                {
+                    trust.TrustPermanently(certificate);
+                }
+
+                StatusMessage = $"Connecting to {EndpointUrl}…";
+                var trusted = options with { AcceptedCertificateThumbprints = [certificate.Thumbprint] };
+                await Task.Run(() => client.ConnectAsync(trusted));
+            }
 
             ClearSearch();
             RootNodes.Clear();
@@ -421,6 +447,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         try
         {
             await StopAllMonitorsAsync();
+            await CloseEventViewersAsync();
             var client = _client;
             await Task.Run(client.DisconnectAsync);
             State = _client.State;
@@ -541,6 +568,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 }
             }
 
+            // Re-created monitors start with default settings: apply the items' own again.
+            await ReapplyMonitoringAsync([.. items.Where(i => !i.Monitoring.IsDefault && i.Monitor is not null)]);
             MarkDirty();
             StatusMessage = $"Refresh time {FormatRefresh(refreshMs)} for {items.Count} item(s)";
         }
@@ -1128,6 +1157,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
         try
         {
+            await CloseEventViewersAsync();
             await _client.DisposeAsync();
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
@@ -1375,6 +1405,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             {
                 item.Apply(update);
             }
+        }
+
+        // Values, status and staleness change: rows may enter or leave the filtered view.
+        if (IsWatchFiltered)
+        {
+            RefreshWatchFilter(force: false);
         }
     }
 

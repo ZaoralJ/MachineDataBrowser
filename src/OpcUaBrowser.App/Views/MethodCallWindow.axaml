@@ -1,0 +1,59 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:OpcUaBrowser.App.ViewModels"
+        x:Class="OpcUaBrowser.App.Views.MethodCallWindow"
+        x:DataType="vm:MethodCallViewModel"
+        Title="{Binding Title}"
+        Icon="/Assets/AppIcon.png"
+        Width="520" MinWidth="420" SizeToContent="Height" MaxHeight="720"
+        CanResize="True" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="20">
+    <DockPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8">
+        <Button Content="Close" IsCancel="True" MinWidth="80" Click="OnClose" />
+        <Button Content="Call" IsDefault="True" Classes="accent" MinWidth="80" Command="{Binding CallCommand}" />
+      </StackPanel>
+      <TextBlock Text="{Binding StatusText}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"
+                 Foreground="{DynamicResource AppMutedTextBrush}" Classes.status-bad="{Binding IsError}" />
+    </DockPanel>
+    <ScrollViewer>
+      <StackPanel Spacing="14">
+        <TextBlock Text="{Binding MethodName}" FontSize="16" FontWeight="SemiBold" />
+        <TextBlock Text="This method takes no arguments." IsVisible="{Binding !HasInputs}"
+                   Foreground="{DynamicResource AppMutedTextBrush}" />
+        <ItemsControl ItemsSource="{Binding Inputs}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><StackPanel Spacing="10" /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="vm:MethodInputViewModel">
+              <StackPanel Spacing="4">
+                <TextBlock Text="{Binding Label}" FontWeight="Medium" />
+                <TextBox Text="{Binding Text}" FontFamily="{StaticResource MonoFont}" AutomationProperties.Name="{Binding Label}" />
+                <TextBlock Text="{Binding Hint}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource AppMutedTextBrush}"
+                           IsVisible="{Binding Hint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <StackPanel Spacing="6" IsVisible="{Binding !!Outputs.Count}">
+          <TextBlock Classes="pane-title" Text="OUTPUTS" />
+          <ItemsControl ItemsSource="{Binding Outputs}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><StackPanel Spacing="8" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="vm:MethodOutput">
+                <StackPanel Spacing="2">
+                  <TextBlock Text="{Binding Label}" FontSize="12" Foreground="{DynamicResource AppMutedTextBrush}" />
+                  <SelectableTextBlock Text="{Binding Value}" FontFamily="{StaticResource MonoFont}" TextWrapping="Wrap" />
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

@@ -9,7 +9,20 @@
   <DockPanel Background="Transparent" DragDrop.AllowDrop="True">
     <Border DockPanel.Dock="Top" Classes="pane-toolbar">
       <DockPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="8,0,4,0">
+          <TextBlock Text="{Binding WatchFilterSummary}" VerticalAlignment="Center" FontSize="12"
+                     Foreground="{DynamicResource AppMutedTextBrush}" />
+          <TextBox x:Name="FilterBox" Text="{Binding WatchFilter}" Width="220" Classes="search"
+                   PlaceholderText="Filter name, id, value, status (/)" AutomationProperties.Name="Filter watch list"
+                   ToolTip.Tip="Shows only rows whose name, NodeId, value or status contains the text. Esc clears.">
+            <TextBox.KeyBindings>
+              <KeyBinding Gesture="Escape" Command="{Binding ClearWatchFilterCommand}" />
+            </TextBox.KeyBindings>
+          </TextBox>
+          <ToggleButton IsChecked="{Binding ShowWatchProblemsOnly}" Content="Problems only"
+                        ToolTip.Tip="Show only Bad, Uncertain or stale rows (P)" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="2">
           <Button x:Name="ColumnsButton" Classes="icon-only" AutomationProperties.Name="Columns"
                   ToolTip.Tip="Show/hide columns (saved with the session). Drag headers to reorder, edges to resize.">
             <PathIcon Data="{StaticResource IconColumns}" />
@@ -60,7 +73,7 @@
       </DockPanel>
     </Border>
     <Grid>
-      <DataGrid x:Name="WatchGrid" DoubleTapped="OnRowDoubleTapped" DragDrop.AllowDrop="True" Background="Transparent" ItemsSource="{Binding WatchItems}" SelectedItem="{Binding SelectedWatchItem}"
+      <DataGrid x:Name="WatchGrid" DoubleTapped="OnRowDoubleTapped" DragDrop.AllowDrop="True" Background="Transparent" ItemsSource="{Binding WatchView}" SelectedItem="{Binding SelectedWatchItem}"
                 SelectionMode="Extended" SelectionChanged="OnWatchSelectionChanged"
                 AutomationProperties.Name="Watch list">
         <DataGrid.ContextMenu>
@@ -77,6 +90,9 @@
               <Separator />
               <MenuItem Header="Custom…" Click="OnCustomRefresh" Tag="watch" />
             </MenuItem>
+            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Monitoring settings…{0}'}" Command="{Binding EditMonitoringCommand}"
+                      IsVisible="{Binding SupportsMonitoringSettings}"
+                      ToolTip.Tip="Sampling interval, queue size and deadband (OPC UA)" />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Record selected…{0}'}" Command="{Binding NewRecordingCommand}">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconRecord}" /></MenuItem.Icon>
             </MenuItem>
@@ -95,6 +111,14 @@
             </MenuItem>
             <MenuItem Header="Show recorded values" Command="{Binding ViewItemRecordingCommand}">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconChart}" /></MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Show history{0}'}" IsVisible="{Binding SupportsHistory}"
+                      ToolTip.Tip="Values the server stored for these items (OPC UA HistoryRead), as a table and chart">
+              <MenuItem Header="Last 15 minutes" Command="{Binding ShowWatchHistoryCommand}"><MenuItem.CommandParameter><x:Int32>15</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last hour" Command="{Binding ShowWatchHistoryCommand}"><MenuItem.CommandParameter><x:Int32>60</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last 8 hours" Command="{Binding ShowWatchHistoryCommand}"><MenuItem.CommandParameter><x:Int32>480</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last 24 hours" Command="{Binding ShowWatchHistoryCommand}"><MenuItem.CommandParameter><x:Int32>1440</x:Int32></MenuItem.CommandParameter></MenuItem>
+              <MenuItem Header="Last 7 days" Command="{Binding ShowWatchHistoryCommand}"><MenuItem.CommandParameter><x:Int32>10080</x:Int32></MenuItem.CommandParameter></MenuItem>
             </MenuItem>
             <Separator />
             <MenuItem Header="Show in address space" Command="{Binding RevealInTreeCommand}" />
@@ -162,7 +186,7 @@
           <DataGridTemplateColumn Header="Refresh" views:GridCopy.Member="RefreshText" Width="100" MinWidth="80" SortMemberPath="RefreshMs">
             <DataTemplate DataType="vm:WatchItemViewModel">
               <TextBlock Classes="cell mono" Text="{Binding RefreshText}" HorizontalAlignment="Right"
-                         ToolTip.Tip="Sampling/publishing interval. Right-click to change." />
+                         ToolTip.Tip="{Binding RefreshToolTip}" />
             </DataTemplate>
           </DataGridTemplateColumn>
           <DataGridTemplateColumn Header="Last update" views:GridCopy.Member="LastUpdateText" Width="136" MinWidth="110" SortMemberPath="LastUpdate">

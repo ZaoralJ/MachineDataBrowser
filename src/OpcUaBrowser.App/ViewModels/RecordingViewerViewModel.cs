@@ -85,6 +85,23 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
         return viewer;
     }
 
+    /// <summary>A fixed set of rows (e.g. history read from the server); nothing new arrives.</summary>
+    public static RecordingViewerViewModel ForRows(string title, IReadOnlyList<HistoryRow> rows, string status)
+    {
+        var pending = rows;
+        var viewer = new RecordingViewerViewModel(
+            title,
+            () =>
+            {
+                var once = pending;
+                pending = [];
+                return once;
+            },
+            () => status);
+        viewer.Follow = false;
+        return viewer;
+    }
+
     public static RecordingViewerViewModel ForFile(string path)
     {
         // The file is read on the pool (opening a large CSV used to block the window); polls take what has been read.

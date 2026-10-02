@@ -32,6 +32,7 @@ public sealed partial class MainWindow
 
         _menuViewModel = vm;
         vm.PropertyChanged += OnViewModelPropertyChanged;
+        UiZoom.SetScale(vm.UiScale);
 
         if (NativeMenu.GetMenu(this) is { } existing)
         {
@@ -64,6 +65,11 @@ public sealed partial class MainWindow
         {
             RefreshDynamicMenuItems();
         }
+
+        if (e.PropertyName is nameof(MainWindowViewModel.Settings) or nameof(MainWindowViewModel.UiScale) && sender is MainWindowViewModel vm)
+        {
+            UiZoom.SetScale(vm.UiScale);
+        }
     }
 
     private List<NativeMenuItemBase> BuildTopLevelItems(MainWindowViewModel vm)
@@ -93,6 +99,9 @@ public sealed partial class MainWindow
                 Item("_Connect", vm.ConnectCommand, new KeyGesture(Key.Enter, cmd)),
                 Item("_Disconnect", vm.DisconnectCommand, new KeyGesture(Key.D, cmd | KeyModifiers.Shift)),
                 new NativeMenuItem(Label("Recent _Endpoints")) { Menu = _recentEndpointsMenu },
+                new NativeMenuItemSeparator(),
+                Item("Events & _Alarms…", vm.ShowEventsCommand, new KeyGesture(Key.A, cmd | KeyModifiers.Alt)),
+                Item("D_iagnostics…", vm.ShowDiagnosticsCommand, new KeyGesture(Key.I, cmd | KeyModifiers.Shift)),
                 new NativeMenuItemSeparator(),
                 Item("Show _Certificate Folder", vm.RevealCertificatesCommand, new KeyGesture(Key.K, cmd | KeyModifiers.Alt | KeyModifiers.Shift))),
             Submenu("_View",
@@ -126,6 +135,8 @@ public sealed partial class MainWindow
                 Item("Monitor All Variables in _Folder", vm.MonitorFolderCommand, new KeyGesture(Key.M, cmd | KeyModifiers.Alt | KeyModifiers.Shift)),
                 new NativeMenuItemSeparator(),
                 Item("Show Recorded _Values", vm.ViewItemRecordingCommand, new KeyGesture(Key.Y, cmd)),
+                Item("Take _Snapshot", vm.TakeSnapshotCommand, new KeyGesture(Key.T, cmd | KeyModifiers.Alt)),
+                Item("Compare with S_napshot…", vm.CompareSnapshotCommand, new KeyGesture(Key.Y, cmd | KeyModifiers.Alt)),
                 Item("_Remove Selected", vm.RemoveFromWatchCommand, new KeyGesture(Key.Back, cmd)),
                 Item("_Clear Watch List", vm.ClearWatchCommand, new KeyGesture(Key.Back, cmd | KeyModifiers.Shift))),
             Submenu("_Recording",
