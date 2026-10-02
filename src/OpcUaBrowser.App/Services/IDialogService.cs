@@ -29,6 +29,9 @@ public interface IDialogService
 
     /// <summary>Asked when the watch list became empty while recordings still capture values.</summary>
     Task<ActiveRecordingsChoice> AskActiveRecordingsAsync(int count);
+
+    /// <summary>Asks for a value to write to <paramref name="target"/>; null when cancelled.</summary>
+    Task<string?> AskWriteValueAsync(string target, string currentValue);
 }
 
 public enum ActiveRecordingsChoice

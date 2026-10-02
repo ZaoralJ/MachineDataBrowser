@@ -85,6 +85,43 @@ public sealed partial class MainWindow : IDialogService
             new DialogButton<ActiveRecordingsChoice>("Keep Running", ActiveRecordingsChoice.Keep, DialogButtonRole.Cancel),
             new DialogButton<ActiveRecordingsChoice>(count == 1 ? "Stop" : "Stop All", ActiveRecordingsChoice.Stop, DialogButtonRole.Default));
 
+    public async Task<string?> AskWriteValueAsync(string target, string currentValue)
+    {
+        var input = new TextBox { Text = currentValue, MinWidth = 320, AcceptsReturn = false, FontFamily = new Avalonia.Media.FontFamily("Menlo, Consolas, monospace") };
+        var dialog = new Window
+        {
+            Title = "Write value",
+            Width = 420,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            ShowInTaskbar = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+        };
+        var ok = new Button { Content = "Write", IsDefault = true, MinWidth = 80 };
+        ok.Classes.Add("accent");
+        var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 80 };
+        ok.Click += (_, _) => dialog.Close(input.Text ?? string.Empty);
+        cancel.Click += (_, _) => dialog.Close(null);
+        dialog.Content = new StackPanel
+        {
+            Margin = new Avalonia.Thickness(20),
+            Spacing = 12,
+            Children =
+            {
+                new TextBlock { Text = $"New value for {target}", FontWeight = Avalonia.Media.FontWeight.SemiBold, TextWrapping = Avalonia.Media.TextWrapping.Wrap },
+                new TextBlock { Text = "Converted to the variable's data type. Arrays: comma-separated, e.g. [1, 2, 3].", TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 },
+                input,
+                new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Spacing = 8, Children = { cancel, ok } },
+            },
+        };
+        dialog.Opened += (_, _) =>
+        {
+            input.Focus();
+            input.SelectAll();
+        };
+        return await dialog.ShowDialog<string?>(this);
+    }
+
     public Task<AppSettings?> EditSettingsAsync(AppSettings current) =>
         new SettingsWindow { DataContext = new SettingsViewModel(current) }.ShowDialog<AppSettings?>(this);
 

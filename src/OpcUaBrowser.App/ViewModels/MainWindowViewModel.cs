@@ -84,6 +84,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             CopyWatchNodeIdCommand.NotifyCanExecuteChanged();
             CopyWatchJsonCommand.NotifyCanExecuteChanged();
             CopyWatchValuesJsonCommand.NotifyCanExecuteChanged();
+            WriteWatchValueCommand.NotifyCanExecuteChanged();
         };
         SelectedNodes.CollectionChanged += (_, _) =>
         {
@@ -268,7 +269,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsDisconnected), nameof(StateText))]
-    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand), nameof(WriteAttributeValueCommand), nameof(WriteWatchValueCommand))]
     public partial ConnectionState State { get; private set; }
 
     [ObservableProperty]
@@ -282,15 +283,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     public partial string? ErrorMessage { get; private set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(AddToWatchCommand), nameof(CopyNodeIdCommand), nameof(MonitorFolderCommand), nameof(CopyNodeJsonCommand), nameof(CopyNodeClassCommand), nameof(CopyNodeRecordCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddToWatchCommand), nameof(CopyNodeIdCommand), nameof(MonitorFolderCommand), nameof(CopyNodeJsonCommand), nameof(CopyNodeClassCommand), nameof(CopyNodeRecordCommand), nameof(WriteAttributeValueCommand))]
     public partial NodeViewModel? SelectedNode { get; set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(CopyAttributeValueCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CopyAttributeValueCommand), nameof(WriteAttributeValueCommand))]
+    [NotifyPropertyChangedFor(nameof(IsValueAttributeSelected))]
     public partial AttributeValue? SelectedAttribute { get; set; }
 
+    /// <summary>The Value row is selected; only it offers "Write value…".</summary>
+    public bool IsValueAttributeSelected => SelectedAttribute?.Name == "Value";
+
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RemoveFromWatchCommand), nameof(CopyWatchValueCommand), nameof(CopyWatchNodeIdCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RemoveFromWatchCommand), nameof(CopyWatchValueCommand), nameof(CopyWatchNodeIdCommand), nameof(WriteWatchValueCommand))]
     public partial WatchItemViewModel? SelectedWatchItem { get; set; }
 
     partial void OnSelectedWatchItemChanged(WatchItemViewModel? value) => OnPropertyChanged(nameof(WatchSelectionLabel));
@@ -955,6 +960,72 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     [RelayCommand(CanExecute = nameof(HasSelectedAttribute))]
     private Task CopyAttributeValueAsync() => CopyAsync(SelectedAttribute?.Value);
 
+    private bool CanWriteAttributeValue() =>
+        IsConnected && IsValueAttributeSelected && SelectedNode is { IsVariable: true };
+
+    [RelayCommand(CanExecute = nameof(CanWriteAttributeValue))]
+    private async Task WriteAttributeValueAsync()
+    {
+        if (SelectedNode is not { } node || SelectedAttribute is not { } attribute)
+        {
+            return;
+        }
+
+        if (await WriteValuesAsync([(node.NodeId, node.DisplayName)], attribute.Value) && ReferenceEquals(SelectedNode, node))
+        {
+            await LoadAttributesAsync(node);
+        }
+    }
+
+    private bool CanWriteWatchValue() => IsConnected && HasSelectedWatchItem();
+
+    [RelayCommand(CanExecute = nameof(CanWriteWatchValue))]
+    private async Task WriteWatchValueAsync()
+    {
+        var items = WatchSelectionOrCurrent();
+        if (items.Count > 0)
+        {
+            await WriteValuesAsync([.. items.Select(i => (i.NodeId, i.DisplayName))], items[0].Value);
+        }
+    }
+
+    /// <summary>Asks for a new value and writes it to every target; returns true when all writes succeeded.</summary>
+    private async Task<bool> WriteValuesAsync(IReadOnlyList<(NodeId NodeId, string Name)> targets, string current)
+    {
+        if (Dialogs is null)
+        {
+            return false;
+        }
+
+        var label = targets.Count == 1 ? targets[0].Name : $"{targets.Count} items";
+        if (await Dialogs.AskWriteValueAsync(label, current) is not { } text)
+        {
+            return false;
+        }
+
+        var failures = new List<string>();
+        foreach (var (nodeId, name) in targets)
+        {
+            try
+            {
+                await _client.WriteValueAsync(nodeId, text);
+            }
+            catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+            {
+                failures.Add($"{name}: {ex.Message}");
+            }
+        }
+
+        if (failures.Count > 0)
+        {
+            ReportError(new InvalidOperationException($"Write failed for {string.Join("; ", failures)}"));
+            return false;
+        }
+
+        StatusMessage = $"Wrote {text} to {label}";
+        return true;
+    }
+
     [RelayCommand(CanExecute = nameof(HasSelectedWatchItem))]
     private Task CopyWatchValueAsync() => CopyAsync(string.Join(Environment.NewLine, WatchSelectionOrCurrent().Select(w => w.Value)));
 
@@ -1085,7 +1156,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             {
                 if (Attributes[i].Value != value)
                 {
+                    // Replacing the row drops the grid selection; keep it so the context menu still acts on it.
+                    var wasSelected = SelectedAttribute?.Name == name;
                     Attributes[i] = new AttributeValue(name, value);
+                    if (wasSelected)
+                    {
+                        SelectedAttribute = Attributes[i];
+                    }
                 }
 
                 return;

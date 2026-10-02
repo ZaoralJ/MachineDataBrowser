@@ -18,7 +18,9 @@
       <DataGrid x:Name="AttributesGrid" ItemsSource="{Binding Attributes}" SelectedItem="{Binding SelectedAttribute}"
                 CanUserSortColumns="False" AutomationProperties.Name="Attributes">
         <DataGrid.ContextMenu>
-          <ContextMenu>
+          <ContextMenu Opening="OnContextMenuOpening">
+            <MenuItem x:Name="WriteValueItem" Header="Write value…" Command="{Binding WriteAttributeValueCommand}"
+                      ToolTip.Tip="Write a new value to the selected variable" />
             <MenuItem Header="Copy value" Command="{Binding CopyAttributeValueCommand}" />
           </ContextMenu>
         </DataGrid.ContextMenu>
