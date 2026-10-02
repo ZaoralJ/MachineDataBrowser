@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.7.0...v0.8.0) (2026-10-02)
+
+
+### Features
+
+* **app:** colour themes with light and dark ([#31](https://github.com/ZaoralJ/OpcUaBrowser/issues/31)) ([5f48498](https://github.com/ZaoralJ/OpcUaBrowser/commit/5f4849890ba6ebcf3cf1948d969be6767d98234d))
+
 ## [0.7.0](https://github.com/ZaoralJ/OpcUaBrowser/compare/v0.6.0...v0.7.0) (2026-10-02)
 
 
