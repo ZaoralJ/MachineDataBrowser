@@ -14,9 +14,9 @@ public sealed partial class AddressSpaceView : UserControl
     {
         InitializeComponent();
 
-        // TreeViewItem toggles IsExpanded on double-tap and marks the event handled, which would collapse
-        // the node the first click just expanded. handledEventsToo lets us see it and keep the node open.
+        // Double-click expands (the first click may have toggled it) and monitors.
         AddressTree.AddHandler(InputElement.DoubleTappedEvent, OnTreeDoubleTapped, handledEventsToo: true);
+        AddressTree.AddHandler(InputElement.KeyDownEvent, OnTreeKeyDown, RoutingStrategies.Tunnel);
         AddressTree.AddHandler(InputElement.PointerPressedEvent, OnTreePointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddressTree.AddHandler(InputElement.PointerMovedEvent, OnTreePointerMoved, handledEventsToo: true);
         AddressTree.AddHandler(InputElement.PointerReleasedEvent, (_, _) => _dragStart = null, handledEventsToo: true);
@@ -31,9 +31,9 @@ public sealed partial class AddressSpaceView : UserControl
         // Right-click acts on the clicked node: an unselected node becomes the selection, a node that is
         // already selected keeps the whole multi-selection for the context menu.
         if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed && ClickedNode(e.Source) is { } clicked
-            && !AddressTree.SelectedItems.Contains(clicked))
+            && AddressTree.SelectedItems?.Contains(clicked) != true)
         {
-            AddressTree.SelectedItems.Clear();
+            AddressTree.SelectedItems?.Clear();
             AddressTree.SelectedItem = clicked;
         }
 
@@ -88,15 +88,53 @@ public sealed partial class AddressSpaceView : UserControl
         Avalonia.Threading.Dispatcher.UIThread.Post(
             () =>
             {
-                AddressTree.SelectedItems.Clear();
+                AddressTree.SelectedItems?.Clear();
                 AddressTree.SelectedItem = node;
-                if (AddressTree.TreeContainerFromItem(node) is TreeViewItem container)
-                {
-                    container.BringIntoView();
-                    container.Focus();
-                }
+                FocusRow(node);
             },
             Avalonia.Threading.DispatcherPriority.Loaded);
+
+    private void FocusRow(NodeViewModel node)
+    {
+        AddressTree.ScrollIntoView(node);
+        AddressTree.ContainerFromItem(node)?.Focus();
+    }
+
+    /// <summary>Tree keys for the flattened list: → expands or steps into the first child, ← collapses or goes to the parent.</summary>
+    private void OnTreeKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyModifiers != KeyModifiers.None || AddressTree.SelectedItem is not NodeViewModel node)
+        {
+            return;
+        }
+
+        NodeViewModel? select = null;
+        switch (e.Key)
+        {
+            case Key.Right when node.HasChildren && !node.IsExpanded:
+                node.IsExpanded = true;
+                break;
+            case Key.Right when node.IsExpanded && node.Children.Count > 0:
+                select = node.Children[0];
+                break;
+            case Key.Left when node.IsExpanded:
+                node.IsExpanded = false;
+                break;
+            case Key.Left when node.Parent is { } parent:
+                select = parent;
+                break;
+            default:
+                return;
+        }
+
+        e.Handled = true;
+        if (select is not null)
+        {
+            AddressTree.SelectedItems?.Clear();
+            AddressTree.SelectedItem = select;
+            FocusRow(select);
+        }
+    }
 
     private void OnTreeTapped(object? sender, TappedEventArgs e)
     {
@@ -112,7 +150,7 @@ public sealed partial class AddressSpaceView : UserControl
         if (DataContext is MainWindowViewModel vm)
         {
             // Mirror the tree's real selection: a Clear() raises no RemovedItems, so applying deltas leaves stale nodes.
-            var actual = AddressTree.SelectedItems.OfType<NodeViewModel>().ToList();
+            var actual = (AddressTree.SelectedItems ?? Array.Empty<object>()).OfType<NodeViewModel>().ToList();
             foreach (var stale in vm.SelectedNodes.Except(actual).ToList())
             {
                 vm.SelectedNodes.Remove(stale);
@@ -149,7 +187,7 @@ public sealed partial class AddressSpaceView : UserControl
             {
                 case Button:
                     return null;
-                case TreeViewItem { DataContext: NodeViewModel node }:
+                case ListBoxItem { DataContext: NodeViewModel node }:
                     return node;
             }
         }

@@ -33,13 +33,14 @@ public static class GridCopy
         InputElement.KeyDownEvent.AddClassHandler<DataGrid>(OnKeyDown, RoutingStrategies.Tunnel);
         Control.LoadedEvent.AddClassHandler<DataGrid>((grid, _) => AddMenuItem(grid));
         InputElement.GotFocusEvent.AddClassHandler<DataGrid>((grid, _) => SelectSingleRow(grid));
-        InputElement.GotFocusEvent.AddClassHandler<TreeView>((tree, _) => SelectSingleRow(tree));
+        InputElement.GotFocusEvent.AddClassHandler<ListBox>((list, _) => SelectSingleRow(list));
     }
 
-    /// <summary>A focused tree with a single top-level node (Root) selects it.</summary>
-    public static void SelectSingleRow(TreeView tree)
+    /// <summary>A focused address tree with a single top-level node (Root) selects it.</summary>
+    public static void SelectSingleRow(ListBox tree)
     {
-        if (tree.SelectedItems.Count == 0 && tree.ItemsSource?.Cast<object>().Take(2).ToList() is [var only])
+        if (tree.Classes.Contains("address-tree") && tree.SelectedItems is { Count: 0 }
+            && tree.ItemsSource?.OfType<ViewModels.NodeViewModel>().Where(n => n.Depth == 0).Take(2).ToList() is [var only])
         {
             tree.SelectedItem = only;
         }
@@ -53,7 +54,7 @@ public static class GridCopy
             case DataGrid grid:
                 SelectSingleRow(grid);
                 break;
-            case TreeView tree:
+            case ListBox tree:
                 SelectSingleRow(tree);
                 break;
         }

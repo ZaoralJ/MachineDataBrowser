@@ -137,7 +137,7 @@ public sealed class MainWindowTests(OpcPlcFixture plc)
             }
         }
 
-        var tree = window.GetVisualDescendants().OfType<TreeView>().Single();
+        var tree = window.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "AddressTree");
         var treeWidth = tree.Bounds.Width;
         var splitter = window.GetVisualDescendants().OfType<Dock.Controls.ProportionalStackPanel.ProportionalStackPanelSplitter>()
             .Where(s => s.Bounds.Height > s.Bounds.Width)

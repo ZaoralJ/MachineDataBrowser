@@ -337,6 +337,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     public ObservableCollection<NodeViewModel> RootNodes { get; } = [];
 
+    private FlatTree? _treeRows;
+
+    /// <summary>The visible tree rows (flattened for the virtualized address-space list).</summary>
+    public BulkObservableCollection<NodeViewModel> TreeRows => (_treeRows ??= new FlatTree(RootNodes)).Rows;
+
     public ObservableCollection<NodeViewModel> SelectedNodes { get; } = [];
 
     public string SelectionSummary => SelectedNodes.Count > 1 ? $"{SelectedNodes.Count} nodes selected" : string.Empty;
@@ -1057,7 +1062,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     [RelayCommand(CanExecute = nameof(HasSelectedWatchItem))]
     private Task CopyWatchNodeIdAsync() => CopyAsync(string.Join(Environment.NewLine, WatchSelectionOrCurrent().Select(w => w.NodeIdText)));
 
-    partial void OnSelectedNodeChanged(NodeViewModel? value) => _ = LoadAttributesAsync(value);
+    partial void OnSelectedNodeChanged(NodeViewModel? value) => _ = LoadAttributesAsync(value, debounce: true);
 
     private Task? _shutdown;
 
@@ -1101,7 +1106,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
     }
 
-    private Task<IReadOnlyList<BrowseItem>> Browse(NodeId nodeId) => _client.BrowseAsync(nodeId);
+    private Task<IReadOnlyList<BrowseItem>> Browse(NodeId nodeId)
+    {
+        var client = _client;
+        return Task.Run(() => client.BrowseAsync(nodeId));
+    }
 
     private async Task CopyAsync(string? text)
     {
@@ -1124,7 +1133,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         {
             try
             {
-                await monitor.DisposeAsync();
+                await Task.Run(() => monitor.DisposeAsync().AsTask());
             }
             catch (Exception ex) when (AppErrors.IsRecoverable(ex))
             {
@@ -1182,9 +1191,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
     }
 
-    private async Task LoadAttributesAsync(NodeViewModel? node)
+    private CancellationTokenSource? _attributesCts;
+
+    /// <summary>Selection delay before reading attributes, so arrowing through the tree doesn't queue server calls per node.</summary>
+    private static readonly TimeSpan SelectionDebounce = TimeSpan.FromMilliseconds(150);
+
+    private async Task LoadAttributesAsync(NodeViewModel? node, bool debounce = false)
     {
+        _attributesCts?.Cancel();
+        var cts = _attributesCts = new CancellationTokenSource();
+        var token = cts.Token;
+
         await StopSelectedValueMonitorAsync();
+        if (token.IsCancellationRequested)
+        {
+            return;
+        }
+
         Attributes.Clear();
         if (node is null || !IsConnected)
         {
@@ -1193,8 +1216,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
         try
         {
-            var attributes = await _client.ReadAttributesAsync(node.NodeId);
-            if (SelectedNode != node)
+            if (debounce)
+            {
+                await Task.Delay(SelectionDebounce, token);
+            }
+
+            var client = _client;
+            var refreshMs = DefaultRefreshMs;
+            var attributes = await Task.Run(() => client.ReadAttributesAsync(node.NodeId, token), token);
+            if (SelectedNode != node || token.IsCancellationRequested)
             {
                 return;
             }
@@ -1206,21 +1236,34 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
             if (node.IsVariable)
             {
-                var monitor = await _client.MonitorAsync(node.NodeId, update => ApplySelectedValue(node, update), DefaultRefreshMs);
-                if (SelectedNode == node && _selectedValueMonitor is null)
+                var monitor = await Task.Run(() => client.MonitorAsync(node.NodeId, update => ApplySelectedValue(node, update), refreshMs), CancellationToken.None);
+                if (SelectedNode == node && !token.IsCancellationRequested && _selectedValueMonitor is null)
                 {
                     _selectedValueMonitor = monitor;
                     IsSelectedValueLive = true;
                 }
                 else
                 {
-                    await monitor.DisposeAsync();
+                    _ = Task.Run(() => monitor.DisposeAsync().AsTask());
                 }
             }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // superseded by a newer selection
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
+        }
+        finally
+        {
+            if (ReferenceEquals(_attributesCts, cts))
+            {
+                _attributesCts = null;
+            }
+
+            cts.Dispose();
         }
     }
 

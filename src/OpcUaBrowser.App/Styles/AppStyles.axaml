@@ -391,30 +391,46 @@
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
 
-  <!-- ============ Tree ============ -->
-  <Style Selector="TreeViewItem">
-    <Setter Property="MinHeight" Value="28" />
-  </Style>
-  <Style Selector="TreeViewItem /template/ Border#PART_LayoutRoot">
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="Margin" Value="4,1" />
-  </Style>
-  <!-- Hover on the header row itself: TreeViewItem:pointerover is also true for every ancestor item, so pointing
-       at a child (or the gap between rows) lit up and blinked the parent rows above it. The first style cancels the
-       theme's item-level hover; later styles win. -->
-  <Style Selector="TreeViewItem:pointerover /template/ Border#PART_LayoutRoot">
+  <!-- ============ Tree (flattened, virtualized ListBox) ============ -->
+  <Style Selector="ListBox.address-tree">
     <Setter Property="Background" Value="Transparent" />
   </Style>
-  <Style Selector="TreeViewItem /template/ Border#PART_LayoutRoot:pointerover">
+  <Style Selector="ListBox.address-tree ListBoxItem">
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="Margin" Value="4,1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="ListBox.address-tree ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
   </Style>
-  <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot,
-                   TreeViewItem:selected /template/ Border#PART_LayoutRoot:pointerover,
-                   TreeViewItem:selected:focus /template/ Border#PART_LayoutRoot">
+  <Style Selector="ListBox.address-tree ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter,
+                   ListBox.address-tree ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter,
+                   ListBox.address-tree ListBoxItem:selected:focus /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource AppSelectionBrush}" />
-  </Style>
-  <Style Selector="TreeViewItem:selected /template/ ContentPresenter#PART_HeaderPresenter">
     <Setter Property="Foreground" Value="{DynamicResource AppSelectionTextBrush}" />
+  </Style>
+  <Style Selector="ToggleButton.tree-expander">
+    <Setter Property="Width" Value="16" />
+    <Setter Property="Height" Value="16" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="ToggleButton.tree-expander /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="ToggleButton.tree-expander > PathIcon">
+    <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
+    <Setter Property="RenderTransform" Value="rotate(-90deg)" />
+  </Style>
+  <Style Selector="ToggleButton.tree-expander:checked > PathIcon">
+    <Setter Property="RenderTransform" Value="none" />
   </Style>
 
   <!-- Tree row action: visible only while hovering its own row -->

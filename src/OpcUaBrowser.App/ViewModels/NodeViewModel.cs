@@ -9,18 +9,21 @@ namespace OpcUaBrowser.App.ViewModels;
 
 public sealed partial class NodeViewModel : ObservableObject
 {
-    private static readonly NodeViewModel Placeholder = new();
-
+    private readonly NodeViewModel? _placeholder;
     private readonly Func<NodeId, Task<IReadOnlyList<BrowseItem>>>? _browse;
     private readonly Action<Exception>? _onError;
     private readonly Func<NodeId, string>? _formatId;
     private bool _loaded;
     private Task? _loading;
 
-    private NodeViewModel()
+    // One placeholder per node: the flattened tree shows it as a row, and rows must be distinct objects.
+    private NodeViewModel(NodeViewModel parent)
     {
+        Parent = parent;
+        Depth = parent.Depth + 1;
         DisplayName = "Loading…";
         NodeId = NodeId.Null;
+        IsPlaceholder = true;
     }
 
     public NodeViewModel(
@@ -31,6 +34,7 @@ public sealed partial class NodeViewModel : ObservableObject
         NodeViewModel? parent = null)
     {
         Parent = parent;
+        Depth = parent is null ? 0 : parent.Depth + 1;
         NodeId = item.NodeId;
         _formatId = formatId;
         NodeIdText = formatId?.Invoke(item.NodeId) ?? item.NodeId.ToString();
@@ -43,13 +47,24 @@ public sealed partial class NodeViewModel : ObservableObject
         HasChildren = item.HasChildren;
         if (item.HasChildren)
         {
-            Children.Add(Placeholder);
+            _placeholder = new NodeViewModel(this);
+            Children.Add(_placeholder);
         }
         else
         {
             _loaded = true;
         }
+
+        Children.CollectionChanged += (_, _) => StructureChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>Raised when <see cref="IsExpanded"/> or <see cref="Children"/> changes, i.e. the visible rows below this node.</summary>
+    public event EventHandler? StructureChanged;
+
+    /// <summary>Nesting level: 0 for the root.</summary>
+    public int Depth { get; }
+
+    public bool IsPlaceholder { get; }
 
     /// <summary>The node this one was browsed from; null for the root.</summary>
     public NodeViewModel? Parent { get; }
@@ -88,7 +103,7 @@ public sealed partial class NodeViewModel : ObservableObject
 
     public bool HasChildren { get; }
 
-    public ObservableCollection<NodeViewModel> Children { get; } = [];
+    public BulkObservableCollection<NodeViewModel> Children { get; } = [];
 
     [ObservableProperty]
     public partial bool IsExpanded { get; set; }
@@ -99,6 +114,8 @@ public sealed partial class NodeViewModel : ObservableObject
         {
             _loading = LoadChildrenAsync();
         }
+
+        StructureChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public async Task EnsureChildrenLoadedAsync()
@@ -130,24 +147,23 @@ public sealed partial class NodeViewModel : ObservableObject
         var expanded = 0;
         for (var depth = 0; depth < maxDepth && level.Count > 0; depth++)
         {
-            var next = new List<NodeViewModel>();
-            foreach (var node in level.Where(n => n.HasChildren))
+            // Browse a whole level concurrently instead of one round trip per node.
+            var batch = level.Where(n => n.HasChildren).ToList();
+            var limited = expanded + batch.Count > maxNodes;
+            batch = batch.Take(Math.Max(0, maxNodes - expanded)).ToList();
+            expanded += batch.Count;
+            foreach (var node in batch)
             {
-                if (expanded++ >= maxNodes)
-                {
-                    return true;
-                }
-
                 node.IsExpanded = true;
-                if (node._loading is { } loading)
-                {
-                    await loading;
-                }
-
-                next.AddRange(node.Children.Where(c => c.HasChildren));
             }
 
-            level = next;
+            await Task.WhenAll(batch.Select(n => n._loading).OfType<Task>());
+            if (limited)
+            {
+                return true;
+            }
+
+            level = batch.SelectMany(n => n.Children.Where(c => c.HasChildren)).ToList();
         }
 
         return level.Count > 0;
@@ -174,35 +190,48 @@ public sealed partial class NodeViewModel : ObservableObject
             return; // a refresh is best effort; the next one retries
         }
 
-        var existing = Children.Where(c => c != Placeholder).ToDictionary(c => c.NodeId);
+        var existing = new Dictionary<NodeId, NodeViewModel>();
+        foreach (var child in Children)
+        {
+            if (child != _placeholder)
+            {
+                existing.TryAdd(child.NodeId, child);
+            }
+        }
+
         var wanted = items.Select(item =>
             existing.TryGetValue(item.NodeId, out var keep) && keep.NodeClass == item.NodeClass && keep.HasChildren == item.HasChildren
                 ? keep
                 : new NodeViewModel(item, _browse, _onError!, _formatId, this)).ToList();
 
-        for (var i = Children.Count - 1; i >= 0; i--)
+        if (!Children.SequenceEqual(wanted))
         {
-            if (!wanted.Contains(Children[i]))
+            // Hash lookups keep the merge linear; it runs every second for live MQTT trees.
+            var wantedSet = new HashSet<NodeViewModel>(wanted, System.Collections.Generic.ReferenceEqualityComparer.Instance);
+            for (var i = Children.Count - 1; i >= 0; i--)
             {
-                Children.RemoveAt(i);
-            }
-        }
-
-        for (var i = 0; i < wanted.Count; i++)
-        {
-            if (i < Children.Count && ReferenceEquals(Children[i], wanted[i]))
-            {
-                continue;
+                if (!wantedSet.Contains(Children[i]))
+                {
+                    Children.RemoveAt(i);
+                }
             }
 
-            var at = Children.IndexOf(wanted[i]);
-            if (at >= 0)
+            var present = new HashSet<NodeViewModel>(Children, System.Collections.Generic.ReferenceEqualityComparer.Instance);
+            for (var i = 0; i < wanted.Count; i++)
             {
-                Children.Move(at, i);
-            }
-            else
-            {
-                Children.Insert(i, wanted[i]);
+                if (i < Children.Count && ReferenceEquals(Children[i], wanted[i]))
+                {
+                    continue;
+                }
+
+                if (present.Contains(wanted[i]))
+                {
+                    Children.Move(Children.IndexOf(wanted[i]), i);
+                }
+                else
+                {
+                    Children.Insert(i, wanted[i]);
+                }
             }
         }
 
@@ -223,11 +252,7 @@ public sealed partial class NodeViewModel : ObservableObject
         try
         {
             var items = await _browse(NodeId);
-            Children.Clear();
-            foreach (var item in items)
-            {
-                Children.Add(new NodeViewModel(item, _browse, _onError!, _formatId, this));
-            }
+            Children.ReplaceAll(items.Select(item => new NodeViewModel(item, _browse, _onError!, _formatId, this)));
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {

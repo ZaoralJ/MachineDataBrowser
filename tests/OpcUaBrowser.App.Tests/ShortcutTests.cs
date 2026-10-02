@@ -64,7 +64,7 @@ public sealed class ShortcutTests
         Dispatcher.UIThread.RunJobs();
 
         // Focus elsewhere (the address space), then click the Watch pane's toolbar area and press S.
-        window.GetVisualDescendants().OfType<TreeView>().First().Focus();
+        window.GetVisualDescendants().OfType<ListBox>().First(l => l.Name == "AddressTree").Focus();
         var toolbarButton = window.GetVisualDescendants().OfType<Button>().Single(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Remove all from watch"
             && b.FindAncestorOfType<WatchView>() is not null);
         var at = toolbarButton.TranslatePoint(new Avalonia.Point(toolbarButton.Bounds.Width + 60, toolbarButton.Bounds.Height / 2), window)!.Value;
@@ -92,7 +92,7 @@ public sealed class ShortcutTests
         window.Show();
         Dispatcher.UIThread.RunJobs();
 
-        window.GetVisualDescendants().OfType<TreeView>().First().Focus();
+        window.GetVisualDescendants().OfType<ListBox>().First(l => l.Name == "AddressTree").Focus();
         var staleButton = window.GetVisualDescendants().OfType<Button>().Single(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Select stale values");
         window.MouseMove(staleButton.TranslatePoint(new Point(5, 5), window)!.Value); // hovering the button, no click
         window.KeyPressQwerty(PhysicalKey.S, RawInputModifiers.None);

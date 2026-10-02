@@ -93,9 +93,9 @@ public sealed class DragDropTests(OpcPlcFixture plc)
         await Until(() => objects.Children.Any(c => c.DisplayName == "OpcPlc"));
         Dispatcher.UIThread.RunJobs();
 
-        Border RowOf(NodeViewModel node) => window.GetVisualDescendants().OfType<TreeViewItem>().First(i => i.DataContext == node)
-            .GetVisualDescendants().OfType<Border>().First(b => b.Name == "PART_LayoutRoot");
-        static bool Lit(Border b) => b.Background is Avalonia.Media.ISolidColorBrush { Color.A: > 0 };
+        Control RowOf(NodeViewModel node) => window.GetVisualDescendants().OfType<ListBoxItem>().First(i => i.DataContext == node)
+            .GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().First(b => b.Name == "PART_ContentPresenter");
+        static bool Lit(Control c) => c is Avalonia.Controls.Presenters.ContentPresenter { Background: Avalonia.Media.ISolidColorBrush { Color.A: > 0 } };
 
         var child = objects.Children.Single(c => c.DisplayName == "OpcPlc");
         var label = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.DataContext == child && t.Text == "OpcPlc");
