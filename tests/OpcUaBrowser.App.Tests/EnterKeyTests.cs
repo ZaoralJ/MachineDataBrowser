@@ -84,11 +84,20 @@ public sealed class EnterKeyTests
 
 public sealed class MessageDialogLayoutTests
 {
-    [AvaloniaFact]
-    public void Buttons_fit_inside_the_dialog()
+    [AvaloniaTheory]
+    [InlineData(1.0, "message-dialog.png")]
+    [InlineData(1.5, "message-dialog-zoom150.png")]
+    public void Buttons_fit_inside_the_dialog(double zoom, string screenshot)
     {
-        var main = new MainWindow { DataContext = new MainWindowViewModel(), Width = 1280, Height = 800 };
+        // A private settings file: zooming persists the scale.
+        var vm = new MainWindowViewModel(new OpcUaBrowser.App.Services.SettingsStore(Path.Combine(Directory.CreateTempSubdirectory("zoom").FullName, "settings.json")));
+        var main = new MainWindow { DataContext = vm, Width = 1280, Height = 800 };
         main.Show();
+        while (vm.UiScale < zoom - 0.001)
+        {
+            vm.ZoomInCommand.Execute(null);
+        }
+
         _ = MessageDialog.ShowAsync(main, "Recordings still running", "Stop the running recordings too?",
             "The watch list is empty, but recordings keep capturing their items until they are stopped. Stop keeps the recorded history; Close discards it.",
             DialogIcon.Warning,
@@ -111,10 +120,11 @@ public sealed class MessageDialogLayoutTests
         using (var frame = dialog.CaptureRenderedFrame())
         {
             Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "screenshots"));
-            frame!.Save(Path.Combine(AppContext.BaseDirectory, "screenshots", "message-dialog.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+            frame!.Save(Path.Combine(AppContext.BaseDirectory, "screenshots", screenshot), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
         }
 
         dialog.Close();
+        vm.ZoomResetCommand.Execute(null);
         main.Close();
     }
 }

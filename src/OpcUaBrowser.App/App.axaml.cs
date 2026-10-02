@@ -16,6 +16,7 @@ public sealed class App : Application
         CloseSecondaryWindowsOnEscape();
         Views.GridCopy.Install();
         Views.ColumnFit.Install();
+        Views.UiZoom.Install();
     }
 
     /// <summary>

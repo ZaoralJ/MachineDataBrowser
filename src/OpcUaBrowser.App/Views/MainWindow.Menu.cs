@@ -32,6 +32,7 @@ public sealed partial class MainWindow
 
         _menuViewModel = vm;
         vm.PropertyChanged += OnViewModelPropertyChanged;
+        UiZoom.SetScale(vm.UiScale);
 
         if (NativeMenu.GetMenu(this) is { } existing)
         {
@@ -63,6 +64,11 @@ public sealed partial class MainWindow
         if (e.PropertyName is nameof(MainWindowViewModel.Settings))
         {
             RefreshDynamicMenuItems();
+        }
+
+        if (e.PropertyName is nameof(MainWindowViewModel.Settings) or nameof(MainWindowViewModel.UiScale) && sender is MainWindowViewModel vm)
+        {
+            UiZoom.SetScale(vm.UiScale);
         }
     }
 
