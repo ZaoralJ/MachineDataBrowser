@@ -160,9 +160,10 @@ public sealed class CommandTests(OpcPlcFixture plc, MqttSimulatorFixture broker)
     [Fact]
     public async Task Recursive_expands_folders_to_their_variables_named_by_path()
     {
-        var (exit, output, _) = await RunAsync("read", plc.EndpointUrl, "/Objects/OpcPlc/Telemetry", "-R", "--trust-all", "-f", "csv");
+        // Not the exit code: some of opc-plc's simulated variables (anomalies, special values) have no value at times, and
+        // read then rightly exits 1. This test is about which variables the folder expands to and how they are named.
+        var (_, output, _) = await RunAsync("read", plc.EndpointUrl, "/Objects/OpcPlc/Telemetry", "-R", "--trust-all", "-f", "csv");
 
-        Assert.Equal(0, exit);
         var names = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Skip(1).Select(l => l.Split(',')[0]).ToList();
         Assert.Contains("Basic/StepUp", names);
         Assert.Contains("Basic/AlternatingBoolean", names);
