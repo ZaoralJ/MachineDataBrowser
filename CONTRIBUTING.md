@@ -46,6 +46,9 @@ Screenshots in README and the user manual (`docs/images`, dark theme) come from 
 skipped in normal test runs; after a visible UI change run `just docs-screenshots` (needs `pngquant`, e.g.
 `brew install pngquant`) and commit the updated PNGs.
 
+The [wiki](https://github.com/ZaoralJ/MachineDataBrowser/wiki) is generated from `docs/user-manual.md` by
+`scripts/build-wiki.py` (workflow `wiki`) on every push to `main`; edit the manual, not the wiki.
+
 ## Code guidelines
 
 - Read [docs/architecture.md](docs/architecture.md) first; protocol logic (OPC UA, EtherNet/IP, MQTT) belongs in `MachineDataBrowser.Core`
