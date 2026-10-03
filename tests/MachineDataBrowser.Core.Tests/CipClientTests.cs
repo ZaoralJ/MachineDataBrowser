@@ -166,4 +166,19 @@ public sealed class CipClientTests(LogixSimulatorFixture plc) : IAsyncLifetime
 
         Assert.True(values.Distinct().Count() >= 5, $"only {values.Distinct().Count()} distinct values");
     }
+
+    [Fact]
+    public async Task Diagnostics_show_the_link_and_each_poll_group()
+    {
+        await using var handle = await _client.MonitorAsync(Tag("HighSpeed.Cycle.Counter"), _ => { }, 100, Ct);
+        await Task.Delay(TimeSpan.FromSeconds(1), Ct);
+
+        var rows = (await _client.GetDiagnosticsAsync(Ct)).Session.ToDictionary(r => r.Name, r => r.Value);
+
+        Assert.Equal("1,0 (backplane, slot)", rows["Path"]);
+        Assert.Equal("0", rows["Link lost"]);
+        Assert.Matches(@"^\d+ controller · \d+ programs", rows["Tags"]);
+        Assert.Contains("0 failed", rows["Reads"], StringComparison.Ordinal);
+        Assert.StartsWith("1 tags · last ", rows["Poll 100 ms"], StringComparison.Ordinal);
+    }
 }

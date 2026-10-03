@@ -68,8 +68,15 @@ Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ but
 
 **Diagnostics:** Connection ▸ **Diagnostics…** (⇧⌘I) shows the connection live, refreshed every second. Use it when
 values seem to stop:
-- *Session* (OPC UA): endpoint, security, user, keep-alive, reconnects, outstanding requests, and the server's state,
-  clock (with its offset from this computer), start time and product.
+- *Session*: how the connection is doing, per protocol:
+  - OPC UA: endpoint, security, user, keep-alive, reconnects, outstanding requests, and the server's state, clock
+    (with its offset from this computer), start time and product.
+  - MQTT: broker, transport and TLS, protocol version, client ID, user, topic filter, keep-alive, reconnects, messages
+    per second (count, bytes, last one), topics against the limit, Sparkplug B nodes and devices online, and the limits
+    the broker announced (max QoS, retain).
+  - EtherNet/IP: gateway, path, timeout, link drops, tag counts, reads per second and failures, and per refresh time
+    the tags polled, the last read cycle and how long it took (longer than the refresh time means the PLC can't keep
+    up), with the last error.
 - *This app*: watched items, value updates per second, and how many rows are stale, bad or uncertain.
 - *Subscriptions* (OPC UA): the publishing interval the server granted (it may differ from the refresh time), items,
   notifications and when the last one arrived.

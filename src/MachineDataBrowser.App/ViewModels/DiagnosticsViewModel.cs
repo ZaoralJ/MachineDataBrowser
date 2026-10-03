@@ -84,7 +84,7 @@ public sealed partial class DiagnosticsViewModel : ObservableObject, IDisposable
                     new DiagnosticsRow("Endpoint", _endpoint()),
                     new DiagnosticsRow("State", client.State.ToString()),
                     new DiagnosticsRow("Server", client.ServerUri ?? string.Empty),
-                    new DiagnosticsRow("Details", error ?? (client is IConnectionDiagnosticsSource ? "Connect to see the session details." : "Session details are available for OPC UA.")),
+                    new DiagnosticsRow("Details", error ?? "Connect to see the connection details."),
                 ]);
             Replace(Subscriptions, details?.Subscriptions.Select(s => new SubscriptionRow(s)) ?? []);
             HasSubscriptions = Subscriptions.Count > 0;

@@ -16,7 +16,7 @@ namespace MachineDataBrowser.Core.Cip;
 /// children are members/elements. There are no subscriptions in CIP, so monitoring polls per refresh time and
 /// reports only changes.
 /// </summary>
-public sealed class CipClient : IDeviceClient
+public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
 {
     internal const ushort TagNamespace = 1;
     internal const ushort FolderNamespace = 2;
@@ -34,6 +34,10 @@ public sealed class CipClient : IDeviceClient
     private readonly Dictionary<int, PollGroup> _groups = [];
     private CipEndpoint? _endpoint;
     private ConnectionState _state = ConnectionState.Disconnected;
+    private DateTime? _connectedAt;
+    private DateTime? _lastLinkLoss;
+    private int _linkLosses;
+    private (long Count, DateTime At)? _rateSample;
 
     public event EventHandler<ConnectionState>? StateChanged;
 
@@ -91,6 +95,10 @@ public sealed class CipClient : IDeviceClient
 
             // Listing the controller tags proves the connection and fills the first browse level.
             _scopes[string.Empty] = await ReadTagListAsync("@tags", cancellationToken).ConfigureAwait(false);
+            _connectedAt = DateTime.UtcNow;
+            _linkLosses = 0;
+            _lastLinkLoss = null;
+            _rateSample = null;
             State = ConnectionState.Connected;
         }
         catch
@@ -412,6 +420,7 @@ public sealed class CipClient : IDeviceClient
         _scopes.Clear();
         _templates.Clear();
         _endpoint = null;
+        _connectedAt = null;
         State = ConnectionState.Disconnected;
     }
 
@@ -434,7 +443,55 @@ public sealed class CipClient : IDeviceClient
             return;
         }
 
+        if (!ok && State == ConnectionState.Connected)
+        {
+            _linkLosses++;
+            _lastLinkLoss = DateTime.UtcNow;
+        }
+
         State = ok ? ConnectionState.Connected : ConnectionState.Reconnecting;
+    }
+
+    public Task<ConnectionDiagnostics> GetDiagnosticsAsync(CancellationToken cancellationToken = default)
+    {
+        var endpoint = RequireEndpoint();
+        List<PollGroup> groups;
+        lock (_lock)
+        {
+            groups = [.. _groups.Values.OrderBy(g => g.IntervalMs)];
+        }
+
+        var controllerTags = _scopes.TryGetValue(string.Empty, out var controller) ? controller : [];
+        var info = new List<(string, string)>
+        {
+            ("Gateway", endpoint.Gateway),
+            ("Path", $"{endpoint.Path} (backplane, slot)"),
+            ("Protocol", "EtherNet/IP · CIP (Logix) via libplctag"),
+            ("Timeout", DiagnosticsFormat.Duration(endpoint.Timeout.TotalMilliseconds)),
+            ("Connected since", DiagnosticsFormat.Since(_connectedAt)),
+            ("Link lost", DiagnosticsFormat.Reconnects(_linkLosses, _lastLinkLoss)),
+            ("Tags", $"{controllerTags.Count(IsUserTag).ToString(CultureInfo.InvariantCulture)} controller · {controllerTags.Count(s => s.Name.StartsWith(ProgramPrefix, StringComparison.OrdinalIgnoreCase)).ToString(CultureInfo.InvariantCulture)} programs · {_templates.Count.ToString(CultureInfo.InvariantCulture)} UDTs loaded"),
+        };
+
+        // CIP has no subscriptions: everything monitored is read in one poll loop per refresh time.
+        var reads = groups.Sum(g => g.Reads);
+        var failures = groups.Sum(g => g.Failures);
+        info.Add(("Reads", $"{DiagnosticsFormat.Rate(reads, ref _rateSample)} · {reads.ToString("N0", CultureInfo.InvariantCulture)} total · {failures.ToString("N0", CultureInfo.InvariantCulture)} failed"));
+        if (groups.Count == 0)
+        {
+            info.Add(("Polling", "nothing monitored"));
+        }
+
+        foreach (var group in groups)
+        {
+            var cycle = group.LastCycleMs is { } ms ? $" · cycle {DiagnosticsFormat.Duration(ms)}" : string.Empty;
+            var late = group.LastCycleMs > group.IntervalMs ? " (slower than the refresh time)" : string.Empty;
+            var error = group.LastError is { } last ? $" · last error: {last}" : string.Empty;
+            info.Add(($"Poll {DiagnosticsFormat.Duration(group.IntervalMs)}",
+                $"{group.Count.ToString(CultureInfo.InvariantCulture)} tags · last {DiagnosticsFormat.Ago(group.LastCycleUtc ?? DateTime.MinValue)}{cycle}{late}{error}"));
+        }
+
+        return Task.FromResult(new ConnectionDiagnostics(info, []));
     }
 
     private async Task<IReadOnlyList<BrowseItem>> ListScopeAsync(string scope, CancellationToken cancellationToken)
@@ -713,6 +770,8 @@ public sealed class CipClient : IDeviceClient
         private readonly CancellationTokenSource _cts = new();
         private Task? _loop;
         private int _stopped;
+        private long _reads;
+        private long _failures;
 
         public PollGroup(CipClient owner, int intervalMs)
         {
@@ -723,6 +782,28 @@ public sealed class CipClient : IDeviceClient
         public CipClient Owner { get; }
 
         public int IntervalMs { get; }
+
+        public long Reads => Interlocked.Read(ref _reads);
+
+        public long Failures => Interlocked.Read(ref _failures);
+
+        public int Count
+        {
+            get
+            {
+                lock (_entries)
+                {
+                    return _entries.Count;
+                }
+            }
+        }
+
+        public DateTime? LastCycleUtc { get; private set; }
+
+        /// <summary>How long the last round of reads took; above <see cref="IntervalMs"/> the PLC can't keep up.</summary>
+        public double? LastCycleMs { get; private set; }
+
+        public string? LastError { get; private set; }
 
         public PollEntry Add(NodeId nodeId, CipItem item, Tag tag, Action<ValueUpdate> onUpdate)
         {
@@ -808,21 +889,39 @@ public sealed class CipClient : IDeviceClient
                     entries = [.. _entries];
                 }
 
+                var started = System.Diagnostics.Stopwatch.GetTimestamp();
                 var outcomes = await Task.WhenAll(entries.Select(e => PollAsync(e, cancellationToken))).ConfigureAwait(false);
                 if (outcomes.Length > 0 && !cancellationToken.IsCancellationRequested)
                 {
-                    Owner.ReportLink(outcomes.Any(ok => ok));
+                    LastCycleMs = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+                    LastCycleUtc = DateTime.UtcNow;
+                    foreach (var (read, status) in outcomes)
+                    {
+                        if (!read)
+                        {
+                            continue;
+                        }
+
+                        Interlocked.Increment(ref _reads);
+                        if (StatusCode.IsBad(status))
+                        {
+                            Interlocked.Increment(ref _failures);
+                            LastError = status.ToString();
+                        }
+                    }
+
+                    Owner.ReportLink(outcomes.Any(o => o.Status != StatusCodes.BadCommunicationError && o.Status != StatusCodes.BadTimeout));
                 }
             }
             while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false));
         }
 
-        /// <summary>Reads one item and reports it when value or status changed. Returns false on a communication error.</summary>
-        private static async Task<bool> PollAsync(PollEntry entry, CancellationToken cancellationToken)
+        /// <summary>Reads one item and reports it when value or status changed. Returns whether it read and the status.</summary>
+        private static async Task<(bool Read, StatusCode Status)> PollAsync(PollEntry entry, CancellationToken cancellationToken)
         {
             if (!await entry.Gate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
             {
-                return true;
+                return (false, StatusCodes.Good);
             }
 
             try
@@ -830,7 +929,6 @@ public sealed class CipClient : IDeviceClient
                 StatusCode status;
                 object? value = null;
                 byte[]? data = null;
-                var ok = true;
                 try
                 {
                     await InitializeTagAsync(entry.Tag, cancellationToken).ConfigureAwait(false);
@@ -842,7 +940,6 @@ public sealed class CipClient : IDeviceClient
                 catch (LibPlcTagException ex)
                 {
                     status = ToStatus(ex);
-                    ok = status != StatusCodes.BadCommunicationError && status != StatusCodes.BadTimeout;
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException and not ObjectDisposedException && Errors.IsRecoverable(ex))
                 {
@@ -853,7 +950,7 @@ public sealed class CipClient : IDeviceClient
 
                 if (status == entry.LastStatus && (data is null || data.AsSpan().SequenceEqual(entry.LastData)))
                 {
-                    return ok;
+                    return (true, status);
                 }
 
                 entry.LastStatus = status;
@@ -868,11 +965,11 @@ public sealed class CipClient : IDeviceClient
                     now,
                     ValueFormatter.ToNumeric(variant),
                     value));
-                return ok;
+                return (true, status);
             }
             catch (ObjectDisposedException)
             {
-                return true;
+                return (false, StatusCodes.Good);
             }
             finally
             {

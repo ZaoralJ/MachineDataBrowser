@@ -152,6 +152,29 @@ public sealed class MqttClientTests(MqttSimulatorFixture broker) : IAsyncLifetim
     }
 
     [Fact]
+    public async Task Diagnostics_show_broker_traffic_topics_and_sparkplug_nodes()
+    {
+        await using var monitor = await _client.MonitorAsync(Id("t:fast/10ms/counter"), _ => { }, 250, Ct);
+
+        var rows = (await _client.GetDiagnosticsAsync(Ct)).Session.ToDictionary(r => r.Name, r => r.Value);
+
+        Assert.Equal("MQTT 5.0", rows["Protocol"]);
+        Assert.StartsWith("TCP · no TLS", rows["Transport"], StringComparison.Ordinal);
+        Assert.Equal("#", rows["Topic filter"]);
+        Assert.Equal("0", rows["Reconnects"]);
+        Assert.Matches(@"received · \d", rows["Messages"]);
+        Assert.Contains("of max 20000", rows["Topics"], StringComparison.Ordinal);
+        Assert.Matches(@"^\d+/\d+ edge nodes online", rows["Sparkplug B"]);
+        Assert.Equal("1", rows["Monitored items"]);
+        Assert.Contains("max QoS", rows["Broker limits"], StringComparison.Ordinal);
+
+        // Two samples a moment apart give a real message rate from the simulator's 10 ms topic.
+        await Task.Delay(TimeSpan.FromMilliseconds(500), Ct);
+        rows = (await _client.GetDiagnosticsAsync(Ct)).Session.ToDictionary(r => r.Name, r => r.Value);
+        Assert.DoesNotMatch(@"^0 / s", rows["Messages"]);
+    }
+
+    [Fact]
     public async Task Device_death_turns_its_metrics_bad_and_rebirth_recovers()
     {
         var updates = new ConcurrentQueue<ValueUpdate>();
