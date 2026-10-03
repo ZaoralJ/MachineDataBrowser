@@ -429,6 +429,21 @@ internal static class Commands
             }
         }
 
+        if (writer.WantsInitialValues)
+        {
+            // Show what the device holds right now, before the first change arrives.
+            var ids = byId.Keys.ToList();
+            var current = await client.ReadValuesAsync(ids, cancellationToken).ConfigureAwait(false);
+            var now = DateTime.UtcNow;
+            for (var i = 0; i < ids.Count; i++)
+            {
+                if (current[i] is { } value)
+                {
+                    writer.Seed(byId[ids[i]].DisplayId, new ValueUpdate(ids[i], ValueFormatter.Format(new Variant(value)), StatusCodes.Good, now, now, Raw: value));
+                }
+            }
+        }
+
         var handles = new List<IAsyncDisposable>();
         try
         {

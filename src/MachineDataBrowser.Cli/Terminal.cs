@@ -10,6 +10,14 @@ namespace MachineDataBrowser.Cli;
 /// <summary>Receives value updates from a monitor; written out or shown live. Disposing flushes and stops.</summary>
 internal interface IUpdateSink : IAsyncDisposable
 {
+    /// <summary>Whether the sink shows current values before monitoring starts (the live table does; streams don't).</summary>
+    bool WantsInitialValues => false;
+
+    /// <summary>The value read before monitoring started; not an update.</summary>
+    void Seed(string id, ValueUpdate current)
+    {
+    }
+
     void Post(string name, string id, ValueUpdate update);
 }
 
@@ -71,7 +79,7 @@ internal sealed class LiveWatch : IUpdateSink
     private static readonly TimeSpan RedrawInterval = TimeSpan.FromMilliseconds(200);
 
     private readonly IReadOnlyList<Node> _items;
-    private readonly ConcurrentDictionary<string, (ValueUpdate Update, int Count)> _latest = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, (ValueUpdate Update, int Count, bool Seeded)> _latest = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _stop = new();
     private readonly Task _render;
 
@@ -96,8 +104,19 @@ internal sealed class LiveWatch : IUpdateSink
         });
     }
 
+    public bool WantsInitialValues => true;
+
+    public void Seed(string id, ValueUpdate current) => _latest.TryAdd(id, (current, 0, true));
+
+    /// <summary>
+    /// Counts updates. Right after subscribing, servers (and Logix polling, and MQTT retained messages) send the current
+    /// value once more; when that only repeats the value read at the start, it is not counted.
+    /// </summary>
     public void Post(string name, string id, ValueUpdate update) =>
-        _latest.AddOrUpdate(id, (update, 1), (_, previous) => (update, previous.Count + 1));
+        _latest.AddOrUpdate(id, (update, 1, false), (_, previous) =>
+            previous.Seeded && previous.Count == 0 && previous.Update.Value == update.Value && StatusCode.IsGood(update.Status)
+                ? (update, 0, false)
+                : (update, previous.Count + 1, false));
 
     public async ValueTask DisposeAsync()
     {
