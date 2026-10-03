@@ -51,14 +51,17 @@ public sealed class McpContextToolsTests(OpcPlcFixture plc, CustomTypesServerFix
     [Fact]
     public async Task History_comes_raw_or_per_bucket()
     {
-        var from = DateTimeOffset.UtcNow.AddHours(-1).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+        // A fixed end: the simulator adds a value every 10 s, so two calls ending "now" can differ by one.
+        var now = DateTimeOffset.UtcNow;
+        var from = now.AddHours(-1).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+        var to = now.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
         var node = "/Objects/Custom/History/Temperature";
 
-        var raw = (await CallAsync("history", new() { ["nodes"] = new[] { node }, ["from"] = from, ["endpoint"] = custom.EndpointUrl }))["items"]![0]!;
+        var raw = (await CallAsync("history", new() { ["nodes"] = new[] { node }, ["from"] = from, ["to"] = to, ["endpoint"] = custom.EndpointUrl }))["items"]![0]!;
         Assert.True((int)raw["values"]! > 300);
         Assert.Equal(JsonValueKind.Number, raw["samples"]![0]!["value"]!.GetValueKind());
 
-        var hourly = (await CallAsync("history", new() { ["nodes"] = new[] { node }, ["from"] = from, ["bucketSeconds"] = 900, ["endpoint"] = custom.EndpointUrl }))["items"]![0]!;
+        var hourly = (await CallAsync("history", new() { ["nodes"] = new[] { node }, ["from"] = from, ["to"] = to, ["bucketSeconds"] = 900, ["endpoint"] = custom.EndpointUrl }))["items"]![0]!;
         var buckets = hourly["buckets"]!.AsArray();
         Assert.InRange(buckets.Count, 4, 5);
         Assert.Equal((int)raw["values"]!, buckets.Sum(b => (int)b!["count"]!));

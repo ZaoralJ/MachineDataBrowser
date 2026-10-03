@@ -39,7 +39,9 @@ public sealed class BulkWatchTests(OpcPlcFixture plc)
 
         Assert.True(vm.WatchItems.Count >= 1000, $"only {vm.WatchItems.Count} items");
         TestContext.Current.TestOutputHelper!.WriteLine($"{vm.WatchItems.Count} items in {total.ElapsedMilliseconds} ms, longest UI block {longest.TotalMilliseconds:0} ms");
-        Assert.True(longest < TimeSpan.FromMilliseconds(500), $"UI blocked for {longest.TotalMilliseconds:0} ms ({vm.WatchItems.Count} items in {total.ElapsedMilliseconds} ms)");
+        // Shared CI runners stall now and then; a real freeze (everything on the UI thread) takes seconds.
+        var limit = TimeSpan.FromMilliseconds(Environment.GetEnvironmentVariable("CI") is null ? 500 : 1000);
+        Assert.True(longest < limit, $"UI blocked for {longest.TotalMilliseconds:0} ms ({vm.WatchItems.Count} items in {total.ElapsedMilliseconds} ms)");
         window.Close();
     }
 
