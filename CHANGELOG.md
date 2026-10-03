@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.18.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.17.0...v0.18.0) (2026-10-03)
+
+
+### Features
+
+* **cli:** MCP context tools: attributes, history, alarms, events, diagnostics ([#87](https://github.com/ZaoralJ/MachineDataBrowser/issues/87)) ([f5a9e16](https://github.com/ZaoralJ/MachineDataBrowser/commit/f5a9e16484c60a56cac4233ce1ef1eca0a60c2b9))
+
+
+### Fixes
+
+* **core:** history from servers without continuation points (asyncua) stopped after the first page of 1000; it now pages on by time, skips the value repeated at the page boundary, and stops if a page adds nothing. Also affects the app's Show history. ([f5a9e16](https://github.com/ZaoralJ/MachineDataBrowser/commit/f5a9e16484c60a56cac4233ce1ef1eca0a60c2b9))
+
 ## [0.17.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.16.1...v0.17.0) (2026-10-03)
 
 
