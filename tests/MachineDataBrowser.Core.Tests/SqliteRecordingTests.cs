@@ -164,6 +164,43 @@ public sealed class SqliteRecordingTests(OpcPlcFixture plc) : IAsyncLifetime
         Assert.Equal([2L], await QueryAsync(file, "PRAGMA auto_vacuum", r => r.GetInt64(0)));   // incremental: freed space goes back to disk
     }
 
+    [Fact]
+    public async Task Queries_give_item_statistics_ranges_and_buckets()
+    {
+        var file = Path.Combine(_dir, "query.db");
+        await using (var recording = await RecordAsync(file, "Line 1", Item(ProductName, "Speed", "Objects/Line1"), Item(CurrentTime, "Mode")))
+        {
+            for (var i = 0; i < 6; i++)
+            {
+                // Speed 10, 20 … 60 at 12:00:00, :20, :40, 12:01:00, :20, :40; one sample not Good.
+                recording.Append(new ValueUpdate(ProductName, (10 * (i + 1)).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    i == 4 ? StatusCodes.UncertainLastUsableValue : StatusCodes.Good,
+                    new DateTime(2026, 10, 3, 12, 0, 0, DateTimeKind.Utc).AddSeconds(20 * i), DateTime.UtcNow, 10 * (i + 1)));
+            }
+
+            recording.Append(Update(CurrentTime, "AUTO"));
+            await recording.StopAsync(Ct);
+        }
+
+        var summary = Assert.Single(await SqliteRecordingQuery.RecordingsAsync(file, Ct));
+        Assert.Equal(("Line 1", "opc.tcp://plc:4840"), (summary.Name, summary.Endpoint));
+        Assert.True(summary.Samples >= 7);
+
+        var speed = (await SqliteRecordingQuery.ItemsAsync(file, cancellationToken: Ct)).Single(i => i.Name == "Speed");
+        Assert.Equal(("Objects/Line1", 10d, 60d, 35d, "60"), (speed.Path, speed.Min, speed.Max, speed.Average, speed.LastValue));
+
+        var range = new SampleQuery { Items = ["Speed"], From = new DateTimeOffset(2026, 10, 3, 12, 0, 30, TimeSpan.Zero), To = new DateTimeOffset(2026, 10, 3, 12, 1, 10, TimeSpan.Zero) };
+        var (samples, truncated) = await SqliteRecordingQuery.SamplesAsync(file, range, Ct);
+        Assert.Equal([30d, 40d], samples.Select(s => s.Number!.Value));
+        Assert.False(truncated);
+        Assert.True((await SqliteRecordingQuery.SamplesAsync(file, range with { From = null, To = null, MaxRows = 2 }, Ct)).Truncated);
+
+        var (buckets, _) = await SqliteRecordingQuery.BucketsAsync(file, new SampleQuery { Items = ["Speed"], BucketSeconds = 60 }, Ct);
+        Assert.Equal(2, buckets.Count);
+        Assert.Equal(("2026-10-03T12:00:00Z", 3L, 10d, 30d, 20d, 0L), (buckets[0].StartUtc, buckets[0].Count, buckets[0].Min, buckets[0].Max, buckets[0].Average, buckets[0].NotGood));
+        Assert.Equal(("2026-10-03T12:01:00Z", 3L, 50d, 1L), (buckets[1].StartUtc, buckets[1].Count, buckets[1].Average, buckets[1].NotGood));
+    }
+
     private static async Task WaitUntilAsync(Func<Task<bool>> condition)
     {
         var deadline = DateTime.UtcNow.AddSeconds(10);

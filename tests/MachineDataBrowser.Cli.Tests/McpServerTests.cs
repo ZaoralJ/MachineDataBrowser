@@ -131,6 +131,36 @@ public sealed class McpServerTests(OpcPlcFixture plc) : IAsyncDisposable
         var exit = await Commands.Build(stdout, stderr).Parse(["mcp"]).InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(1, exit);
-        Assert.Contains("--endpoint <url> or --session <file>", stderr.ToString(), StringComparison.Ordinal);
+        Assert.Contains("--endpoint <url>, --session <file>, --recording <file.db> or --recordings-dir <folder>", stderr.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Recordings_can_be_listed_and_queried_and_other_files_are_refused()
+    {
+        var file = Path.Combine(_dir, "line1.db");
+        using (var stdout = new StringWriter())
+        using (var stderr = new StringWriter())
+        {
+            var recorded = await Commands.Build(stdout, stderr)
+                .Parse(["monitor", plc.EndpointUrl, "/Objects/OpcPlc/Telemetry/Basic/StepUp", "-r", "100", "-d", "2s", "--trust-all", "--record", file])
+                .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
+            Assert.Equal(0, recorded);
+        }
+
+        var client = await StartAsync("--recording", file);   // recordings only: no machine tools
+        var tools = await client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal(["list_recordings", "recording_items", "recording_samples"], tools.Select(t => t.Name).Order());
+        Assert.All(tools, t => Assert.True(t.ProtocolTool.Annotations?.ReadOnlyHint, t.Name));
+
+        var files = (await CallAsync(client, "list_recordings", [])).AsArray();
+        Assert.Equal("line1.db", (string)files[0]!["file"]!);
+        var items = (await CallAsync(client, "recording_items", [])).AsArray();
+        var step = items.Single(i => (string)i!["name"]! == "StepUp")!;
+        Assert.True((long)step["samples"]! >= 5);
+        Assert.True((double)step["max"]! > (double)step["min"]!);
+
+        var buckets = await CallAsync(client, "recording_samples", new() { ["items"] = new[] { "StepUp" }, ["bucketSeconds"] = 1 });
+        Assert.NotEmpty(buckets["buckets"]!.AsArray());
+        Assert.Contains("is not one of the recording files", await ErrorAsync(client, "recording_items", new() { ["file"] = "/etc/hosts" }), StringComparison.Ordinal);
     }
 }
