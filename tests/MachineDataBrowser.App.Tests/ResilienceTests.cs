@@ -27,6 +27,20 @@ public sealed class ResilienceTests
         File.Delete(AppErrors.LogPath);
     }
 
+    [Fact]
+    public void Dock_drag_glitch_is_recognised_only_from_dock_pointer_handling()
+    {
+        Assert.True(AppErrors.IsDockDragGlitch(new TracedArgumentException(
+            "   at Avalonia.VisualExtensions.PointToClient(Visual visual, PixelPoint point)\n   at Dock.Avalonia.Internal.DockControlState.Over(Point point)")));
+        Assert.False(AppErrors.IsDockDragGlitch(new TracedArgumentException("   at MachineDataBrowser.App.Something()")));
+        Assert.False(AppErrors.IsDockDragGlitch(new InvalidOperationException("Visual does not belong to a visual tree.")));
+    }
+
+    private sealed class TracedArgumentException(string trace) : ArgumentException("Visual does not belong to a visual tree.", "visual")
+    {
+        public override string StackTrace => trace;
+    }
+
     [AvaloniaFact]
     public async Task Losing_the_server_shows_an_error_and_disconnect_still_works()
     {

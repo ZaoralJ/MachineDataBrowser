@@ -10,8 +10,9 @@ internal static class DockBehavior
         DockSettings.MinimumHorizontalDragDistance = 16;
         DockSettings.MinimumVerticalDragDistance = 16;
 
-        // Drop indicators in their own overlay window, so they stay visible above grids/trees during a drag.
-        DockSettings.UseFloatingDockAdorner = true;
+        // Drop indicators drawn in the window under the pointer. The floating overlay window (UseFloatingDockAdorner)
+        // makes Dock 12.1 throw "Visual does not belong to a visual tree" on pointer moves once the overlay detaches.
+        DockSettings.UseFloatingDockAdorner = false;
         DockSettings.ShowDockablePreviewOnDrag = true;
 
         // Floating panes belong to the main window: they stay above it, move with it and close with it.
