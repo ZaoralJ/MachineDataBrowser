@@ -5,7 +5,8 @@ Cursor, …) can explore and read machines: find a signal, read values, check ho
 can also read [recordings in SQLite files](user-manual.md#recording-to-sqlite): what was recorded, statistics, and
 samples over any time range. It is part of the [command line](cli.md) and speaks OPC UA, EtherNet/IP (Logix) and MQTT.
 
-**Read-only:** the tools can't write values, call methods or acknowledge alarms.
+**Read-only by default:** without `--allow-writes` no tool can write values or call methods, and none ever
+acknowledges alarms. With it, every change is confirmed by you first (see [Changes](#changes-allow-writes)).
 
 ## Setup
 
@@ -21,6 +22,7 @@ recordings or both: the agent only gets the tools for what is configured.
 | `--allow-any` | connect to any endpoint it names, without credentials (lab use) |
 | `--recording file.db`, `--recordings-dir folder` | read these recordings |
 | `--allow-recording folder` | start background recordings into that folder (and read them) |
+| `--allow-writes` | write values and call methods on `--endpoint` / `--session` machines, each change confirmed by you |
 
 === "VS Code / GitHub Copilot"
 
@@ -115,6 +117,21 @@ mdbrowser mcp --endpoint opc.tcp://plc-01:4840 --recording ~/plant.db    # machi
 
 Buckets are how an agent looks at days of data: a week per hour is 168 rows per item. Files are opened read-only and
 can still be recording.
+
+### Changes (`--allow-writes`)
+
+| Tool | |
+|---|---|
+| `write` | writes a value (text converted to the variable's type) and returns it before and after |
+| `call_method` | calls an OPC UA method on its object with the given inputs and returns the outputs |
+
+- **You confirm every change.** The server asks through MCP *elicitation*: your agent shows a dialog like *"Write 42.5 to
+  Setpoint (ns=3;s=Setpoint) on opc.tcp://plc-01:4840? It is 40 now."* and nothing happens unless you confirm.
+  Clients that can't show such a dialog are refused; `--skip-write-confirmation` lets them through, relying on the
+  client's own tool approval only.
+- **Only configured machines:** endpoints named under `--allow` patterns are never changed, and sessions marked
+  *Read-Only* in the app are refused.
+- The tools are marked *destructive*, so clients show them as such.
 
 ## Limits and safety
 

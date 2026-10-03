@@ -6,7 +6,11 @@ namespace MachineDataBrowser.Cli;
 /// <summary>An error with a message meant for the user; printed without a stack trace.</summary>
 internal sealed class CliException(string message) : Exception(message);
 
-internal sealed record ConnectionArgs(string Url, string? User, string? Password, bool Secure, bool TrustAll);
+/// <summary>
+/// How to connect to an endpoint. <paramref name="ReadOnly"/>: the session it came from is read-only in the app.
+/// <paramref name="Named"/>: the MCP agent named it under an allow pattern (no credentials, never written to).
+/// </summary>
+internal sealed record ConnectionArgs(string Url, string? User, string? Password, bool Secure, bool TrustAll, bool ReadOnly = false, bool Named = false);
 
 /// <summary>
 /// A resolved node: its id and the name to show for it. <paramref name="DisplayName"/> and <paramref name="ParentPath"/>

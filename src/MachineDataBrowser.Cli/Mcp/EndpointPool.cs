@@ -72,7 +72,7 @@ internal sealed class EndpointPool(IReadOnlyList<ConnectionArgs> endpoints, IRea
             var key = Normalize(url);
             if (!_named.TryGetValue(key, out var named))
             {
-                named = new ConnectionArgs(url.Trim(), null, null, false, false);
+                named = new ConnectionArgs(url.Trim(), null, null, false, false, ReadOnly: true, Named: true);
                 _named[key] = named;
             }
 

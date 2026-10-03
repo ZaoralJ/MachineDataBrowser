@@ -48,7 +48,13 @@ internal static class McpServerHost
         wait_for blocks until a value meets a condition (or times out); use it to follow a process instead of polling.
         """;
 
-    public static async Task<int> RunAsync(EndpointPool pool, RecordingLibrary recordings, string? recordingFolder, CancellationToken cancellationToken)
+    public const string WriteInstructions = """
+        write and call_method change machines: use them only when the user asked for that change. Each change is put to
+        the user for confirmation first; if they decline, nothing happens. Read the value (or the method's arguments)
+        before, and report what changed. Endpoints named under allow patterns and read-only sessions can't be changed.
+        """;
+
+    public static async Task<int> RunAsync(EndpointPool pool, RecordingLibrary recordings, string? recordingFolder, CancellationToken cancellationToken, bool allowWrites = false, bool skipWriteConfirmation = false)
     {
         var options = new McpServerOptions
         {
@@ -65,6 +71,7 @@ internal static class McpServerHost
                 pool.Patterns.Count > 0 ? PatternInstructions : null,
                 recordings.IsEmpty ? null : RecordingInstructions,
                 pool.HasMachines && recordingFolder is not null ? RecordingControlInstructions : null,
+                allowWrites && pool.Endpoints.Count > 0 ? WriteInstructions : null,
             }.OfType<string>()),
             ToolCollection = [],
         };
@@ -77,6 +84,12 @@ internal static class McpServerHost
         if (!recordings.IsEmpty)
         {
             AddTools(options, new RecordingTools(recordings));
+        }
+
+        // Changes only with --allow-writes, and only to configured endpoints (named ones stay read-only).
+        if (allowWrites && pool.Endpoints.Count > 0)
+        {
+            AddTools(options, new WriteTools(pool, skipWriteConfirmation));
         }
 
         // Background recordings stop (and close their files) when the server exits.
