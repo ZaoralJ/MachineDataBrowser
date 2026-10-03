@@ -78,8 +78,19 @@ public sealed partial class NewRecordingViewModel(NewRecordingDraft draft) : Obs
     public partial bool UseLiveFile { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsSqliteFile), nameof(CanUseFileRetention))]
+    [NotifyPropertyChangedFor(nameof(IsSqliteFile), nameof(CanUseFileRetention), nameof(FileStatus))]
     public partial string? LiveFilePath { get; set; }
+
+    /// <summary>What starting will do to the chosen file, so nobody fears an existing file is replaced.</summary>
+    public string FileStatus => LiveFilePath?.Trim() is not { Length: > 0 } path
+        ? "Choose a new file, or an existing SQLite file to add this recording to."
+        : (IsSqliteFile, File.Exists(path)) switch
+        {
+            (true, true) => "Adds this recording to the existing SQLite file; the recordings in it are kept.",
+            (true, false) => "Creates a SQLite database, queryable with SQL. Later recordings can be added to it.",
+            (false, true) => "Appends the samples to the existing CSV file.",
+            _ => "Creates a CSV file.",
+        };
 
     /// <summary>Retention deletes from SQLite files only; a CSV file is only ever appended to.</summary>
     public bool IsSqliteFile => LiveFilePath is { Length: > 0 } path && RecordingFiles.IsSqlite(path);

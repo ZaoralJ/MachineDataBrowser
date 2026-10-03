@@ -30,6 +30,28 @@ public sealed class NewRecordingFormTests
         Assert.Null(form.ToOptions(DateTimeOffset.UtcNow).FileRetention);
     }
 
+    [Fact]
+    public void File_status_says_whether_the_file_is_created_or_added_to()
+    {
+        var existing = Path.Combine(Path.GetTempPath(), $"mdb-{Guid.NewGuid():N}.db");
+        File.WriteAllBytes(existing, []);
+        try
+        {
+            var form = new NewRecordingViewModel(new NewRecordingDraft("R", 1, 250)) { UseLiveFile = true };
+            Assert.StartsWith("Choose", form.FileStatus, StringComparison.Ordinal);
+            form.LiveFilePath = existing;
+            Assert.StartsWith("Adds this recording to the existing SQLite file", form.FileStatus, StringComparison.Ordinal);
+            form.LiveFilePath = existing + ".new.db";
+            Assert.StartsWith("Creates a SQLite database", form.FileStatus, StringComparison.Ordinal);
+            form.LiveFilePath = existing + ".csv";
+            Assert.Equal("Creates a CSV file.", form.FileStatus);
+        }
+        finally
+        {
+            File.Delete(existing);
+        }
+    }
+
     [AvaloniaFact]
     public async Task Typed_max_points_is_used_when_clicking_start()
     {
