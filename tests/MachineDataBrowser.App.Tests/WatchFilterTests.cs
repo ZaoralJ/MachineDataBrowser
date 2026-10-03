@@ -46,7 +46,7 @@ public sealed class WatchFilterTests
         Assert.Equal([sensor], Shown());
 
         vm.WatchFilter = string.Empty;
-        vm.ShowWatchProblemsOnly = true;             // Bad status
+        vm.WatchFilter = "Bad";                      // matches the status
         Assert.Equal([sensor], Shown());
 
         // Live: a row that turns Bad joins the filtered view on the next flush.

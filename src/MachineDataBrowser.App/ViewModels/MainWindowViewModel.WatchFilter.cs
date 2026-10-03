@@ -17,23 +17,16 @@ public sealed partial class MainWindowViewModel
     [NotifyPropertyChangedFor(nameof(IsWatchFiltered), nameof(WatchFilterSummary))]
     public partial string WatchFilter { get; set; } = string.Empty;
 
-    /// <summary>Show only rows that need attention: Bad or Uncertain status, or stale.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsWatchFiltered), nameof(WatchFilterSummary))]
-    public partial bool ShowWatchProblemsOnly { get; set; }
-
     /// <summary>Groups the watch list under collapsible headers, one per parent path in the address space.</summary>
     [ObservableProperty]
     public partial bool GroupWatchByPath { get; set; }
 
-    public bool IsWatchFiltered => !string.IsNullOrWhiteSpace(WatchFilter) || ShowWatchProblemsOnly;
+    public bool IsWatchFiltered => !string.IsNullOrWhiteSpace(WatchFilter);
 
     /// <summary>"12 of 40 shown" while a filter is on; empty otherwise.</summary>
     public string WatchFilterSummary => IsWatchFiltered ? $"{_watchShown.Count} of {WatchItems.Count} shown" : string.Empty;
 
     partial void OnWatchFilterChanged(string value) => RefreshWatchFilter(force: true);
-
-    partial void OnShowWatchProblemsOnlyChanged(bool value) => RefreshWatchFilter(force: true);
 
     partial void OnGroupWatchByPathChanged(bool value)
     {
@@ -62,11 +55,7 @@ public sealed partial class MainWindowViewModel
     private void ClearWatchFilter()
     {
         WatchFilter = string.Empty;
-        ShowWatchProblemsOnly = false;
     }
-
-    [RelayCommand]
-    private void ToggleWatchProblemsOnly() => ShowWatchProblemsOnly = !ShowWatchProblemsOnly;
 
     private DataGridCollectionView CreateWatchView()
     {
@@ -80,11 +69,6 @@ public sealed partial class MainWindowViewModel
 
     public bool MatchesWatchFilter(WatchItemViewModel item)
     {
-        if (ShowWatchProblemsOnly && !(item.IsBad || item.IsUncertain || item.IsStale))
-        {
-            return false;
-        }
-
         var text = WatchFilter.Trim();
         return text.Length == 0
             || item.DisplayName.Contains(text, StringComparison.OrdinalIgnoreCase)

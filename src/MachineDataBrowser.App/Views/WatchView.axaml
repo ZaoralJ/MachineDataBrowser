@@ -19,12 +19,12 @@
               <KeyBinding Gesture="Escape" Command="{Binding ClearWatchFilterCommand}" />
             </TextBox.KeyBindings>
           </TextBox>
-          <ToggleButton IsChecked="{Binding GroupWatchByPath}" Content="Group by path"
-                        ToolTip.Tip="Group rows by where they sit in the address space; click a group header to collapse it (Shift+G)" />
-          <ToggleButton IsChecked="{Binding ShowWatchProblemsOnly}" Content="Problems only"
-                        ToolTip.Tip="Show only Bad, Uncertain or stale rows (P)" />
         </StackPanel>
         <StackPanel Orientation="Horizontal" Spacing="2">
+          <ToggleButton Classes="icon-only" IsChecked="{Binding GroupWatchByPath}" AutomationProperties.Name="Group by path"
+                        ToolTip.Tip="Group rows by where they sit in the address space; click a group header to collapse it (Shift+G)">
+            <PathIcon Data="{StaticResource IconGroupByPath}" />
+          </ToggleButton>
           <Button x:Name="ColumnsButton" Classes="icon-only" AutomationProperties.Name="Columns"
                   ToolTip.Tip="Show/hide columns (saved with the session). Drag headers to reorder, edges to resize.">
             <PathIcon Data="{StaticResource IconColumns}" />
