@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.16.1...v0.17.0) (2026-10-03)
+
+
+### Features
+
+* record to SQLite files ([#81](https://github.com/ZaoralJ/MachineDataBrowser/issues/81)) ([510f0d0](https://github.com/ZaoralJ/MachineDataBrowser/commit/510f0d0b21d4b8ad9ea522ee14e05f59afac8363))
+
 ## [0.16.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.16.0...v0.16.1) (2026-10-03)
 
 
