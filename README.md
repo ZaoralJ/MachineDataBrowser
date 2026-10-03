@@ -69,6 +69,8 @@ Then connect to one of these:
 
 ## Documentation
 
+Read it as a website: **https://zaoralj.github.io/MachineDataBrowser/** (built from `docs/`).
+
 - [User manual](docs/user-manual.md): connecting, browsing, Watch, recordings, the chart, sessions, shortcuts,
   troubleshooting
 - [Architecture](docs/architecture.md): projects, the protocol boundary, value flow, connection lifecycle, each
