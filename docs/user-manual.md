@@ -307,8 +307,9 @@ A recording captures the values of its items with timestamps. It keeps running w
 
 ### Recording to SQLite
 
-Choose a file ending in `.db` (or `.sqlite`) for *Also write to file*. Each start of a recording adds a recording to
-the file, so one file can hold a whole shift or week. Values keep their type: numbers in `value_num` (booleans 1/0),
+Choose a file ending in `.db` (or `.sqlite`) for *Also write to file*; to add to a file you already have, pick it
+with **Open…** (the **…** save dialog would ask to replace it, although nothing is replaced). Each start of a
+recording adds a recording to the file, so one file can hold a whole shift or week. Values keep their type: numbers in `value_num` (booleans 1/0),
 text in `value_text`, arrays and structures as JSON in `value_json`; times are UTC (`2026-10-03T12:00:00.000Z`).
 
 | Table / view | Holds |

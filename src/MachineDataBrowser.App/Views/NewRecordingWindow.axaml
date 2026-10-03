@@ -40,7 +40,9 @@
         <CheckBox Grid.Row="6" Content="Also write to file" IsChecked="{Binding UseLiveFile}"
                   ToolTip.Tip="Streams every sample to a file while recording, so long runs don't depend on memory: CSV, or a SQLite database for .db / .sqlite (queryable with SQL; each start adds a recording to the file)." />
         <DockPanel Grid.Row="6" Grid.Column="1" IsEnabled="{Binding UseLiveFile}">
-          <Button DockPanel.Dock="Right" Content="…" Click="OnPickFile" Margin="6,0,0,0" ToolTip.Tip="Choose file" />
+          <Button DockPanel.Dock="Right" Content="Open…" Click="OnPickExistingFile" Margin="6,0,0,0"
+                  ToolTip.Tip="Add to an existing SQLite file (.db / .sqlite): its recordings are kept and this one is added" />
+          <Button DockPanel.Dock="Right" Content="…" Click="OnPickFile" Margin="6,0,0,0" ToolTip.Tip="Choose a new file" />
           <TextBox Text="{Binding LiveFilePath}" PlaceholderText="history.csv or history.db (SQLite)" />
         </DockPanel>
 

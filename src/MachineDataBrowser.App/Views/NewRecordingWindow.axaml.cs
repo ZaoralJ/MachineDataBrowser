@@ -34,4 +34,24 @@ public sealed partial class NewRecordingWindow : Window
             vm.LiveFilePath = path;
         }
     }
+
+    // The macOS save panel always asks to replace an existing file; opening one doesn't, and SQLite files are added to.
+    private async void OnPickExistingFile(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not NewRecordingViewModel vm)
+        {
+            return;
+        }
+
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Add to SQLite file",
+            AllowMultiple = false,
+            FileTypeFilter = [MainWindow.SqliteFileType],
+        });
+        if (files is [var file] && file.TryGetLocalPath() is { } path)
+        {
+            vm.LiveFilePath = path;
+        }
+    }
 }
