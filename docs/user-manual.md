@@ -28,8 +28,9 @@ flowchart LR
 | **Watch** (⌘3) | monitored values: status, refresh, last update, since, recorded samples, value |
 | **Recordings** (⌘4) | recordings with state, elapsed time, kept samples and details |
 
-- Panes can be rearranged. **View ▸ Panes ▸ Pop Out** floats a pane; **Dock All Floating Panes** (⌥⌘D) and
-  **Reset Layout** (⌥⌘0) bring them back.
+- **Panes:** drag a pane by its tab to another place in the window; the drop indicators show where it lands. Dragging
+  never floats a pane: **View ▸ Panes ▸ Pop Out** (⌥⌘1–4) does. **Dock All Floating Panes** (⌥⌘D) and **Reset
+  Layout** (⌥⌘0) bring them back.
 - **Zoom:** ⌘+ / ⌘− / ⌘0.
 - **Theme:** View ▸ Theme, or Settings.
   - *Follow System*, *Light* or *Dark* (⌥⌘7/8/9) picks the appearance.
@@ -37,7 +38,7 @@ flowchart LR
     **Ocean** (sea-glass / deep navy, teal), **Forest** (sage / deep green), **Amber** (sand / dark brown),
     **Nord**, **Solarized** and **Dracula**. Settings previews it while you choose; Cancel returns to the saved one.
 - The **status bar** shows what just happened and the connection state (Connected, Reconnecting…).
-- The **red bar** under the header shows errors; nothing makes the app crash.
+- The **red bar** under the header shows errors; most errors show there instead of closing the app.
 
 ## Connecting
 
@@ -98,7 +99,7 @@ saved with the session (node ids are per server) and work for OPC UA, EtherNet/I
 
 ⌘F (View ▸ Find in Address Space…) or **/** in the tree puts the cursor in the search box above the tree.
 
-- Type part of a name or id and press **Enter**. Case doesn't matter; `*` and `?` are wildcards (`Temp*`, `Press?`).
+- Type part of a name or id and press **Enter**. Case doesn't matter; `*` and `?` are wildcards (`Temp*`, `Motor?`).
 - **Where it searches:** below the selected folder, or the whole tree if nothing with children is selected. Select a
   folder first to search a big server faster.
 - **Results:** each result shows its name and path. ↓ moves into the list; **Enter** or double-click opens the tree at
@@ -128,9 +129,9 @@ saved with the session (node ids are per server) and work for OPC UA, EtherNet/I
 
 ## Watch
 
-Each row shows Name, Status, Refresh, Last update, Since, Recorded and Value. NodeId and Source time are hidden
-columns; the ⫼ button shows or hides columns and reorders them by dragging the headers. Column layout and sort
-order are saved with the session.
+Each row shows Name, Status, Value, Refresh, Last update, Since and Recorded. NodeId and Source time are hidden
+columns; the ⫼ button shows or hides columns. Drag a header to reorder columns, its edge to resize. Column layout
+and sort order are saved with the session.
 
 - **Status and age:**
   - *Since* turns amber when a value is **stale**, i.e. there has been no update for 5× its refresh time (at least
@@ -139,14 +140,16 @@ order are saved with the session.
 - **Select and remove problem rows:**
   - The clock button (or **S**) selects stale rows; the ! button (or **B**) selects bad rows.
   - Double-clicking the button, or pressing the key twice, removes them.
-  - ⇧S selects rows that are stale or bad.
+  - ⇧S selects rows that are stale or bad. ⌥⌘S / ⌥⌘B remove stale / bad rows directly.
   - ⇧Delete removes all rows. If recordings are still running, the app asks whether to stop them, close them or keep
     them running.
 - **Filter:** the box at the top right (or **/**) shows only rows whose name, path, NodeId, value or status contains
-  the text; Esc clears it. Rows join and leave the filtered list as their values change. ⌘C and the stale/bad selection act on what is shown; the count says how many are hidden.
-- **Group by path** (the tree button in the toolbar, or ⇧G): rows are grouped under the folder they sit in, such as `Objects/OpcPlc/Telemetry/Basic`;
-  click a group header to collapse it. The setting and each row's path are saved with the session. Rows from session
-  files saved before this version have no path and are grouped under *(no path)*; add them again to group them.
+  the text; Esc clears it. Rows join and leave the filtered list as their values change. ⌘C and the stale/bad
+  selection act on what is shown; the count says how many are hidden.
+- **Group by path** (toolbar button *Group by path*, or ⇧G): rows are grouped under the folder they sit in, such as
+  `Objects/OpcPlc/Telemetry/Basic`; click a group header to collapse it. The setting and each row's path are saved
+  with the session. Rows from session files saved before 0.10.0 have no path and are grouped under *(no path)*; add
+  them again to group them.
 - **Refresh time:** 1–7 (100 ms … 10 s), T for a custom time, or right-click ▸ Refresh time.
   - OPC UA uses it as the sampling interval, Logix as the poll interval.
   - For MQTT it is a maximum update rate: at most the latest value once per interval. **0** means every message;
@@ -173,7 +176,7 @@ order are saved with the session.
     row that isn't recorded shows it in the address space; so does Enter.
 - **Copy:**
   - ⌘C copies the selected rows (or all rows) as a table that pastes into Excel or Numbers.
-  - ⌥⌘C copies the value; ⌥⌘J copies the values as JSON; ⇧⌘C copies the rows as JSON.
+  - ⌥⌘C copies the value, ⌥⌘N the NodeId; ⌥⌘J copies the values as JSON; ⇧⌘C copies the rows as JSON.
   - File ▸ Export Watch List as CSV (⌘E).
 
 ### Snapshots
@@ -197,7 +200,6 @@ The app writes to a device only when you ask it to.
   everything that changes the device: writing values, calling methods and acknowledging alarms. Browsing, Watch,
   history, events and recordings work as usual; a method's form still opens to show its arguments. The header shows
   *read-only*, and the setting is saved with the session, so a session for a production machine can stay read-only.
-
 - **Where:** right-click a variable in Attributes (on the *Value* row) or one or more rows in Watch ▸ **Write value…**.
 - **Format:** type the value as text; it is converted to the variable's data type. Arrays are comma-separated,
   optionally in brackets: `[1, 2, 3]`.
@@ -259,6 +261,7 @@ A recording captures the values of its items with timestamps. It keeps running w
   - a delayed start and an automatic stop,
   - **Also write to file**: a CSV with *every* sample, not limited by the two settings above.
 - **Control (Recordings pane):**
+  - N new recording from the Watch selection, A records everything monitored, Enter opens the viewer.
   - S start/resume, P pause, X stop.
   - ⇧⌫ reset the history; Delete close (discards the history).
   - C / J export CSV / JSON; O opens a CSV file and follows it while it is still being written.
@@ -307,11 +310,13 @@ wins.
 ## Sessions and settings
 
 - **Sessions (`.mdbsession`; `.opcsession` files from before the rename still open):**
-  - A session holds the endpoint, the options (never passwords), the default refresh, the watch list and its
-    columns.
+  - A session holds the endpoint and its options (read-only, auto-trust, user name; never passwords), the default
+    refresh, bookmarks, and the watch list: rows with their path, refresh time, display format and monitoring
+    settings, plus columns, sort order and grouping.
   - New ⌘N, Open ⌘O, Save ⌘S, Save As ⇧⌘S, File ▸ Open Recent.
   - Settings can reopen the last session at start.
-- **Settings (⌘,):** theme, default refresh time, and the item limit for "monitor all variables in folder".
+- **Settings (⌘,):** appearance and colour theme, default refresh time, the item limit for "monitor all variables
+  in folder", and whether to reopen the last session at start.
 - **Data folder:** Help ▸ Show Settings Folder (⌥⇧⌘,). On macOS it is
   `~/Library/Application Support/MachineDataBrowser`. It holds:
   - `settings.json` and `layout.json`,
@@ -331,7 +336,8 @@ wins.
 Every menu command has a shortcut, and each pane has its own single-key shortcuts. They're shown in the menus, the
 right-click menus and the tooltips. **Help ▸ Keyboard Shortcuts** (⌘/) lists them all.
 
-- A pane's shortcuts work when you click anywhere in it, or simply point at it.
+- A pane's shortcuts work when you click anywhere in it, or simply point at it. The same key can do different things
+  in different panes: **B** bookmarks in the Address Space but selects bad rows in Watch.
 - On Windows and Linux, ⌘ is Ctrl and ⌥ is Alt.
 - In dialogs, **Enter** confirms and **Esc** cancels. Enter or Esc also closes the recording viewer and information
   windows.
