@@ -21,6 +21,14 @@ public static class AppErrors
     /// <summary>Errors worth showing and carrying on after; only process-fatal ones are excluded.</summary>
     public static bool IsRecoverable(Exception ex) => Core.Errors.IsRecoverable(ex);
 
+    /// <summary>
+    /// Dock.Avalonia 12.1 throws this from its pointer-move handler while a pane is dragged and a drop target has left
+    /// the visual tree (upstream wieslawsoltes/Dock#1136 fixed only part of it).
+    /// </summary>
+    public static bool IsDockDragGlitch(Exception ex) =>
+        ex is ArgumentException { ParamName: "visual" }
+        && ex.StackTrace?.Contains("Dock.Avalonia.Internal.DockControlState", StringComparison.Ordinal) == true;
+
     /// <summary>A short, user-facing description (OPC UA status codes by name, aggregates unwrapped).</summary>
     public static string Describe(Exception ex) => ex switch
     {
@@ -81,7 +89,13 @@ public static class AppErrors
         // Exceptions escaping event handlers, async void methods and commands on the UI thread.
         Dispatcher.UIThread.UnhandledException += (_, e) =>
         {
-            if (IsRecoverable(e.Exception))
+            if (IsDockDragGlitch(e.Exception))
+            {
+                // Dock loses track of a drop target mid-drag; the next pointer move recovers, so no error bar.
+                e.Handled = true;
+                Log(e.Exception, "ignored (pane drag)");
+            }
+            else if (IsRecoverable(e.Exception))
             {
                 e.Handled = true;
                 Report(e.Exception);
