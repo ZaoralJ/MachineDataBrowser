@@ -1,8 +1,8 @@
 # Command line (`mdbrowser`)
 
 `mdbrowser` does the browsing and monitoring of the app from a terminal or a script: list endpoints, browse the
-address space, read and write values, stream live values, and run the watch list of a session saved in the app. It speaks the
-same protocols as the app: **OPC UA**, **EtherNet/IP (Logix)** and **MQTT** (Sparkplug B, CloudEvents).
+address space, read and write values, stream live values, and create and run the app's sessions. It speaks the same
+protocols as the app: **OPC UA**, **EtherNet/IP (Logix)** and **MQTT** (Sparkplug B, CloudEvents).
 
 ## Install
 
@@ -26,6 +26,8 @@ command line for them, with the endpoint and options of the connection.
 | `mdbrowser read <url> <node>... [-R]` | the current value and data type of one or more variables |
 | `mdbrowser monitor <url> <node>... [-R]` | live values until Ctrl+C, `--duration` or `--count` |
 | `mdbrowser write <url> <node> <value>` | write a value (or several with `--set`); asks first unless `--yes` |
+| `mdbrowser session create <file> <url> <node>...` | a session file for the app with these nodes as its watch list |
+| `mdbrowser session add <file> <node>...` | adds nodes to a session's watch list; everything else in the file is kept |
 | `mdbrowser run <session>` | the watch list of a session file saved by the app (`.mdbsession`), each item at its refresh time |
 | `mdbrowser mcp --endpoint <url>...` | an MCP server for AI agents, read-only; see [MCP server](mcp.md) |
 
@@ -66,6 +68,27 @@ it, like *Monitor folder* in the app:
   are left out.
 - MQTT: a topic with a JSON payload expands to its fields (`status/speed`, `status/temperature/bearing`).
 - Nothing found within `--depth` is an error (exit 1).
+
+### Sessions
+
+A session file (`.mdbsession`) is what the app saves with File ▸ Save: the endpoint, its options and the watch list.
+The command line reads and writes the same files, so a watch list can go both ways between the app and scripts.
+
+```sh
+mdbrowser session create line1.mdbsession opc.tcp://plc:4840 /Objects/Line1 -R -r 1000 --trust-all
+mdbrowser session add line1.mdbsession /Objects/Line2/Speed "ns=3;s=Pressure"
+mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1/Speed --save quick.mdbsession     # watch now, keep it for later
+mdbrowser run line1.mdbsession                                                         # or File ▸ Open in the app
+```
+
+- Nodes are saved like the app saves them: portable ids (`nsu=…`, stable across server restarts) with their name and
+  path, so Watch can group them by path. `-R`, `--depth` and `--max-items` work as for `read`.
+- Options are saved (user name, `--secure`, `--trust-all`, `-r` as the session's default refresh); **never a
+  password**. `session add` and `run` take it from `--password` or `MDBROWSER_PASSWORD`.
+- `session create` and `--save` don't overwrite an existing file without `--force`. `session add` connects with the
+  file's endpoint, skips nodes already in the watch list and keeps everything else (bookmarks, columns, display
+  formats, monitoring settings).
+- Nodes given by id are checked with the device first; one that doesn't exist is an error and nothing is written.
 
 ### Writing values
 
