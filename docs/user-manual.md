@@ -290,7 +290,8 @@ A recording captures the values of its items with timestamps. It keeps running w
   - **Max points per item** (the oldest samples are dropped),
   - **Keep last (min)** (samples older than this are dropped),
   - a delayed start and an automatic stop,
-  - **Also write to file**: a CSV with *every* sample, not limited by the two settings above.
+  - **Also write to file**: *every* sample, not limited by the two settings above. A `.csv` file gets one line per
+    sample; a `.db` / `.sqlite` file is a **SQLite database** you can query with SQL (see below).
 - **Control (Recordings pane):**
   - N new recording from the Watch selection, A records everything monitored, Enter opens the viewer.
   - S start/resume, P pause, X stop.
@@ -303,6 +304,30 @@ A recording captures the values of its items with timestamps. It keeps running w
 ![Recordings pane with two running recordings](images/recordings.png)
 
 ![New recording form](images/new-recording.png)
+
+### Recording to SQLite
+
+Choose a file ending in `.db` (or `.sqlite`) for *Also write to file*. Each start of a recording adds a recording to
+the file, so one file can hold a whole shift or week. Values keep their type: numbers in `value_num` (booleans 1/0),
+text in `value_text`, arrays and structures as JSON in `value_json`; times are UTC (`2026-10-03T12:00:00.000Z`).
+
+| Table / view | Holds |
+|---|---|
+| `recordings` | name, endpoint, refresh, start and stop time |
+| `items` | name, path and NodeId of every recorded item |
+| `samples` | one row per sample: times, status, value |
+| `sample_view` | samples joined with their item and recording: the easiest place to start |
+
+```sql
+-- average per minute
+SELECT strftime('%Y-%m-%d %H:%M', source_utc) AS minute, avg(value_num)
+FROM sample_view WHERE name = 'Speed' GROUP BY minute;
+-- when was a value not Good
+SELECT source_utc, name, status FROM sample_view WHERE status_code <> 0;
+```
+
+Open the file with the recording viewer (Recordings ▸ open file, **O**), the `sqlite3` command, DB Browser for SQLite,
+Python, Excel (ODBC) or Grafana's SQLite plugin. It can be read while it is being recorded.
 
 ### Recording viewer
 

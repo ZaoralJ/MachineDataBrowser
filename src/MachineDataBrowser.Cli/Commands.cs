@@ -164,11 +164,12 @@ internal static class Commands
 
         // monitor
         var save = new Option<string?>("--save") { Description = "Also save the monitored items as an app session file (.mdbsession)" };
+        var record = new Option<string?>("--record") { Description = "Also record every sample to a file: SQLite for .db/.sqlite (queryable), CSV otherwise" };
         var force = new Option<bool>("--force") { Description = "Replace an existing session file" };
         var monitor = WithConnection(new Command("monitor", "Stream live values until Ctrl+C, --duration or --count"));
         monitor.Arguments.Add(nodes);
         AddRecursiveOptions(monitor);
-        foreach (var option in new Option[] { refresh, duration, count, save, force })
+        foreach (var option in new Option[] { refresh, duration, count, save, force, record })
         {
             monitor.Options.Add(option);
         }
@@ -185,6 +186,7 @@ internal static class Commands
                 await stderr.WriteLineAsync($"mdbrowser: saved {saved.Total} watch item(s) to {sessionFile}.").ConfigureAwait(false);
             }
 
+            await using var recording = await RecordAsync(r.GetValue(record), client, resolved, interval, target.Url, "mdbrowser monitor", stderr, ct).ConfigureAwait(false);
             await using var sink = Sink(r, resolved);
             return await StreamAsync(client, [.. resolved.Select(n => (n, interval))], sink, stderr, r.GetValue(duration), r.GetValue(count), ct).ConfigureAwait(false);
         }));
@@ -193,7 +195,7 @@ internal static class Commands
         var sessionPath = new Argument<string>("session") { Description = "Session file saved by the app (.mdbsession)" };
         var run = new Command("run", "Monitor the watch list of an app session file, without the app");
         run.Arguments.Add(sessionPath);
-        foreach (var option in new Option[] { password, trustAll, format, duration, count })
+        foreach (var option in new Option[] { password, trustAll, format, duration, count, record })
         {
             run.Options.Add(option);
         }
@@ -229,6 +231,9 @@ internal static class Commands
                 }
             }
 
+            var recordRefresh = items.Count == 0 ? fallback : items.Min(i => i.Item2);
+            await using var recording = await RecordAsync(r.GetValue(record), client, [.. items.Select(i => i.Item1)], recordRefresh, session.EndpointUrl,
+                Path.GetFileNameWithoutExtension(r.GetValue(sessionPath)!), stderr, ct).ConfigureAwait(false);
             await using var sink = Sink(r, [.. items.Select(i => i.Item1)]);
             return await StreamAsync(client, items, sink, stderr, r.GetValue(duration), r.GetValue(count), ct).ConfigureAwait(false);
         }));
@@ -386,6 +391,53 @@ internal static class Commands
         {
             endpoints, browse, read, monitor, run, write, session, mcp,
         };
+    }
+
+    /// <summary>
+    /// Records <paramref name="nodes"/> into <paramref name="path"/> with Core's <see cref="Recording"/>, the same file the
+    /// app writes and its viewer opens. The file is the store, so memory keeps only the latest sample per item.
+    /// </summary>
+    private static async Task<RecordingRun?> RecordAsync(string? path, IDeviceClient client, IReadOnlyList<Node> nodes, int refreshMs, string endpoint, string name, TextWriter stderr, CancellationToken cancellationToken)
+    {
+        if (path is null)
+        {
+            return null;
+        }
+
+        var options = new RecordingOptions
+        {
+            Name = name,
+            SamplingIntervalMs = refreshMs,
+            MaxPointsPerItem = 1,
+            LiveFilePath = Path.GetFullPath(path),
+            Endpoint = CliEndpoint(endpoint),
+        };
+        var items = nodes.DistinctBy(n => n.Id).Select(n => new RecordedItem(n.Id, n.DisplayName ?? n.Name, client.ToPortableId(n.Id), n.ParentPath)).ToList();
+        var recording = new Recording(client, options, items);
+        recording.Faulted += (_, ex) => _ = stderr.WriteLineAsync($"mdbrowser: recording to {path}: {Describe(ex)}");
+        await recording.StartAsync(cancellationToken).ConfigureAwait(false);
+        return new RecordingRun(recording, path, stderr);
+    }
+
+    /// <summary>The endpoint as stored with a recording: never with a password in it.</summary>
+    private static string CliEndpoint(string url)
+    {
+        var scheme = url.IndexOf("://", StringComparison.Ordinal);
+        var at = url.IndexOf('@', StringComparison.Ordinal);
+        var colon = scheme < 0 || at < scheme ? -1 : url.IndexOf(':', scheme + 3);
+        return colon > 0 && colon < at ? url[..colon] + url[at..] : url;
+    }
+
+    /// <summary>A recording that runs alongside a command; disposing stops it, closes the file and reports what was recorded.</summary>
+    private sealed class RecordingRun(Recording recording, string path, TextWriter stderr) : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync()
+        {
+            await recording.StopAsync(CancellationToken.None).ConfigureAwait(false);
+            var samples = recording.TotalSamples;
+            await recording.DisposeAsync().ConfigureAwait(false);
+            await stderr.WriteLineAsync($"mdbrowser: recorded {samples} sample(s) to {path}.").ConfigureAwait(false);
+        }
     }
 
     /// <summary>MQTT values come back through the broker, so a write shows up a moment later; wait for it briefly.</summary>

@@ -38,10 +38,10 @@
         <NumericUpDown Grid.Row="5" Grid.Column="1" Value="{Binding StopAfterMinutes}" Minimum="1" Maximum="100000" FormatString="0" IsEnabled="{Binding UseStopAfter}" />
 
         <CheckBox Grid.Row="6" Content="Also write to file" IsChecked="{Binding UseLiveFile}"
-                  ToolTip.Tip="Streams every sample to a CSV file while recording, so long runs don't depend on memory." />
+                  ToolTip.Tip="Streams every sample to a file while recording, so long runs don't depend on memory: CSV, or a SQLite database for .db / .sqlite (queryable with SQL; each start adds a recording to the file)." />
         <DockPanel Grid.Row="6" Grid.Column="1" IsEnabled="{Binding UseLiveFile}">
           <Button DockPanel.Dock="Right" Content="…" Click="OnPickFile" Margin="6,0,0,0" ToolTip.Tip="Choose file" />
-          <TextBox Text="{Binding LiveFilePath}" PlaceholderText="history.csv" />
+          <TextBox Text="{Binding LiveFilePath}" PlaceholderText="history.csv or history.db (SQLite)" />
         </DockPanel>
       </Grid>
     </StackPanel>

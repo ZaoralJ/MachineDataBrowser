@@ -90,6 +90,20 @@ mdbrowser run line1.mdbsession                                                  
   formats, monitoring settings).
 - Nodes given by id are checked with the device first; one that doesn't exist is an error and nothing is written.
 
+### Recording to a file
+
+`monitor` and `run` record every sample with `--record <file>`, alongside what they show:
+
+```sh
+mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1 -R -r 500 --record line1.db       # SQLite
+mdbrowser run line1.mdbsession --duration 8h --record shift.db
+mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1/Speed --record speed.csv            # CSV
+```
+
+It is the same file the app writes with *Also write to file*: SQLite for `.db` / `.sqlite` (one more recording in the
+file each time, queryable with SQL; see [Recording to SQLite](user-manual.md#recording-to-sqlite)), CSV otherwise. The
+app's recording viewer opens either. The file is the store, so a recording can run for days without growing memory.
+
 ### Writing values
 
 ```sh
