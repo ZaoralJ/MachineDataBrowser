@@ -100,9 +100,22 @@ may need `xattr -dr com.apple.quarantine "/Applications/Machine Data Browser.app
   library is bundled and extracted on first run), not native AOT: the OPC UA SDK relies on reflection. Distributed as
   a Homebrew **formula** (`Formula/mdbrowser.rb`) in the same tap as the app's cask; formulae also install on Linux.
 
+## MCP server: `mdbrowser mcp`
+
+- Part of the CLI binary, not a separate program: it reuses the connections, node paths, `--recursive` expansion and
+  typed JSON values, and installs with the same formula.
+- Official C# SDK, `ModelContextProtocol.Core` only (no hosting/DI packages), stdio transport; tools are plain methods.
+- Read-only first: agents explore machines that often run production, so writes and method calls are left out until
+  they can be opted into explicitly. Tools are annotated read-only so clients can show that.
+- Allowlist: the agent reaches only the endpoints given with `--endpoint`/`--session`; logins come from the server's
+  options and environment, never from tool arguments.
+- `sample` returns a summary (changes, min/max/mean, statuses) instead of a stream: agents work in request/response,
+  and a summary fits their context. Result sizes are capped (browse 500, read 200, sample 100 items / 300 s).
+- Connections stay open between tool calls, so a device sees one session per server, not one per question.
+
 ## Deferred
 
 - Windows/Linux packages – the app builds for `win-x64`, but no release artifacts yet.
 - Notarization.
-- CLI follow-ups: `write`/`call`, `history`/`events`, `check`/`wait` for scripts, a Prometheus or MQTT bridge, an MCP
-  server for AI agents.
+- CLI follow-ups: `write`/`call`, `history`/`events`, `check`/`wait` for scripts, a Prometheus or MQTT bridge.
+- MCP follow-ups: `history` and `events` tools; `write`/`call_method` behind an explicit `--allow-writes`.

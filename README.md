@@ -59,7 +59,8 @@ mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1/Speed
 ```
 
 `mdbrowser` browses, reads and monitors from a terminal or a script, and runs sessions saved in the app; see
-[docs/cli.md](docs/cli.md).
+[docs/cli.md](docs/cli.md). `mdbrowser mcp` lets AI agents (Copilot, Claude, opencode) browse and read machines,
+read-only; see [docs/mcp.md](docs/mcp.md).
 
 ## Try it with the test servers
 
@@ -83,6 +84,7 @@ Read it as a website: **https://zaoralj.github.io/MachineDataBrowser/** (built f
 
 - [User manual](docs/user-manual.md): connecting, browsing, Watch, recordings, the chart, sessions, shortcuts,
   troubleshooting
+- [MCP server](docs/mcp.md): tools for AI agents, setup for VS Code, Claude Code, opencode, limits
 - [Command line](docs/cli.md): `mdbrowser` commands, node paths and ids, output formats, exit codes
 - [Architecture](docs/architecture.md): projects, the protocol boundary, value flow, connection lifecycle, each
   protocol, the App, packaging (with diagrams)

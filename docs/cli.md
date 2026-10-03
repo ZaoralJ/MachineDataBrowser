@@ -23,6 +23,7 @@ self-contained file; no .NET installation is needed.
 | `mdbrowser read <url> <node>... [-R]` | the current value and data type of one or more variables |
 | `mdbrowser monitor <url> <node>... [-R]` | live values until Ctrl+C, `--duration` or `--count` |
 | `mdbrowser run <session>` | the watch list of a session file saved by the app (`.mdbsession`), each item at its refresh time |
+| `mdbrowser mcp --endpoint <url>...` | an MCP server for AI agents, read-only; see [MCP server](mcp.md) |
 
 `mdbrowser <command> --help` lists every option.
 

@@ -12,6 +12,7 @@ nav:
   - Home: index.md
   - User manual: user-manual.md
   - Command line: cli.md
+  - MCP server for AI agents: mcp.md
   - Test servers: simulators.md
   - Contributors:
       - Architecture: architecture.md
@@ -51,6 +52,8 @@ markdown_extensions:
       permalink: true
   - pymdownx.highlight
   - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid

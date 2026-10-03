@@ -32,6 +32,7 @@ xattr -dr com.apple.quarantine "/Applications/Machine Data Browser.app"
 ## Read more
 
 - [User manual](user-manual.md): every feature, with screenshots and shortcuts.
+- [MCP server](mcp.md): let AI agents (Copilot, Claude, opencode) browse and read machines, read-only.
 - [Command line](cli.md): `mdbrowser` to browse, read and monitor from a terminal or script (macOS, Linux).
 - [Test servers](simulators.md): OPC UA, Logix and MQTT simulators to try it without hardware.
 - [Architecture](architecture.md) and [design decisions](decisions.md): for contributors.
