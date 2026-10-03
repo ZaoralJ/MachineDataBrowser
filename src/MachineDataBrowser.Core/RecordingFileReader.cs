@@ -5,21 +5,33 @@ namespace MachineDataBrowser.Core;
 
 public sealed record RecordingFileRow(DateTimeOffset ReceivedAt, string SourceTimestamp, string Name, string NodeId, string Value, string Status);
 
+/// <summary>A recording file read in steps: each call returns what was added since the last one, so a file still being recorded can be followed.</summary>
+public interface IRecordingFileReader
+{
+    string Path { get; }
+
+    Task<IReadOnlyList<RecordingFileRow>> ReadNewAsync(CancellationToken cancellationToken = default);
+}
+
 /// <summary>
-/// Reads the CSV written by <see cref="Recording"/> (export or live file). Call <see cref="ReadNew"/> repeatedly
+/// Reads the CSV written by <see cref="Recording"/> (export or live file). Call <see cref="ReadNewAsync"/> repeatedly
 /// to tail a file that is still being recorded; a partially written last line is kept until it is complete.
 /// </summary>
-public sealed class RecordingFileReader(string path)
+public sealed class RecordingFileReader(string path) : IRecordingFileReader
 {
+    /// <summary>The reader for <paramref name="path"/>: SQLite or CSV, by extension (<see cref="RecordingFiles.IsSqlite"/>).</summary>
+    public static IRecordingFileReader Open(string path) =>
+        RecordingFiles.IsSqlite(path) ? new SqliteRecordingFileReader(path) : new RecordingFileReader(path);
+
     private long _offset;
     private string _partial = string.Empty;
     private bool _headerSkipped;
 
     public string Path { get; } = path;
 
-    public IReadOnlyList<RecordingFileRow> ReadNew()
+    public async Task<IReadOnlyList<RecordingFileRow>> ReadNewAsync(CancellationToken cancellationToken = default)
     {
-        using var stream = new FileStream(Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        await using var stream = new FileStream(Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 4096, useAsync: true);
         if (stream.Length < _offset)
         {
             _offset = 0;
@@ -29,7 +41,7 @@ public sealed class RecordingFileReader(string path)
 
         stream.Seek(_offset, SeekOrigin.Begin);
         using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, leaveOpen: true);
-        var text = _partial + reader.ReadToEnd();
+        var text = _partial + await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
         _offset = stream.Length;
 
         var lines = text.Split('\n');

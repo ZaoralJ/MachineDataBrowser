@@ -33,11 +33,18 @@ public sealed record RecordingOptions
 
     public DateTimeOffset? StopAt { get; init; }
 
-    /// <summary>When set, every sample is also appended to this CSV file while recording.</summary>
+    /// <summary>
+    /// When set, every sample is also written to this file while recording: SQLite for <c>.db</c>, <c>.sqlite</c> and
+    /// <c>.sqlite3</c> (a new recording in the file each start), CSV otherwise (appended).
+    /// </summary>
     public string? LiveFilePath { get; init; }
+
+    /// <summary>The endpoint recorded from, kept in SQLite files with the recording.</summary>
+    public string? Endpoint { get; init; }
 }
 
-public sealed record RecordedItem(NodeId NodeId, string DisplayName, string PortableId);
+/// <summary>A recorded node; <paramref name="Path"/> is its parent path in the address space when known.</summary>
+public sealed record RecordedItem(NodeId NodeId, string DisplayName, string PortableId, string? Path = null);
 
 public sealed record HistorySample(
     DateTimeOffset ReceivedAt,
@@ -54,7 +61,10 @@ public sealed record HistorySample(
 /// </summary>
 public sealed class Recording : IAsyncDisposable
 {
-    private const string CsvHeader = "ReceivedAt,SourceTimestamp,ServerTimestamp,Name,NodeId,Value,Status";
+    internal const string CsvHeader = "ReceivedAt,SourceTimestamp,ServerTimestamp,Name,NodeId,Value,Status";
+
+    /// <summary>Most samples written to the live file in one go (one SQLite transaction).</summary>
+    private const int LiveBatchSize = 1000;
 
     private readonly IDeviceClient _client;
     private readonly TimeProvider _time;
@@ -67,7 +77,7 @@ public sealed class Recording : IAsyncDisposable
     private IReadOnlyList<RecordedItem> _items;
     private ITimer? _startTimer;
     private ITimer? _stopTimer;
-    private Channel<string>? _liveChannel;
+    private Channel<LiveSample>? _liveChannel;
     private Task? _liveWriter;
     private long _totalSamples;
     private long _sequence;
@@ -475,7 +485,7 @@ public sealed class Recording : IAsyncDisposable
             Interlocked.Increment(ref _totalSamples);
         }
 
-        _liveChannel?.Writer.TryWrite(CsvLine(item, sample));
+        _liveChannel?.Writer.TryWrite(new LiveSample(item, sample, update.Raw));
     }
 
     private async Task StartScheduledAsync()
@@ -567,34 +577,28 @@ public sealed class Recording : IAsyncDisposable
 
     private void OpenLiveFile(string path)
     {
-        var directory = Path.GetDirectoryName(Path.GetFullPath(path));
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        var writeHeader = !File.Exists(path) || new FileInfo(path).Length == 0;
-        var channel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true });
+        var channel = Channel.CreateUnbounded<LiveSample>(new UnboundedChannelOptions { SingleReader = true });
+        var info = new LiveRecordingInfo(Options.Name, Options.Endpoint, Options.SamplingIntervalMs, StartedAt ?? _time.GetUtcNow());
         _liveChannel = channel;
         _liveWriter = Task.Run(async () =>
         {
             try
             {
-                await using var writer = new StreamWriter(path, append: true, new UTF8Encoding(false));
-                if (writeHeader)
-                {
-                    await writer.WriteLineAsync(CsvHeader).ConfigureAwait(false);
-                }
-
+                await using var file = await RecordingFiles.OpenAsync(path, info, CancellationToken.None).ConfigureAwait(false);
+                var batch = new List<LiveSample>(LiveBatchSize);
                 while (await channel.Reader.WaitToReadAsync().ConfigureAwait(false))
                 {
-                    while (channel.Reader.TryRead(out var line))
+                    // Everything that arrived meanwhile in one write: one transaction for SQLite, one flush for CSV.
+                    while (batch.Count < LiveBatchSize && channel.Reader.TryRead(out var sample))
                     {
-                        await writer.WriteLineAsync(line).ConfigureAwait(false);
+                        batch.Add(sample);
                     }
 
-                    await writer.FlushAsync().ConfigureAwait(false);
+                    await file.WriteAsync(batch, CancellationToken.None).ConfigureAwait(false);
+                    batch.Clear();
                 }
+
+                await file.CompleteAsync(_time.GetUtcNow(), CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception ex) when (Errors.IsRecoverable(ex))
             {
@@ -672,7 +676,7 @@ public sealed class Recording : IAsyncDisposable
         }
     }
 
-    private static string CsvLine(RecordedItem item, HistorySample sample) => string.Join(',',
+    internal static string CsvLine(RecordedItem item, HistorySample sample) => string.Join(',',
         sample.ReceivedAt.ToString("O", CultureInfo.InvariantCulture),
         Timestamp(sample.SourceTimestamp),
         Timestamp(sample.ServerTimestamp),

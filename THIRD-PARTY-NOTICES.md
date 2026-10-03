@@ -8,6 +8,10 @@ Their licenses allow redistribution in open-source and commercial software provi
 | OPC Foundation UA-.NETStandard (`OPCFoundation.NetStandard.Opc.Ua.*`) | OPC Foundation MIT License 1.00 | https://github.com/OPCFoundation/UA-.NETStandard |
 | libplctag.NET (`libplctag`, `libplctag.NativeImport`) and the bundled native libplctag library | MPL-2.0 (native library: MPL-2.0 / LGPL-2.0, used under MPL-2.0) | https://github.com/libplctag/libplctag.NET, https://github.com/libplctag/libplctag |
 | MQTTnet | MIT | https://github.com/dotnet/MQTTnet |
+| Microsoft.Data.Sqlite | MIT | https://github.com/dotnet/efcore |
+| SQLitePCLRaw (`SQLitePCLRaw.*`) and the bundled native `e_sqlite3` | Apache-2.0 (SQLite itself: public domain) | https://github.com/ericsink/SQLitePCL.raw, https://sqlite.org |
+| System.CommandLine, ModelContextProtocol.Core (CLI) | MIT | https://github.com/dotnet/command-line-api, https://github.com/modelcontextprotocol/csharp-sdk |
+| Spectre.Console (CLI) | MIT | https://github.com/spectreconsole/spectre.console |
 | Avalonia, Avalonia.Controls.DataGrid | MIT | https://github.com/AvaloniaUI/Avalonia |
 | Dock (`Dock.Avalonia`, `Dock.Model.Mvvm`) | MIT | https://github.com/wieslawsoltes/Dock |
 | CommunityToolkit.Mvvm | MIT | https://github.com/CommunityToolkit/dotnet |

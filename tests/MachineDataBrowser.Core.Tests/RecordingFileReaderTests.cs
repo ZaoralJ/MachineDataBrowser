@@ -9,20 +9,20 @@ public sealed class RecordingFileReaderTests : IDisposable
     public void Dispose() => File.Delete(_path);
 
     [Fact]
-    public void Tails_growing_file_and_keeps_partial_lines_until_complete()
+    public async Task Tails_growing_file_and_keeps_partial_lines_until_complete()
     {
-        File.WriteAllText(_path, "ReceivedAt,SourceTimestamp,ServerTimestamp,Name,NodeId,Value,Status\n" +
-            "2026-09-27T10:00:00.0000000+00:00,,,\"StepUp\",\"nsu=x;s=a\",\"1\",Good\n");
+        await File.WriteAllTextAsync(_path, "ReceivedAt,SourceTimestamp,ServerTimestamp,Name,NodeId,Value,Status\n" +
+            "2026-09-27T10:00:00.0000000+00:00,,,\"StepUp\",\"nsu=x;s=a\",\"1\",Good\n", TestContext.Current.CancellationToken);
         var reader = new RecordingFileReader(_path);
 
-        Assert.Equal("1", Assert.Single(reader.ReadNew()).Value);
-        Assert.Empty(reader.ReadNew());
+        Assert.Equal("1", Assert.Single(await reader.ReadNewAsync(TestContext.Current.CancellationToken)).Value);
+        Assert.Empty(await reader.ReadNewAsync(TestContext.Current.CancellationToken));
 
-        File.AppendAllText(_path, "2026-09-27T10:00:01.0000000+00:00,,,\"StepUp\",\"nsu=x;s=a\",\"a,\"\"q\"\"");
-        Assert.Empty(reader.ReadNew());
+        await File.AppendAllTextAsync(_path, "2026-09-27T10:00:01.0000000+00:00,,,\"StepUp\",\"nsu=x;s=a\",\"a,\"\"q\"\"", TestContext.Current.CancellationToken);
+        Assert.Empty(await reader.ReadNewAsync(TestContext.Current.CancellationToken));
 
-        File.AppendAllText(_path, "\",Good\n");
-        var row = Assert.Single(reader.ReadNew());
+        await File.AppendAllTextAsync(_path, "\",Good\n", TestContext.Current.CancellationToken);
+        var row = Assert.Single(await reader.ReadNewAsync(TestContext.Current.CancellationToken));
         Assert.Equal("a,\"q\"", row.Value);
         Assert.Equal("StepUp", row.Name);
     }

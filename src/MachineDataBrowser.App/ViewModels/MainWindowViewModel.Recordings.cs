@@ -38,7 +38,7 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        await CreateRecordingAsync(options, [.. source.Select(w => new RecordedItem(w.NodeId, w.DisplayName, w.PortableId))]);
+        await CreateRecordingAsync(options, [.. source.Select(w => new RecordedItem(w.NodeId, w.DisplayName, w.PortableId, w.Path.Length > 0 ? w.Path : null))]);
     }
 
     /// <summary>Selected watch rows (one or many); all watched items only when nothing is selected.</summary>
@@ -47,6 +47,8 @@ public sealed partial class MainWindowViewModel
 
     public async Task<RecordingViewModel?> CreateRecordingAsync(RecordingOptions options, IReadOnlyList<RecordedItem> items)
     {
+        // The endpoint is kept with recordings written to SQLite; never with a password in it.
+        options = options with { Endpoint = options.Endpoint ?? Services.CliCommand.WithoutPassword(EndpointUrl) };
         var vm = new RecordingViewModel(new Recording(_client, options, items));
         Recordings.Add(vm);
         SelectedRecording = vm;
@@ -119,7 +121,7 @@ public sealed partial class MainWindowViewModel
 
         try
         {
-            var added = await target.Recording.AddItemsAsync([.. source.Select(w => new RecordedItem(w.NodeId, w.DisplayName, w.PortableId))]);
+            var added = await target.Recording.AddItemsAsync([.. source.Select(w => new RecordedItem(w.NodeId, w.DisplayName, w.PortableId, w.Path.Length > 0 ? w.Path : null))]);
             StatusMessage = added.Count switch
             {
                 0 => $"'{target.Name}' already records the selected items",

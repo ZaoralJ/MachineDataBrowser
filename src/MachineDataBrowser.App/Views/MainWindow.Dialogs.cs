@@ -23,6 +23,21 @@ public sealed partial class MainWindow : IDialogService
         MimeTypes = ["text/csv"],
     };
 
+    internal static readonly FilePickerFileType SqliteFileType = new("SQLite database")
+    {
+        Patterns = ["*.db", "*.sqlite", "*.sqlite3"],
+        AppleUniformTypeIdentifiers = ["public.database"],
+        MimeTypes = ["application/vnd.sqlite3"],
+    };
+
+    internal static FilePickerFileType CsvFileTypeForRecording => CsvFileType;
+
+    internal static readonly FilePickerFileType RecordingFileType = new("Recordings (CSV, SQLite)")
+    {
+        Patterns = ["*.csv", "*.db", "*.sqlite", "*.sqlite3"],
+        AppleUniformTypeIdentifiers = ["public.comma-separated-values-text", "public.database"],
+    };
+
     private bool _closeConfirmed;
 
     public async Task<string?> PickSessionToOpenAsync()
@@ -195,7 +210,7 @@ public sealed partial class MainWindow : IDialogService
         {
             Title = "Open Recording",
             AllowMultiple = false,
-            FileTypeFilter = [CsvFileType, FilePickerFileTypes.All],
+            FileTypeFilter = [RecordingFileType, CsvFileType, SqliteFileType, FilePickerFileTypes.All],
         });
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }

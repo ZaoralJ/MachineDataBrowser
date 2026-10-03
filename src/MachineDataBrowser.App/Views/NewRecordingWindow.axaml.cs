@@ -26,6 +26,8 @@ public sealed partial class NewRecordingWindow : Window
             Title = "Record to file",
             SuggestedFileName = vm.Name,
             DefaultExtension = "csv",
+            FileTypeChoices = [MainWindow.CsvFileTypeForRecording, MainWindow.SqliteFileType],
+            ShowOverwritePrompt = false,
         });
         if (file?.TryGetLocalPath() is { } path)
         {

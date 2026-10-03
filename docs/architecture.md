@@ -261,10 +261,14 @@ flowchart TB
 - History is bounded per item: max points and max age.
 - It can pause, resume, reset, start on a schedule and stop automatically. All timing uses `TimeProvider` and is
   tested with `FakeTimeProvider`.
-- Optional live CSV file: every sample, independent of the in-memory limits.
+- Optional live file: every sample, independent of the in-memory limits. `RecordingFiles` picks the format by
+  extension: CSV, or SQLite (`.db`, `.sqlite`, `.sqlite3`; `SqliteRecordingFile`, Microsoft.Data.Sqlite) with tables
+  `recordings`, `items`, `samples` and the view `sample_view`. Samples are queued and written in batches by one task:
+  one flush (CSV) or one transaction (SQLite, WAL mode) per batch.
 - `AddItemsAsync` adds items while the recording runs. `UpdateOptionsAsync` changes the refresh time, limits,
   schedule and live file in place.
-- Export to CSV and JSON. `RecordingFileReader` tails a CSV that is still being written.
+- Export to CSV and JSON. `RecordingFileReader.Open` returns a reader for either format that returns what was added
+  since the last call, so the viewer can follow a file that is still being written.
 
 ## App (`MachineDataBrowser.App`)
 

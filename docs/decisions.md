@@ -126,6 +126,18 @@ No .NET installation required on the target Mac.
   and a summary fits their context. Result sizes are capped (browse 500, read 200, sample 100 items / 300 s).
 - Connections stay open between tool calls, so a device sees one session per server, not one per question.
 
+## Recordings in SQLite
+
+- *Also write to file* and `--record` write SQLite for `.db` / `.sqlite` / `.sqlite3`, CSV otherwise; the extension
+  decides, so existing CSV recordings behave as before.
+- One file can hold many recordings (`recordings`, `items`, `samples`, view `sample_view`); values keep their type
+  (`value_num`, `value_text`, `value_json` for arrays and structures), times are ISO 8601 UTC text (SQLite's date
+  functions read it), the status is kept as name and code. A `schema_info` table versions the layout.
+- Microsoft.Data.Sqlite (MIT) with the bundled native SQLite (SQLitePCLRaw). Samples are queued and written in
+  batches of up to 1000 per transaction, WAL mode: the UI and devices never wait for the disk, the file can be read
+  (and followed by the viewer) while it grows, and a crash loses at most the last batch.
+- Not yet: retention (deleting old samples from the file) and reading SQLite recordings over MCP.
+
 ## Deferred
 
 - Windows/Linux packages – the app builds for `win-x64`, but no release artifacts yet.

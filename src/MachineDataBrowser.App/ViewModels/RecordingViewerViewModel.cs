@@ -104,8 +104,8 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
 
     public static RecordingViewerViewModel ForFile(string path)
     {
-        // The file is read on the pool (opening a large CSV used to block the window); polls take what has been read.
-        var reader = new RecordingFileReader(path);
+        // The file is read on the pool (opening a large file used to block the window); polls take what has been read.
+        var reader = RecordingFileReader.Open(path);
         var pending = new System.Collections.Concurrent.ConcurrentQueue<HistoryRow>();
         Task? reading = null;
         string? error = null;
@@ -115,11 +115,11 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
             {
                 if (reading is null or { IsCompleted: true })
                 {
-                    reading = Task.Run(() =>
+                    reading = Task.Run(async () =>
                     {
                         try
                         {
-                            foreach (var r in reader.ReadNew())
+                            foreach (var r in await reader.ReadNewAsync().ConfigureAwait(false))
                             {
                                 pending.Enqueue(new HistoryRow(r.ReceivedAt, r.Name, r.NodeId, r.Value, r.Status, r.SourceTimestamp, ParseNumeric(r.Value)));
                             }
