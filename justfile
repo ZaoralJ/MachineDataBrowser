@@ -77,6 +77,7 @@ logs name="cip":
 test-sim:
     dotnet test tests/MachineDataBrowser.Core.Tests -- --filter-class "*CipClientTests" --filter-class "*CustomTypesTests" --filter-class "*MqttClientTests" --filter-class "*CipConnectionLossTests"
 
-# Regenerate the dark-theme screenshots in docs/images (needs Docker)
+# Regenerate the dark-theme screenshots in docs/images (needs Docker; compresses them with pngquant)
 docs-screenshots:
     MDB_DOCS_SCREENSHOTS=1 dotnet test tests/MachineDataBrowser.App.Tests -- --filter-class "*DocsScreenshotTests"
+    PATH="/opt/homebrew/bin:/usr/local/bin:$PATH" pngquant --force --skip-if-larger --quality=80-95 --strip --ext .png docs/images/*.png

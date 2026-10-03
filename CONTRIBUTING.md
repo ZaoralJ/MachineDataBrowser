@@ -43,7 +43,8 @@ Tip: while the app is running, run tests with `--artifacts-path /tmp/opcua-artif
 overwrite the running app's binaries. `MACHINEDATABROWSER_DATA_DIR` points settings/PKI to another folder.
 
 Screenshots in README and the user manual (`docs/images`, dark theme) come from `DocsScreenshotTests`. They are
-skipped in normal test runs; after a visible UI change run `just docs-screenshots` and commit the updated PNGs.
+skipped in normal test runs; after a visible UI change run `just docs-screenshots` (needs `pngquant`, e.g.
+`brew install pngquant`) and commit the updated PNGs.
 
 ## Code guidelines
 
