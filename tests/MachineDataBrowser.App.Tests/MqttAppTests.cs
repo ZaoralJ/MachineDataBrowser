@@ -83,8 +83,9 @@ public sealed class MqttAppTests(MqttSimulatorFixture broker)
                 await vm.ConnectCommand.ExecuteAsync(null);
                 Assert.False(vm.IsDiscoveryPaused);
 
-                await Until(() => vm.IsDiscoveryPaused);
-                Assert.StartsWith("Discovery paused automatically after 1 s", vm.StatusMessage, StringComparison.Ordinal);
+                // IsDiscoveryPaused reads the client directly; the status message follows via a dispatcher post.
+                await Until(() => vm.IsDiscoveryPaused
+                    && vm.StatusMessage.StartsWith("Discovery paused automatically after 1 s", StringComparison.Ordinal));
                 Assert.StartsWith("Resume discovery", vm.DiscoveryToolTip, StringComparison.Ordinal);
                 await vm.WriteSessionAsync(path);
             }
