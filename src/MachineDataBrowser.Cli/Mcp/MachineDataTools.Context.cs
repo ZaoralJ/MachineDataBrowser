@@ -176,8 +176,10 @@ internal sealed partial class MachineDataTools
     });
 
     [McpServerTool(Name = "diagnostics", ReadOnly = true, OpenWorld = false)]
-    [Description("Health of the connection to a machine: state, and for OPC UA the session (security, keep-alive, reconnects, "
-        + "server state and clock offset) and subscriptions. Use it when values look stale or connections fail.")]
+    [Description("Health of the connection to a machine: state and session details. OPC UA: security, keep-alive, "
+        + "reconnects, server state and clock offset, subscriptions. MQTT: broker, messages per second, topics, Sparkplug "
+        + "nodes online. EtherNet/IP: link drops, read rate and failures, poll cycle times. Use it when values look stale "
+        + "or connections fail.")]
     public Task<string> DiagnosticsAsync(
         [Description("Endpoint URL from list_endpoints; may be omitted when only one is configured")] string? endpoint = null,
         CancellationToken cancellationToken = default) => Guard(async () =>

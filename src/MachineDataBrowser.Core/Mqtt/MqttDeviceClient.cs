@@ -11,7 +11,7 @@ namespace MachineDataBrowser.Core.Mqtt;
 /// Sparkplug B. MQTT pushes values; the refresh time is a maximum update rate per monitored item (the latest value at
 /// most once per interval), and 0 delivers every message.
 /// </summary>
-public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
+public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, IConnectionDiagnosticsSource
 {
     public const int DefaultMaxTopics = 20_000;
 
@@ -26,6 +26,15 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
     private MqttModel _model = new(DefaultMaxTopics);
     private CancellationTokenSource? _reconnect;
     private ConnectionState _state = ConnectionState.Disconnected;
+    private MqttClientConnectResult? _connectResult;
+    private string? _userName;
+    private DateTime? _connectedAt;
+    private DateTime? _lastReconnect;
+    private int _reconnects;
+    private long _messages;
+    private long _bytes;
+    private long _lastMessageTicks;
+    private (long Count, DateTime At)? _rateSample;
 
     public MqttDeviceClient(int maxTopics = DefaultMaxTopics) => MaxTopics = maxTopics;
 
@@ -86,7 +95,14 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
             }
 
             _model = new MqttModel(MaxTopics);
+            _messages = 0;
+            _bytes = 0;
+            _lastMessageTicks = 0;
+            _reconnects = 0;
+            _lastReconnect = null;
+            _rateSample = null;
             _options = BuildOptions(_endpoint, options);
+            _userName = string.IsNullOrEmpty(options.UserName) ? _endpoint.UserName : options.UserName;
             _client = new MqttClientFactory().CreateMqttClient();
             _client.ApplicationMessageReceivedAsync += OnMessageAsync;
             _client.DisconnectedAsync += OnDisconnectedAsync;
@@ -100,12 +116,92 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
                 throw new ServiceResultException(StatusCodes.BadCommunicationError, $"MQTT connection to {_endpoint?.Host ?? options.EndpointUrl} failed: {ex.Message}", ex);
             }
 
+            _connectedAt = DateTime.UtcNow;
             State = ConnectionState.Connected;
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    public Task<ConnectionDiagnostics> GetDiagnosticsAsync(CancellationToken cancellationToken = default)
+    {
+        if (_endpoint is not { } endpoint || _options is not { } options)
+        {
+            throw new InvalidOperationException("Not connected.");
+        }
+
+        var result = _connectResult;
+        var messages = Interlocked.Read(ref _messages);
+        var lastTicks = Interlocked.Read(ref _lastMessageTicks);
+        var topics = _model.TopicCount.ToString(CultureInfo.InvariantCulture);
+        var max = _model.MaxTopics.ToString(CultureInfo.InvariantCulture);
+        var info = new List<(string, string)>
+        {
+            ("Broker", $"{endpoint.Host}:{endpoint.Port.ToString(CultureInfo.InvariantCulture)}"),
+            ("Transport", (endpoint.WebSocket ? $"WebSocket {endpoint.WebSocketUri}" : "TCP") + (endpoint.Tls ? " · TLS" : " · no TLS")),
+            ("Protocol", options.ProtocolVersion switch
+            {
+                MQTTnet.Formatter.MqttProtocolVersion.V500 => "MQTT 5.0",
+                MQTTnet.Formatter.MqttProtocolVersion.V311 => "MQTT 3.1.1",
+                var v => v.ToString(),
+            }),
+            ("Client ID", result?.AssignedClientIdentifier is { Length: > 0 } assigned ? $"{assigned} (assigned by broker)" : options.ClientId),
+            ("User", _userName is { Length: > 0 } user ? user : "Anonymous"),
+            ("Topic filter", endpoint.TopicFilter),
+            ("Keep-alive", result is { ServerKeepAlive: > 0 }
+                ? $"every {result.ServerKeepAlive.ToString(CultureInfo.InvariantCulture)} s (set by broker)"
+                : $"every {DiagnosticsFormat.Duration(options.KeepAlivePeriod.TotalMilliseconds)}"),
+            ("Connected since", DiagnosticsFormat.Since(_connectedAt)),
+            ("Reconnects", DiagnosticsFormat.Reconnects(_reconnects, _lastReconnect)),
+            ("Messages", $"{DiagnosticsFormat.Rate(messages, ref _rateSample)} · {messages.ToString("N0", CultureInfo.InvariantCulture)} received · {DiagnosticsFormat.Bytes(Interlocked.Read(ref _bytes))}"),
+            ("Last message", lastTicks == 0 ? "none yet" : DiagnosticsFormat.Ago(new DateTime(lastTicks, DateTimeKind.Utc))),
+            ("Topics", _model.DroppedTopics > 0
+                ? $"{topics} (limit {max} reached, {_model.DroppedTopics.ToString(CultureInfo.InvariantCulture)} messages dropped)"
+                : $"{topics} of max {max}"),
+        };
+
+        var spb = _model.SparkplugSummary();
+        if (spb.Edges > 0)
+        {
+            info.Add(("Sparkplug B", $"{spb.EdgesOnline}/{spb.Edges} edge nodes online · {spb.DevicesOnline}/{spb.Devices} devices online"));
+        }
+
+        int monitored;
+        lock (_lock)
+        {
+            monitored = _subscribers.Values.Sum(l => l.Count);
+        }
+
+        info.Add(("Monitored items", monitored.ToString(CultureInfo.InvariantCulture)));
+
+        // What the broker announced in its CONNACK: explains e.g. writes that don't stick (no retain).
+        if (result is not null)
+        {
+            var limits = new List<string>
+            {
+                $"max QoS {(int)result.MaximumQoS}",
+                result.RetainAvailable ? "retain" : "no retain",
+            };
+            if (!result.WildcardSubscriptionAvailable)
+            {
+                limits.Add("no wildcard subscriptions");
+            }
+
+            if (result.MaximumPacketSize is { } size and > 0)
+            {
+                limits.Add($"max packet {DiagnosticsFormat.Bytes(size)}");
+            }
+
+            info.Add(("Broker limits", string.Join(" · ", limits)));
+            if (result.ResponseInformation is { Length: > 0 } response)
+            {
+                info.Add(("Broker info", response));
+            }
+        }
+
+        return Task.FromResult(new ConnectionDiagnostics(info, []));
     }
 
     public async Task DisconnectAsync()
@@ -288,7 +384,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
 
     private async Task ConnectAndSubscribeAsync(CancellationToken cancellationToken)
     {
-        await _client!.ConnectAsync(_options!, cancellationToken).ConfigureAwait(false);
+        _connectResult = await _client!.ConnectAsync(_options!, cancellationToken).ConfigureAwait(false);
         var subscribe = new MqttClientSubscribeOptionsBuilder()
             .WithTopicFilter(f => f.WithTopic(_endpoint!.TopicFilter).WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtMostOnce))
             .Build();
@@ -301,6 +397,9 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
         try
         {
             var message = e.ApplicationMessage;
+            Interlocked.Increment(ref _messages);
+            Interlocked.Add(ref _bytes, message.Payload.Length);
+            Interlocked.Exchange(ref _lastMessageTicks, DateTime.UtcNow.Ticks);
             var version = _model.Version;
             var changed = _model.Apply(
                 message.Topic,
@@ -391,6 +490,8 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
                 try
                 {
                     await ConnectAndSubscribeAsync(cts.Token).ConfigureAwait(false);
+                    _reconnects++;
+                    _lastReconnect = DateTime.UtcNow;
                     State = ConnectionState.Connected;
                     return;
                 }
@@ -449,6 +550,8 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
         }
 
         _endpoint = null;
+        _connectResult = null;
+        _connectedAt = null;
         State = ConnectionState.Disconnected;
     }
 

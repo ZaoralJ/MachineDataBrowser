@@ -190,7 +190,7 @@ public sealed record SubscriptionDiagnostics(
     uint LifetimeCount,
     bool PublishingEnabled);
 
-/// <summary>Clients that can describe their connection in detail (OPC UA).</summary>
+/// <summary>Clients that can describe their connection in detail; subscriptions are OPC UA only.</summary>
 public interface IConnectionDiagnosticsSource
 {
     Task<ConnectionDiagnostics> GetDiagnosticsAsync(CancellationToken cancellationToken = default);

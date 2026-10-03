@@ -52,6 +52,17 @@ internal sealed class MqttModel
         }
     }
 
+    /// <summary>Sparkplug edge nodes and devices seen, and how many of each are online (no death received).</summary>
+    public (int Edges, int EdgesOnline, int Devices, int DevicesOnline) SparkplugSummary()
+    {
+        lock (_lock)
+        {
+            var edges = _groups.Values.SelectMany(g => g.Values).ToList();
+            var devices = edges.SelectMany(e => e.Devices.Values).ToList();
+            return (edges.Count, edges.Count(e => e.Node.Online), devices.Count, devices.Count(d => d.Online));
+        }
+    }
+
     // ---------------------------------------------------------------- incoming messages
 
     /// <summary>Stores a message and returns the node keys whose value changed.</summary>
