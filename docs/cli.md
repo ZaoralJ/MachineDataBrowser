@@ -29,7 +29,7 @@ command line for them, with the endpoint and options of the connection.
 | `mdbrowser session create <file> <url> <node>...` | a session file for the app with these nodes as its watch list |
 | `mdbrowser session add <file> <node>...` | adds nodes to a session's watch list; everything else in the file is kept |
 | `mdbrowser run <session>` | the watch list of a session file saved by the app (`.mdbsession`), each item at its refresh time |
-| `mdbrowser mcp --endpoint <url>...` | an MCP server for AI agents, read-only; see [MCP server](mcp.md) |
+| `mdbrowser mcp --endpoint <url>... --recording <file.db>...` | an MCP server for AI agents (machines and SQLite recordings), read-only; see [MCP server](mcp.md) |
 
 `mdbrowser <command> --help` lists every option.
 

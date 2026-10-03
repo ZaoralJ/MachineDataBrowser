@@ -4,7 +4,10 @@ using ModelContextProtocol.Server;
 
 namespace MachineDataBrowser.Cli.Mcp;
 
-/// <summary><c>mdbrowser mcp</c>: an MCP server on stdin/stdout that gives AI agents read-only access to the configured machines.</summary>
+/// <summary>
+/// <c>mdbrowser mcp</c>: an MCP server on stdin/stdout that gives AI agents read-only access to the configured machines
+/// and recording files. Machine tools are offered when endpoints are configured, recording tools when recordings are.
+/// </summary>
 internal static class McpServerHost
 {
     public const string Instructions = """
@@ -22,9 +25,15 @@ internal static class McpServerHost
         Results are limited in size; narrow the node or depth when a result says truncated.
         """;
 
-    public static async Task<int> RunAsync(EndpointPool pool, CancellationToken cancellationToken)
+    public const string RecordingInstructions = """
+        Recorded history is available from SQLite recording files. Start with list_recordings, then recording_items for
+        per-item statistics (count, time range, min/max/average, last value). recording_samples returns samples of
+        chosen items over a time range (ISO 8601, UTC); for long ranges pass bucketSeconds to get per-bucket count,
+        min, max, average and the number of samples that were not Good, instead of raw samples.
+        """;
+
+    public static async Task<int> RunAsync(EndpointPool pool, RecordingLibrary recordings, CancellationToken cancellationToken)
     {
-        var tools = new MachineDataTools(pool);
         var options = new McpServerOptions
         {
             ServerInfo = new Implementation
@@ -34,19 +43,36 @@ internal static class McpServerHost
                 Version = typeof(McpServerHost).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "dev",
                 WebsiteUrl = "https://zaoralj.github.io/MachineDataBrowser/",
             },
-            ServerInstructions = Instructions,
+            ServerInstructions = string.Join("\n", new[]
+            {
+                pool.Endpoints.Count > 0 ? Instructions : null,
+                recordings.IsEmpty ? null : RecordingInstructions,
+            }.OfType<string>()),
             ToolCollection = [],
         };
 
-        foreach (var method in typeof(MachineDataTools).GetMethods(BindingFlags.Public | BindingFlags.Instance)
-            .Where(m => m.GetCustomAttribute<McpServerToolAttribute>() is not null))
+        if (pool.Endpoints.Count > 0)
         {
-            options.ToolCollection.Add(McpServerTool.Create(method, tools));
+            AddTools(options, new MachineDataTools(pool));
+        }
+
+        if (!recordings.IsEmpty)
+        {
+            AddTools(options, new RecordingTools(recordings));
         }
 
         await using var transport = new StdioServerTransport(options);
         await using var server = McpServer.Create(transport, options);
         await server.RunAsync(cancellationToken).ConfigureAwait(false);
         return 0;
+    }
+
+    private static void AddTools(McpServerOptions options, object tools)
+    {
+        foreach (var method in tools.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Where(m => m.GetCustomAttribute<McpServerToolAttribute>() is not null))
+        {
+            options.ToolCollection!.Add(McpServerTool.Create(method, tools));
+        }
     }
 }
