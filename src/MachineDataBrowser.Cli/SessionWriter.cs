@@ -123,7 +123,7 @@ internal static class SessionWriter
         }
         catch (Opc.Ua.ServiceResultException ex) when (Opc.Ua.StatusCode.IsBad(ex.StatusCode))
         {
-            throw new CliException($"'{node.Name}' is not on the device ({ex.Result.StatusCode.SymbolicId ?? ex.Message}); nothing was saved.");
+            throw new CliException($"'{node.Name}' is not on the device ({StatusText.Of(ex.Result.StatusCode)}); nothing was saved.");
         }
 
         if (attributes.Count == 0 || attributes.Any(a => a.Name == "NodeClass" && a.Value.StartsWith("Bad", StringComparison.Ordinal)))

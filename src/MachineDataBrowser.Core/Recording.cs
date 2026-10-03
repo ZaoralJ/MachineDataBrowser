@@ -686,7 +686,7 @@ public sealed class Recording : IAsyncDisposable
 
     private static string Csv(string value) => $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 
-    private static string StatusText(StatusCode status) => status.SymbolicId ?? status.ToString();
+    private static string StatusText(StatusCode status) => Core.StatusText.Of(status);
 
     private static DateTimeOffset? Min(DateTimeOffset? a, DateTimeOffset? b) =>
         a is null ? b : b is null ? a : a < b ? a : b;

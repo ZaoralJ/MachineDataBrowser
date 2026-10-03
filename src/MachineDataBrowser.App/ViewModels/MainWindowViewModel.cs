@@ -1298,7 +1298,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
 
         SetAttribute("Value", update.Value);
-        SetAttribute("StatusCode", update.Status.SymbolicId ?? update.Status.ToString());
+        SetAttribute("StatusCode", StatusText.Of(update.Status));
         if (update.SourceTimestamp != DateTime.MinValue)
         {
             SetAttribute("SourceTimestamp", Timestamps.Format(update.SourceTimestamp));
