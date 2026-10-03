@@ -21,6 +21,8 @@ flowchart LR
 
 ## Window
 
+![Main window: Address Space, Attributes and Watch](images/main-window.png)
+
 | Pane | What it shows |
 |---|---|
 | **Address Space** (⌘1) | tree of the device: OPC UA nodes, Logix tags, MQTT topics and Sparkplug metrics |
@@ -132,6 +134,8 @@ Each row shows Name, Status, Refresh, Last update, Since, Recorded and Value. No
 columns; the ⫼ button shows or hides columns and reorders them by dragging the headers. Column layout and sort
 order are saved with the session.
 
+![Watch list grouped by path](images/watch.png)
+
 - **Status and age:**
   - *Since* turns amber when a value is **stale**, i.e. there has been no update for 5× its refresh time (at least
     5 s).
@@ -236,6 +240,8 @@ Connection ▸ **Events & Alarms…** (⌥⌘A) opens a live window for the whol
 source, right-click it in the address space ▸ **Show events & alarms**. Each window is its own subscription; closing it
 (or disconnecting) ends it.
 
+![Events & Alarms window with active, unacknowledged alarms](images/events.png)
+
 - **Alarms tab:** alarms the server keeps (active or not yet acknowledged), one row each, most severe first, updated
   live. Alarms that are already active when the window opens appear at once.
   - **Acknowledge:** click an alarm row that says *Unacked*, optionally type a comment, then click **Acknowledge** (or
@@ -269,6 +275,8 @@ A recording captures the values of its items with timestamps. It keeps running w
 ### Recording viewer
 
 Opened with Enter or double-click in Recordings, or from Watch for a single item.
+
+![Recording viewer: trend chart of two items above the table of samples](images/recording-viewer.png)
 
 - The table shows the kept samples (Received, Name, Status, Value, and optionally NodeId and Source time). The item
   box filters to one item.

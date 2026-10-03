@@ -42,6 +42,9 @@ just mqtt           # MQTT + Sparkplug B + CloudEvents -> mqtt://localhost:1883
 Tip: while the app is running, run tests with `--artifacts-path /tmp/opcua-artifacts` so the test build does not
 overwrite the running app's binaries. `MACHINEDATABROWSER_DATA_DIR` points settings/PKI to another folder.
 
+Screenshots in README and the user manual (`docs/images`, dark theme) come from `DocsScreenshotTests`. They are
+skipped in normal test runs; after a visible UI change run `just docs-screenshots` and commit the updated PNGs.
+
 ## Code guidelines
 
 - Read [docs/architecture.md](docs/architecture.md) first; protocol logic (OPC UA, EtherNet/IP, MQTT) belongs in `MachineDataBrowser.Core`

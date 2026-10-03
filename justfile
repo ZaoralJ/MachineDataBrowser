@@ -76,3 +76,7 @@ logs name="cip":
 # Core tests against the simulators (needs Docker)
 test-sim:
     dotnet test tests/MachineDataBrowser.Core.Tests -- --filter-class "*CipClientTests" --filter-class "*CustomTypesTests" --filter-class "*MqttClientTests" --filter-class "*CipConnectionLossTests"
+
+# Regenerate the dark-theme screenshots in docs/images (needs Docker)
+docs-screenshots:
+    MDB_DOCS_SCREENSHOTS=1 dotnet test tests/MachineDataBrowser.App.Tests -- --filter-class "*DocsScreenshotTests"

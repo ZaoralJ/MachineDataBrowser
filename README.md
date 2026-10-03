@@ -3,6 +3,8 @@
 [![ci](https://github.com/ZaoralJ/MachineDataBrowser/actions/workflows/ci.yml/badge.svg)](https://github.com/ZaoralJ/MachineDataBrowser/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+![Machine Data Browser connected to an OPC UA server: address space, attributes and live watch values](docs/images/main-window.png)
+
 **Machine Data Browser** is a cross-platform viewer for machine data (.NET 10, Avalonia). It shows the data of one device at a time:
 
 | Protocol | Endpoint | Highlights |
