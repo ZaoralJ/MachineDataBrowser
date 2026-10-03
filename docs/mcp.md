@@ -92,6 +92,7 @@ Logins: `--user` with the password in `MDBROWSER_PASSWORD` (set it in the agent'
 | `alarms` | the server's current alarms, most severe first: source, name, severity, active, acknowledged, message |
 | `events` | events and alarm changes collected for 1–300 s, newest first, optionally only above a severity |
 | `diagnostics` | connection health: state; for OPC UA security, keep-alive, reconnects, server state and clock offset, subscriptions |
+| `generate_code` | C# records or classes mirroring a structure (like *Copy as C#* in the app), or a JSON snapshot of its values |
 | `wait_for` | waits up to 10 min until a value meets a condition (`> 80`, `== Run`, `contains Error`, `changes`) and says when |
 | `start_recording`, `stop_recording`, `active_recordings` | with `--allow-recording`: records items in the background into a SQLite file (≤ 24 h, ≤ 5 at a time, ≤ 500 items), to analyse with the recording tools |
 
@@ -117,6 +118,23 @@ mdbrowser mcp --endpoint opc.tcp://plc-01:4840 --recording ~/plant.db    # machi
 
 Buckets are how an agent looks at days of data: a week per hour is 168 rows per item. Files are opened read-only and
 can still be recording.
+
+### Resources and prompts
+
+Besides tools, the server offers **resources** an agent (or you, in clients that show them) can read directly, and
+**prompts**: ready-made workflows to pick in the agent.
+
+| Resource | |
+|---|---|
+| `mdbrowser://endpoints` | the machines, their state, allowed patterns and the session resources |
+| `mdbrowser://sessions/{name}` | a session file given with `--session`: endpoint, options and watch list (never a password) |
+| `mdbrowser://recordings` | the recording files and the recordings in each |
+
+| Prompt | |
+|---|---|
+| `diagnose_machine` (endpoint, area) | connection, alarms, suspicious values and how they move: likely causes first, nothing changed |
+| `check_alarms` (endpoint) | the current alarms explained, most severe first, with what to check on site |
+| `summarize_recording` (file, item) | ranges, trends and anomalies of a recording, zooming in on unusual periods |
 
 ### Changes (`--allow-writes`)
 

@@ -54,8 +54,18 @@ internal static class McpServerHost
         before, and report what changed. Endpoints named under allow patterns and read-only sessions can't be changed.
         """;
 
-    public static async Task<int> RunAsync(EndpointPool pool, RecordingLibrary recordings, string? recordingFolder, CancellationToken cancellationToken, bool allowWrites = false, bool skipWriteConfirmation = false)
+    /// <summary>What the server offers, from the <c>mcp</c> command's options.</summary>
+    public sealed record Setup(
+        EndpointPool Pool,
+        RecordingLibrary Recordings,
+        IReadOnlyList<string> SessionFiles,
+        string? RecordingFolder = null,
+        bool AllowWrites = false,
+        bool SkipWriteConfirmation = false);
+
+    public static async Task<int> RunAsync(Setup setup, CancellationToken cancellationToken)
     {
+        var (pool, recordings, sessionFiles, recordingFolder, allowWrites, skipWriteConfirmation) = setup;
         var options = new McpServerOptions
         {
             ServerInfo = new Implementation
@@ -74,7 +84,24 @@ internal static class McpServerHost
                 allowWrites && pool.Endpoints.Count > 0 ? WriteInstructions : null,
             }.OfType<string>()),
             ToolCollection = [],
+            ResourceCollection = [],
+            PromptCollection = [],
         };
+
+        var resources = new McpResources(pool, [.. sessionFiles.Select(Path.GetFullPath)], recordings);
+        foreach (var method in typeof(McpResources).GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Where(m => m.GetCustomAttribute<McpServerResourceAttribute>() is { } attribute
+                && (attribute.Name != "session" || sessionFiles.Count > 0) && (attribute.Name != "recordings" || !recordings.IsEmpty)))
+        {
+            options.ResourceCollection.Add(McpServerResource.Create(method, resources));
+        }
+
+        foreach (var method in typeof(McpPrompts).GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.GetCustomAttribute<McpServerPromptAttribute>() is { } attribute
+                && (attribute.Name == "summarize_recording" ? !recordings.IsEmpty : pool.HasMachines)))
+        {
+            options.PromptCollection.Add(McpServerPrompt.Create(method, target: null));
+        }
 
         if (pool.HasMachines)
         {
