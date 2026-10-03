@@ -148,6 +148,10 @@ public sealed class SqliteRecordingTests(OpcPlcFixture plc) : IAsyncLifetime
         {
             await current.StartAsync(Ct);
             current.Append(Update(ProductName, "early"));
+
+            // The file is opened on the writer task, which also runs the first retention check; let that happen before the
+            // clock jumps, or the first check is stamped "2 h later" and the next one isn't due yet.
+            await WaitUntilAsync(async () => (await QueryAsync(file, "SELECT count(*) FROM samples WHERE value_text = 'early'", r => r.GetInt64(0)))[0] == 1);
             time.Advance(TimeSpan.FromHours(2));
             current.Append(Update(ProductName, "new"));   // the next write runs retention: older than 1 h is gone
             await WaitUntilAsync(async () => (await QueryAsync(file, "SELECT count(*) FROM samples WHERE value_text = 'new'", r => r.GetInt64(0)))[0] == 1
