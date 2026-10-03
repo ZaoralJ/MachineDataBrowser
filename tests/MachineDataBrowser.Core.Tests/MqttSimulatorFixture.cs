@@ -14,7 +14,9 @@ public sealed class MqttSimulatorFixture : IAsyncLifetime
 
     private readonly IFutureDockerImage _image = new ImageFromDockerfileBuilder()
         .WithDockerfileDirectory(CommonDirectoryPath.GetGitDirectory(), "simulators/mqtt")
-        .WithName("machinedatabrowser-mqtt-simulator:test")
+        // One tag per test project: the projects run in parallel, and Testcontainers stages each build in a temp file named
+        // after the image, so a shared name lets one build delete another's file.
+        .WithName($"machinedatabrowser-mqtt-simulator:test-{typeof(MqttSimulatorFixture).Assembly.GetName().Name!.ToLowerInvariant()}")
         .WithDeleteIfExists(false)
         .WithCleanUp(false)
         .Build();

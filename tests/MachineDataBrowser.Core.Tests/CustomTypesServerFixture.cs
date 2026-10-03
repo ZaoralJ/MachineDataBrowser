@@ -18,7 +18,9 @@ public sealed class CustomTypesServerFixture : IAsyncLifetime
 
     private readonly IFutureDockerImage _image = new ImageFromDockerfileBuilder()
         .WithDockerfileDirectory(CommonDirectoryPath.GetGitDirectory(), "simulators/opcua-custom")
-        .WithName("machinedatabrowser-opcua-custom:test")
+        // One tag per test project: the projects run in parallel, and Testcontainers stages each build in a temp file named
+        // after the image, so a shared name lets one build delete another's file.
+        .WithName($"machinedatabrowser-opcua-custom:test-{typeof(CustomTypesServerFixture).Assembly.GetName().Name!.ToLowerInvariant()}")
         .WithDeleteIfExists(false)
         .WithCleanUp(false)
         .Build();
