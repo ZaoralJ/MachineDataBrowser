@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.12.0...v0.13.0) (2026-10-03)
+
+
+### Features
+
+* **cli:** mdbrowser write ([#66](https://github.com/ZaoralJ/MachineDataBrowser/issues/66)) ([e16bf6a](https://github.com/ZaoralJ/MachineDataBrowser/commit/e16bf6a0b61db68fe84ed5368817ee269fd845c6))
+
 ## [0.12.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.11.0...v0.12.0) (2026-10-03)
 
 
