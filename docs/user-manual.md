@@ -21,6 +21,8 @@ flowchart LR
 
 ## Window
 
+![Main window: Address Space, Attributes and Watch](images/main-window.png)
+
 | Pane | What it shows |
 |---|---|
 | **Address Space** (⌘1) | tree of the device: OPC UA nodes, Logix tags, MQTT topics and Sparkplug metrics |
@@ -62,6 +64,8 @@ Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ but
   thumbprint and the reason) and asks: **Trust Once** connects this time only, **Always Trust** adds it to
   `pki/trusted` so later connections don't ask, **Cancel** doesn't connect.
 
+<img src="images/connection-options.png" alt="Connection options" width="49%"> <img src="images/certificate-prompt.png" alt="Untrusted server certificate prompt" width="49%">
+
 **Diagnostics:** Connection ▸ **Diagnostics…** (⇧⌘I) shows the connection live, refreshed every second. Use it when
 values seem to stop:
 - *Session* (OPC UA): endpoint, security, user, keep-alive, reconnects, outstanding requests, and the server's state,
@@ -69,6 +73,8 @@ values seem to stop:
 - *This app*: watched items, value updates per second, and how many rows are stale, bad or uncertain.
 - *Subscriptions* (OPC UA): the publishing interval the server granted (it may differ from the refresh time), items,
   notifications and when the last one arrived.
+
+![Diagnostics window: session, this app and subscriptions](images/diagnostics.png)
 
 **Disconnect:** ⇧⌘D. If the connection drops, the app shows *Connection lost. Reconnecting…* and restores the
 connection by itself. Watch items and recordings continue after that.
@@ -95,6 +101,8 @@ Select a node and press **B** (or right-click ▸ **Bookmark**) to bookmark it; 
 the Address Space toolbar lists them with their path: click one to open the tree there, ✕ removes it. Bookmarks are
 saved with the session (node ids are per server) and work for OPC UA, EtherNet/IP and MQTT.
 
+![Bookmarks list in the Address Space toolbar](images/bookmarks.png)
+
 ### Search
 
 ⌘F (View ▸ Find in Address Space…) or **/** in the tree puts the cursor in the search box above the tree.
@@ -108,6 +116,8 @@ saved with the session (node ids are per server) and work for OPC UA, EtherNet/I
 - **Limits:** the search browses the device breadth-first, up to 12 levels and 50 000 nodes, and returns at most
   1 000 results. The status line says when a limit was reached.
 - **MQTT:** only topics received so far can be found.
+
+![Search results above the address space tree](images/search.png)
 
 ### What the tree looks like per protocol
 
@@ -127,11 +137,15 @@ saved with the session (node ids are per server) and work for OPC UA, EtherNet/I
   - Metrics named `alias 101` were published before the app saw the device's BIRTH message. They get their real
     names at the next birth. The app does not request a rebirth.
 
+![MQTT broker: topic tree with JSON fields, Sparkplug B, attributes of a topic](images/mqtt.png)
+
 ## Watch
 
 Each row shows Name, Status, Value, Refresh, Last update, Since and Recorded. NodeId and Source time are hidden
 columns; the ⫼ button shows or hides columns. Drag a header to reorder columns, its edge to resize. Column layout
 and sort order are saved with the session.
+
+![Watch list grouped by path](images/watch.png)
 
 - **Status and age:**
   - *Since* turns amber when a value is **stale**, i.e. there has been no update for 5× its refresh time (at least
@@ -179,6 +193,8 @@ and sort order are saved with the session.
   - ⌥⌘C copies the value, ⌥⌘N the NodeId; ⌥⌘J copies the values as JSON; ⇧⌘C copies the rows as JSON.
   - File ▸ Export Watch List as CSV (⌘E).
 
+<img src="images/display-format.png" alt="Display format dialog" width="49%"> <img src="images/monitoring-settings.png" alt="Monitoring settings dialog" width="49%">
+
 ### Snapshots
 
 A snapshot saves the current values of the whole watch list, to compare later, e.g. before and after a change on the
@@ -191,6 +207,8 @@ machine.
     *only before* / *only after* for items in one side only. A status change counts as a change.
   - **Changed only** hides equal values. ⌘C copies the rows as a table. **Delete snapshot** removes the *Before* one.
 - Snapshots are JSON files in the `snapshots` folder of the settings folder (Help ▸ Show Settings Folder).
+
+![Snapshot compared with live watch values](images/snapshot-compare.png)
 
 ## Writing values
 
@@ -211,6 +229,8 @@ The app writes to a device only when you ask it to.
     the last document with the field changed; a Sparkplug B metric is sent as a command (NCMD/DCMD).
 - Several Watch rows get the same value; failures are listed per item.
 
+![Write value dialog](images/write-value.png)
+
 ## Calling methods (OPC UA)
 
 Double-click a method in the address space, or right-click ▸ **Call method…**. The form lists each input argument
@@ -220,6 +240,8 @@ with its name, data type and description; type the values as text (like *Write v
 - The method is called on the object it sits under in the tree.
 - A value that doesn't fit its type, a missing argument or an error from the server shows in red at the bottom.
 - In the custom test server, *Custom ▸ Methods* has `Add`, `Greet` and `Stats` (an array argument and three outputs).
+
+![Method call form with inputs and outputs](images/method-call.png)
 
 ## History (OPC UA)
 
@@ -232,11 +254,15 @@ chart, oldest first, timed by their source timestamp.
   Attributes: *Historizing* and *AccessLevel* (HistoryRead).
 - In the custom test server, *Custom ▸ History* has Temperature, Pressure and Running with two hours of history.
 
+![Server history of two items as chart and table](images/history.png)
+
 ## Events & Alarms (OPC UA)
 
 Connection ▸ **Events & Alarms…** (⌥⌘A) opens a live window for the whole server. To narrow it to one area or
 source, right-click it in the address space ▸ **Show events & alarms**. Each window is its own subscription; closing it
 (or disconnecting) ends it.
+
+![Events & Alarms window with active, unacknowledged alarms](images/events.png)
 
 - **Alarms tab:** alarms the server keeps (active or not yet acknowledged), one row each, most severe first, updated
   live. Alarms that are already active when the window opens appear at once.
@@ -269,9 +295,15 @@ A recording captures the values of its items with timestamps. It keeps running w
   change immediately.
 - **Add items to a recording:** in Watch, right-click ▸ *Add to recording ▸ name*.
 
+![Recordings pane with two running recordings](images/recordings.png)
+
+![New recording form](images/new-recording.png)
+
 ### Recording viewer
 
 Opened with Enter or double-click in Recordings, or from Watch for a single item.
+
+![Recording viewer: trend chart of two items above the table of samples](images/recording-viewer.png)
 
 - The table shows the kept samples (Received, Name, Status, Value, and optionally NodeId and Source time). The item
   box filters to one item.
@@ -297,6 +329,8 @@ Each tab is a full connection with its own endpoint, address space, Watch list, 
 - **Close Connection Tab** (⌘W, or ✕ on the tab) asks about unsaved changes and disconnects that connection only.
   Quitting asks for every tab with unsaved changes and closes all connections.
 - The layout of the panes, settings and themes are shared.
+
+![Two connections as tabs in one window](images/connection-tabs.png)
 
 ## Several instances
 
@@ -324,6 +358,8 @@ wins.
   - `logs/machinedatabrowser.log` with details of every error shown.
   - The first start after updating from *OPC UA Browser* copies its `OpcUaBrowser` data folder here.
 
+![Settings window](images/settings.png)
+
 ## Quitting
 
 - If the session has unsaved changes, the app asks once: Save, Don't Save or Cancel. Everything keeps running while
@@ -341,6 +377,8 @@ right-click menus and the tooltips. **Help ▸ Keyboard Shortcuts** (⌘/) lists
 - On Windows and Linux, ⌘ is Ctrl and ⌥ is Alt.
 - In dialogs, **Enter** confirms and **Esc** cancels. Enter or Esc also closes the recording viewer and information
   windows.
+
+![Keyboard shortcuts window](images/keyboard-shortcuts.png)
 
 ## Troubleshooting
 
