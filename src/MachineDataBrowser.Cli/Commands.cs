@@ -254,11 +254,126 @@ internal static class Commands
             return await Mcp.McpServerHost.RunAsync(pool, ct).ConfigureAwait(false);
         }));
 
+        // write
+        var writeNode = new Argument<string?>("node") { Description = "Variable: /Objects/Line1/Setpoint or an id", Arity = ArgumentArity.ZeroOrOne };
+        var writeValue = new Argument<string?>("value") { Description = "New value as text, converted to the variable's type; arrays comma-separated, e.g. [1, 2, 3]", Arity = ArgumentArity.ZeroOrOne };
+        var sets = new Option<string[]>("--set") { Description = "node=value; repeat to write several. Paths split at the first '=', ids at the last" };
+        var yes = new Option<bool>("--yes", "-y") { Description = "Write without asking (scripts)" };
+        var write = WithConnection(new Command("write", "Write values to variables; asks first unless --yes"));
+        write.Arguments.Add(writeNode);
+        write.Arguments.Add(writeValue);
+        write.Options.Add(sets);
+        write.Options.Add(yes);
+        write.SetAction((r, ct) => Guard(stderr, async () =>
+        {
+            var requests = WriteRequests(r.GetValue(writeNode), r.GetValue(writeValue), r.GetValue(sets) ?? []);
+            await using var client = await Cli.Connection.ConnectAsync(Connection(r), ct).ConfigureAwait(false);
+            var targets = await NodeQueries.ResolveAllAsync(client, requests.Select(w => w.Node), ct).ConfigureAwait(false);
+            var before = await client.ReadValuesAsync([.. targets.Select(n => n.Id)], ct).ConfigureAwait(false);
+
+            if (!r.GetValue(yes))
+            {
+                // Writing changes a machine: ask, and never guess in a script.
+                if (terminal is not { Profile.Capabilities.Interactive: true })
+                {
+                    throw new CliException("Writing changes the device. Confirm it in a terminal, or add --yes.");
+                }
+
+                Terminal.Table(terminal, ["name", "now", "write"], targets.Select((n, i) => (IReadOnlyList<string>)[n.Name, Text(before[i]), requests[i].Value]));
+                var question = $"Write {(targets.Count == 1 ? "this value" : $"these {targets.Count} values")} to {r.GetValue(url)}?";
+                if (!await new ConfirmationPrompt(question) { DefaultValue = false }.ShowAsync(terminal, ct).ConfigureAwait(false))
+                {
+                    await stderr.WriteLineAsync("mdbrowser: nothing written.").ConfigureAwait(false);
+                    return 1;
+                }
+            }
+
+            var errors = new string?[targets.Count];
+            for (var i = 0; i < targets.Count; i++)
+            {
+                try
+                {
+                    await client.WriteValueAsync(targets[i].Id, requests[i].Value, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException && Errors.IsRecoverable(ex))
+                {
+                    errors[i] = Describe(ex);
+                }
+            }
+
+            var after = await ReadBackAsync(client, targets, before, errors, ct).ConfigureAwait(false);
+            if (r.GetValue(format) == OutputFormat.Json)
+            {
+                var array = new JsonArray([.. targets.Select((n, i) => (JsonNode)new JsonObject
+                {
+                    ["name"] = n.Name,
+                    ["id"] = n.DisplayId,
+                    ["before"] = ValueJson.ToJson(before[i]),
+                    ["after"] = ValueJson.ToJson(after[i]),
+                    ["written"] = errors[i] is null,
+                    ["error"] = errors[i],
+                })]);
+                await stdout.WriteLineAsync(array.ToJsonString(Output.Indented)).ConfigureAwait(false);
+                await stdout.FlushAsync(ct).ConfigureAwait(false);
+            }
+            else
+            {
+                await RowsAsync(r, ["name", "before", "after", "result"],
+                    targets.Select((n, i) => (IReadOnlyList<string>)[n.Name, Text(before[i]), Text(after[i]), errors[i] ?? "written"])).ConfigureAwait(false);
+            }
+
+            return errors.Any(e => e is not null) ? 1 : 0;
+        }));
+
         return new RootCommand("Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix) and MQTT")
         {
-            endpoints, browse, read, monitor, run, mcp,
+            endpoints, browse, read, monitor, run, write, mcp,
         };
     }
+
+    /// <summary>MQTT values come back through the broker, so a write shows up a moment later; wait for it briefly.</summary>
+    private static readonly TimeSpan DynamicReadBack = TimeSpan.FromSeconds(2);
+
+    internal static List<(string Node, string Value)> WriteRequests(string? node, string? value, IEnumerable<string> sets)
+    {
+        var requests = new List<(string Node, string Value)>();
+        if (node is not null)
+        {
+            requests.Add((node, value ?? throw new CliException("Give the new value: mdbrowser write <url> <node> <value>.")));
+        }
+
+        foreach (var set in sets)
+        {
+            // Paths can't contain '=' before the value, so values may; ids (ns=3;s=X) contain '=' themselves.
+            var split = set.StartsWith('/') ? set.IndexOf('=', StringComparison.Ordinal) : set.LastIndexOf('=');
+            if (split <= 0)
+            {
+                throw new CliException($"--set '{set}' is not node=value.");
+            }
+
+            requests.Add((set[..split], set[(split + 1)..]));
+        }
+
+        return requests.Count > 0 ? requests : throw new CliException("Nothing to write: give <node> <value> or --set node=value.");
+    }
+
+    private static async Task<IReadOnlyList<object?>> ReadBackAsync(IDeviceClient client, List<Node> targets, IReadOnlyList<object?> before, string?[] errors, CancellationToken cancellationToken)
+    {
+        var deadline = DateTime.UtcNow + (client is IDynamicAddressSpace ? DynamicReadBack : TimeSpan.Zero);
+        while (true)
+        {
+            var after = await client.ReadValuesAsync([.. targets.Select(n => n.Id)], cancellationToken).ConfigureAwait(false);
+            var pending = Enumerable.Range(0, targets.Count).Any(i => errors[i] is null && Text(after[i]) == Text(before[i]));
+            if (!pending || DateTime.UtcNow >= deadline)
+            {
+                return after;
+            }
+
+            await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static string Text(object? value) => value is null ? "-" : ValueFormatter.Format(new Variant(value));
 
     private static async Task<int> Guard(TextWriter stderr, Func<Task<int>> action)
     {
@@ -282,7 +397,8 @@ internal static class Commands
         CliException => ex.Message,
         ServiceResultException sre => $"{sre.Result.StatusCode.SymbolicId ?? sre.StatusCode.ToString(CultureInfo.InvariantCulture)}: {sre.Message}",
         AggregateException { InnerExceptions.Count: 1 } a => Describe(a.InnerExceptions[0]),
-        IOException or TimeoutException or InvalidOperationException or System.Net.Sockets.SocketException => ex.Message,
+        IOException or TimeoutException or InvalidOperationException or FormatException or NotSupportedException
+            or System.Net.Sockets.SocketException => ex.Message,
         _ => $"{ex.GetType().Name}: {ex.Message}",
     };
 

@@ -14,5 +14,6 @@
   <ItemGroup>
     <Compile Include="..\MachineDataBrowser.Core.Tests\OpcPlcFixture.cs" Link="OpcPlcFixture.cs" />
     <Compile Include="..\MachineDataBrowser.Core.Tests\MqttSimulatorFixture.cs" Link="MqttSimulatorFixture.cs" />
+    <Compile Include="..\MachineDataBrowser.Core.Tests\CustomTypesServerFixture.cs" Link="CustomTypesServerFixture.cs" />
   </ItemGroup>
 </Project>
