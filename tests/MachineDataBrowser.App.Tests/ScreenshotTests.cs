@@ -58,12 +58,16 @@ public sealed class ScreenshotTests(MachineDataBrowser.Core.Tests.OpcPlcFixture 
         button.Flyout!.ShowAt(button);
         Dispatcher.UIThread.RunJobs();
 
-        var spinner = window.GetVisualDescendants().OfType<NumericUpDown>().Single();
-        var presenter = spinner.GetVisualAncestors().OfType<Avalonia.Controls.FlyoutPresenter>().First();
-        var right = spinner.TranslatePoint(new Point(spinner.Bounds.Width, 0), presenter)!.Value.X;
+        var spinners = window.GetVisualDescendants().OfType<NumericUpDown>().Where(s => s.IsEffectivelyVisible).ToList();
+        Assert.NotEmpty(spinners);
+        var presenter = spinners[0].GetVisualAncestors().OfType<Avalonia.Controls.FlyoutPresenter>().First();
         Directory.CreateDirectory(OutputDir);
         Save(window, "connection-options.png");
-        Assert.True(right <= presenter.Bounds.Width - presenter.Padding.Right + 0.5, $"spinner right edge {right} exceeds presenter content {presenter.Bounds.Width - presenter.Padding.Right}");
+        foreach (var spinner in spinners)
+        {
+            var right = spinner.TranslatePoint(new Point(spinner.Bounds.Width, 0), presenter)!.Value.X;
+            Assert.True(right <= presenter.Bounds.Width - presenter.Padding.Right + 0.5, $"spinner right edge {right} exceeds presenter content {presenter.Bounds.Width - presenter.Padding.Right}");
+        }
         foreach (var text in presenter.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible))
         {
             Assert.True(text.DesiredSize.Width <= text.Bounds.Width + 0.5, $"'{text.Text}' is clipped");

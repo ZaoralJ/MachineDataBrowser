@@ -105,6 +105,13 @@
                           ToolTip.Tip="Nothing that changes the device: no writing values, calling methods or acknowledging alarms. Saved with the session.">
                   <TextBlock Text="Read-only (no writes, method calls or acknowledgements)" TextWrapping="Wrap" />
                 </CheckBox>
+                <StackPanel Spacing="4" IsVisible="{Binding IsMqttEndpoint}">
+                  <TextBlock Text="Pause discovery after (s, 0 = never)" />
+                  <NumericUpDown Value="{Binding AutoPauseDiscoverySeconds}" ButtonSpinnerLocation="Right" HorizontalAlignment="Stretch"
+                                 Minimum="0" Maximum="86400" Increment="10" FormatString="0"
+                                 AutomationProperties.Name="Pause discovery after"
+                                 ToolTip.Tip="Browse the whole topic filter for this long after connecting, then receive only the monitored topics. For busy brokers. Saved with the session." />
+                </StackPanel>
                 <StackPanel Spacing="12" IsVisible="{Binding HasCredentials}">
                 <CheckBox Content="Use secure endpoint" IsChecked="{Binding UseSecurity}" IsVisible="{Binding IsOpcUaEndpoint}"
                           ToolTip.Tip="Pick the most secure endpoint the server offers (Sign &amp; Encrypt)" />

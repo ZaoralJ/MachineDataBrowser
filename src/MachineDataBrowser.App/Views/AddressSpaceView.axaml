@@ -9,6 +9,14 @@
     <Border DockPanel.Dock="Top" Classes="pane-toolbar">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2" Margin="6,0,0,0">
+          <Button Classes="icon-only" AutomationProperties.Name="Pause discovery"
+                  IsVisible="{Binding SupportsDiscoveryPause}" Command="{Binding ToggleDiscoveryCommand}"
+                  ToolTip.Tip="{Binding DiscoveryToolTip}">
+            <Panel>
+              <PathIcon Data="{StaticResource IconPause}" IsVisible="{Binding !IsDiscoveryPaused}" />
+              <PathIcon Data="{StaticResource IconPlay}" IsVisible="{Binding IsDiscoveryPaused}" />
+            </Panel>
+          </Button>
           <Button Classes="icon-only" AutomationProperties.Name="Bookmarks" IsEnabled="{Binding IsConnected}"
                   ToolTip.Tip="Bookmarks of this session: click one to open the tree there. B bookmarks the selected node.">
             <PathIcon Data="{StaticResource IconBookmark}" />

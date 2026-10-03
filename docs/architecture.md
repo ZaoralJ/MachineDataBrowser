@@ -83,6 +83,10 @@ classDiagram
         <<interface>>
         +AddressSpaceChanged event
     }
+    class IPausableDiscovery {
+        <<interface>>
+        +SetDiscoveryPausedAsync(paused)
+    }
     class OpcUaClient {
         Session · subscriptions per refresh time
         ComplexTypeSystem · reconnect handler
@@ -98,6 +102,7 @@ classDiagram
     IDeviceClient <|.. CipClient
     IDeviceClient <|.. MqttDeviceClient
     IDynamicAddressSpace <|.. MqttDeviceClient
+    IPausableDiscovery <|.. MqttDeviceClient
     class Recording {
         MonitorManyAsync(items)
         bounded buffers · live CSV
@@ -111,6 +116,7 @@ classDiagram
 | Tree | server address space (forward hierarchical references) | Controller tags / Programs ▸ tags ▸ UDT members, array elements | Topics (topic levels, JSON fields) and Sparkplug B (group ▸ edge node ▸ device ▸ metrics) |
 | Node ids | `nsu=<namespace URI>;…` | Logix tag path, e.g. `Program:Main.Motor[2].Speed` | `t:<topic>[#<JSON pointer>]`, `m:<group>\|<edge>\|<device>\|<metric>` |
 | Values | read and subscriptions (server pushes) | polled per refresh time, only changes are reported | pushed per message; the refresh time is a maximum update rate (0 = every message) |
+| Subscriptions | per refresh time | none (polling) | the topic filter; with discovery paused (`IPausableDiscovery`) only the monitored topics, and for Sparkplug metrics their edge node and device |
 | Structures | decoded with the server's type definitions | UDT templates (`@udt/<id>`) | JSON payloads, Sparkplug B protobuf |
 | Status | server status codes | `Bad…` from libplctag errors | `BadNoCommunication` while a Sparkplug node or device is dead |
 

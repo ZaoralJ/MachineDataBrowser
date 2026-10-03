@@ -72,8 +72,8 @@ values seem to stop:
   - OPC UA: endpoint, security, user, keep-alive, reconnects, outstanding requests, and the server's state, clock
     (with its offset from this computer), start time and product.
   - MQTT: broker, transport and TLS, protocol version, client ID, user, topic filter, keep-alive, reconnects, messages
-    per second (count, bytes, last one), topics against the limit, Sparkplug B nodes and devices online, and the limits
-    the broker announced (max QoS, retain).
+    per second (count, bytes, last one), topics against the limit, Sparkplug B nodes and devices online, discovery
+    (on, paused, or the seconds until it pauses) and the limits the broker announced (max QoS, retain).
   - EtherNet/IP: gateway, path, timeout, link drops, tag counts, reads per second and failures, and per refresh time
     the tags polled, the last read cycle and how long it took (longer than the refresh time means the PLC can't keep
     up), with the last error.
@@ -141,6 +141,15 @@ saved with the session (node ids are per server) and work for OPC UA, EtherNet/I
   - Attributes show the retained flag, QoS, size, content type and MQTT 5 user properties. A
     [CloudEvent](https://cloudevents.io) is labelled as structured or binary, with its event type.
   - Topics appear as messages arrive. Retained topics appear at once; the tree refreshes itself.
+  - To find topics, the app receives every message of the topic filter, monitored or not. On a busy broker that can
+    be thousands per second. Once you have what you need in Watch, **pause discovery**: the ⏸ button in the Address
+    Space toolbar (it turns into ▶ to resume) or Connection ▸ **Pause Discovery** (⇧⌘P). Then only the monitored
+    topics are received (for Sparkplug metrics, everything of their edge node and device, so births and deaths still
+    count). New topics don't appear and unwatched values in the tree stop updating until you resume. Connecting
+    again resumes it.
+  - To pause on its own, set **Pause discovery after (s)** in the connection options (⚙, MQTT only, saved with the
+    session): the app browses the whole topic filter for that long after connecting, then pauses. Pausing or
+    resuming by hand before then cancels it. Connection ▸ Diagnostics shows the discovery state and the countdown.
 - **MQTT, *Sparkplug B*:** group ▸ edge node ▸ device ▸ metrics. A metric name with `/`, such as `Motor/Speed`,
   becomes a folder.
   - When a node or device dies (NDEATH/DDEATH), its metrics turn **Bad (no communication)** until it is reborn.
@@ -431,6 +440,8 @@ right-click menus and the tooltips. **Help ▸ Keyboard Shortcuts** (⌘/) lists
 | OPC UA structure shows as bytes | The server does not publish its type definitions; the raw value is still shown |
 | EtherNet/IP: no tags | Only Logix (ControlLogix/CompactLogix) lists tags; check the path (`/1,0` = backplane 1, slot 0) |
 | MQTT: empty tree | Nothing has been published yet on the filter (only retained messages appear at once); check the topic filter in the URL |
+| MQTT: new topics don't appear | Discovery is paused (⏸ in the Address Space toolbar is on); resume it with ⇧⌘P |
+| MQTT: app busy, high traffic | Narrow the topic filter in the URL, or pause discovery (⇧⌘P) to receive only monitored topics |
 | MQTT: `alias 101` instead of names | The Sparkplug device's BIRTH was published before connecting; names appear with the next birth |
 | MQTT: values stop, metrics Bad | The Sparkplug node or device sent a DEATH, or the broker connection is reconnecting (status bar) |
 | Something failed | The error bar shows it; details are in `logs/machinedatabrowser.log` in the data folder |

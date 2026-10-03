@@ -159,11 +159,21 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             oldDynamic.AddressSpaceChanged -= OnAddressSpaceChanged;
         }
 
+        if (old is IPausableDiscovery oldDiscovery)
+        {
+            oldDiscovery.DiscoveryPausedChanged -= OnDiscoveryPausedChanged;
+        }
+
         _client = DeviceClient.Create(endpointUrl);
         _client.StateChanged += OnClientStateChanged;
         if (_client is IDynamicAddressSpace dynamic)
         {
             dynamic.AddressSpaceChanged += OnAddressSpaceChanged;
+        }
+
+        if (_client is IPausableDiscovery discovery)
+        {
+            discovery.DiscoveryPausedChanged += OnDiscoveryPausedChanged;
         }
         await Task.Run(() => old.DisposeAsync().AsTask());
     }
@@ -242,7 +252,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsOpcUaEndpoint), nameof(HasCredentials), nameof(OptionsSummary))]
+    [NotifyPropertyChangedFor(nameof(IsOpcUaEndpoint), nameof(IsMqttEndpoint), nameof(HasCredentials), nameof(OptionsSummary))]
     public partial string EndpointUrl { get; set; } = "opc.tcp://localhost:50000";
 
     /// <summary>Security, credentials and certificate trust only apply to OPC UA, not to EtherNet/IP (<c>eip://</c>).</summary>
@@ -283,8 +293,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     };
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsDisconnected), nameof(StateText), nameof(SupportsEvents), nameof(SupportsHistory), nameof(SupportsMethods), nameof(SupportsMonitoringSettings))]
-    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand), nameof(WriteAttributeValueCommand), nameof(WriteWatchValueCommand), nameof(ShowEventsCommand), nameof(ShowHistoryCommand), nameof(ShowWatchHistoryCommand), nameof(CallMethodCommand), nameof(EditMonitoringCommand), nameof(ToggleBookmarkCommand))]
+    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsDisconnected), nameof(StateText), nameof(SupportsEvents), nameof(SupportsHistory), nameof(SupportsMethods), nameof(SupportsMonitoringSettings), nameof(SupportsDiscoveryPause), nameof(IsDiscoveryPaused), nameof(DiscoveryToolTip))]
+    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand), nameof(WriteAttributeValueCommand), nameof(WriteWatchValueCommand), nameof(ShowEventsCommand), nameof(ShowHistoryCommand), nameof(ShowWatchHistoryCommand), nameof(CallMethodCommand), nameof(EditMonitoringCommand), nameof(ToggleBookmarkCommand), nameof(ToggleDiscoveryCommand))]
     [NotifyCanExecuteChangedFor(nameof(CopyCliBrowseCommand), nameof(CopyCliReadCommand), nameof(CopyCliMonitorCommand), nameof(CopyWatchCliMonitorCommand), nameof(CopyWatchCliReadCommand))]
     public partial ConnectionState State { get; private set; }
 
@@ -351,7 +361,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
         if (DeviceClient.IsMqtt(EndpointUrl ?? string.Empty))
         {
-            return AutoAcceptCertificates ? $"MQTT · {user} · {refresh} · auto-trust" : $"MQTT · {user} · {refresh}";
+            var mqtt = $"MQTT · {user} · {refresh}";
+            if (AutoPauseDiscoverySeconds > 0)
+            {
+                mqtt += $" · pause after {AutoPauseDiscoverySeconds} s";
+            }
+
+            return AutoAcceptCertificates ? mqtt + " · auto-trust" : mqtt;
         }
 
         return AutoAcceptCertificates ? $"{security} · {user} · {refresh} · auto-trust" : $"{security} · {user} · {refresh}";
@@ -394,6 +410,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 EndpointUrl = EndpointUrl.Trim(),
                 UseSecurity = UseSecurity,
                 AutoAcceptUntrustedCertificates = AutoAcceptCertificates,
+                AutoPauseDiscoverySeconds = IsMqttEndpoint ? AutoPauseDiscoverySeconds : 0,
                 UserName = string.IsNullOrWhiteSpace(UserName) ? null : UserName,
                 Password = Password,
             };
