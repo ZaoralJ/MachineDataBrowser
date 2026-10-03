@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.16.0...v0.16.1) (2026-10-03)
+
+
+### Fixes
+
+* **core:** MQTT over TLS accepts valid Let's Encrypt certificates ([#79](https://github.com/ZaoralJ/MachineDataBrowser/issues/79)) ([1121c17](https://github.com/ZaoralJ/MachineDataBrowser/commit/1121c173195a5f97e3f65abfda21c69fd8699f10))
+
 ## [0.16.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.15.0...v0.16.0) (2026-10-03)
 
 
