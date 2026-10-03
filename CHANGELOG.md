@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.20.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.19.0...v0.20.0) (2026-10-03)
+
+
+### Features
+
+* **core:** connection diagnostics for MQTT and EtherNet/IP ([#100](https://github.com/ZaoralJ/MachineDataBrowser/issues/100)) ([2f62bd7](https://github.com/ZaoralJ/MachineDataBrowser/commit/2f62bd7110b62eaad1d0bb300e19f38297cf8fdd))
+* **mqtt:** pause and resume discovery, optionally automatically after connecting ([#101](https://github.com/ZaoralJ/MachineDataBrowser/issues/101)) ([c4d6ebb](https://github.com/ZaoralJ/MachineDataBrowser/commit/c4d6ebbf52ec18f6b64a29372138df7168ffea53))
+
+
+### Fixes
+
+* **core:** let users trust OPC UA server certificates that fail the key policy ([#98](https://github.com/ZaoralJ/MachineDataBrowser/issues/98)) ([f2e07fd](https://github.com/ZaoralJ/MachineDataBrowser/commit/f2e07fdb4696b6d566a8a147442b67eced0756d0))
+
 ## [0.19.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.18.0...v0.19.0) (2026-10-03)
 
 
