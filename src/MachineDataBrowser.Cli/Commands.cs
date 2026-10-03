@@ -313,7 +313,9 @@ internal static class Commands
                 throw new CliException("--allow-writes needs a configured machine (--endpoint or --session); named endpoints are never written to.");
             }
 
-            return await Mcp.McpServerHost.RunAsync(pool, recordings, recordInto, ct, r.GetValue(mcpAllowWrites), r.GetValue(mcpSkipConfirmation)).ConfigureAwait(false);
+            return await Mcp.McpServerHost.RunAsync(
+                new Mcp.McpServerHost.Setup(pool, recordings, r.GetValue(mcpSessions) ?? [], recordInto, r.GetValue(mcpAllowWrites), r.GetValue(mcpSkipConfirmation)),
+                ct).ConfigureAwait(false);
         }));
 
         // write
