@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.17.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.16.1...v0.17.0) (2026-10-03)
+
+
+### Features
+
+* **cli:** MCP tools for SQLite recordings ([#84](https://github.com/ZaoralJ/MachineDataBrowser/issues/84)) ([1e2f837](https://github.com/ZaoralJ/MachineDataBrowser/commit/1e2f837a4c3bdb5d3151cbc6c2b8b63ff24a772f))
+* record to SQLite files ([#81](https://github.com/ZaoralJ/MachineDataBrowser/issues/81)) ([510f0d0](https://github.com/ZaoralJ/MachineDataBrowser/commit/510f0d0b21d4b8ad9ea522ee14e05f59afac8363))
+* retention for SQLite recording files ([#83](https://github.com/ZaoralJ/MachineDataBrowser/issues/83)) ([803cdb3](https://github.com/ZaoralJ/MachineDataBrowser/commit/803cdb3740a3527453b3d731531b10006e42b2a5))
+
 ## [0.16.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.16.0...v0.16.1) (2026-10-03)
 
 
