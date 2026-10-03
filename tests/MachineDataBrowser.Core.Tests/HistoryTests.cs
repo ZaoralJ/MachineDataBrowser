@@ -45,6 +45,33 @@ public sealed class HistoryTests(CustomTypesServerFixture server) : IAsyncLifeti
     }
 
     [Fact]
+    public async Task Servers_without_continuation_points_are_paged_by_time()
+    {
+        // The simulator (asyncua) returns a full page and no continuation point; small pages force paging by time.
+        var temperature = await TemperatureAsync();
+        var now = DateTime.UtcNow;
+        var all = await _client.ReadHistoryAsync(temperature, now.AddHours(-1), now, 10_000, Ct);
+        var pageSize = OpcUaClient.HistoryPageSize;
+        try
+        {
+            OpcUaClient.HistoryPageSize = 100;
+            var paged = await _client.ReadHistoryAsync(temperature, now.AddHours(-1), now, 10_000, Ct);
+            Assert.True(paged.Values.Count > 300, $"{paged.Values.Count} values");
+            Assert.Equal(all.Values.Count, paged.Values.Count);
+            Assert.Equal(all.Values.Select(v => v.SourceTimestamp), paged.Values.Select(v => v.SourceTimestamp));
+            Assert.False(paged.Truncated);
+
+            var capped = await _client.ReadHistoryAsync(temperature, now.AddHours(-1), now, 150, Ct);
+            Assert.Equal(150, capped.Values.Count);
+            Assert.True(capped.Truncated);
+        }
+        finally
+        {
+            OpcUaClient.HistoryPageSize = pageSize;
+        }
+    }
+
+    [Fact]
     public async Task Variable_without_history_returns_nothing_or_an_error()
     {
         // Servers differ: asyncua answers with no values, others with BadHistoryOperationUnsupported.

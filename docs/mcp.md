@@ -77,6 +77,11 @@ Logins: `--user` with the password in `MDBROWSER_PASSWORD` (set it in the agent'
 | `search` | nodes whose name or id matches (`Temp*`, `Motor?` or plain text), with their paths |
 | `read` | current values with data type; `recursive` expands a folder or structure to every variable below it |
 | `sample` | watches values for 1–300 s and summarises each: samples, changes, first/last value, min/max/mean, statuses |
+| `attributes` | all attributes of a node (data type, description, access level, …) and its engineering unit |
+| `history` | what an OPC UA server stored over a time range, raw or per `bucketSeconds` (count, min, max, average, not Good) |
+| `alarms` | the server's current alarms, most severe first: source, name, severity, active, acknowledged, message |
+| `events` | events and alarm changes collected for 1–300 s, newest first, optionally only above a severity |
+| `diagnostics` | connection health: state; for OPC UA security, keep-alive, reconnects, server state and clock offset, subscriptions |
 
 Nodes are the same paths and ids as on the command line (`/Objects/Line1/Speed`, `ns=3;s=Speed`,
 `Program:Main.Speed`), and paths from `browse` and `search` can be passed on as they are. Values keep their type
@@ -106,8 +111,9 @@ can still be recording.
 - **Only listed machines.** A tool call naming any other endpoint is refused; with one machine configured the agent
   doesn't need to name it.
 - **Read-only.** All tools are marked read-only for the agent, and nothing in them writes.
-- **Bounded results:** `browse` returns at most 500 items, `read` 200 values, `sample` 100 items for at most 300 s;
-  results say when they were truncated.
+- **Bounded results:** `browse` returns at most 500 items, `read` 200 values, `sample` 100 items for at most 300 s,
+  `history` 1000 raw values in total (20 000 per item for buckets), `events` 500; results say when they were truncated.
+- **Events and alarms are only read:** nothing is acknowledged.
 - **Connections** are opened on first use and kept for later calls, so a server sees one session, not one per question.
 - **No credentials pass through tools:** logins come from the server's own options and environment.
 - **Only listed recording files,** opened read-only. A file outside `--recording` / `--recordings-dir` is refused, and
@@ -120,5 +126,8 @@ can still be recording.
 - *"Watch the line speed for 30 seconds. Is it stable?"*
 - *"Read all recipe values on the Logix controller and summarise them."*
 - *"Which signals under Boilers are not Good right now?"*
+- *"Which alarms are active on plc-01, and what does the most severe one mean?"*
+- *"What did the boiler temperature do overnight? Hourly averages, please."*
+- *"Values look frozen. Is the connection to the PLC healthy?"*
 - *"In last night's recording, when was the speed below 1000, and for how long?"*
 - *"Compare the average temperature per hour between Monday and Tuesday."*

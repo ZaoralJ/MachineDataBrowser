@@ -23,6 +23,11 @@ internal static class McpServerHost
         statuses), which is how to judge behaviour over time. recursive=true expands a folder or structure to every
         variable below it. Status other than Good means the value is not reliable (Bad: no value, Uncertain: questionable).
         Results are limited in size; narrow the node or depth when a result says truncated.
+
+        For context: attributes gives a node's data type, description, access and engineering unit (check it before
+        interpreting a number); history reads what an OPC UA server stored over a time range (bucketSeconds for long
+        ranges); alarms lists the server's current alarms, events collects events for some seconds; diagnostics shows
+        whether the connection is healthy when values look stale.
         """;
 
     public const string RecordingInstructions = """

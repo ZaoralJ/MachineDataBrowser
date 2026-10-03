@@ -5,7 +5,8 @@ namespace MachineDataBrowser.Core.Ua;
 
 public sealed partial class OpcUaClient : IHistorySource
 {
-    private const uint HistoryPageSize = 1000;
+    /// <summary>Values asked for per HistoryRead call; adjustable for tests that exercise paging.</summary>
+    internal static uint HistoryPageSize { get; set; } = 1000;
 
     public async Task<HistoryResult> ReadHistoryAsync(NodeId nodeId, DateTime startTime, DateTime endTime, int maxValues, CancellationToken cancellationToken = default)
     {
@@ -20,6 +21,7 @@ public sealed partial class OpcUaClient : IHistorySource
         };
 
         var values = new List<ValueUpdate>();
+        DateTime? pagedAfter = null;
         byte[]? continuation = null;
         var truncated = false;
         do
@@ -34,10 +36,19 @@ public sealed partial class OpcUaClient : IHistorySource
             }
 
             continuation = result.ContinuationPoint is { Length: > 0 } cp ? cp : null;
+            var page = 0;
+            var before = values.Count;
             if (ExtensionObject.ToEncodeable(result.HistoryData) is HistoryData data)
             {
+                page = data.DataValues.Count;
                 foreach (var dv in data.DataValues)
                 {
+                    // Paging by time: servers may round the start (e.g. to microseconds) and return the last value again.
+                    if (pagedAfter is { } after && dv.SourceTimestamp <= after)
+                    {
+                        continue;
+                    }
+
                     values.Add(new ValueUpdate(
                         nodeId,
                         ValueFormatter.Format(dv.WrappedValue),
@@ -54,8 +65,27 @@ public sealed partial class OpcUaClient : IHistorySource
                 truncated = true;
                 break;
             }
+
+            if (continuation is not null)
+            {
+                continue;
+            }
+
+            // Some servers (e.g. asyncua) return a full page without a continuation point: page on by time instead,
+            // from just after the last value, until the range is covered.
+            // A page that added nothing new (every value at the timestamp already read) would repeat forever: stop.
+            if (page >= HistoryPageSize && values.Count < maxValues && values.Count > before
+                && values[^1].SourceTimestamp is var last && last != DateTime.MinValue && last < details.EndTime)
+            {
+                details.StartTime = last.AddTicks(1);
+                pagedAfter = last;
+                continue;
+            }
+
+            truncated |= page >= HistoryPageSize && values.Count >= maxValues;
+            break;
         }
-        while (continuation is not null);
+        while (true);
 
         if (continuation is not null)
         {
