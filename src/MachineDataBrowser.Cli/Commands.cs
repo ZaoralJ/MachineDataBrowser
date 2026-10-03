@@ -101,7 +101,7 @@ internal static class Commands
             var rows = new List<IReadOnlyList<string>>();
             // Paths are printed in full when the start was a path, so they can be passed to read/monitor as they are.
             var prefix = r.GetValue(browseNode) is { } startText && startText.StartsWith('/') ? startText.TrimEnd('/') : string.Empty;
-            await BrowseAsync(client, start.Id, prefix, Math.Max(1, r.GetValue(depth)), rows, ct).ConfigureAwait(false);
+            await NodeQueries.BrowseAsync(client, start.Id, prefix, Math.Max(1, r.GetValue(depth)), rows, ct).ConfigureAwait(false);
             if (Rich(r) is { } console)
             {
                 Terminal.Tree(console, start.Name, prefix, rows);
@@ -117,12 +117,12 @@ internal static class Commands
         // read
         var nodes = new Argument<string[]>("nodes") { Description = "Nodes: /Objects/Line1/Speed or ids", Arity = ArgumentArity.OneOrMore };
         var recursive = new Option<bool>("--recursive", "-R") { Description = "Folders and structures expand to every variable below them" };
-        var recursiveDepth = new Option<int>("--depth") { Description = "With --recursive: levels below each node", DefaultValueFactory = _ => DefaultRecursiveDepth };
-        var maxItems = new Option<int>("--max-items") { Description = "With --recursive: at most this many variables", DefaultValueFactory = _ => DefaultMaxItems };
+        var recursiveDepth = new Option<int>("--depth") { Description = "With --recursive: levels below each node", DefaultValueFactory = _ => NodeQueries.DefaultRecursiveDepth };
+        var maxItems = new Option<int>("--max-items") { Description = "With --recursive: at most this many variables", DefaultValueFactory = _ => NodeQueries.DefaultMaxItems };
 
         Task<List<Node>> NodesAsync(IDeviceClient client, ParseResult r, CancellationToken ct) => r.GetValue(recursive)
-            ? ExpandAsync(client, r.GetValue(nodes)!, Math.Max(1, r.GetValue(recursiveDepth)), Math.Max(1, r.GetValue(maxItems)), stderr, ct)
-            : ResolveAllAsync(client, r.GetValue(nodes)!, ct);
+            ? NodeQueries.ExpandAsync(client, r.GetValue(nodes)!, Math.Max(1, r.GetValue(recursiveDepth)), Math.Max(1, r.GetValue(maxItems)), stderr.WriteLineAsync, ct)
+            : NodeQueries.ResolveAllAsync(client, r.GetValue(nodes)!, ct);
 
         void AddRecursiveOptions(Command command)
         {
@@ -256,97 +256,6 @@ internal static class Commands
         IOException or TimeoutException or InvalidOperationException or System.Net.Sockets.SocketException => ex.Message,
         _ => $"{ex.GetType().Name}: {ex.Message}",
     };
-
-    private static async Task<List<Node>> ResolveAllAsync(IDeviceClient client, IEnumerable<string> texts, CancellationToken cancellationToken)
-    {
-        var result = new List<Node>();
-        foreach (var text in texts)
-        {
-            result.Add(await Cli.Connection.ResolveAsync(client, text, cancellationToken).ConfigureAwait(false));
-        }
-
-        return result;
-    }
-
-    /// <summary>The app's "Monitor folder" limits: levels below a node and variables in total.</summary>
-    private const int DefaultRecursiveDepth = 10;
-
-    private const int DefaultMaxItems = 500;
-
-    /// <summary>
-    /// Every variable below each node (OPC UA: a variable's own properties, like EURange, are left out; MQTT: JSON fields
-    /// are included). Names are the path below
-    /// the node given, so equal names in different folders stay apart. A variable given directly is kept as it is, except
-    /// an MQTT topic with JSON fields.
-    /// </summary>
-    private static async Task<List<Node>> ExpandAsync(IDeviceClient client, IEnumerable<string> texts, int depth, int maxItems, TextWriter stderr, CancellationToken cancellationToken)
-    {
-        var result = new List<Node>();
-        var seen = new HashSet<NodeId>();
-
-        // MQTT: a JSON topic's fields are what you want to watch. OPC UA: a variable's children are properties (EURange …).
-        var descendIntoVariables = client is IDynamicAddressSpace;
-        foreach (var root in await ResolveAllAsync(client, texts, cancellationToken).ConfigureAwait(false))
-        {
-            if (result.Count >= maxItems)
-            {
-                break;
-            }
-
-            // A variable given directly is watched itself (OPC UA: collecting below it would return its properties);
-            // an MQTT topic with a JSON payload expands to its fields.
-            var attributes = await client.ReadAttributesAsync(root.Id, cancellationToken).ConfigureAwait(false);
-            var isVariable = attributes.Any(a => a.Name == "NodeClass" && a.Value == nameof(NodeClass.Variable));
-            var found = isVariable && !descendIntoVariables
-                ? []
-                : await client.CollectVariablesWithPathsAsync(root.Id, depth, maxItems - result.Count, descendIntoVariables, cancellationToken).ConfigureAwait(false);
-            if (isVariable && found.Count == 0)
-            {
-                if (seen.Add(root.Id))
-                {
-                    result.Add(root);
-                }
-
-                continue;
-            }
-
-            if (found.Count == 0)
-            {
-                await stderr.WriteLineAsync($"mdbrowser: no variables within {depth} level(s) below {root.Name}.").ConfigureAwait(false);
-                continue;
-            }
-
-            foreach (var (item, path) in found.Where(f => seen.Add(f.Item.NodeId)))
-            {
-                result.Add(new Node(item.NodeId, path.Length == 0 ? item.DisplayName : $"{path}/{item.DisplayName}", client.ToDisplayId(item.NodeId)));
-            }
-        }
-
-        if (result.Count == 0)
-        {
-            throw new CliException("No variables found; try a larger --depth.");
-        }
-
-        if (result.Count >= maxItems)
-        {
-            await stderr.WriteLineAsync($"mdbrowser: limited to the first {maxItems} variables (--max-items).").ConfigureAwait(false);
-        }
-
-        return result;
-    }
-
-    private static async Task BrowseAsync(IDeviceClient client, NodeId parent, string path, int levels, List<IReadOnlyList<string>> rows, CancellationToken cancellationToken)
-    {
-        foreach (var child in await client.BrowseAsync(parent, cancellationToken).ConfigureAwait(false))
-        {
-            var childPath = $"{path}/{child.DisplayName}";
-            rows.Add([childPath, child.NodeClass.ToString(), client.ToDisplayId(child.NodeId)]);
-            if (levels > 1 && child.HasChildren)
-            {
-                await BrowseAsync(client, child.NodeId, childPath, levels - 1, rows, cancellationToken).ConfigureAwait(false);
-            }
-        }
-    }
 
     /// <summary>Monitors <paramref name="items"/> and writes every update until cancelled, the duration passes or the count is reached.</summary>
     private static async Task<int> StreamAsync(
