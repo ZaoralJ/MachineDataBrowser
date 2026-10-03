@@ -37,7 +37,18 @@ internal static class McpServerHost
         min, max, average and the number of samples that were not Good, instead of raw samples.
         """;
 
-    public static async Task<int> RunAsync(EndpointPool pool, RecordingLibrary recordings, CancellationToken cancellationToken)
+    public const string PatternInstructions = """
+        Besides the listed endpoints, the server may connect to endpoints the user names that match its allowed patterns
+        (list_endpoints shows them); pass such an endpoint URL in each call. They connect without credentials.
+        """;
+
+    public const string RecordingControlInstructions = """
+        start_recording records variables in the background into a SQLite file (stops after durationMinutes or with
+        stop_recording; active_recordings lists them); analyse the file with recording_items and recording_samples.
+        wait_for blocks until a value meets a condition (or times out); use it to follow a process instead of polling.
+        """;
+
+    public static async Task<int> RunAsync(EndpointPool pool, RecordingLibrary recordings, string? recordingFolder, CancellationToken cancellationToken)
     {
         var options = new McpServerOptions
         {
@@ -50,13 +61,15 @@ internal static class McpServerHost
             },
             ServerInstructions = string.Join("\n", new[]
             {
-                pool.Endpoints.Count > 0 ? Instructions : null,
+                pool.HasMachines ? Instructions : null,
+                pool.Patterns.Count > 0 ? PatternInstructions : null,
                 recordings.IsEmpty ? null : RecordingInstructions,
+                pool.HasMachines && recordingFolder is not null ? RecordingControlInstructions : null,
             }.OfType<string>()),
             ToolCollection = [],
         };
 
-        if (pool.Endpoints.Count > 0)
+        if (pool.HasMachines)
         {
             AddTools(options, new MachineDataTools(pool));
         }
@@ -64,6 +77,13 @@ internal static class McpServerHost
         if (!recordings.IsEmpty)
         {
             AddTools(options, new RecordingTools(recordings));
+        }
+
+        // Background recordings stop (and close their files) when the server exits.
+        await using var control = pool.HasMachines && recordingFolder is not null ? new RecordingControlTools(pool, recordingFolder) : null;
+        if (control is not null)
+        {
+            AddTools(options, control);
         }
 
         await using var transport = new StdioServerTransport(options);

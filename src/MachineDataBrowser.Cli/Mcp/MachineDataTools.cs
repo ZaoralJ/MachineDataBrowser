@@ -25,12 +25,19 @@ internal sealed partial class MachineDataTools(EndpointPool pool)
 
     [McpServerTool(Name = "list_endpoints", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description("The machines (endpoints) this server may connect to, their protocol and connection state. Start here.")]
-    public string ListEndpoints() => Json(new JsonArray([.. pool.Endpoints.Select(e => (JsonNode)new JsonObject
-    {
-        ["endpoint"] = e.Url,
-        ["protocol"] = DeviceClient.IsEip(e.Url) ? "EtherNet/IP (Logix)" : DeviceClient.IsMqtt(e.Url) ? "MQTT" : "OPC UA",
-        ["state"] = pool.StateOf(e).ToString(),
-    })]));
+    public string ListEndpoints() => Json(new JsonArray([
+        .. pool.Endpoints.Select(e => (JsonNode)new JsonObject
+        {
+            ["endpoint"] = e.Url,
+            ["protocol"] = DeviceClient.IsEip(e.Url) ? "EtherNet/IP (Logix)" : DeviceClient.IsMqtt(e.Url) ? "MQTT" : "OPC UA",
+            ["state"] = pool.StateOf(e).ToString(),
+        }),
+        .. pool.Patterns.Select(p => (JsonNode)new JsonObject
+        {
+            ["allowedPattern"] = p,
+            ["note"] = "Any endpoint matching this may be named in a call; it connects without credentials.",
+        }),
+    ]));
 
     [McpServerTool(Name = "browse", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description("Lists the address space below a node: path, node class (Object = folder, Variable = value, Method) and id. "
