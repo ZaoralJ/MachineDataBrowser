@@ -14,7 +14,7 @@ namespace MachineDataBrowser.Cli.Mcp;
 /// for a while as a summary. Results are JSON text; limits keep a large address space from flooding the agent's context
 /// or the device.
 /// </summary>
-internal sealed class MachineDataTools(EndpointPool pool)
+internal sealed partial class MachineDataTools(EndpointPool pool)
 {
     public const int MaxBrowseItems = 500;
     public const int MaxReadItems = 200;
