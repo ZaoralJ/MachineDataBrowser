@@ -130,6 +130,41 @@ public sealed class SqliteRecordingTests(OpcPlcFixture plc) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Retention_deletes_old_samples_and_emptied_recordings_but_keeps_the_running_one()
+    {
+        var file = Path.Combine(_dir, "always-on.db");
+        var time = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(new DateTimeOffset(2026, 10, 1, 8, 0, 0, TimeSpan.Zero));
+        var item = Item(ProductName, "Product");
+
+        await using (var old = new Recording(_client, new RecordingOptions { Name = "Old", LiveFilePath = file }, [item], time))
+        {
+            await old.StartAsync(Ct);
+            old.Append(Update(ProductName, "old"));
+            await old.StopAsync(Ct);
+        }
+
+        var options = new RecordingOptions { Name = "Current", LiveFilePath = file, FileRetention = TimeSpan.FromHours(1) };
+        await using (var current = new Recording(_client, options, [item], time))
+        {
+            await current.StartAsync(Ct);
+            current.Append(Update(ProductName, "early"));
+
+            // The file is opened on the writer task, which also runs the first retention check; let that happen before the
+            // clock jumps, or the first check is stamped "2 h later" and the next one isn't due yet.
+            await WaitUntilAsync(async () => (await QueryAsync(file, "SELECT count(*) FROM samples WHERE value_text = 'early'", r => r.GetInt64(0)))[0] == 1);
+            time.Advance(TimeSpan.FromHours(2));
+            current.Append(Update(ProductName, "new"));   // the next write runs retention: older than 1 h is gone
+            await WaitUntilAsync(async () => (await QueryAsync(file, "SELECT count(*) FROM samples WHERE value_text = 'new'", r => r.GetInt64(0)))[0] == 1
+                && (await QueryAsync(file, "SELECT count(*) FROM samples WHERE value_text IN ('old', 'early')", r => r.GetInt64(0)))[0] == 0);
+            await current.StopAsync(Ct);
+        }
+
+        Assert.Equal(["Current"], await QueryAsync(file, "SELECT name FROM recordings", r => r.GetString(0)));
+        Assert.Equal(["ok"], await QueryAsync(file, "PRAGMA integrity_check", r => r.GetString(0)));
+        Assert.Equal([2L], await QueryAsync(file, "PRAGMA auto_vacuum", r => r.GetInt64(0)));   // incremental: freed space goes back to disk
+    }
+
+    [Fact]
     public async Task Queries_give_item_statistics_ranges_and_buckets()
     {
         var file = Path.Combine(_dir, "query.db");

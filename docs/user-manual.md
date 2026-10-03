@@ -326,6 +326,10 @@ FROM sample_view WHERE name = 'Speed' GROUP BY minute;
 SELECT source_utc, name, status FROM sample_view WHERE status_code <> 0;
 ```
 
+**Keep in file (days)** (SQLite only) deletes samples older than that from the file, from every recording in it, and
+removes recordings left empty, so an always-on recording stays bounded. It is checked when recording starts and once a
+minute; freed space goes back to the disk gradually (files created by version 0.17 or later).
+
 Open the file with the recording viewer (Recordings ▸ open file, **O**), the `sqlite3` command, DB Browser for SQLite,
 Python, Excel (ODBC) or Grafana's SQLite plugin. It can be read while it is being recorded.
 

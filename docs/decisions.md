@@ -136,7 +136,9 @@ No .NET installation required on the target Mac.
 - Microsoft.Data.Sqlite (MIT) with the bundled native SQLite (SQLitePCLRaw). Samples are queued and written in
   batches of up to 1000 per transaction, WAL mode: the UI and devices never wait for the disk, the file can be read
   (and followed by the viewer) while it grows, and a crash loses at most the last batch.
-- Not yet: retention (deleting old samples from the file).
+- Retention (*Keep in file*, `--retention`): samples older than the limit are deleted from the whole file, in chunks,
+  when recording starts and at most once a minute; recordings and items left empty are removed (not the running one).
+  New files use `auto_vacuum = INCREMENTAL`, so freed pages go back to the disk gradually instead of a blocking VACUUM.
 - MCP reads recordings (`list_recordings`, `recording_items`, `recording_samples`, via `SqliteRecordingQuery` in Core)
   from files allowed with `--recording` / `--recordings-dir` only, read-only. No free-form SQL tool: `ATTACH` would let a
   query read any SQLite file on the disk. Samples come raw (≤ 1000) or aggregated per time bucket for long ranges.

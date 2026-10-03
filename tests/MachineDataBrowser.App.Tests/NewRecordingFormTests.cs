@@ -14,6 +14,22 @@ namespace MachineDataBrowser.App.Tests;
 
 public sealed class NewRecordingFormTests
 {
+    [Fact]
+    public void File_retention_is_offered_for_sqlite_files_only()
+    {
+        var form = new NewRecordingViewModel(new NewRecordingDraft("R", 1, 250)) { UseLiveFile = true, LiveFilePath = "/tmp/line1.csv", UseFileRetention = true, FileRetentionDays = 7 };
+        Assert.False(form.CanUseFileRetention);
+        Assert.Null(form.ToOptions(DateTimeOffset.UtcNow).FileRetention);   // CSV: only ever appended to
+
+        form.LiveFilePath = "/tmp/line1.db";
+        Assert.True(form.CanUseFileRetention);
+        Assert.Equal(TimeSpan.FromDays(7), form.ToOptions(DateTimeOffset.UtcNow).FileRetention);
+
+        form.UseLiveFile = false;
+        Assert.False(form.CanUseFileRetention);
+        Assert.Null(form.ToOptions(DateTimeOffset.UtcNow).FileRetention);
+    }
+
     [AvaloniaFact]
     public async Task Typed_max_points_is_used_when_clicking_start()
     {

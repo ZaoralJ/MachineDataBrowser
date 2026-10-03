@@ -165,11 +165,16 @@ internal static class Commands
         // monitor
         var save = new Option<string?>("--save") { Description = "Also save the monitored items as an app session file (.mdbsession)" };
         var record = new Option<string?>("--record") { Description = "Also record every sample to a file: SQLite for .db/.sqlite (queryable), CSV otherwise" };
+        var retention = new Option<TimeSpan?>("--retention")
+        {
+            Description = "With --record to SQLite: delete samples older than this from the file, e.g. 30d (keeps always-on recordings bounded)",
+            CustomParser = r => ParseDuration(r.Tokens.Single().Value, r),
+        };
         var force = new Option<bool>("--force") { Description = "Replace an existing session file" };
         var monitor = WithConnection(new Command("monitor", "Stream live values until Ctrl+C, --duration or --count"));
         monitor.Arguments.Add(nodes);
         AddRecursiveOptions(monitor);
-        foreach (var option in new Option[] { refresh, duration, count, save, force, record })
+        foreach (var option in new Option[] { refresh, duration, count, save, force, record, retention })
         {
             monitor.Options.Add(option);
         }
@@ -186,7 +191,7 @@ internal static class Commands
                 await stderr.WriteLineAsync($"mdbrowser: saved {saved.Total} watch item(s) to {sessionFile}.").ConfigureAwait(false);
             }
 
-            await using var recording = await RecordAsync(r.GetValue(record), client, resolved, interval, target.Url, "mdbrowser monitor", stderr, ct).ConfigureAwait(false);
+            await using var recording = await RecordAsync(r.GetValue(record), r.GetValue(retention), client, resolved, interval, target.Url, "mdbrowser monitor", stderr, ct).ConfigureAwait(false);
             await using var sink = Sink(r, resolved);
             return await StreamAsync(client, [.. resolved.Select(n => (n, interval))], sink, stderr, r.GetValue(duration), r.GetValue(count), ct).ConfigureAwait(false);
         }));
@@ -195,7 +200,7 @@ internal static class Commands
         var sessionPath = new Argument<string>("session") { Description = "Session file saved by the app (.mdbsession)" };
         var run = new Command("run", "Monitor the watch list of an app session file, without the app");
         run.Arguments.Add(sessionPath);
-        foreach (var option in new Option[] { password, trustAll, format, duration, count, record })
+        foreach (var option in new Option[] { password, trustAll, format, duration, count, record, retention })
         {
             run.Options.Add(option);
         }
@@ -232,7 +237,7 @@ internal static class Commands
             }
 
             var recordRefresh = items.Count == 0 ? fallback : items.Min(i => i.Item2);
-            await using var recording = await RecordAsync(r.GetValue(record), client, [.. items.Select(i => i.Item1)], recordRefresh, session.EndpointUrl,
+            await using var recording = await RecordAsync(r.GetValue(record), r.GetValue(retention), client, [.. items.Select(i => i.Item1)], recordRefresh, session.EndpointUrl,
                 Path.GetFileNameWithoutExtension(r.GetValue(sessionPath)!), stderr, ct).ConfigureAwait(false);
             await using var sink = Sink(r, [.. items.Select(i => i.Item1)]);
             return await StreamAsync(client, items, sink, stderr, r.GetValue(duration), r.GetValue(count), ct).ConfigureAwait(false);
@@ -412,11 +417,16 @@ internal static class Commands
     /// Records <paramref name="nodes"/> into <paramref name="path"/> with Core's <see cref="Recording"/>, the same file the
     /// app writes and its viewer opens. The file is the store, so memory keeps only the latest sample per item.
     /// </summary>
-    private static async Task<RecordingRun?> RecordAsync(string? path, IDeviceClient client, IReadOnlyList<Node> nodes, int refreshMs, string endpoint, string name, TextWriter stderr, CancellationToken cancellationToken)
+    private static async Task<RecordingRun?> RecordAsync(string? path, TimeSpan? retention, IDeviceClient client, IReadOnlyList<Node> nodes, int refreshMs, string endpoint, string name, TextWriter stderr, CancellationToken cancellationToken)
     {
         if (path is null)
         {
-            return null;
+            return retention is null ? null : throw new CliException("--retention needs --record with a SQLite file (.db, .sqlite).");
+        }
+
+        if (retention is not null && !RecordingFiles.IsSqlite(path))
+        {
+            throw new CliException("--retention works for SQLite files (.db, .sqlite) only; a CSV file is only appended to.");
         }
 
         var options = new RecordingOptions
@@ -426,6 +436,7 @@ internal static class Commands
             MaxPointsPerItem = 1,
             LiveFilePath = Path.GetFullPath(path),
             Endpoint = CliEndpoint(endpoint),
+            FileRetention = retention,
         };
         var items = nodes.DistinctBy(n => n.Id).Select(n => new RecordedItem(n.Id, n.DisplayName ?? n.Name, client.ToPortableId(n.Id), n.ParentPath)).ToList();
         var recording = new Recording(client, options, items);

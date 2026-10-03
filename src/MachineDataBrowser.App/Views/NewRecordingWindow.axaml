@@ -18,7 +18,7 @@
     </Border>
     <StackPanel Margin="20" Spacing="14">
       <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" Foreground="{DynamicResource SystemControlForegroundBaseMediumHighBrush}" />
-      <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10">
+      <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10">
         <TextBlock Text="Name" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Text="{Binding Name}" />
 
@@ -43,6 +43,17 @@
           <Button DockPanel.Dock="Right" Content="…" Click="OnPickFile" Margin="6,0,0,0" ToolTip.Tip="Choose file" />
           <TextBox Text="{Binding LiveFilePath}" PlaceholderText="history.csv or history.db (SQLite)" />
         </DockPanel>
+
+        <CheckBox Grid.Row="7" Content="Keep in file (days)" IsChecked="{Binding UseFileRetention}" IsEnabled="{Binding CanUseFileRetention}"
+                  ToolTip.Tip="SQLite files only: samples older than this are deleted from the file (from every recording in it), so an always-on recording doesn't grow without end. Checked once a minute." />
+        <NumericUpDown Grid.Row="7" Grid.Column="1" Value="{Binding FileRetentionDays}" Minimum="1" Maximum="36500" FormatString="0">
+          <NumericUpDown.IsEnabled>
+            <MultiBinding Converter="{x:Static BoolConverters.And}">
+              <Binding Path="CanUseFileRetention" />
+              <Binding Path="UseFileRetention" />
+            </MultiBinding>
+          </NumericUpDown.IsEnabled>
+        </NumericUpDown>
       </Grid>
     </StackPanel>
   </DockPanel>

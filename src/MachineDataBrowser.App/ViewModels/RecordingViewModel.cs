@@ -33,6 +33,7 @@ public sealed partial class RecordingViewModel : ObservableObject, IAsyncDisposa
             if (Recording.PlannedStopAt is { } stop) parts.Add($"stops {Timestamps.FormatSeconds(stop)}");
             else if (o.ScheduledStart is { } start && Recording.State == RecordingState.Scheduled) parts.Add($"starts {Timestamps.FormatSeconds(start)}");
             if (o.LiveFilePath is { } file) parts.Add($"→ {Path.GetFileName(file)}");
+            if (o.FileRetention is { } kept) parts.Add($"file keeps {kept.TotalDays:0.#} d");
             return string.Join(" · ", parts);
         }
     }

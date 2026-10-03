@@ -41,6 +41,12 @@ public sealed record RecordingOptions
 
     /// <summary>The endpoint recorded from, kept in SQLite files with the recording.</summary>
     public string? Endpoint { get; init; }
+
+    /// <summary>
+    /// SQLite live files only: samples older than this are deleted from the file (from every recording in it), so an
+    /// always-on recording doesn't grow without end. Null = keep everything.
+    /// </summary>
+    public TimeSpan? FileRetention { get; init; }
 }
 
 /// <summary>A recorded node; <paramref name="Path"/> is its parent path in the address space when known.</summary>
@@ -578,7 +584,7 @@ public sealed class Recording : IAsyncDisposable
     private void OpenLiveFile(string path)
     {
         var channel = Channel.CreateUnbounded<LiveSample>(new UnboundedChannelOptions { SingleReader = true });
-        var info = new LiveRecordingInfo(Options.Name, Options.Endpoint, Options.SamplingIntervalMs, StartedAt ?? _time.GetUtcNow());
+        var info = new LiveRecordingInfo(Options.Name, Options.Endpoint, Options.SamplingIntervalMs, StartedAt ?? _time.GetUtcNow(), () => Options.FileRetention, _time);
         _liveChannel = channel;
         _liveWriter = Task.Run(async () =>
         {
