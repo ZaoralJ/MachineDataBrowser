@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.11.0...v0.12.0) (2026-10-03)
+
+
+### Features
+
+* **cli:** mdbrowser command line for OPC UA, EtherNet/IP and MQTT ([#62](https://github.com/ZaoralJ/MachineDataBrowser/issues/62)) ([071c7d9](https://github.com/ZaoralJ/MachineDataBrowser/commit/071c7d929300e34230365a93e4ce66d12ded5b9b))
+
 ## [0.11.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.10.0...v0.11.0) (2026-10-03)
 
 
