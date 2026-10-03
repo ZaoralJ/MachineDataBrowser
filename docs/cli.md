@@ -103,6 +103,10 @@ name and options from the session; passwords are never saved, so pass `--passwor
 | `json` | `read`/`browse`/`endpoints`: a JSON array; `monitor`/`run`: one JSON object per line, values keep their type | same |
 | `csv` | a header line, then rows | same |
 
+The live table starts with the current values, read when monitoring starts; *Updates* then counts the changes that
+arrived (the device's first notification that only repeats the starting value isn't counted). Redirected output and
+JSON/CSV stream only the notifications.
+
 ```sh
 mdbrowser read opc.tcp://plc:4840 /Objects/Line1/Speed -f json | jq '.[0].value'
 mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1/Speed -f json | jq -c 'select(.status != "Good")'
