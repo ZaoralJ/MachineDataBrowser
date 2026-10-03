@@ -58,7 +58,7 @@ public sealed class McpServerTests(OpcPlcFixture plc) : IAsyncDisposable
         Assert.Equal("mdbrowser", client.ServerInfo.Name);
         Assert.Contains("read-only", client.ServerInstructions, StringComparison.OrdinalIgnoreCase);
         var tools = await client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken);
-        Assert.Equal(["alarms", "attributes", "browse", "diagnostics", "events", "history", "list_endpoints", "read", "sample", "search"], tools.Select(t => t.Name).Order());
+        Assert.Equal(["alarms", "attributes", "browse", "diagnostics", "events", "history", "list_endpoints", "read", "sample", "search", "wait_for"], tools.Select(t => t.Name).Order());
         Assert.All(tools, t => Assert.True(t.ProtocolTool.Annotations?.ReadOnlyHint, t.Name));
     }
 
@@ -110,7 +110,7 @@ public sealed class McpServerTests(OpcPlcFixture plc) : IAsyncDisposable
     {
         var client = await StartAsync("--endpoint", plc.EndpointUrl, "--endpoint", "mqtt://localhost:1", "--trust-all");
 
-        Assert.Contains("Several endpoints are configured", await ErrorAsync(client, "read", new() { ["nodes"] = new[] { "ns=3;s=StepUp" } }), StringComparison.Ordinal);
+        Assert.Contains("Pass the endpoint: one of", await ErrorAsync(client, "read", new() { ["nodes"] = new[] { "ns=3;s=StepUp" } }), StringComparison.Ordinal);
         Assert.Contains("is not one of the configured endpoints", await ErrorAsync(client, "read", new()
         {
             ["nodes"] = new[] { "ns=3;s=StepUp" },
