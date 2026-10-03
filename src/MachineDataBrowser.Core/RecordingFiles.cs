@@ -5,8 +5,11 @@ namespace MachineDataBrowser.Core;
 /// <summary>One recorded sample on its way to the live file, with the device's typed value for formats that keep it.</summary>
 internal sealed record LiveSample(RecordedItem Item, HistorySample Sample, object? Raw);
 
-/// <summary>What a live file knows about the recording it belongs to.</summary>
-internal sealed record LiveRecordingInfo(string Name, string? Endpoint, double SamplingIntervalMs, DateTimeOffset StartedAt);
+/// <summary>
+/// What a live file knows about the recording it belongs to. <paramref name="Retention"/> is read each time, so a
+/// change in the recording's settings applies while it runs.
+/// </summary>
+internal sealed record LiveRecordingInfo(string Name, string? Endpoint, double SamplingIntervalMs, DateTimeOffset StartedAt, Func<TimeSpan?> Retention, TimeProvider Time);
 
 /// <summary>
 /// The file a recording streams every sample to while it runs (<see cref="RecordingOptions.LiveFilePath"/>): CSV, or

@@ -15,6 +15,7 @@ internal sealed class SqliteRecordingFile : ILiveRecordingFile
     public const int SchemaVersion = 1;
 
     internal const string Schema = """
+        PRAGMA auto_vacuum = INCREMENTAL;
         PRAGMA journal_mode = WAL;
         PRAGMA synchronous = NORMAL;
         PRAGMA foreign_keys = ON;
@@ -45,20 +46,30 @@ internal sealed class SqliteRecordingFile : ILiveRecordingFile
             value_text   TEXT,
             value_json   TEXT);
         CREATE INDEX IF NOT EXISTS samples_by_item_time ON samples (item_id, source_utc);
+        CREATE INDEX IF NOT EXISTS samples_by_received ON samples (received_utc);
         CREATE VIEW IF NOT EXISTS sample_view AS
             SELECT s.rowid AS sample_id, r.recording_id, r.name AS recording, i.name, i.path, i.node_id,
                    s.received_utc, s.source_utc, s.server_utc, s.status, s.status_code, s.value_num, s.value_text, s.value_json
             FROM samples s JOIN items i ON i.item_id = s.item_id JOIN recordings r ON r.recording_id = i.recording_id;
         """;
 
+    /// <summary>How often retention runs while recording; it also runs when the file is opened.</summary>
+    private static readonly TimeSpan PruneInterval = TimeSpan.FromMinutes(1);
+
+    /// <summary>Samples deleted per statement, so a large clean-up never holds the file for long.</summary>
+    private const int PruneChunk = 20_000;
+
     private readonly SqliteConnection _connection;
     private readonly long _recordingId;
+    private readonly LiveRecordingInfo _info;
     private readonly Dictionary<string, long> _itemIds = new(StringComparer.Ordinal);
+    private DateTimeOffset _lastPrune = DateTimeOffset.MinValue;
 
-    private SqliteRecordingFile(SqliteConnection connection, long recordingId)
+    private SqliteRecordingFile(SqliteConnection connection, long recordingId, LiveRecordingInfo info)
     {
         _connection = connection;
         _recordingId = recordingId;
+        _info = info;
     }
 
     public static async Task<SqliteRecordingFile> OpenAsync(string path, LiveRecordingInfo info, CancellationToken cancellationToken)
@@ -80,7 +91,9 @@ internal sealed class SqliteRecordingFile : ILiveRecordingFile
             insert.Parameters.AddWithValue("$refresh", info.SamplingIntervalMs);
             insert.Parameters.AddWithValue("$started", Utc(info.StartedAt));
             var id = (long)(await insert.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false))!;
-            return new SqliteRecordingFile(connection, id);
+            var file = new SqliteRecordingFile(connection, id, info);
+            await file.PruneIfDueAsync(cancellationToken).ConfigureAwait(false);
+            return file;
         }
         catch
         {
@@ -124,6 +137,49 @@ internal sealed class SqliteRecordingFile : ILiveRecordingFile
         }
 
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        await PruneIfDueAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Retention: deletes samples older than <see cref="LiveRecordingInfo.Retention"/> from every recording in the file,
+    /// then items and earlier recordings left without samples, and returns the freed pages to the disk bit by bit.
+    /// </summary>
+    internal async Task<long> PruneIfDueAsync(CancellationToken cancellationToken, bool force = false)
+    {
+        var now = _info.Time.GetUtcNow();
+        if (_info.Retention() is not { } retention || (!force && now - _lastPrune < PruneInterval))
+        {
+            return 0;
+        }
+
+        _lastPrune = now;
+        var cutoff = Utc(now - retention);
+        long deleted = 0;
+        int chunk;
+        do
+        {
+            await using var delete = _connection.CreateCommand();
+            delete.CommandText = "DELETE FROM samples WHERE rowid IN (SELECT rowid FROM samples WHERE received_utc < $cutoff LIMIT $chunk)";
+            delete.Parameters.AddWithValue("$cutoff", cutoff);
+            delete.Parameters.AddWithValue("$chunk", PruneChunk);
+            chunk = await delete.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            deleted += chunk;
+        }
+        while (chunk == PruneChunk);
+
+        if (deleted > 0)
+        {
+            await using var tidy = _connection.CreateCommand();
+            tidy.CommandText = """
+                DELETE FROM items WHERE recording_id <> $current AND NOT EXISTS (SELECT 1 FROM samples s WHERE s.item_id = items.item_id);
+                DELETE FROM recordings WHERE recording_id <> $current AND NOT EXISTS (SELECT 1 FROM items i WHERE i.recording_id = recordings.recording_id);
+                PRAGMA incremental_vacuum(2000);
+                """;
+            tidy.Parameters.AddWithValue("$current", _recordingId);
+            await tidy.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return deleted;
     }
 
     public async Task CompleteAsync(DateTimeOffset stoppedAt, CancellationToken cancellationToken)

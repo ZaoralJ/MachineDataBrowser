@@ -26,6 +26,8 @@ public sealed partial class NewRecordingViewModel(NewRecordingDraft draft) : Obs
             StopAfterMinutes = o.StopAfter is { } after ? (decimal)Math.Max(1, Math.Round(after.TotalMinutes)) : 10,
             UseLiveFile = o.LiveFilePath is not null,
             LiveFilePath = o.LiveFilePath,
+            UseFileRetention = o.FileRetention is not null,
+            FileRetentionDays = o.FileRetention is { } keep ? (decimal)Math.Max(1, Math.Round(keep.TotalDays)) : 30,
         };
         return vm;
     }
@@ -76,7 +78,21 @@ public sealed partial class NewRecordingViewModel(NewRecordingDraft draft) : Obs
     public partial bool UseLiveFile { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSqliteFile), nameof(CanUseFileRetention))]
     public partial string? LiveFilePath { get; set; }
+
+    /// <summary>Retention deletes from SQLite files only; a CSV file is only ever appended to.</summary>
+    public bool IsSqliteFile => LiveFilePath is { Length: > 0 } path && RecordingFiles.IsSqlite(path);
+
+    public bool CanUseFileRetention => UseLiveFile && IsSqliteFile;
+
+    [ObservableProperty]
+    public partial bool UseFileRetention { get; set; }
+
+    [ObservableProperty]
+    public partial decimal? FileRetentionDays { get; set; } = 30;
+
+    partial void OnUseLiveFileChanged(bool value) => OnPropertyChanged(nameof(CanUseFileRetention));
 
     public RecordingOptions ToOptions(DateTimeOffset now) => new()
     {
@@ -87,6 +103,7 @@ public sealed partial class NewRecordingViewModel(NewRecordingDraft draft) : Obs
         ScheduledStart = UseStartDelay ? now.AddMinutes((double)(StartDelayMinutes ?? 0)) : null,
         StopAfter = UseStopAfter ? TimeSpan.FromMinutes((double)(StopAfterMinutes ?? 10)) : null,
         LiveFilePath = UseLiveFile && !string.IsNullOrWhiteSpace(LiveFilePath) ? LiveFilePath : null,
+        FileRetention = CanUseFileRetention && UseFileRetention ? TimeSpan.FromDays((double)(FileRetentionDays ?? 30)) : null,
         StopAt = _editing?.StopAt,
     };
 }

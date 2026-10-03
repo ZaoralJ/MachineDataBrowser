@@ -100,6 +100,13 @@ mdbrowser run line1.mdbsession --duration 8h --record shift.db
 mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1/Speed --record speed.csv            # CSV
 ```
 
+`--retention 30d` (SQLite only) deletes samples older than that from the file while recording, so an always-on
+recording doesn't grow without end:
+
+```sh
+mdbrowser run plant.mdbsession --record plant.db --retention 30d
+```
+
 It is the same file the app writes with *Also write to file*: SQLite for `.db` / `.sqlite` (one more recording in the
 file each time, queryable with SQL; see [Recording to SQLite](user-manual.md#recording-to-sqlite)), CSV otherwise. The
 app's recording viewer opens either. The file is the store, so a recording can run for days without growing memory.

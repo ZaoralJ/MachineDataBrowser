@@ -62,4 +62,23 @@ public sealed class RecordTests(OpcPlcFixture plc) : IDisposable
         Assert.Equal(0, exit);
         Assert.StartsWith("ReceivedAt,", await File.ReadAllTextAsync(csv, TestContext.Current.CancellationToken), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Retention_needs_a_sqlite_recording_and_is_kept_in_the_options()
+    {
+        var (exit, _, error) = await RunAsync("monitor", plc.EndpointUrl, "/Objects/OpcPlc/Telemetry/Basic/StepUp", "--trust-all", "-n", "1", "--retention", "30d");
+        Assert.Equal(1, exit);
+        Assert.Contains("--retention needs --record", error, StringComparison.Ordinal);
+
+        (exit, _, error) = await RunAsync("monitor", plc.EndpointUrl, "/Objects/OpcPlc/Telemetry/Basic/StepUp", "--trust-all", "-n", "1",
+            "--record", Path.Combine(_dir, "x.csv"), "--retention", "30d");
+        Assert.Equal(1, exit);
+        Assert.Contains("SQLite files", error, StringComparison.Ordinal);
+
+        var db = Path.Combine(_dir, "always-on.db");
+        (exit, _, _) = await RunAsync("monitor", plc.EndpointUrl, "/Objects/OpcPlc/Telemetry/Basic/StepUp", "--trust-all", "-d", "1500ms", "--record", db, "--retention", "30d");
+        Assert.Equal(0, exit);
+        Assert.Equal(2, await ScalarAsync(db, "PRAGMA auto_vacuum"));
+        Assert.True(await ScalarAsync(db, "SELECT count(*) FROM samples") > 0);   // recent samples are kept
+    }
 }
