@@ -94,6 +94,9 @@ connection by itself. Watch items and recordings continue after that.
   - ⇧⌘C copies the current values of the node and everything below it as JSON.
   - ⇧⌘K / ⌥⌘K copy C# classes or records that mirror the structure.
   - To cherry-pick properties, select several nodes first.
+  - Right-click ▸ **Copy mdbrowser command** ▸ *browse*, *read* or *monitor* copies a [command line](cli.md) for the
+    selection, with this endpoint and its options (never the password). Folders read or monitor everything below
+    them (`-R`).
 
 ### Bookmarks
 
@@ -192,6 +195,8 @@ and sort order are saved with the session.
   - ⌘C copies the selected rows (or all rows) as a table that pastes into Excel or Numbers.
   - ⌥⌘C copies the value, ⌥⌘N the NodeId; ⌥⌘J copies the values as JSON; ⇧⌘C copies the rows as JSON.
   - File ▸ Export Watch List as CSV (⌘E).
+  - Right-click ▸ **Copy mdbrowser command** ▸ *monitor* or *read* copies a [command line](cli.md) for the selected
+    rows (all rows when none is selected), with their refresh time when they share one.
 
 <img src="images/display-format.png" alt="Display format dialog" width="49%"> <img src="images/monitoring-settings.png" alt="Monitoring settings dialog" width="49%">
 

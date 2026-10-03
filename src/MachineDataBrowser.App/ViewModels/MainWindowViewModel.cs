@@ -94,7 +94,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             EditDisplayCommand.NotifyCanExecuteChanged();
             ShowWatchHistoryCommand.NotifyCanExecuteChanged();
         };
-        WatchItems.CollectionChanged += (_, _) => TakeSnapshotCommand.NotifyCanExecuteChanged();
+        WatchItems.CollectionChanged += (_, _) =>
+        {
+            TakeSnapshotCommand.NotifyCanExecuteChanged();
+            CopyWatchCliMonitorCommand.NotifyCanExecuteChanged();
+            CopyWatchCliReadCommand.NotifyCanExecuteChanged();
+        };
         Bookmarks.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasBookmarks));
         SelectedNodes.CollectionChanged += (_, _) =>
         {
@@ -280,6 +285,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsDisconnected), nameof(StateText), nameof(SupportsEvents), nameof(SupportsHistory), nameof(SupportsMethods), nameof(SupportsMonitoringSettings))]
     [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand), nameof(WriteAttributeValueCommand), nameof(WriteWatchValueCommand), nameof(ShowEventsCommand), nameof(ShowHistoryCommand), nameof(ShowWatchHistoryCommand), nameof(CallMethodCommand), nameof(EditMonitoringCommand), nameof(ToggleBookmarkCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CopyCliBrowseCommand), nameof(CopyCliReadCommand), nameof(CopyCliMonitorCommand), nameof(CopyWatchCliMonitorCommand), nameof(CopyWatchCliReadCommand))]
     public partial ConnectionState State { get; private set; }
 
     [ObservableProperty]
@@ -744,6 +750,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         CopyNodeJsonCommand.NotifyCanExecuteChanged();
         CopyNodeClassCommand.NotifyCanExecuteChanged();
         CopyNodeRecordCommand.NotifyCanExecuteChanged();
+        CopyCliBrowseCommand.NotifyCanExecuteChanged();
+        CopyCliReadCommand.NotifyCanExecuteChanged();
+        CopyCliMonitorCommand.NotifyCanExecuteChanged();
     }
 
     public ObservableCollection<WatchItemViewModel> SelectedWatchItems { get; } = [];
