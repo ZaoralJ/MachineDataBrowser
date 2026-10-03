@@ -139,6 +139,11 @@
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy NodeId{0}'}" Command="{Binding CopyWatchNodeIdCommand}" />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy values as JSON{0}'}" Command="{Binding CopyWatchValuesJsonCommand}" ToolTip.Tip="Typed values only: one value, or an object keyed by name" />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy as JSON{0}'}" Command="{Binding CopyWatchJsonCommand}" />
+            <MenuItem Header="Copy mdbrowser command"
+                      ToolTip.Tip="A command line for the mdbrowser CLI with this endpoint and the selected rows (all rows when none is selected); never contains a password">
+              <MenuItem Header="monitor" Command="{Binding CopyWatchCliMonitorCommand}" />
+              <MenuItem Header="read" Command="{Binding CopyWatchCliReadCommand}" />
+            </MenuItem>
             <Separator />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Remove selected{0}'}" Command="{Binding RemoveFromWatchCommand}">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconRemove}" /></MenuItem.Icon>

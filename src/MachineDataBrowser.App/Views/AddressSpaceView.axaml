@@ -154,6 +154,14 @@
                       ToolTip.Tip="C# classes mirroring the node's structure, with property types from current values. Multi-select properties to cherry-pick them: they are grouped under their parent object" />
             <MenuItem Header="Copy as C# record" Command="{Binding CopyNodeRecordCommand}"
                       ToolTip.Tip="Immutable C# records (init-only properties) mirroring the node's structure. Multi-select properties to cherry-pick them: they are grouped under their parent object" />
+            <MenuItem Header="Copy mdbrowser command"
+                      ToolTip.Tip="A command line for the mdbrowser CLI with this endpoint and the selection; paste it into a terminal (never contains a password)">
+              <MenuItem Header="browse (this node)" Command="{Binding CopyCliBrowseCommand}" />
+              <MenuItem Header="read" Command="{Binding CopyCliReadCommand}"
+                        ToolTip.Tip="Selected variables; folders read every variable below them (-R)" />
+              <MenuItem Header="monitor" Command="{Binding CopyCliMonitorCommand}"
+                        ToolTip.Tip="Selected variables; folders monitor every variable below them (-R)" />
+            </MenuItem>
           </ContextMenu>
         </ListBox.ContextMenu>
         <ListBox.ItemTemplate>
