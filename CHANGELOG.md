@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.18.0...v0.19.0) (2026-10-03)
+
+
+### Features
+
+* **app:** clearer New Recording form, and add to an existing SQLite file ([#95](https://github.com/ZaoralJ/MachineDataBrowser/issues/95)) ([70119b0](https://github.com/ZaoralJ/MachineDataBrowser/commit/70119b08a68dc9d6d67fcf0de301f8c426f3a19b))
+
 ## [0.18.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.17.0...v0.18.0) (2026-10-03)
 
 
