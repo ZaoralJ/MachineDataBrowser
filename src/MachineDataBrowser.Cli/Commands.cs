@@ -241,8 +241,10 @@ internal static class Commands
         // mcp
         var mcpEndpoints = new Option<string[]>("--endpoint", "-e") { Description = "Endpoint the agent may use; repeat for several" };
         var mcpSessions = new Option<string[]>("--session", "-s") { Description = "Session file whose endpoint and options the agent may use; repeat for several" };
-        var mcp = new Command("mcp", "Run an MCP server on stdin/stdout: read-only tools for AI agents (browse, search, read, sample)");
-        foreach (var option in new Option[] { mcpEndpoints, mcpSessions, user, password, secure, trustAll })
+        var mcpRecordings = new Option<string[]>("--recording") { Description = "SQLite recording file the agent may read; repeat for several" };
+        var mcpRecordingDirs = new Option<string[]>("--recordings-dir") { Description = "Folder whose SQLite recording files (.db, .sqlite) the agent may read" };
+        var mcp = new Command("mcp", "Run an MCP server on stdin/stdout: read-only tools for AI agents (machines: browse, search, read, sample; recordings: list, items, samples)");
+        foreach (var option in new Option[] { mcpEndpoints, mcpSessions, mcpRecordings, mcpRecordingDirs, user, password, secure, trustAll })
         {
             mcp.Options.Add(option);
         }
@@ -258,13 +260,26 @@ internal static class Commands
                 allowed.Add(new ConnectionArgs(session.EndpointUrl, session.UserName, secret, session.UseSecurity, session.AutoAcceptCertificates || r.GetValue(trustAll)));
             }
 
-            if (allowed.Count == 0)
+            var files = r.GetValue(mcpRecordings) ?? [];
+            foreach (var file in files.Where(f => !File.Exists(f) || !RecordingFiles.IsSqlite(f)))
             {
-                throw new CliException("Give the agent at least one machine: --endpoint <url> or --session <file>.");
+                throw new CliException($"--recording '{file}' is not an existing SQLite file (.db, .sqlite).");
+            }
+
+            var folders = r.GetValue(mcpRecordingDirs) ?? [];
+            foreach (var folder in folders.Where(d => !Directory.Exists(d)))
+            {
+                throw new CliException($"--recordings-dir '{folder}' is not a folder.");
+            }
+
+            var recordings = new Mcp.RecordingLibrary(files, folders);
+            if (allowed.Count == 0 && recordings.IsEmpty)
+            {
+                throw new CliException("Give the agent at least one machine or recording: --endpoint <url>, --session <file>, --recording <file.db> or --recordings-dir <folder>.");
             }
 
             await using var pool = new Mcp.EndpointPool([.. allowed.DistinctBy(e => e.Url.TrimEnd('/'), StringComparer.OrdinalIgnoreCase)]);
-            return await Mcp.McpServerHost.RunAsync(pool, ct).ConfigureAwait(false);
+            return await Mcp.McpServerHost.RunAsync(pool, recordings, ct).ConfigureAwait(false);
         }));
 
         // write
