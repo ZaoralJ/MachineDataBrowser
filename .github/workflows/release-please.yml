@@ -3,6 +3,8 @@ name: release-please
 on:
   push:
     branches: [main]
+  # Run by hand (Actions ▸ release-please ▸ Run workflow) to recreate a release PR that was closed by mistake.
+  workflow_dispatch:
 
 permissions:
   contents: write
