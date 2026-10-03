@@ -1,5 +1,7 @@
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using MachineDataBrowser.App.ViewModels;
 using MachineDataBrowser.App.Views;
 using MachineDataBrowser.Core.Tests;
@@ -48,7 +50,56 @@ public sealed class MqttAppTests(MqttSimulatorFixture broker)
         Assert.Equal("line2", vm.SelectedNode?.Parent?.Parent?.Parent?.DisplayName);
         vm.ClearSearchCommand.Execute(null);
         Assert.False(vm.HasSearchPanel);
+
+        // Pausing discovery keeps the watched values coming; the toolbar button follows the state.
+        Assert.True(vm.SupportsDiscoveryPause);
+        var pause = window.GetVisualDescendants().OfType<Avalonia.Controls.Button>()
+            .Single(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Pause discovery");
+        Assert.True(pause.IsVisible);
+        await vm.ToggleDiscoveryCommand.ExecuteAsync(null);
+        Assert.True(vm.IsDiscoveryPaused);
+        Dispatcher.UIThread.RunJobs();
+        var icon = pause.GetVisualDescendants().OfType<Avalonia.Controls.PathIcon>().Single(i => i.IsVisible);
+        Assert.Same(window.FindResource("IconPlay"), icon.Data); // paused: the button offers to resume
+        Assert.StartsWith("Resume discovery", ToolTip.GetTip(pause) as string, StringComparison.Ordinal);
+        var counts = vm.WatchItems.Select(w => w.UpdateCount).ToList();
+        await Until(() => vm.WatchItems.Select((w, i) => w.UpdateCount > counts[i]).All(b => b));
+        await vm.ToggleDiscoveryCommand.ExecuteAsync(null);
+        Assert.False(vm.IsDiscoveryPaused);
         window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Discovery_pauses_automatically_and_the_time_is_saved_with_the_session()
+    {
+        var dir = Directory.CreateTempSubdirectory("mdb-autopause-").FullName;
+        try
+        {
+            var path = Path.Combine(dir, "autopause.mdbsession");
+            await using (var vm = new MainWindowViewModel { EndpointUrl = broker.EndpointUrl, AutoPauseDiscoverySeconds = 1 })
+            {
+                Assert.True(vm.IsMqttEndpoint);
+                Assert.Contains("pause after 1 s", vm.OptionsSummary, StringComparison.Ordinal);
+                await vm.ConnectCommand.ExecuteAsync(null);
+                Assert.False(vm.IsDiscoveryPaused);
+
+                await Until(() => vm.IsDiscoveryPaused);
+                Assert.StartsWith("Discovery paused automatically after 1 s", vm.StatusMessage, StringComparison.Ordinal);
+                Assert.StartsWith("Resume discovery", vm.DiscoveryToolTip, StringComparison.Ordinal);
+                await vm.WriteSessionAsync(path);
+            }
+
+            await using var reopened = new MainWindowViewModel();
+            await reopened.LoadSessionAsync(path);
+            Assert.Equal(1, reopened.AutoPauseDiscoverySeconds);
+            reopened.EndpointUrl = "opc.tcp://localhost:4840";
+            Assert.False(reopened.IsMqttEndpoint);
+            Assert.DoesNotContain("pause after", reopened.OptionsSummary, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 
     /// <summary>

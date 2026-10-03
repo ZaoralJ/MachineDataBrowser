@@ -72,6 +72,11 @@ public sealed partial class MainWindow
             _readOnlyItem.IsChecked = readOnly.IsReadOnly;
         }
 
+        if (e.PropertyName is nameof(MainWindowViewModel.IsDiscoveryPaused) && _discoveryItem is not null && sender is MainWindowViewModel discovery)
+        {
+            _discoveryItem.IsChecked = discovery.IsDiscoveryPaused;
+        }
+
         if (e.PropertyName is nameof(MainWindowViewModel.Settings) or nameof(MainWindowViewModel.UiScale) && sender is MainWindowViewModel vm)
         {
             UiZoom.SetScale(vm.UiScale);
@@ -114,6 +119,7 @@ public sealed partial class MainWindow
                 new NativeMenuItem(Label("Recent _Endpoints")) { Menu = _recentEndpointsMenu },
                 new NativeMenuItemSeparator(),
                 ReadOnlyItem(vm, new KeyGesture(Key.L, cmd | KeyModifiers.Shift)),
+                DiscoveryItem(vm, new KeyGesture(Key.P, cmd | KeyModifiers.Shift)),
                 new NativeMenuItemSeparator(),
                 Item("Events & _Alarms…", vm.ShowEventsCommand, new KeyGesture(Key.A, cmd | KeyModifiers.Alt)),
                 Item("D_iagnostics…", vm.ShowDiagnosticsCommand, new KeyGesture(Key.I, cmd | KeyModifiers.Shift)),
@@ -237,6 +243,16 @@ public sealed partial class MainWindow
         _readOnlyItem.ToggleType = MenuItemToggleType.CheckBox;
         _readOnlyItem.IsChecked = vm.IsReadOnly;
         return _readOnlyItem;
+    }
+
+    private NativeMenuItem? _discoveryItem;
+
+    private NativeMenuItem DiscoveryItem(MainWindowViewModel vm, KeyGesture gesture)
+    {
+        _discoveryItem = Item("_Pause Discovery (MQTT)", vm.ToggleDiscoveryCommand, gesture);
+        _discoveryItem.ToggleType = MenuItemToggleType.CheckBox;
+        _discoveryItem.IsChecked = vm.IsDiscoveryPaused;
+        return _discoveryItem;
     }
 
     /// <summary>One radio item per colour theme; they follow the light/dark choice above them.</summary>

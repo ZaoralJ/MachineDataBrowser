@@ -20,6 +20,12 @@ public sealed record ConnectOptions
 
     /// <summary>Server certificates (SHA-1 thumbprints) the user trusted for this connection only.</summary>
     public IReadOnlyCollection<string> AcceptedCertificateThumbprints { get; init; } = [];
+
+    /// <summary>
+    /// <see cref="IPausableDiscovery"/> clients (MQTT): pause discovery this many seconds after connecting, so a busy
+    /// broker is browsed briefly and then only monitored topics are received. 0 keeps discovering.
+    /// </summary>
+    public int AutoPauseDiscoverySeconds { get; init; }
 }
 
 /// <summary>A server certificate the client did not trust, as shown to the user before trusting it.</summary>

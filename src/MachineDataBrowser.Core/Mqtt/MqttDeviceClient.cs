@@ -11,7 +11,7 @@ namespace MachineDataBrowser.Core.Mqtt;
 /// Sparkplug B. MQTT pushes values; the refresh time is a maximum update rate per monitored item (the latest value at
 /// most once per interval), and 0 delivers every message.
 /// </summary>
-public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, IConnectionDiagnosticsSource
+public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, IConnectionDiagnosticsSource, IPausableDiscovery
 {
     public const int DefaultMaxTopics = 20_000;
 
@@ -35,6 +35,13 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
     private long _bytes;
     private long _lastMessageTicks;
     private (long Count, DateTime At)? _rateSample;
+
+    // Topic filters the broker currently has for us; changed only under _subscriptionGate.
+    private readonly SemaphoreSlim _subscriptionGate = new(1, 1);
+    private readonly HashSet<string> _activeFilters = new(StringComparer.Ordinal);
+    private volatile bool _discoveryPaused;
+    private CancellationTokenSource? _autoPause;
+    private DateTime? _autoPauseAtUtc;
 
     public MqttDeviceClient(int maxTopics = DefaultMaxTopics) => MaxTopics = maxTopics;
 
@@ -101,6 +108,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
             _reconnects = 0;
             _lastReconnect = null;
             _rateSample = null;
+            _discoveryPaused = false;
             _options = BuildOptions(_endpoint, options);
             _userName = string.IsNullOrEmpty(options.UserName) ? _endpoint.UserName : options.UserName;
             _client = new MqttClientFactory().CreateMqttClient();
@@ -118,6 +126,10 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
 
             _connectedAt = DateTime.UtcNow;
             State = ConnectionState.Connected;
+            if (options.AutoPauseDiscoverySeconds > 0)
+            {
+                StartAutoPause(options.AutoPauseDiscoverySeconds);
+            }
         }
         finally
         {
@@ -175,6 +187,11 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
         }
 
         info.Add(("Monitored items", monitored.ToString(CultureInfo.InvariantCulture)));
+        info.Add(("Discovery", _discoveryPaused
+            ? $"paused · {_activeFilters.Count.ToString(CultureInfo.InvariantCulture)} topic subscriptions for the monitored items"
+            : _autoPauseAtUtc is { } at && _autoPause is not null
+                ? $"on · pauses in {Math.Max(0, (int)Math.Ceiling((at - DateTime.UtcNow).TotalSeconds)).ToString(CultureInfo.InvariantCulture)} s"
+                : "on · receiving the whole topic filter"));
 
         // What the broker announced in its CONNACK: explains e.g. writes that don't stick (no retain).
         if (result is not null)
@@ -221,6 +238,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
     {
         await DisconnectAsync().ConfigureAwait(false);
         _gate.Dispose();
+        _subscriptionGate.Dispose();
     }
 
     public Task<IReadOnlyList<BrowseItem>> BrowseAsync(NodeId nodeId, CancellationToken cancellationToken = default) =>
@@ -276,7 +294,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
         return Task.FromResult<IReadOnlyList<object?>>([.. nodeIds.Select(id => _model.Current(Id(id)) is { } u && StatusCode.IsGood(u.Status) ? u.Raw : null)]);
     }
 
-    public Task<IReadOnlyList<MonitorResult>> MonitorManyAsync(
+    public async Task<IReadOnlyList<MonitorResult>> MonitorManyAsync(
         IReadOnlyList<NodeId> nodeIds,
         Action<ValueUpdate> onUpdate,
         double samplingIntervalMs = 250,
@@ -314,7 +332,12 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
             results.Add(new MonitorResult(nodeId, subscriber, ServiceResult.Good));
         }
 
-        return Task.FromResult<IReadOnlyList<MonitorResult>>(results);
+        if (_discoveryPaused)
+        {
+            await SyncSubscriptionsAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return results;
     }
 
     public async Task<IReadOnlyList<MonitorResult>> ChangeRefreshAsync(
@@ -385,10 +408,162 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
     private async Task ConnectAndSubscribeAsync(CancellationToken cancellationToken)
     {
         _connectResult = await _client!.ConnectAsync(_options!, cancellationToken).ConfigureAwait(false);
-        var subscribe = new MqttClientSubscribeOptionsBuilder()
-            .WithTopicFilter(f => f.WithTopic(_endpoint!.TopicFilter).WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtMostOnce))
-            .Build();
-        await _client.SubscribeAsync(subscribe, cancellationToken).ConfigureAwait(false);
+        await _subscriptionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            // Clean start: the broker has forgotten our subscriptions.
+            _activeFilters.Clear();
+            await SyncSubscriptionsCoreAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _subscriptionGate.Release();
+        }
+    }
+
+    public bool IsDiscoveryPaused => _discoveryPaused;
+
+    public event EventHandler? DiscoveryPausedChanged;
+
+    public async Task SetDiscoveryPausedAsync(bool paused, CancellationToken cancellationToken = default)
+    {
+        if (_client is not { IsConnected: true })
+        {
+            throw new InvalidOperationException("Not connected.");
+        }
+
+        // The user decided: a pending automatic pause must not override it.
+        CancelAutoPause();
+        await ApplyDiscoveryPausedAsync(paused, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task ApplyDiscoveryPausedAsync(bool paused, CancellationToken cancellationToken)
+    {
+        var changed = _discoveryPaused != paused;
+        _discoveryPaused = paused;
+        await SyncSubscriptionsAsync(cancellationToken).ConfigureAwait(false);
+        if (changed)
+        {
+            DiscoveryPausedChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private void StartAutoPause(int seconds)
+    {
+        var cts = new CancellationTokenSource();
+        _autoPauseAtUtc = DateTime.UtcNow.AddSeconds(seconds);
+        _autoPause = cts;
+        _ = Task.Run(async () =>
+        {
+            // The task owns the source: cancelling only signals it, so the token stays usable until here.
+            using (cts)
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(seconds), cts.Token).ConfigureAwait(false);
+
+                    // Also while reconnecting: the flag is set and the reconnect subscribes only to monitored topics.
+                    await ApplyDiscoveryPausedAsync(true, cts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (Exception ex) when (Errors.IsRecoverable(ex))
+                {
+                    System.Diagnostics.Trace.TraceWarning($"MQTT automatic discovery pause failed: {ex.Message}");
+                }
+                finally
+                {
+                    Interlocked.CompareExchange(ref _autoPause, null, cts);
+                }
+            }
+        });
+    }
+
+    private void CancelAutoPause() => Interlocked.Exchange(ref _autoPause, null)?.Cancel();
+
+    private async Task SyncSubscriptionsAsync(CancellationToken cancellationToken)
+    {
+        await _subscriptionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await SyncSubscriptionsCoreAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _subscriptionGate.Release();
+        }
+    }
+
+    /// <summary>Subscribes to the topic filter, or while discovery is paused only to the monitored topics.</summary>
+    private async Task SyncSubscriptionsCoreAsync(CancellationToken cancellationToken)
+    {
+        if (_client is not { IsConnected: true } client || _endpoint is not { } endpoint)
+        {
+            return;
+        }
+
+        HashSet<string> wanted;
+        if (_discoveryPaused)
+        {
+            lock (_lock)
+            {
+                wanted = [.. _subscribers.Keys.SelectMany(FiltersFor)];
+            }
+        }
+        else
+        {
+            wanted = [endpoint.TopicFilter];
+        }
+
+        // Subscribe before unsubscribing, so values of topics in both sets never stop.
+        var added = wanted.Where(f => !_activeFilters.Contains(f)).ToList();
+        if (added.Count > 0)
+        {
+            var subscribe = new MqttClientSubscribeOptionsBuilder();
+            foreach (var filter in added)
+            {
+                subscribe = subscribe.WithTopicFilter(f => f.WithTopic(filter).WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtMostOnce));
+            }
+
+            await client.SubscribeAsync(subscribe.Build(), cancellationToken).ConfigureAwait(false);
+            _activeFilters.UnionWith(added);
+        }
+
+        var removed = _activeFilters.Where(f => !wanted.Contains(f)).ToList();
+        if (removed.Count > 0)
+        {
+            var unsubscribe = new MqttClientUnsubscribeOptionsBuilder();
+            foreach (var filter in removed)
+            {
+                unsubscribe = unsubscribe.WithTopicFilter(filter);
+            }
+
+            await client.UnsubscribeAsync(unsubscribe.Build(), cancellationToken).ConfigureAwait(false);
+            _activeFilters.ExceptWith(removed);
+        }
+    }
+
+    /// <summary>
+    /// The topics a monitored node's values arrive on: its topic (JSON fields too), and for Sparkplug metrics every
+    /// message of the edge node (births, deaths) and of the device.
+    /// </summary>
+    internal static IEnumerable<string> FiltersFor(string id)
+    {
+        if (id.StartsWith("t:", StringComparison.Ordinal))
+        {
+            var rest = id[2..];
+            var hash = rest.IndexOf('#', StringComparison.Ordinal);
+            yield return hash < 0 ? rest : rest[..hash];
+        }
+        else if (id.StartsWith("m:", StringComparison.Ordinal) && id[2..].Split('|') is [var group, var edge, var device, ..])
+        {
+            yield return $"{SparkplugB.Namespace}/{group}/+/{edge}";
+            if (device.Length > 0)
+            {
+                yield return $"{SparkplugB.Namespace}/{group}/+/{edge}/{device}";
+            }
+        }
     }
 
     private Task OnMessageAsync(MqttApplicationMessageReceivedEventArgs e)
@@ -517,6 +692,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
 
     private async Task CloseCoreAsync()
     {
+        CancelAutoPause();
         var reconnect = Interlocked.Exchange(ref _reconnect, null);
         if (reconnect is not null)
         {
@@ -552,7 +728,21 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
         _endpoint = null;
         _connectResult = null;
         _connectedAt = null;
+        _discoveryPaused = false;
         State = ConnectionState.Disconnected;
+    }
+
+    /// <summary>While paused, stop receiving a topic nobody monitors any more; a failure only costs some traffic.</summary>
+    private async ValueTask UnsubscribeUnusedAsync()
+    {
+        try
+        {
+            await SyncSubscriptionsAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (Errors.IsRecoverable(ex))
+        {
+            System.Diagnostics.Trace.TraceWarning($"MQTT unsubscribe failed: {ex.Message}");
+        }
     }
 
     private void Remove(Subscriber subscriber)
@@ -633,7 +823,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
             }
 
             Owner.Remove(this);
-            return ValueTask.CompletedTask;
+            return Owner.IsDiscoveryPaused ? Owner.UnsubscribeUnusedAsync() : ValueTask.CompletedTask;
         }
 
         private void Flush()

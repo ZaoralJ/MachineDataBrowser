@@ -175,6 +175,70 @@ public sealed class MqttClientTests(MqttSimulatorFixture broker) : IAsyncLifetim
     }
 
     [Fact]
+    public async Task Paused_discovery_receives_only_monitored_topics_until_resumed()
+    {
+        var json = new ConcurrentQueue<ValueUpdate>();
+        var metric = new ConcurrentQueue<ValueUpdate>();
+        await using var jsonMonitor = await _client.MonitorAsync(Id("t:machines/m1/status#/speed"), json.Enqueue, 0, Ct);
+        await using var metricMonitor = await _client.MonitorAsync(Id("m:Plant1|Edge1|Press1|Temperature"), metric.Enqueue, 0, Ct);
+
+        await _client.SetDiscoveryPausedAsync(true, Ct);
+        Assert.True(_client.IsDiscoveryPaused);
+        var counter = await ReadAsync("t:fast/10ms/counter");
+        var (jsonBefore, metricBefore) = (json.Count, metric.Count);
+        await Task.Delay(TimeSpan.FromSeconds(1), Ct);
+
+        // The 10 ms topic isn't monitored: it stands still. JSON (200 ms) and Sparkplug (50 ms) keep flowing.
+        Assert.Equal(counter, await ReadAsync("t:fast/10ms/counter"));
+        Assert.True(json.Count > jsonBefore, "monitored JSON field stopped");
+        Assert.True(metric.Count > metricBefore, "monitored Sparkplug metric stopped");
+
+        await _client.SetDiscoveryPausedAsync(false, Ct);
+        await Until(async () => !Equals(counter, await ReadAsync("t:fast/10ms/counter")));
+    }
+
+    [Fact]
+    public async Task Discovery_pauses_automatically_after_the_configured_time()
+    {
+        await using var client = new MqttDeviceClient();
+        var changed = 0;
+        client.DiscoveryPausedChanged += (_, _) => Interlocked.Increment(ref changed);
+        await client.ConnectAsync(new ConnectOptions { EndpointUrl = broker.EndpointUrl, AutoPauseDiscoverySeconds = 2 }, Ct);
+        var monitored = new ConcurrentQueue<ValueUpdate>();
+        await using var monitor = await client.MonitorAsync(Id("t:machines/m1/status#/speed"), monitored.Enqueue, 0, Ct);
+
+        Assert.False(client.IsDiscoveryPaused);
+        Assert.Matches(@"^on · pauses in [12] s$", Row(await client.GetDiagnosticsAsync(Ct), "Discovery"));
+        var started = DateTime.UtcNow;
+        await Until(() => Task.FromResult(Volatile.Read(ref changed) == 1));
+        Assert.True(client.IsDiscoveryPaused);
+        Assert.True(DateTime.UtcNow - started > TimeSpan.FromSeconds(1), "paused too early");
+        Assert.StartsWith("paused · 1 topic subscriptions", Row(await client.GetDiagnosticsAsync(Ct), "Discovery"), StringComparison.Ordinal);
+
+        var counter = (await client.ReadValuesAsync([Id("t:fast/10ms/counter")], Ct))[0];
+        var before = monitored.Count;
+        await Task.Delay(TimeSpan.FromMilliseconds(600), Ct);
+        Assert.Equal(counter, (await client.ReadValuesAsync([Id("t:fast/10ms/counter")], Ct))[0]);
+        Assert.True(monitored.Count > before, "monitored topic stopped");
+    }
+
+    [Fact]
+    public async Task Choosing_by_hand_cancels_the_pending_automatic_pause()
+    {
+        await using var client = new MqttDeviceClient();
+        await client.ConnectAsync(new ConnectOptions { EndpointUrl = broker.EndpointUrl, AutoPauseDiscoverySeconds = 1 }, Ct);
+        await client.SetDiscoveryPausedAsync(true, Ct);
+        await client.SetDiscoveryPausedAsync(false, Ct);
+
+        await Task.Delay(TimeSpan.FromSeconds(2), Ct);
+
+        Assert.False(client.IsDiscoveryPaused);
+        Assert.Equal("on · receiving the whole topic filter", Row(await client.GetDiagnosticsAsync(Ct), "Discovery"));
+    }
+
+    private static string Row(ConnectionDiagnostics diagnostics, string name) => diagnostics.Session.Single(r => r.Name == name).Value;
+
+    [Fact]
     public async Task Device_death_turns_its_metrics_bad_and_rebirth_recovers()
     {
         var updates = new ConcurrentQueue<ValueUpdate>();

@@ -29,6 +29,9 @@ public sealed record SessionDocument
 
     public int? DefaultRefreshMs { get; init; }
 
+    /// <summary>MQTT: pause discovery this many seconds after connecting; missing or 0 = never.</summary>
+    public int? AutoPauseDiscoverySeconds { get; init; }
+
     public IReadOnlyList<WatchEntry> Watch { get; init; } = [];
 
     public IReadOnlyList<ViewModels.Bookmark> Bookmarks { get; init; } = [];

@@ -90,6 +90,7 @@ public sealed partial class MainWindowViewModel
         AutoAcceptCertificates = false;
         UserName = string.Empty;
         DefaultRefreshMs = DefaultRefreshFor(EndpointUrl);
+        AutoPauseDiscoverySeconds = 0;
         GroupWatchByPath = false;
         WatchColumns.Reset();
         Password = string.Empty;
@@ -158,6 +159,7 @@ public sealed partial class MainWindowViewModel
         AutoAcceptCertificates = document.AutoAcceptCertificates;
         UserName = document.UserName ?? string.Empty;
         DefaultRefreshMs = document.DefaultRefreshMs ?? DefaultRefreshFor(document.EndpointUrl);
+        AutoPauseDiscoverySeconds = document.AutoPauseDiscoverySeconds ?? 0;
         WatchColumns.SetSort(document.WatchSortColumn, document.WatchSortDescending);
         WatchColumns.Apply(document.WatchColumns);
         GroupWatchByPath = document.GroupWatchByPath;
@@ -263,6 +265,7 @@ public sealed partial class MainWindowViewModel
             AutoAcceptCertificates = AutoAcceptCertificates,
             UserName = string.IsNullOrWhiteSpace(UserName) ? null : UserName,
             DefaultRefreshMs = DefaultRefreshMs,
+            AutoPauseDiscoverySeconds = AutoPauseDiscoverySeconds > 0 ? AutoPauseDiscoverySeconds : null,
             WatchColumns = WatchColumns.Capture(),
             WatchSortColumn = WatchColumns.SortColumn,
             WatchSortDescending = WatchColumns.SortDescending,

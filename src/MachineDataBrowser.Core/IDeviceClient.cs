@@ -87,6 +87,20 @@ public interface IDynamicAddressSpace
     event EventHandler? AddressSpaceChanged;
 }
 
+/// <summary>
+/// Clients that discover their address space from a stream of messages (MQTT subscribes to the whole topic filter).
+/// Paused, only what is monitored is received: the tree stops growing, but a busy broker no longer floods the client.
+/// </summary>
+public interface IPausableDiscovery
+{
+    bool IsDiscoveryPaused { get; }
+
+    /// <summary>Raised (on any thread) when discovery is paused or resumed, also by <see cref="ConnectOptions.AutoPauseDiscoverySeconds"/>.</summary>
+    event EventHandler? DiscoveryPausedChanged;
+
+    Task SetDiscoveryPausedAsync(bool paused, CancellationToken cancellationToken = default);
+}
+
 public static class DeviceClient
 {
     /// <summary>URL scheme of EtherNet/IP (Logix) endpoints: <c>eip://host[:port][/path]</c>, path defaults to <c>1,0</c>.</summary>
