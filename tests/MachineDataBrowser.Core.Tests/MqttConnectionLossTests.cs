@@ -21,7 +21,7 @@ public sealed class MqttConnectionLossTests
             .WithCleanUp(false)
             .Build();
         await image.CreateAsync(ct);
-        var port = 20000 + Random.Shared.Next(10000); // fixed host port, so the restarted broker is at the same address
+        var port = FreePort(); // fixed host port, so the restarted broker is at the same address
         await using var container = new ContainerBuilder(image)
             .WithPortBinding(port, 1883)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("MQTT simulator ready"))
@@ -53,5 +53,12 @@ public sealed class MqttConnectionLossTests
             Assert.True(DateTime.UtcNow < deadline, "timeout");
             await Task.Delay(100, ct);
         }
+    }
+
+    private static int FreePort()
+    {
+        using var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        return ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
     }
 }
