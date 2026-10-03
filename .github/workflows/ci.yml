@@ -45,3 +45,7 @@ jobs:
         run: dotnet build -c Release
       - name: Package app bundle
         run: packaging/macos/package.sh 0.0.0-ci arm64
+      - name: Package CLI
+        run: |
+          packaging/cli/package.sh 0.0.0-ci osx-arm64
+          artifacts/publish/cli-osx-arm64/mdbrowser --version

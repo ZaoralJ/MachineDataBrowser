@@ -54,6 +54,8 @@ jobs:
           global-json-file: global.json
       - name: Package
         run: packaging/macos/package.sh "${TAG#v}" arm64 x64
+      - name: Package CLI
+        run: packaging/cli/package.sh "${TAG#v}" osx-arm64 osx-x64 linux-x64 linux-arm64
       - name: Generate cask
         run: |
           v="${TAG#v}"
@@ -63,6 +65,18 @@ jobs:
               -e "s/REPLACE_WITH_ARM64_SHA256/$arm/" \
               -e "s/REPLACE_WITH_X64_SHA256/$x64/" \
               packaging/homebrew/machine-data-browser.rb > artifacts/dist/machine-data-browser.rb
+      - name: Generate CLI formula
+        run: |
+          v="${TAG#v}"
+          sum() { grep "mdbrowser-$v-$1.tar.gz" artifacts/dist/checksums.txt | cut -d' ' -f1; }
+          sed -e "s/version \".*\"/version \"$v\"/" \
+              -e "s/REPLACE_WITH_OSX_ARM64_SHA256/$(sum osx-arm64)/" \
+              -e "s/REPLACE_WITH_OSX_X64_SHA256/$(sum osx-x64)/" \
+              -e "s/REPLACE_WITH_LINUX_ARM64_SHA256/$(sum linux-arm64)/" \
+              -e "s/REPLACE_WITH_LINUX_X64_SHA256/$(sum linux-x64)/" \
+              -e "/^# Template:/d" \
+              packaging/homebrew/mdbrowser.rb > artifacts/dist/mdbrowser.rb
+          if grep -q REPLACE_WITH artifacts/dist/mdbrowser.rb; then echo "Missing CLI checksum"; exit 1; fi
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
@@ -71,7 +85,9 @@ jobs:
           prerelease: ${{ contains(env.TAG, '-') }}
           files: |
             artifacts/dist/*.zip
+            artifacts/dist/*.tar.gz
             artifacts/dist/machine-data-browser.rb
+            artifacts/dist/mdbrowser.rb
             artifacts/dist/checksums.txt
       - name: Update Homebrew tap
         if: ${{ !contains(env.TAG, '-') }}
@@ -82,7 +98,9 @@ jobs:
           mkdir -p ~/.ssh && echo "$TAP_DEPLOY_KEY" > ~/.ssh/tap && chmod 600 ~/.ssh/tap
           export GIT_SSH_COMMAND="ssh -i ~/.ssh/tap -o StrictHostKeyChecking=accept-new"
           git clone -q git@github.com:ZaoralJ/homebrew-tap.git tap
-          mkdir -p tap/Casks && cp artifacts/dist/machine-data-browser.rb tap/Casks/machine-data-browser.rb
+          mkdir -p tap/Casks tap/Formula
+          cp artifacts/dist/machine-data-browser.rb tap/Casks/machine-data-browser.rb
+          cp artifacts/dist/mdbrowser.rb tap/Formula/mdbrowser.rb
           cd tap
           # The cask was renamed from opcua-browser: Homebrew moves installed users over on their next upgrade.
           git rm -q --ignore-unmatch Casks/opcua-browser.rb
@@ -90,5 +108,5 @@ jobs:
           jq '. + {"opcua-browser": "machine-data-browser"}' cask_renames.json > cask_renames.tmp && mv cask_renames.tmp cask_renames.json
           git config user.name "Jaroslav Zaoral"
           git config user.email "zaoralj@gmail.com"
-          git add Casks/machine-data-browser.rb cask_renames.json
-          git diff --cached --quiet || { git commit -q -m "machine-data-browser ${TAG#v}"; git push -q; }
+          git add Casks/machine-data-browser.rb Formula/mdbrowser.rb cask_renames.json
+          git diff --cached --quiet || { git commit -q -m "machine-data-browser, mdbrowser ${TAG#v}"; git push -q; }

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Testcontainers" />
+    <PackageReference Include="Spectre.Console.Testing" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MachineDataBrowser.Cli\MachineDataBrowser.Cli.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\MachineDataBrowser.Core.Tests\OpcPlcFixture.cs" Link="OpcPlcFixture.cs" />
+    <Compile Include="..\MachineDataBrowser.Core.Tests\MqttSimulatorFixture.cs" Link="MqttSimulatorFixture.cs" />
+  </ItemGroup>
+</Project>

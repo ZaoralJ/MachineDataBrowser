@@ -47,8 +47,10 @@ flowchart LR
 |---|---|
 | `src/MachineDataBrowser.Core` | Protocol clients, recordings, value formatting/JSON/C# export. No UI dependencies. |
 | `src/MachineDataBrowser.App` | Avalonia 12 desktop app (MVVM with CommunityToolkit.Mvvm, docking with Dock.Avalonia). |
+| `src/MachineDataBrowser.Cli` | `mdbrowser` command line ([cli.md](cli.md)): System.CommandLine parsing, Spectre.Console output in a terminal. References Core only. |
 | `tests/MachineDataBrowser.Core.Tests` | Integration tests against containers (opc-plc and the `simulators/` images, via Testcontainers) plus unit tests. |
 | `tests/MachineDataBrowser.App.Tests` | Headless Avalonia UI tests with real rendering (screenshots) against the same containers. |
+| `tests/MachineDataBrowser.Cli.Tests` | The CLI's commands end to end against opc-plc and the MQTT simulator, plain and terminal output. |
 | `simulators/` | Test servers for development and tests: Logix, opc-plc, OPC UA custom types, MQTT. See [simulators.md](simulators.md). |
 
 The target is .NET 10. Package versions are pinned in `Directory.Packages.props`. Warnings are errors and the
