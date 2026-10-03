@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.18.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.17.0...v0.18.0) (2026-10-03)
+
+
+### Features
+
+* **cli:** MCP context tools: attributes, history, alarms, events, diagnostics ([#87](https://github.com/ZaoralJ/MachineDataBrowser/issues/87)) ([f5a9e16](https://github.com/ZaoralJ/MachineDataBrowser/commit/f5a9e16484c60a56cac4233ce1ef1eca0a60c2b9))
+* **cli:** MCP wait_for, background recordings and endpoint patterns ([#88](https://github.com/ZaoralJ/MachineDataBrowser/issues/88)) ([32760e5](https://github.com/ZaoralJ/MachineDataBrowser/commit/32760e5a584f20ac2db619c1d5e53780fbd2bb11))
+* **cli:** MCP write and call_method behind --allow-writes, confirmed by the user ([#90](https://github.com/ZaoralJ/MachineDataBrowser/issues/90)) ([8007fab](https://github.com/ZaoralJ/MachineDataBrowser/commit/8007fabb779ab400d64ea9343c0d04c471845f1d))
+
+
+### Fixes
+
+* **core:** history from servers without continuation points (asyncua) stopped after the first page of 1000; it now pages on by time, skips the value repeated at the page boundary, and stops if a page adds nothing. Also affects the app's Show history. ([8007fab](https://github.com/ZaoralJ/MachineDataBrowser/commit/8007fabb779ab400d64ea9343c0d04c471845f1d))
+* **core:** history from servers without continuation points (asyncua) stopped after the first page of 1000; it now pages on by time, skips the value repeated at the page boundary, and stops if a page adds nothing. Also affects the app's Show history. ([32760e5](https://github.com/ZaoralJ/MachineDataBrowser/commit/32760e5a584f20ac2db619c1d5e53780fbd2bb11))
+* **core:** history from servers without continuation points (asyncua) stopped after the first page of 1000; it now pages on by time, skips the value repeated at the page boundary, and stops if a page adds nothing. Also affects the app's Show history. ([f5a9e16](https://github.com/ZaoralJ/MachineDataBrowser/commit/f5a9e16484c60a56cac4233ce1ef1eca0a60c2b9))
+
 ## [0.17.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.16.1...v0.17.0) (2026-10-03)
 
 
