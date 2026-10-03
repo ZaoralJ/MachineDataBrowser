@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.11.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.10.0...v0.11.0) (2026-10-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **app:** group by path as a toolbar icon, drop Problems only ([#46](https://github.com/ZaoralJ/MachineDataBrowser/issues/46))
+
+### Features
+
+* **app:** group by path as a toolbar icon, drop Problems only ([#46](https://github.com/ZaoralJ/MachineDataBrowser/issues/46)) ([4cdb20d](https://github.com/ZaoralJ/MachineDataBrowser/commit/4cdb20d7dfd07e3e1f6fcd626f12e79075a69f7f))
+
+
+### Fixes
+
+* **app:** pane drags no longer flood the error bar ([#47](https://github.com/ZaoralJ/MachineDataBrowser/issues/47)) ([b3095e6](https://github.com/ZaoralJ/MachineDataBrowser/commit/b3095e6a2dc197ad3e0cc9033cc6eff7cd05a9ce))
+
 ## [0.10.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.9.0...v0.10.0) (2026-10-02)
 
 
