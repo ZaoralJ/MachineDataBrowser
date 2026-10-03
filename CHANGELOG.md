@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.15.0...v0.16.0) (2026-10-03)
+
+
+### Features
+
+* **cli:** save sessions with monitor --save and session create/add ([#77](https://github.com/ZaoralJ/MachineDataBrowser/issues/77)) ([6208908](https://github.com/ZaoralJ/MachineDataBrowser/commit/6208908491319169128ccca65eb0f76ab9a48263))
+
 ## [0.15.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.14.0...v0.15.0) (2026-10-03)
 
 
