@@ -202,7 +202,7 @@ internal sealed class MachineDataTools(EndpointPool pool)
         }
         catch (ServiceResultException ex)
         {
-            throw new McpException($"{ex.Result.StatusCode.SymbolicId ?? ex.StatusCode.ToString(CultureInfo.InvariantCulture)}: {ex.Message}");
+            throw new McpException($"{StatusText.Of(ex.Result.StatusCode)}: {ex.Message}");
         }
         catch (Exception ex) when (ex is IOException or TimeoutException or InvalidOperationException or System.Net.Sockets.SocketException)
         {

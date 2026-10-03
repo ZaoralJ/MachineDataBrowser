@@ -90,7 +90,7 @@ internal static class Output
     public static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
 
     public static string Status(StatusCode status) =>
-        status.SymbolicId ?? (StatusCodes.GetBrowseName(status.Code) is { Length: > 0 } name ? name : status.ToString());
+        StatusText.Of(status);
 
     public static string Csv(string text) =>
         text.IndexOfAny([',', '"', '\n', '\r']) < 0 ? text : $"\"{text.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";

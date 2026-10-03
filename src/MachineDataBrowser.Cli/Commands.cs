@@ -452,7 +452,7 @@ internal static class Commands
     private static string Describe(Exception ex) => ex switch
     {
         CliException => ex.Message,
-        ServiceResultException sre => $"{sre.Result.StatusCode.SymbolicId ?? sre.StatusCode.ToString(CultureInfo.InvariantCulture)}: {sre.Message}",
+        ServiceResultException sre => $"{StatusText.Of(sre.Result.StatusCode)}: {sre.Message}",
         AggregateException { InnerExceptions.Count: 1 } a => Describe(a.InnerExceptions[0]),
         IOException or TimeoutException or InvalidOperationException or FormatException or NotSupportedException
             or System.Net.Sockets.SocketException => ex.Message,

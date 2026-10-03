@@ -66,7 +66,7 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
 
                 return [.. samples.Select(p => new HistoryRow(
                     p.Sample.ReceivedAt, p.Item.DisplayName, p.Item.PortableId, p.Sample.Value,
-                    p.Sample.Status.SymbolicId ?? p.Sample.Status.ToString(),
+                    Core.StatusText.Of(p.Sample.Status),
                     p.Sample.SourceTimestamp == DateTime.MinValue ? string.Empty : p.Sample.SourceTimestamp.ToString("O", CultureInfo.InvariantCulture),
                     p.Sample.Numeric))];
             },

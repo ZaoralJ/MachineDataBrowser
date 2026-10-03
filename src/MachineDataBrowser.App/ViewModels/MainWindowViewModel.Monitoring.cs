@@ -66,7 +66,7 @@ public sealed partial class MainWindowViewModel
                 }
                 else
                 {
-                    failures.Add($"{items[i].DisplayName}: {results[i].StatusCode.SymbolicId ?? results[i].ToString()}");
+                    failures.Add($"{items[i].DisplayName}: {StatusText.Of(results[i].StatusCode)}");
                 }
             }
 

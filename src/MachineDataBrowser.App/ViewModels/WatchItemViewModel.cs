@@ -147,7 +147,7 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
         LastUpdateText = Timestamps.Format(receivedAt);
         RefreshAge(receivedAt);
         Value = update.Value;
-        Status = update.Status.SymbolicId ?? update.Status.ToString();
+        Status = StatusText.Of(update.Status);
         IsBad = StatusCode.IsBad(update.Status);
         IsUncertain = StatusCode.IsUncertain(update.Status);
         SourceTimestamp = update.SourceTimestamp == DateTime.MinValue

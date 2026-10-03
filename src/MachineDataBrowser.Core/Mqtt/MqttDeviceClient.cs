@@ -270,6 +270,12 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace
             builder = builder.WithTlsOptions(tls =>
             {
                 tls.UseTls();
+
+                // MQTTnet checks revocation online, which fails for valid certificates whose CA publishes no OCSP
+                // (Let's Encrypt, since 2025). Chain, expiry and host name are still verified, as browsers and
+                // WebSocket TLS (SslStream defaults) do.
+                tls.WithTargetHost(endpoint.Host);
+                tls.WithIgnoreCertificateRevocationErrors();
                 if (options.AutoAcceptUntrustedCertificates)
                 {
                     tls.WithCertificateValidationHandler(_ => true);

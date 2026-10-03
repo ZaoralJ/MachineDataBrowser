@@ -100,7 +100,7 @@ public sealed partial class MainWindowViewModel
         // History is about when the value was valid: the source timestamp, else the server's.
         var time = value.SourceTimestamp != DateTime.MinValue ? value.SourceTimestamp : value.ServerTimestamp;
         var stamp = new DateTimeOffset(DateTime.SpecifyKind(time, DateTimeKind.Utc));
-        return new HistoryRow(stamp, name, id, value.Value, value.Status.SymbolicId ?? value.Status.ToString(),
+        return new HistoryRow(stamp, name, id, value.Value, StatusText.Of(value.Status),
             stamp.ToString("O", CultureInfo.InvariantCulture), value.Numeric);
     }
 
