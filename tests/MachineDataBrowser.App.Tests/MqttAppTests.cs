@@ -26,13 +26,11 @@ public sealed class MqttAppTests(MqttSimulatorFixture broker)
 
         await vm.ConnectCommand.ExecuteAsync(null);
         Assert.True(vm.IsConnected);
-        var root = vm.RootNodes[0];
-        var topics = await Find(root, "Topics");
-        var speed = await Find(await Find(await Find(await Find(topics, "machines"), "m1"), "status"), "speed");
+        var speed = await Find(vm, "Topics", "machines", "m1", "status", "speed");
         vm.SelectedNode = speed;
         await vm.AddToWatchCommand.ExecuteAsync(null);
 
-        var metric = await Find(await Find(await Find(await Find(await Find(root, "Sparkplug B"), "Plant1"), "Edge1"), "Press1"), "Temperature");
+        var metric = await Find(vm, "Sparkplug B", "Plant1", "Edge1", "Press1", "Temperature");
         vm.SelectedNode = metric;
         await vm.AddToWatchCommand.ExecuteAsync(null);
 
@@ -53,11 +51,30 @@ public sealed class MqttAppTests(MqttSimulatorFixture broker)
         window.Close();
     }
 
-    private static async Task<NodeViewModel> Find(NodeViewModel parent, string name)
+    /// <summary>
+    /// Walks the path from the root on every check: the live MQTT tree is refreshed every second and may replace a
+    /// node, so holding on to one found earlier can wait forever for children that appear under its replacement.
+    /// </summary>
+    private static async Task<NodeViewModel> Find(MainWindowViewModel vm, params string[] path)
     {
-        parent.IsExpanded = true;
         NodeViewModel? found = null;
-        await Until(() => (found = parent.Children.FirstOrDefault(c => c.DisplayName == name)) is not null, 20);
+        await Until(() =>
+        {
+            var node = vm.RootNodes[0];
+            foreach (var name in path)
+            {
+                node.IsExpanded = true;
+                if (node.Children.FirstOrDefault(c => c.DisplayName == name) is not { } child)
+                {
+                    return false;
+                }
+
+                node = child;
+            }
+
+            found = node;
+            return true;
+        }, 30);
         return found!;
     }
 
