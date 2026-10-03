@@ -1,0 +1,3 @@
+# Build helper run on a Mac (generate-icons.sh), not app code: keep it out of language detection,
+# so CodeQL default setup does not try to analyse Swift.
+scripts/generate-icon.swift linguist-detectable=false
