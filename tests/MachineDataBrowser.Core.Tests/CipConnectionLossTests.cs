@@ -15,7 +15,7 @@ public sealed class CipConnectionLossTests
         var ct = TestContext.Current.CancellationToken;
         var image = new ImageFromDockerfileBuilder()
             .WithDockerfileDirectory(CommonDirectoryPath.GetGitDirectory(), "simulators/cip")
-            .WithName("machinedatabrowser-cip-simulator:test")
+            .WithName("machinedatabrowser-cip-simulator:test-connection-loss")
             .WithDeleteIfExists(false)
             .WithCleanUp(false)
             .Build();

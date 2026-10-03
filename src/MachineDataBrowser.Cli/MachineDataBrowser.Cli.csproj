@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>mdbrowser</AssemblyName>
+    <RootNamespace>MachineDataBrowser.Cli</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+    <PackageReference Include="Spectre.Console" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MachineDataBrowser.Core\MachineDataBrowser.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="MachineDataBrowser.Cli.Tests" />
+  </ItemGroup>
+</Project>

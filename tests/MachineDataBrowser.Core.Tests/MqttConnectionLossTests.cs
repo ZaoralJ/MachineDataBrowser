@@ -16,7 +16,7 @@ public sealed class MqttConnectionLossTests
         var ct = TestContext.Current.CancellationToken;
         var image = new ImageFromDockerfileBuilder()
             .WithDockerfileDirectory(CommonDirectoryPath.GetGitDirectory(), "simulators/mqtt")
-            .WithName("machinedatabrowser-mqtt-simulator:test")
+            .WithName("machinedatabrowser-mqtt-simulator:test-connection-loss")
             .WithDeleteIfExists(false)
             .WithCleanUp(false)
             .Build();

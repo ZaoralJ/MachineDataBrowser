@@ -11,6 +11,7 @@ use_directory_urls: false
 nav:
   - Home: index.md
   - User manual: user-manual.md
+  - Command line: cli.md
   - Test servers: simulators.md
   - Contributors:
       - Architecture: architecture.md

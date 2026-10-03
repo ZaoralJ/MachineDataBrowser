@@ -84,8 +84,25 @@ is an explicit command; every pane can always be restored from *View ▸ Panes*.
 No .NET installation required on the target Mac. Not notarized (needs an Apple Developer ID), so the first launch
 may need `xattr -dr com.apple.quarantine "/Applications/Machine Data Browser.app"` or *Open Anyway*.
 
+## Command line: `mdbrowser`
+
+- A separate project (`MachineDataBrowser.Cli`) on top of Core only, so the protocols, ids and value formatting are the
+  app's: `endpoints`, `browse`, `read`, `monitor`, and `run` for a session saved in the app (the session file is read
+  with its own small model, ignoring unknown fields, so the CLI doesn't depend on the App).
+- Named `mdbrowser`, not `mdb`: short names clash with other tools (e.g. `mdbtools`) on `PATH` and in Homebrew.
+- Parsing with **System.CommandLine** 2 (Microsoft, stable, generated help, no reflection). Output with
+  **Spectre.Console** (tables, a tree, a live watch table) only when stdout is a terminal and the format is text;
+  pipes, files, `--format json` and `csv` stay plain, so scripts see stable output. Spectre.Console.Cli (reflection
+  based) and ConsoleAppFramework were considered; parsing wasn't where they add value.
+- Shares the app's data folder: the same trusted certificates and OPC UA client identity, so servers that trust the
+  app trust the CLI.
+- Shipped as a self-contained single file per OS/architecture (macOS and Linux, arm64 and x64; libplctag's native
+  library is bundled and extracted on first run), not native AOT: the OPC UA SDK relies on reflection. Distributed as
+  a Homebrew **formula** (`Formula/mdbrowser.rb`) in the same tap as the app's cask; formulae also install on Linux.
+
 ## Deferred
 
-- CLI (`MachineDataBrowser.Cli` sharing Core) – planned commands `endpoints`, `browse`, `read`, `monitor`, `record`.
 - Windows/Linux packages – the app builds for `win-x64`, but no release artifacts yet.
 - Notarization.
+- CLI follow-ups: `write`/`call`, `history`/`events`, `check`/`wait` for scripts, a Prometheus or MQTT bridge, an MCP
+  server for AI agents.
