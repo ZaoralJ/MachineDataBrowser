@@ -81,3 +81,7 @@ test-sim:
 docs-screenshots:
     MDB_DOCS_SCREENSHOTS=1 dotnet test tests/MachineDataBrowser.App.Tests -- --filter-class "*DocsScreenshotTests"
     PATH="/opt/homebrew/bin:/usr/local/bin:$PATH" pngquant --force --skip-if-larger --quality=80-95 --strip --ext .png docs/images/*.png
+
+# Preview the documentation site at http://127.0.0.1:8000 (needs uv)
+docs-serve:
+    uv run --with-requirements .github/mkdocs-requirements.txt mkdocs serve

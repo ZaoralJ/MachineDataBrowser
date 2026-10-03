@@ -1,0 +1,60 @@
+site_name: Machine Data Browser
+site_description: Cross-platform viewer for machine data over OPC UA, EtherNet/IP and MQTT
+site_url: https://zaoralj.github.io/MachineDataBrowser/
+repo_url: https://github.com/ZaoralJ/MachineDataBrowser
+repo_name: ZaoralJ/MachineDataBrowser
+edit_uri: edit/main/docs/
+docs_dir: docs
+# Pages as user-manual.html next to images/, so raw <img src="images/..."> (side-by-side screenshots) resolve too.
+use_directory_urls: false
+
+nav:
+  - Home: index.md
+  - User manual: user-manual.md
+  - Test servers: simulators.md
+  - Contributors:
+      - Architecture: architecture.md
+      - Design decisions: decisions.md
+
+theme:
+  name: material
+  # The screenshots are dark, so the site starts dark; the toggle switches to light.
+  palette:
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - toc.follow
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+plugins:
+  - search
