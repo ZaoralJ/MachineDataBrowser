@@ -67,7 +67,9 @@ internal static class NodeQueries
 
             foreach (var (item, path) in found.Where(f => seen.Add(f.Item.NodeId)))
             {
-                result.Add(new Node(item.NodeId, path.Length == 0 ? item.DisplayName : $"{path}/{item.DisplayName}", client.ToDisplayId(item.NodeId)));
+                var rootPath = root.ParentPath is null ? null : Join(root.ParentPath, root.DisplayName ?? root.Name);
+                result.Add(new Node(item.NodeId, path.Length == 0 ? item.DisplayName : $"{path}/{item.DisplayName}", client.ToDisplayId(item.NodeId),
+                    item.DisplayName, rootPath is null ? null : Join(rootPath, path)));
             }
         }
 
@@ -96,4 +98,7 @@ internal static class NodeQueries
             }
         }
     }
+
+    private static string Join(string parent, string child) =>
+        parent.Length == 0 ? child : child.Length == 0 ? parent : $"{parent}/{child}";
 }

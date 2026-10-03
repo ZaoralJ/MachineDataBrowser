@@ -8,8 +8,11 @@ internal sealed class CliException(string message) : Exception(message);
 
 internal sealed record ConnectionArgs(string Url, string? User, string? Password, bool Secure, bool TrustAll);
 
-/// <summary>A resolved node: its id and the name to show for it.</summary>
-internal sealed record Node(NodeId Id, string Name, string DisplayId);
+/// <summary>
+/// A resolved node: its id and the name to show for it. <paramref name="DisplayName"/> and <paramref name="ParentPath"/>
+/// (display names from the root, without a leading '/') are set when known, for session files.
+/// </summary>
+internal sealed record Node(NodeId Id, string Name, string DisplayId, string? DisplayName = null, string? ParentPath = null);
 
 internal static class Connection
 {
@@ -102,13 +105,19 @@ internal static class Connection
         }
 
         var item = client.Root;
+        var parents = new List<string>();
         foreach (var name in text.Split('/', StringSplitOptions.RemoveEmptyEntries))
         {
+            if (item != client.Root)
+            {
+                parents.Add(item.DisplayName);
+            }
+
             item = await FindChildAsync(client, item, name, cancellationToken).ConfigureAwait(false)
                 ?? throw new CliException($"'{name}' not found under '{item.DisplayName}' (path {text}).");
         }
 
-        return new Node(item.NodeId, item.DisplayName, client.ToDisplayId(item.NodeId));
+        return new Node(item.NodeId, item.DisplayName, client.ToDisplayId(item.NodeId), item.DisplayName, string.Join('/', parents));
     }
 
     private static async Task<BrowseItem?> FindChildAsync(IDeviceClient client, BrowseItem parent, string name, CancellationToken cancellationToken)

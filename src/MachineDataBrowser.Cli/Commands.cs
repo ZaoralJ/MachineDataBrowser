@@ -163,10 +163,12 @@ internal static class Commands
         }));
 
         // monitor
+        var save = new Option<string?>("--save") { Description = "Also save the monitored items as an app session file (.mdbsession)" };
+        var force = new Option<bool>("--force") { Description = "Replace an existing session file" };
         var monitor = WithConnection(new Command("monitor", "Stream live values until Ctrl+C, --duration or --count"));
         monitor.Arguments.Add(nodes);
         AddRecursiveOptions(monitor);
-        foreach (var option in new Option[] { refresh, duration, count })
+        foreach (var option in new Option[] { refresh, duration, count, save, force })
         {
             monitor.Options.Add(option);
         }
@@ -177,6 +179,12 @@ internal static class Commands
             await using var client = await Cli.Connection.ConnectAsync(target, ct).ConfigureAwait(false);
             var resolved = await NodesAsync(client, r, ct).ConfigureAwait(false);
             var interval = r.GetValue(refresh) ?? (DeviceClient.IsMqtt(target.Url) ? 0 : 250);
+            if (r.GetValue(save) is { } sessionFile)
+            {
+                var saved = await SessionWriter.CreateAsync(sessionFile, target, interval, client, [.. resolved.Select(n => new SessionWriter.Item(n, null))], r.GetValue(force), ct).ConfigureAwait(false);
+                await stderr.WriteLineAsync($"mdbrowser: saved {saved.Total} watch item(s) to {sessionFile}.").ConfigureAwait(false);
+            }
+
             await using var sink = Sink(r, resolved);
             return await StreamAsync(client, [.. resolved.Select(n => (n, interval))], sink, stderr, r.GetValue(duration), r.GetValue(count), ct).ConfigureAwait(false);
         }));
@@ -325,9 +333,58 @@ internal static class Commands
             return errors.Any(e => e is not null) ? 1 : 0;
         }));
 
+        // session create / add
+        var sessionFile = new Argument<string>("file") { Description = "Session file (.mdbsession), opened by the app and by run" };
+        var create = WithConnection(new Command("create", "Create a session file with these nodes as its watch list"));
+        create.Arguments.Insert(0, sessionFile);
+        create.Arguments.Add(nodes);
+        AddRecursiveOptions(create);
+        create.Options.Add(refresh);
+        create.Options.Add(force);
+        create.SetAction((r, ct) => Guard(stderr, async () =>
+        {
+            var target = Connection(r);
+            await using var client = await Cli.Connection.ConnectAsync(target, ct).ConfigureAwait(false);
+            var resolved = await NodesAsync(client, r, ct).ConfigureAwait(false);
+            var file = r.GetValue(sessionFile)!;
+            var saved = await SessionWriter.CreateAsync(file, target, r.GetValue(refresh), client, [.. resolved.Select(n => new SessionWriter.Item(n, null))], r.GetValue(force), ct).ConfigureAwait(false);
+            await stdout.WriteLineAsync($"Saved {saved.Total} watch item(s) to {file} ({target.Url}).").ConfigureAwait(false);
+            return 0;
+        }));
+
+        var add = new Command("add", "Add nodes to the watch list of a session file; everything else in it is kept");
+        add.Arguments.Add(sessionFile);
+        add.Arguments.Add(nodes);
+        AddRecursiveOptions(add);
+        foreach (var option in new Option[] { refresh, password, trustAll })
+        {
+            add.Options.Add(option);
+        }
+
+        add.SetAction((r, ct) => Guard(stderr, async () =>
+        {
+            var file = r.GetValue(sessionFile)!;
+            var document = await SessionWriter.LoadAsync(file, ct).ConfigureAwait(false);
+            var endpoint = (string?)document["endpointUrl"] ?? throw new CliException($"'{file}' has no endpoint.");
+            var target = new ConnectionArgs(
+                endpoint,
+                (string?)document["userName"],
+                r.GetValue(password) ?? Environment.GetEnvironmentVariable(PasswordVariable),
+                document["useSecurity"]?.GetValue<bool>() ?? false,
+                (document["autoAcceptCertificates"]?.GetValue<bool>() ?? false) || r.GetValue(trustAll));
+            await using var client = await Cli.Connection.ConnectAsync(target, ct).ConfigureAwait(false);
+            var resolved = await NodesAsync(client, r, ct).ConfigureAwait(false);
+            var result = await SessionWriter.AddAsync(file, document, client, [.. resolved.Select(n => new SessionWriter.Item(n, r.GetValue(refresh)))], ct).ConfigureAwait(false);
+            await stdout.WriteLineAsync($"Added {result.Added} watch item(s) to {file}" +
+                (result.AlreadyThere > 0 ? $" ({result.AlreadyThere} already there)" : string.Empty) + $"; {result.Total} in total.").ConfigureAwait(false);
+            return 0;
+        }));
+
+        var session = new Command("session", "Create session files for the app, or add nodes to them") { create, add };
+
         return new RootCommand("Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix) and MQTT")
         {
-            endpoints, browse, read, monitor, run, write, mcp,
+            endpoints, browse, read, monitor, run, write, session, mcp,
         };
     }
 
