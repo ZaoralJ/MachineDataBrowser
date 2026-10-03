@@ -19,7 +19,7 @@ public sealed class FormLayoutTests
         Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         var main = new MainWindow { DataContext = new MainWindowViewModel(), Width = 1280, Height = 800 };
         main.Show();
-        var form = new NewRecordingWindow { DataContext = new NewRecordingViewModel(new NewRecordingDraft("Recording 1", 2, 250)) };
+        var form = new NewRecordingWindow { DataContext = new NewRecordingViewModel(new NewRecordingDraft("Recording 1", 2, 250)) { UseLiveFile = true, LiveFilePath = "/tmp/line1.db" } };
         _ = form.ShowDialog<object?>(main);
         var settings = new SettingsWindow { DataContext = new SettingsViewModel(new Services.AppSettings()) };
         _ = settings.ShowDialog<object?>(main);

@@ -285,13 +285,13 @@ source, right-click it in the address space ▸ **Show events & alarms**. Each w
 
 A recording captures the values of its items with timestamps. It keeps running when you remove the items from Watch.
 
-- **Start:** R records the selected Watch rows (or all of them); ⇧R records everything monitored. The form sets:
-  - name and refresh time,
-  - **Max points per item** (the oldest samples are dropped),
-  - **Keep last (min)** (samples older than this are dropped),
-  - a delayed start and an automatic stop,
-  - **Also write to file**: *every* sample, not limited by the two settings above. A `.csv` file gets one line per
-    sample; a `.db` / `.sqlite` file is a **SQLite database** you can query with SQL (see below).
+- **Start:** R records the selected Watch rows (or all of them); ⇧R records everything monitored. The form has:
+  - *Sampling:* name and refresh time,
+  - *In memory:* **Max points per item** (the oldest samples are dropped) and **Keep only the last** minutes,
+  - *Schedule:* **Start in** and **Stop after** minutes,
+  - *File:* **Also write every sample to a file**, not limited by the in-memory settings. A `.csv` file gets one line
+    per sample; a `.db` / `.sqlite` file is a **SQLite database** you can query with SQL (see below). The line under
+    the buttons says whether the file is created or added to.
 - **Control (Recordings pane):**
   - N new recording from the Watch selection, A records everything monitored, Enter opens the viewer.
   - S start/resume, P pause, X stop.
@@ -307,10 +307,11 @@ A recording captures the values of its items with timestamps. It keeps running w
 
 ### Recording to SQLite
 
-Choose a file ending in `.db` (or `.sqlite`) for *Also write to file*; to add to a file you already have, pick it
-with **Open…** (the **…** save dialog would ask to replace it, although nothing is replaced). Each start of a
-recording adds a recording to the file, so one file can hold a whole shift or week. Values keep their type: numbers in `value_num` (booleans 1/0),
-text in `value_text`, arrays and structures as JSON in `value_json`; times are UTC (`2026-10-03T12:00:00.000Z`).
+Choose a file ending in `.db` (or `.sqlite`) with **New File…**; to add to a file you already have, pick it with **Add
+to Existing…** (the save dialog would ask to replace it, although nothing is replaced). Each start of a recording adds a
+recording to the file, so one file can hold a whole shift or week. Values keep their type: numbers in `value_num`
+(booleans 1/0), text in `value_text`, arrays and structures as JSON in `value_json`; times are UTC
+(`2026-10-03T12:00:00.000Z`).
 
 | Table / view | Holds |
 |---|---|
@@ -327,7 +328,7 @@ FROM sample_view WHERE name = 'Speed' GROUP BY minute;
 SELECT source_utc, name, status FROM sample_view WHERE status_code <> 0;
 ```
 
-**Keep in file (days)** (SQLite only) deletes samples older than that from the file, from every recording in it, and
+**Keep in file** (days, SQLite only) deletes samples older than that from the file, from every recording in it, and
 removes recordings left empty, so an always-on recording stays bounded. It is checked when recording starts and once a
 minute; freed space goes back to the disk gradually (files created by version 0.17 or later).
 
