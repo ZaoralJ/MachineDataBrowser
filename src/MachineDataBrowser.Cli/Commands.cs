@@ -251,8 +251,10 @@ internal static class Commands
         var mcpAllow = new Option<string[]>("--allow") { Description = "Endpoint pattern the agent may name, e.g. 'opc.tcp://10.0.5.*'; no credentials are used for them" };
         var mcpAllowAny = new Option<bool>("--allow-any") { Description = "The agent may connect to any endpoint it names (no credentials); for lab use" };
         var mcpAllowRecording = new Option<string?>("--allow-recording") { Description = "Folder the agent may record into (start_recording); its files are also readable" };
+        var mcpAllowWrites = new Option<bool>("--allow-writes") { Description = "Offer write and call_method on configured endpoints; every change is confirmed by the user" };
+        var mcpSkipConfirmation = new Option<bool>("--skip-write-confirmation") { Description = "With --allow-writes: don't ask through MCP elicitation (for clients without it; they still approve tool calls)" };
         var mcp = new Command("mcp", "Run an MCP server on stdin/stdout: read-only tools for AI agents (machines: browse, search, read, sample; recordings: list, items, samples)");
-        foreach (var option in new Option[] { mcpEndpoints, mcpSessions, mcpRecordings, mcpRecordingDirs, mcpAllow, mcpAllowAny, mcpAllowRecording, user, password, secure, trustAll })
+        foreach (var option in new Option[] { mcpEndpoints, mcpSessions, mcpRecordings, mcpRecordingDirs, mcpAllow, mcpAllowAny, mcpAllowRecording, mcpAllowWrites, mcpSkipConfirmation, user, password, secure, trustAll })
         {
             mcp.Options.Add(option);
         }
@@ -265,7 +267,7 @@ internal static class Commands
             foreach (var path in r.GetValue(mcpSessions) ?? [])
             {
                 var session = await SessionFile.LoadAsync(path, ct).ConfigureAwait(false);
-                allowed.Add(new ConnectionArgs(session.EndpointUrl, session.UserName, secret, session.UseSecurity, session.AutoAcceptCertificates || r.GetValue(trustAll)));
+                allowed.Add(new ConnectionArgs(session.EndpointUrl, session.UserName, secret, session.UseSecurity, session.AutoAcceptCertificates || r.GetValue(trustAll), session.ReadOnly));
             }
 
             var files = r.GetValue(mcpRecordings) ?? [];
@@ -301,7 +303,19 @@ internal static class Commands
             }
 
             await using var pool = new Mcp.EndpointPool([.. allowed.DistinctBy(e => e.Url.TrimEnd('/'), StringComparer.OrdinalIgnoreCase)], patterns, allowAny);
-            return await Mcp.McpServerHost.RunAsync(pool, recordings, recordInto, ct).ConfigureAwait(false);
+            if (r.GetValue(mcpSkipConfirmation) && !r.GetValue(mcpAllowWrites))
+            {
+                throw new CliException("--skip-write-confirmation only makes sense with --allow-writes.");
+            }
+
+            if (r.GetValue(mcpAllowWrites) && allowed.Count == 0)
+            {
+                throw new CliException("--allow-writes needs a configured machine (--endpoint or --session); named endpoints are never written to.");
+            }
+
+            return await Mcp.McpServerHost.RunAsync(
+                new Mcp.McpServerHost.Setup(pool, recordings, r.GetValue(mcpSessions) ?? [], recordInto, r.GetValue(mcpAllowWrites), r.GetValue(mcpSkipConfirmation)),
+                ct).ConfigureAwait(false);
         }));
 
         // write

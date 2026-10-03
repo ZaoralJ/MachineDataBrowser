@@ -15,6 +15,9 @@ internal sealed record SessionFile
 
     public bool AutoAcceptCertificates { get; init; }
 
+    /// <summary>The session never writes or calls methods (Connection ▸ Read-Only in the app).</summary>
+    public bool ReadOnly { get; init; }
+
     public string? UserName { get; init; }
 
     public int? DefaultRefreshMs { get; init; }
