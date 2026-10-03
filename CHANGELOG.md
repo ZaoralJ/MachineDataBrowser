@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.14.0...v0.15.0) (2026-10-03)
+
+
+### Features
+
+* **app:** copy an mdbrowser command for the selection ([#75](https://github.com/ZaoralJ/MachineDataBrowser/issues/75)) ([1a47a6f](https://github.com/ZaoralJ/MachineDataBrowser/commit/1a47a6fe12896abc174d64e1337d5da1cd83db8d))
+
 ## [0.14.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.13.0...v0.14.0) (2026-10-03)
 
 
