@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.20.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.19.0...v0.20.0) (2026-10-03)
+
+
+### Features
+
+* **core:** connection diagnostics for MQTT and EtherNet/IP ([#100](https://github.com/ZaoralJ/MachineDataBrowser/issues/100)) ([2f62bd7](https://github.com/ZaoralJ/MachineDataBrowser/commit/2f62bd7110b62eaad1d0bb300e19f38297cf8fdd))
+
+
+### Fixes
+
+* **core:** let users trust OPC UA server certificates that fail the key policy ([#98](https://github.com/ZaoralJ/MachineDataBrowser/issues/98)) ([f2e07fd](https://github.com/ZaoralJ/MachineDataBrowser/commit/f2e07fdb4696b6d566a8a147442b67eced0756d0))
+
 ## [0.19.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.18.0...v0.19.0) (2026-10-03)
 
 
