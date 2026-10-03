@@ -225,9 +225,38 @@ internal static class Commands
             return await StreamAsync(client, items, sink, stderr, r.GetValue(duration), r.GetValue(count), ct).ConfigureAwait(false);
         }));
 
+        // mcp
+        var mcpEndpoints = new Option<string[]>("--endpoint", "-e") { Description = "Endpoint the agent may use; repeat for several" };
+        var mcpSessions = new Option<string[]>("--session", "-s") { Description = "Session file whose endpoint and options the agent may use; repeat for several" };
+        var mcp = new Command("mcp", "Run an MCP server on stdin/stdout: read-only tools for AI agents (browse, search, read, sample)");
+        foreach (var option in new Option[] { mcpEndpoints, mcpSessions, user, password, secure, trustAll })
+        {
+            mcp.Options.Add(option);
+        }
+
+        mcp.SetAction((r, ct) => Guard(stderr, async () =>
+        {
+            var secret = r.GetValue(password) ?? Environment.GetEnvironmentVariable(PasswordVariable);
+            var allowed = new List<ConnectionArgs>();
+            allowed.AddRange((r.GetValue(mcpEndpoints) ?? []).Select(url => new ConnectionArgs(url, r.GetValue(user), secret, r.GetValue(secure), r.GetValue(trustAll))));
+            foreach (var path in r.GetValue(mcpSessions) ?? [])
+            {
+                var session = await SessionFile.LoadAsync(path, ct).ConfigureAwait(false);
+                allowed.Add(new ConnectionArgs(session.EndpointUrl, session.UserName, secret, session.UseSecurity, session.AutoAcceptCertificates || r.GetValue(trustAll)));
+            }
+
+            if (allowed.Count == 0)
+            {
+                throw new CliException("Give the agent at least one machine: --endpoint <url> or --session <file>.");
+            }
+
+            await using var pool = new Mcp.EndpointPool([.. allowed.DistinctBy(e => e.Url.TrimEnd('/'), StringComparer.OrdinalIgnoreCase)]);
+            return await Mcp.McpServerHost.RunAsync(pool, ct).ConfigureAwait(false);
+        }));
+
         return new RootCommand("Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix) and MQTT")
         {
-            endpoints, browse, read, monitor, run,
+            endpoints, browse, read, monitor, run, mcp,
         };
     }
 

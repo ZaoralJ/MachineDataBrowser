@@ -12,7 +12,7 @@ UA-.NETStandard. Read [docs/architecture.md](docs/architecture.md) before changi
 |---|---|
 | `src/MachineDataBrowser.Core` | protocol clients behind `IDeviceClient` (`Ua/`, `Cip/`, `Mqtt/`), recordings, value formatting/JSON. **No UI references.** |
 | `src/MachineDataBrowser.App` | Avalonia app: `ViewModels/` (MVVM, `MainWindowViewModel.*.cs` partials per feature), `Views/`, `Services/` |
-| `src/MachineDataBrowser.Cli` | `mdbrowser` command line ([docs/cli.md](docs/cli.md)): System.CommandLine + Spectre.Console, references Core only |
+| `src/MachineDataBrowser.Cli` | `mdbrowser` command line ([docs/cli.md](docs/cli.md)): System.CommandLine + Spectre.Console, references Core only; `Mcp/` is the MCP server ([docs/mcp.md](docs/mcp.md)) |
 | `tests/MachineDataBrowser.Cli.Tests` | the CLI end to end against opc-plc and the MQTT simulator |
 | `tests/MachineDataBrowser.Core.Tests` | integration tests against containers (opc-plc, `simulators/`) via Testcontainers, plus unit tests |
 | `tests/MachineDataBrowser.App.Tests` | headless Avalonia UI tests (`[AvaloniaFact]`) against the same containers |
