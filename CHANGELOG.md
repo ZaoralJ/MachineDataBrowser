@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.13.0...v0.14.0) (2026-10-03)
+
+
+### Features
+
+* **cli:** live table starts with current values and 0 updates ([#72](https://github.com/ZaoralJ/MachineDataBrowser/issues/72)) ([0864771](https://github.com/ZaoralJ/MachineDataBrowser/commit/0864771e5b8ea09fe20eaaea911dd051b4dce319))
+
 ## [0.13.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.12.0...v0.13.0) (2026-10-03)
 
 
