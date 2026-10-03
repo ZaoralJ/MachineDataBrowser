@@ -37,7 +37,7 @@ jobs:
       - run: pip install -r .github/mkdocs-requirements.txt
       # --strict fails on broken links, so pull requests catch them before they reach the site.
       - run: mkdocs build --strict
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         if: github.event_name != 'pull_request'
         with:
           path: site
