@@ -14,6 +14,14 @@ agent may use is listed with `--endpoint` (repeat it) or `--session` (a session 
 recordings with `--recording file.db` (repeat it) or `--recordings-dir folder` (the SQLite files in it). Machines,
 recordings or both: the agent only gets the tools for what is configured.
 
+| Option | Lets the agent |
+|---|---|
+| `--endpoint url`, `--session file` | use these machines, with their login and trust options |
+| `--allow "opc.tcp://10.0.5.*"` (repeatable) | connect to endpoints it names that match the pattern (`*`, `?`), **without** credentials or auto-trust |
+| `--allow-any` | connect to any endpoint it names, without credentials (lab use) |
+| `--recording file.db`, `--recordings-dir folder` | read these recordings |
+| `--allow-recording folder` | start background recordings into that folder (and read them) |
+
 === "VS Code / GitHub Copilot"
 
     `.vscode/mcp.json`:
@@ -82,6 +90,8 @@ Logins: `--user` with the password in `MDBROWSER_PASSWORD` (set it in the agent'
 | `alarms` | the server's current alarms, most severe first: source, name, severity, active, acknowledged, message |
 | `events` | events and alarm changes collected for 1–300 s, newest first, optionally only above a severity |
 | `diagnostics` | connection health: state; for OPC UA security, keep-alive, reconnects, server state and clock offset, subscriptions |
+| `wait_for` | waits up to 10 min until a value meets a condition (`> 80`, `== Run`, `contains Error`, `changes`) and says when |
+| `start_recording`, `stop_recording`, `active_recordings` | with `--allow-recording`: records items in the background into a SQLite file (≤ 24 h, ≤ 5 at a time, ≤ 500 items), to analyse with the recording tools |
 
 Nodes are the same paths and ids as on the command line (`/Objects/Line1/Speed`, `ns=3;s=Speed`,
 `Program:Main.Speed`), and paths from `browse` and `search` can be passed on as they are. Values keep their type
@@ -114,6 +124,10 @@ can still be recording.
 - **Bounded results:** `browse` returns at most 500 items, `read` 200 values, `sample` 100 items for at most 300 s,
   `history` 1000 raw values in total (20 000 per item for buckets), `events` 500; results say when they were truncated.
 - **Events and alarms are only read:** nothing is acknowledged.
+- **Named endpoints** (`--allow`, `--allow-any`) connect without any login or automatic certificate trust; logins and
+  `--trust-all` apply only to `--endpoint` / `--session`.
+- **Background recordings** write only into the `--allow-recording` folder (the name becomes a safe file name there),
+  stop by themselves after their duration, and are stopped when the server exits.
 - **Connections** are opened on first use and kept for later calls, so a server sees one session, not one per question.
 - **No credentials pass through tools:** logins come from the server's own options and environment.
 - **Only listed recording files,** opened read-only. A file outside `--recording` / `--recordings-dir` is refused, and
@@ -129,5 +143,7 @@ can still be recording.
 - *"Which alarms are active on plc-01, and what does the most severe one mean?"*
 - *"What did the boiler temperature do overnight? Hourly averages, please."*
 - *"Values look frozen. Is the connection to the PLC healthy?"*
+- *"Tell me when line 1 changes to Run (wait up to 10 minutes)."*
+- *"Record the press for an hour, then tell me how often the pressure went above 4 bar."*
 - *"In last night's recording, when was the speed below 1000, and for how long?"*
 - *"Compare the average temperature per hour between Monday and Tuesday."*
