@@ -3,6 +3,14 @@ name: ci
 on:
   push:
     branches: [main]
+    # Release commits (changelog + version) and docs-only changes have nothing to build: the code was tested in its
+    # pull request, the release workflow tests the tagged commit again, and docs are built by the pages workflow.
+    paths-ignore:
+      - CHANGELOG.md
+      - .release-please-manifest.json
+      - "**/*.md"
+      - docs/**
+      - mkdocs.yml
   pull_request:
 
 permissions:
