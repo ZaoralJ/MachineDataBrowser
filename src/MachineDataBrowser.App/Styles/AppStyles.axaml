@@ -139,6 +139,7 @@
     <StreamGeometry x:Key="IconPause">M6 19h4V5H6v14zm8-14v14h4V5h-4z</StreamGeometry>
     <StreamGeometry x:Key="IconReset">M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z</StreamGeometry>
     <StreamGeometry x:Key="IconColumns">M3 5v14h18V5H3zm5 12H5V7h3v10zm5 0h-3V7h3v10zm6 0h-4V7h4v10z</StreamGeometry>
+    <StreamGeometry x:Key="IconGroupByPath">M22 11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3z</StreamGeometry>
     <StreamGeometry x:Key="IconAdd">M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z</StreamGeometry>
     <StreamGeometry x:Key="IconRemove">M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z</StreamGeometry>
     <StreamGeometry x:Key="IconBookmark">M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15-5-2.18L7 18V5h10v13z</StreamGeometry>
@@ -178,12 +179,6 @@
     <Setter Property="MinHeight" Value="32" />
   </Style>
   <Style Selector="TextBox">
-    <Setter Property="VerticalContentAlignment" Value="Center" />
-    <Setter Property="CornerRadius" Value="{StaticResource AppControlRadius}" />
-  </Style>
-  <!-- A toggle next to a text box (e.g. Watch's "Problems only") matches its height. -->
-  <Style Selector="StackPanel > ToggleButton:not(.tree-expander)">
-    <Setter Property="MinHeight" Value="32" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="CornerRadius" Value="{StaticResource AppControlRadius}" />
   </Style>
@@ -336,7 +331,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
   </Style>
 
-  <Style Selector="Button.icon-only">
+  <Style Selector=":is(Button).icon-only">
     <Setter Property="Padding" Value="6" />
     <!-- MinWidth, not Width: some strip buttons carry short text labels (ALL, CSV, JSON). -->
     <Setter Property="MinWidth" Value="28" />
@@ -346,19 +341,24 @@
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Foreground" Value="{DynamicResource AppMutedTextBrush}" />
   </Style>
-  <Style Selector="Button.icon-only PathIcon">
+  <Style Selector=":is(Button).icon-only PathIcon">
     <Setter Property="Width" Value="13" />
     <Setter Property="Height" Value="13" />
   </Style>
-  <Style Selector="Button.icon-only:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector=":is(Button).icon-only:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}" />
   </Style>
-  <Style Selector="Button.icon-only:disabled">
+  <Style Selector=":is(Button).icon-only:disabled">
     <Setter Property="Opacity" Value="0.35" />
   </Style>
-  <Style Selector="Button.icon-only:disabled /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector=":is(Button).icon-only:disabled /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <!-- Toggle on: accent icon on a hover-like background. -->
+  <Style Selector="ToggleButton.icon-only:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
   </Style>
 
   <!-- Flat list-like buttons (history dropdown, flyout actions) -->
