@@ -20,8 +20,8 @@ self-contained file; no .NET installation is needed.
 |---|---|
 | `mdbrowser endpoints <url>` | the endpoints of an OPC UA server: security mode, policy, logins, certificate thumbprint |
 | `mdbrowser browse <url> [node] [--depth N]` | the address space below a node (default: the root) |
-| `mdbrowser read <url> <node>...` | the current value and data type of one or more variables |
-| `mdbrowser monitor <url> <node>...` | live values until Ctrl+C, `--duration` or `--count` |
+| `mdbrowser read <url> <node>... [-R]` | the current value and data type of one or more variables |
+| `mdbrowser monitor <url> <node>... [-R]` | live values until Ctrl+C, `--duration` or `--count` |
 | `mdbrowser run <session>` | the watch list of a session file saved by the app (`.mdbsession`), each item at its refresh time |
 
 `mdbrowser <command> --help` lists every option.
@@ -31,6 +31,7 @@ mdbrowser endpoints opc.tcp://plc:4840
 mdbrowser browse opc.tcp://plc:4840 /Objects/Line1 --depth 2
 mdbrowser read eip://10.0.0.5/1,0 "/Controller Tags/Motor.Speed"
 mdbrowser monitor mqtt://broker/plant/# /Topics/plant/line1/status/speed --duration 10m
+mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1 --recursive --depth 3
 mdbrowser run line1.mdbsession --format csv > shift.csv
 ```
 
@@ -43,6 +44,23 @@ A node is either a **path** of display names from the root, starting with `/`, o
 - `ns=3;s=StepUp` or the portable `nsu=http://…;s=StepUp` (OPC UA), a tag name (Logix), an MQTT id as the app shows it.
 
 `browse` prints full paths, so its output can be passed to `read` and `monitor` as it is.
+
+### Whole folders (`--recursive`)
+
+With `-R` / `--recursive`, `read` and `monitor` expand each folder, object or Logix structure to every variable below
+it, like *Monitor folder* in the app:
+
+| Option | |
+|---|---|
+| `--depth N` | levels below each node (default 10) |
+| `--max-items N` | at most this many variables in total (default 500); a note on stderr says when the limit was hit |
+
+- Items are named by their path below the node you passed (`Basic/StepUp`, `Station/Name`), so equal names in
+  different folders stay apart.
+- A variable you pass directly is read or monitored itself. OPC UA properties of variables (EURange, EngineeringUnits)
+  are left out.
+- MQTT: a topic with a JSON payload expands to its fields (`status/speed`, `status/temperature/bearing`).
+- Nothing found within `--depth` is an error (exit 1).
 
 ### Connection options
 

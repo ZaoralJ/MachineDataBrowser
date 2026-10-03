@@ -157,6 +157,56 @@ public sealed class CommandTests(OpcPlcFixture plc, MqttSimulatorFixture broker)
         Assert.Contains("Good", lastFrame, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Recursive_expands_folders_to_their_variables_named_by_path()
+    {
+        var (exit, output, _) = await RunAsync("read", plc.EndpointUrl, "/Objects/OpcPlc/Telemetry", "-R", "--trust-all", "-f", "csv");
+
+        Assert.Equal(0, exit);
+        var names = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Skip(1).Select(l => l.Split(',')[0]).ToList();
+        Assert.Contains("Basic/StepUp", names);
+        Assert.Contains("Basic/AlternatingBoolean", names);
+        Assert.Contains(names, n => n.StartsWith("Fast/", StringComparison.Ordinal));
+        Assert.Equal(names.Count, names.Distinct().Count());
+    }
+
+    [Fact]
+    public async Task Recursive_respects_depth_and_max_items_and_keeps_variables_given_directly()
+    {
+        var (exit, _, error) = await RunAsync("read", plc.EndpointUrl, "/Objects/OpcPlc/Telemetry", "-R", "--depth", "1", "--trust-all");
+        Assert.Equal(1, exit);
+        Assert.Contains("try a larger --depth", error, StringComparison.Ordinal);
+
+        (exit, var output, error) = await RunAsync("read", plc.EndpointUrl, "/Objects/OpcPlc/Telemetry", "-R", "--max-items", "3", "--trust-all", "-f", "csv");
+        Assert.Contains("limited to the first 3 variables", error, StringComparison.Ordinal);
+        Assert.Equal(4, output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length);
+
+        (exit, output, _) = await RunAsync("read", plc.EndpointUrl, StepUp, "-R", "--trust-all", "-f", "csv");
+        Assert.Equal(0, exit);
+        Assert.StartsWith("StepUp,UInt32,", output.Split('\n')[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Recursive_monitor_streams_every_variable_of_a_folder()
+    {
+        var (exit, output, _) = await RunAsync("monitor", plc.EndpointUrl, "/Objects/OpcPlc/Telemetry/Basic", "-R", "--trust-all", "-n", "12", "-r", "100", "-f", "json");
+
+        Assert.Equal(0, exit);
+        var names = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => (string)JsonNode.Parse(l)!["name"]!).ToHashSet();
+        Assert.Superset(new HashSet<string> { "StepUp", "AlternatingBoolean", "RandomSignedInt32", "RandomUnsignedInt32" }, names);
+        Assert.True(names.Count >= 3, string.Join(", ", names));
+    }
+
+    [Fact]
+    public async Task Recursive_on_mqtt_includes_json_fields()
+    {
+        // The simulator's payload has "operator": null, which read reports as unreadable (exit 1); the fields are there.
+        var (_, output, _) = await RunAsync("read", broker.EndpointUrl, "/Topics/machines/m1/status", "-R", "-f", "csv");
+
+        Assert.Contains(output.Split('\n'), l => l.StartsWith("speed,Double,", StringComparison.Ordinal));
+        Assert.Contains(output.Split('\n'), l => l.StartsWith("temperature/bearing,Double,", StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData("30s", 30_000)]
     [InlineData("1500ms", 1_500)]

@@ -116,12 +116,29 @@ internal static class Commands
 
         // read
         var nodes = new Argument<string[]>("nodes") { Description = "Nodes: /Objects/Line1/Speed or ids", Arity = ArgumentArity.OneOrMore };
+        var recursive = new Option<bool>("--recursive", "-R") { Description = "Folders and structures expand to every variable below them" };
+        var recursiveDepth = new Option<int>("--depth") { Description = "With --recursive: levels below each node", DefaultValueFactory = _ => DefaultRecursiveDepth };
+        var maxItems = new Option<int>("--max-items") { Description = "With --recursive: at most this many variables", DefaultValueFactory = _ => DefaultMaxItems };
+
+        Task<List<Node>> NodesAsync(IDeviceClient client, ParseResult r, CancellationToken ct) => r.GetValue(recursive)
+            ? ExpandAsync(client, r.GetValue(nodes)!, Math.Max(1, r.GetValue(recursiveDepth)), Math.Max(1, r.GetValue(maxItems)), stderr, ct)
+            : ResolveAllAsync(client, r.GetValue(nodes)!, ct);
+
+        void AddRecursiveOptions(Command command)
+        {
+            foreach (var option in new Option[] { recursive, recursiveDepth, maxItems })
+            {
+                command.Options.Add(option);
+            }
+        }
+
         var read = WithConnection(new Command("read", "Read the current value of one or more variables"));
         read.Arguments.Add(nodes);
+        AddRecursiveOptions(read);
         read.SetAction((r, ct) => Guard(stderr, async () =>
         {
             await using var client = await Cli.Connection.ConnectAsync(Connection(r), ct).ConfigureAwait(false);
-            var resolved = await ResolveAllAsync(client, r.GetValue(nodes)!, ct).ConfigureAwait(false);
+            var resolved = await NodesAsync(client, r, ct).ConfigureAwait(false);
             var values = await client.ReadValuesAsync([.. resolved.Select(n => n.Id)], ct).ConfigureAwait(false);
             var fmt = r.GetValue(format);
             if (fmt == OutputFormat.Json)
@@ -148,6 +165,7 @@ internal static class Commands
         // monitor
         var monitor = WithConnection(new Command("monitor", "Stream live values until Ctrl+C, --duration or --count"));
         monitor.Arguments.Add(nodes);
+        AddRecursiveOptions(monitor);
         foreach (var option in new Option[] { refresh, duration, count })
         {
             monitor.Options.Add(option);
@@ -157,7 +175,7 @@ internal static class Commands
         {
             var target = Connection(r);
             await using var client = await Cli.Connection.ConnectAsync(target, ct).ConfigureAwait(false);
-            var resolved = await ResolveAllAsync(client, r.GetValue(nodes)!, ct).ConfigureAwait(false);
+            var resolved = await NodesAsync(client, r, ct).ConfigureAwait(false);
             var interval = r.GetValue(refresh) ?? (DeviceClient.IsMqtt(target.Url) ? 0 : 250);
             await using var sink = Sink(r, resolved);
             return await StreamAsync(client, [.. resolved.Select(n => (n, interval))], sink, stderr, r.GetValue(duration), r.GetValue(count), ct).ConfigureAwait(false);
@@ -245,6 +263,73 @@ internal static class Commands
         foreach (var text in texts)
         {
             result.Add(await Cli.Connection.ResolveAsync(client, text, cancellationToken).ConfigureAwait(false));
+        }
+
+        return result;
+    }
+
+    /// <summary>The app's "Monitor folder" limits: levels below a node and variables in total.</summary>
+    private const int DefaultRecursiveDepth = 10;
+
+    private const int DefaultMaxItems = 500;
+
+    /// <summary>
+    /// Every variable below each node (OPC UA: a variable's own properties, like EURange, are left out; MQTT: JSON fields
+    /// are included). Names are the path below
+    /// the node given, so equal names in different folders stay apart. A variable given directly is kept as it is, except
+    /// an MQTT topic with JSON fields.
+    /// </summary>
+    private static async Task<List<Node>> ExpandAsync(IDeviceClient client, IEnumerable<string> texts, int depth, int maxItems, TextWriter stderr, CancellationToken cancellationToken)
+    {
+        var result = new List<Node>();
+        var seen = new HashSet<NodeId>();
+
+        // MQTT: a JSON topic's fields are what you want to watch. OPC UA: a variable's children are properties (EURange …).
+        var descendIntoVariables = client is IDynamicAddressSpace;
+        foreach (var root in await ResolveAllAsync(client, texts, cancellationToken).ConfigureAwait(false))
+        {
+            if (result.Count >= maxItems)
+            {
+                break;
+            }
+
+            // A variable given directly is watched itself (OPC UA: collecting below it would return its properties);
+            // an MQTT topic with a JSON payload expands to its fields.
+            var attributes = await client.ReadAttributesAsync(root.Id, cancellationToken).ConfigureAwait(false);
+            var isVariable = attributes.Any(a => a.Name == "NodeClass" && a.Value == nameof(NodeClass.Variable));
+            var found = isVariable && !descendIntoVariables
+                ? []
+                : await client.CollectVariablesWithPathsAsync(root.Id, depth, maxItems - result.Count, descendIntoVariables, cancellationToken).ConfigureAwait(false);
+            if (isVariable && found.Count == 0)
+            {
+                if (seen.Add(root.Id))
+                {
+                    result.Add(root);
+                }
+
+                continue;
+            }
+
+            if (found.Count == 0)
+            {
+                await stderr.WriteLineAsync($"mdbrowser: no variables within {depth} level(s) below {root.Name}.").ConfigureAwait(false);
+                continue;
+            }
+
+            foreach (var (item, path) in found.Where(f => seen.Add(f.Item.NodeId)))
+            {
+                result.Add(new Node(item.NodeId, path.Length == 0 ? item.DisplayName : $"{path}/{item.DisplayName}", client.ToDisplayId(item.NodeId)));
+            }
+        }
+
+        if (result.Count == 0)
+        {
+            throw new CliException("No variables found; try a larger --depth.");
+        }
+
+        if (result.Count >= maxItems)
+        {
+            await stderr.WriteLineAsync($"mdbrowser: limited to the first {maxItems} variables (--max-items).").ConfigureAwait(false);
         }
 
         return result;
