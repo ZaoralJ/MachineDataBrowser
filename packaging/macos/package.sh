@@ -32,11 +32,20 @@ for arch in "${ARCHS[@]}"; do
   cp "$ROOT/LICENSE" "$ROOT/THIRD-PARTY-NOTICES.md" "$bundle/Contents/Resources/"
   cp "$ROOT/packaging/macos/AppIcon.icns" "$bundle/Contents/Resources/"
 
-  # Ad-hoc signature: required for arm64 binaries to launch; not a Developer ID signature.
-  codesign --force --deep --sign - "$bundle"
+  # Developer ID + hardened runtime when SIGN_IDENTITY is set, otherwise ad-hoc (arm64 needs a signature to launch).
+  "$ROOT/packaging/macos/sign.sh" "$bundle"
 
   zip="$OUT/MachineDataBrowser-$VERSION-$rid.zip"
   rm -f "$zip"
   (cd "$OUT/$rid" && ditto -c -k --keepParent "$APP_NAME.app" "$zip")
+
+  if [[ "${SIGN_IDENTITY:--}" != "-" && ( -n "${NOTARY_PROFILE:-}" || -n "${NOTARY_KEY_PATH:-}" ) ]]; then
+    # Notarize, then staple the ticket into the app so Gatekeeper accepts it offline, and zip the stapled app.
+    "$ROOT/packaging/macos/notarize.sh" "$zip"
+    xcrun stapler staple "$bundle"
+    rm -f "$zip"
+    (cd "$OUT/$rid" && ditto -c -k --keepParent "$APP_NAME.app" "$zip")
+  fi
+
   (cd "$OUT" && shasum -a 256 "$(basename "$zip")" | tee -a "$OUT/checksums.txt")
 done
