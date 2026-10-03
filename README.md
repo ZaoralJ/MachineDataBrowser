@@ -43,11 +43,8 @@ certificate need to trust the new one (`MachineDataBrowser`) once.
 brew install --cask zaoralj/tap/machine-data-browser
 ```
 
-The app is self-contained, so it needs no .NET installation. It is not notarized; if macOS blocks the first launch:
-
-```sh
-xattr -dr com.apple.quarantine "/Applications/Machine Data Browser.app"
-```
+The app is self-contained, so it needs no .NET installation. It is signed with a Developer ID and notarized by
+Apple, so it opens like any other Mac app.
 
 Update with `brew upgrade --cask machine-data-browser`, remove with `brew uninstall --cask --zap machine-data-browser`.
 

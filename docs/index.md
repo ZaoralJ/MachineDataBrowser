@@ -23,11 +23,8 @@ them and export them.
 brew install --cask zaoralj/tap/machine-data-browser
 ```
 
-The app is self-contained (no .NET needed). It is not notarized; if macOS blocks the first launch:
-
-```sh
-xattr -dr com.apple.quarantine "/Applications/Machine Data Browser.app"
-```
+The app is self-contained (no .NET needed). It is signed with a Developer ID and notarized by Apple, so it opens
+like any other Mac app.
 
 ## Read more
 

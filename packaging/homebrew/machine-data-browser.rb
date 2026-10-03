@@ -18,10 +18,4 @@ cask "machine-data-browser" do
     "~/Library/Application Support/MachineDataBrowser",
     "~/Library/Application Support/OpcUaBrowser",
   ]
-
-  caveats <<~EOS
-    Machine Data Browser is not notarized by Apple. If macOS refuses to open it, run once:
-      xattr -dr com.apple.quarantine "/Applications/Machine Data Browser.app"
-    or allow it in System Settings > Privacy & Security.
-  EOS
 end

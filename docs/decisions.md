@@ -81,8 +81,21 @@ is an explicit command; every pane can always be restored from *View ▸ Panes*.
 
 ## Distribution: self-contained app + Homebrew cask
 
-No .NET installation required on the target Mac. Not notarized (needs an Apple Developer ID), so the first launch
-may need `xattr -dr com.apple.quarantine "/Applications/Machine Data Browser.app"` or *Open Anyway*.
+No .NET installation required on the target Mac.
+
+## Signing and notarization
+
+- Releases are signed with a Developer ID Application certificate, with the hardened runtime and a secure timestamp,
+  and notarized by Apple; the app has the ticket stapled, so Gatekeeper accepts it offline. The CLI binary is
+  notarized too (a bare binary can't carry a ticket; Gatekeeper checks online on first run).
+- `packaging/macos/sign.sh` signs inside out: every file in `Contents/MacOS` (.NET keeps its managed `.dll` files there,
+  and Apple treats everything in that folder as code), except the main executable, which is signed with the bundle.
+- Hardened runtime entitlements (`packaging/macos/entitlements.plist`): `allow-jit` and
+  `allow-unsigned-executable-memory` for the .NET JIT, `disable-library-validation` for native libraries not signed by
+  our team (libplctag, SkiaSharp, HarfBuzz).
+- CI imports the certificate into a temporary keychain and notarizes with an App Store Connect API key (secrets
+  `APPLE_*`); without them (forks, local builds) it signs ad-hoc as before. Locally:
+  `SIGN_IDENTITY="Developer ID Application: …" NOTARY_PROFILE=<keychain profile> packaging/macos/package.sh <version>`.
 
 ## Command line: `mdbrowser`
 
@@ -116,7 +129,6 @@ may need `xattr -dr com.apple.quarantine "/Applications/Machine Data Browser.app
 ## Deferred
 
 - Windows/Linux packages – the app builds for `win-x64`, but no release artifacts yet.
-- Notarization.
 - CLI write: `mdbrowser write` asks before writing unless `--yes`, refuses without a terminal and without `--yes`,
   and reads back what was written.
 - CLI follow-ups: `call`, `history`/`events`, `check`/`wait` for scripts, a Prometheus or MQTT bridge.
