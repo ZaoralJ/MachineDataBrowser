@@ -117,5 +117,7 @@ may need `xattr -dr com.apple.quarantine "/Applications/Machine Data Browser.app
 
 - Windows/Linux packages – the app builds for `win-x64`, but no release artifacts yet.
 - Notarization.
-- CLI follow-ups: `write`/`call`, `history`/`events`, `check`/`wait` for scripts, a Prometheus or MQTT bridge.
+- CLI write: `mdbrowser write` asks before writing unless `--yes`, refuses without a terminal and without `--yes`,
+  and reads back what was written.
+- CLI follow-ups: `call`, `history`/`events`, `check`/`wait` for scripts, a Prometheus or MQTT bridge.
 - MCP follow-ups: `history` and `events` tools; `write`/`call_method` behind an explicit `--allow-writes`.

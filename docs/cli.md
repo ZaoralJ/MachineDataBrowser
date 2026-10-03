@@ -1,7 +1,7 @@
 # Command line (`mdbrowser`)
 
 `mdbrowser` does the browsing and monitoring of the app from a terminal or a script: list endpoints, browse the
-address space, read values, stream live values, and run the watch list of a session saved in the app. It speaks the
+address space, read and write values, stream live values, and run the watch list of a session saved in the app. It speaks the
 same protocols as the app: **OPC UA**, **EtherNet/IP (Logix)** and **MQTT** (Sparkplug B, CloudEvents).
 
 ## Install
@@ -22,6 +22,7 @@ self-contained file; no .NET installation is needed.
 | `mdbrowser browse <url> [node] [--depth N]` | the address space below a node (default: the root) |
 | `mdbrowser read <url> <node>... [-R]` | the current value and data type of one or more variables |
 | `mdbrowser monitor <url> <node>... [-R]` | live values until Ctrl+C, `--duration` or `--count` |
+| `mdbrowser write <url> <node> <value>` | write a value (or several with `--set`); asks first unless `--yes` |
 | `mdbrowser run <session>` | the watch list of a session file saved by the app (`.mdbsession`), each item at its refresh time |
 | `mdbrowser mcp --endpoint <url>...` | an MCP server for AI agents, read-only; see [MCP server](mcp.md) |
 
@@ -62,6 +63,25 @@ it, like *Monitor folder* in the app:
   are left out.
 - MQTT: a topic with a JSON payload expands to its fields (`status/speed`, `status/temperature/bearing`).
 - Nothing found within `--depth` is an error (exit 1).
+
+### Writing values
+
+```sh
+mdbrowser write opc.tcp://plc:4840 /Objects/Line1/Setpoint 42.5
+mdbrowser write eip://10.0.0.5/1,0 Program:Main.Recipe "[1, 2, 3]"
+mdbrowser write opc.tcp://plc:4840 --set /Objects/Line1/Mode=AUTO --set /Objects/Line1/Setpoint=42.5 --yes
+```
+
+- The value is text, converted to the variable's data type like *Write value…* in the app: numbers, `true`/`false`,
+  text; arrays comma-separated, optionally in brackets. What each protocol writes is described in the
+  [user manual](user-manual.md#writing-values).
+- **It asks first.** In a terminal, `write` shows the current and new values and asks for confirmation (default *no*).
+  `--yes` skips the question; without a terminal (a script, a pipe) and without `--yes` it refuses rather than guess.
+- After writing it reads the values back and prints *before*, *after* and the result per item, so a write the device
+  accepted but didn't apply is visible. MQTT values come back through the broker; `write` waits up to 2 s for them.
+- `--set node=value` writes several in one go. Paths split at the first `=` (values may contain `=`), ids at the last
+  (`--set "ns=3;s=Mode=AUTO"`); for a value with `=` on an id, use `write <url> <id> <value>`.
+- Exit code 1 when any value was not written; the reason is in the *result* column (`-f json`: `written`, `error`).
 
 ### Connection options
 
