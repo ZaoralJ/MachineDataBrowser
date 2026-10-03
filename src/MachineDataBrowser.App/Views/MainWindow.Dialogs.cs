@@ -229,7 +229,7 @@ public sealed partial class MainWindow : IDialogService
                 Padding = new Avalonia.Thickness(20),
                 Content = new SelectableTextBlock
                 {
-                    Text = "Shortcuts work while the view has focus. Menu shortcuts are listed in the menus.\n\n" + Shortcuts.Overview(),
+                    Text = "Shortcuts work while the view has focus.\nMenu shortcuts are listed in the menus.\n\n" + Shortcuts.Overview(),
                     FontFamily = (Avalonia.Media.FontFamily)this.FindResource("MonoFont")!,
                     FontSize = 12,
                 },

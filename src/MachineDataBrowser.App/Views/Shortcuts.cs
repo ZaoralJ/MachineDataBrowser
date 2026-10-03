@@ -30,6 +30,8 @@ public static class Shortcuts
     private static readonly HashSet<Button> Annotated = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>Plain-text overview of all shortcuts, grouped by view (Help ▸ Keyboard Shortcuts).</summary>
+    private const int KeyColumn = 22;
+
     public static string Overview()
     {
         var text = new System.Text.StringBuilder();
@@ -38,15 +40,15 @@ public static class Shortcuts
             text.AppendLine(view);
             foreach (var group in shortcuts.GroupBy(s => s.Description ?? string.Empty))
             {
-                text.Append("   ").Append(string.Join(" / ", group.Select(Display)).PadRight(18)).Append("  ").AppendLine(group.Key);
+                text.Append("   ").Append(string.Join(" / ", group.Select(Display)).PadRight(KeyColumn)).Append("  ").AppendLine(group.Key);
             }
 
             text.AppendLine();
         }
 
         text.AppendLine("Everywhere");
-        text.Append("   ").Append(Display(new Shortcut("Cmd+C", NoCommand.Instance)).PadRight(18)).AppendLine("  Copy selected table rows as a table");
-        text.Append("   ").Append("Esc".PadRight(18)).AppendLine("  Close the dialog / window");
+        text.Append("   ").Append(Display(new Shortcut("Cmd+C", NoCommand.Instance)).PadRight(KeyColumn)).AppendLine("  Copy selected table rows as a table");
+        text.Append("   ").Append("Esc".PadRight(KeyColumn)).AppendLine("  Close the dialog / window");
         return text.ToString().TrimEnd();
     }
 
