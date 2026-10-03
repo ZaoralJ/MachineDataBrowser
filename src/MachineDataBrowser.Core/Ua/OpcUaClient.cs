@@ -111,7 +111,10 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
                 Telemetry,
                 e =>
                 {
-                    if (options.AutoAcceptUntrustedCertificates || accepted.Contains(e.Certificate.Thumbprint, StringComparer.OrdinalIgnoreCase))
+                    // The trusted store doesn't lift policy failures, so a certificate trusted "always" is checked here.
+                    if (options.AutoAcceptUntrustedCertificates
+                        || accepted.Contains(e.Certificate.Thumbprint, StringComparer.OrdinalIgnoreCase)
+                        || ClientConfiguration.IsTrusted(e.Certificate.Thumbprint))
                     {
                         return true;
                     }

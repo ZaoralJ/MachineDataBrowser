@@ -19,6 +19,10 @@ internal static class ClientConfiguration
         File.WriteAllBytes(Path.Combine(certs, $"{thumbprint}.der"), rawData);
     }
 
+    /// <summary>Whether the user chose to always trust this certificate (<see cref="AddTrusted"/>).</summary>
+    public static bool IsTrusted(string thumbprint) =>
+        File.Exists(Path.Combine(TrustedStorePath, "certs", $"{thumbprint}.der"));
+
     public static async Task<ApplicationConfiguration> CreateAsync(
         ITelemetryContext telemetry,
         Func<CertificateValidationEventArgs, bool> acceptUntrusted,
@@ -27,7 +31,10 @@ internal static class ClientConfiguration
         var validator = new CertificateValidator(telemetry);
         validator.CertificateValidation += (_, e) =>
         {
-            if (e.Error.StatusCode == StatusCodes.BadCertificateUntrusted && acceptUntrusted(e))
+            // Policy failures (short key, SHA-1) are common on older servers; the user decides like for untrusted ones.
+            if ((e.Error.StatusCode == StatusCodes.BadCertificateUntrusted
+                    || e.Error.StatusCode == StatusCodes.BadCertificatePolicyCheckFailed)
+                && acceptUntrusted(e))
             {
                 e.Accept = true;
             }
