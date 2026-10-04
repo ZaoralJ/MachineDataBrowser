@@ -137,7 +137,7 @@ internal static class McpServerHost
         foreach (var method in tools.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance)
             .Where(m => m.GetCustomAttribute<McpServerToolAttribute>() is not null))
         {
-            options.ToolCollection!.Add(McpServerTool.Create(method, tools));
+            options.ToolCollection!.Add(new ArgumentCheckedTool(McpServerTool.Create(method, tools)));
         }
     }
 }

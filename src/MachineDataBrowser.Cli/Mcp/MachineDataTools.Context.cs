@@ -219,13 +219,22 @@ internal sealed partial class MachineDataTools
 
         var notifier = node is null ? ObjectIds.Server : (await Connection.ResolveAsync(client, node, cancellationToken).ConfigureAwait(false)).Id;
         var received = new List<EventNotification>();
-        var subscription = await source.SubscribeEventsAsync(notifier, e =>
+        IAsyncDisposable subscription;
+        try
         {
-            lock (received)
+            subscription = await source.SubscribeEventsAsync(notifier, e =>
             {
-                received.Add(e);
-            }
-        }, cancellationToken).ConfigureAwait(false);
+                lock (received)
+                {
+                    received.Add(e);
+                }
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ServiceResultException ex) when (node is not null)
+        {
+            throw new McpException($"'{node}' doesn't report events ({StatusText.Of(ex.StatusCode)}): pass an object the server "
+                + "sends events for, or leave node out for the whole server.");
+        }
         await using (subscription.ConfigureAwait(false))
         {
             await Task.Delay(duration, cancellationToken).ConfigureAwait(false);
