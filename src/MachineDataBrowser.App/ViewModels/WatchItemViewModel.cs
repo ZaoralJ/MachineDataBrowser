@@ -24,20 +24,49 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
     public IAsyncDisposable? Monitor { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RefreshText))]
+    [NotifyPropertyChangedFor(nameof(RefreshText), nameof(RefreshToolTip))]
     public partial int RefreshMs { get; set; } = 250;
+
+    /// <summary>The tab's default refresh time; a row refreshing at another rate is marked.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RefreshText), nameof(RefreshToolTip))]
+    public partial int DefaultRefreshMs { get; set; } = 250;
 
     /// <summary>Sampling, queue and deadband (OPC UA); <see cref="MonitoringOptions.Default"/> unless changed.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RefreshText), nameof(RefreshToolTip))]
     public partial MonitoringOptions Monitoring { get; set; } = MonitoringOptions.Default;
 
-    /// <summary>The refresh time, with a ⚙ when monitoring settings were changed.</summary>
-    public string RefreshText => MainWindowViewModel.FormatRefresh(RefreshMs) + (Monitoring.IsDefault ? string.Empty : " ⚙");
+    /// <summary>The settings worth mentioning: sampling at the refresh time is what the refresh time already says.</summary>
+    private MonitoringOptions ShownMonitoring => Monitoring.SamplingIntervalMs is { } sampling && (int)sampling == RefreshMs
+        ? Monitoring with { SamplingIntervalMs = null }
+        : Monitoring;
 
-    public string RefreshToolTip => Monitoring.IsDefault
-        ? "Sampling/publishing interval. Right-click to change."
-        : $"Publishing every {MainWindowViewModel.FormatRefresh(RefreshMs)} · {Monitoring.Describe()}. Right-click ▸ Monitoring settings to change.";
+    private bool IsCustomRefresh => RefreshMs != DefaultRefreshMs || !ShownMonitoring.IsDefault;
+
+    /// <summary>The refresh time, with a ⚙ when it differs from the default or monitoring settings were changed.</summary>
+    public string RefreshText => MainWindowViewModel.FormatRefresh(RefreshMs) + (IsCustomRefresh ? " ⚙" : string.Empty);
+
+    public string RefreshToolTip
+    {
+        get
+        {
+            var parts = new List<string>(2);
+            if (RefreshMs != DefaultRefreshMs)
+            {
+                parts.Add($"Refresh {MainWindowViewModel.FormatRefresh(RefreshMs)} (default {MainWindowViewModel.FormatRefresh(DefaultRefreshMs)})");
+            }
+
+            if (!ShownMonitoring.IsDefault)
+            {
+                parts.Add(ShownMonitoring.Describe());
+            }
+
+            return parts.Count == 0
+                ? "Sampling/publishing interval. Right-click to change."
+                : $"{string.Join(" · ", parts)}. Right-click ▸ Monitoring settings to change.";
+        }
+    }
 
     /// <summary>The device's value as text; filters, snapshots, recordings and exports use this one.</summary>
     [ObservableProperty]

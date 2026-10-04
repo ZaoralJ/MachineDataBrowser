@@ -202,7 +202,8 @@ and sort order are saved with the session.
     last. *Discard oldest* decides which ones are dropped when the queue overflows.
   - *Deadband*: report only changes larger than an absolute amount, or a percent of the variable's EURange (the
     server rejects percent without one; the row keeps its previous settings).
-  - Rows with changed settings show ⚙ next to the refresh time; the tooltip lists them. They are saved with the
+  - Rows refreshing at another rate than the default, or with a queue or deadband, show ⚙ next to the refresh time;
+    the tooltip lists what differs. Settings are saved with the
     session and kept when the refresh time changes. Recordings use their own monitored items and are not affected.
 - **Recorded values:**
   - A red dot marks a row that is being recorded; *Recorded* shows how many samples are kept.

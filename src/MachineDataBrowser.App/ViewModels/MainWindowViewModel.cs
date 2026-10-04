@@ -715,7 +715,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         var watched = WatchItems.Select(w => w.NodeId).ToHashSet();
         var items = nodes
             .Where(n => watched.Add(n.NodeId))
-            .Select(n => new WatchItemViewModel(n.NodeId, n.DisplayName) { Path = n.Path, PortableId = _client.ToPortableId(n.NodeId), NodeIdText = _client.ToDisplayId(n.NodeId), RefreshMs = refreshMs })
+            .Select(n => new WatchItemViewModel(n.NodeId, n.DisplayName) { Path = n.Path, PortableId = _client.ToPortableId(n.NodeId), NodeIdText = _client.ToDisplayId(n.NodeId), RefreshMs = refreshMs, DefaultRefreshMs = DefaultRefreshMs })
             .ToList();
         if (items.Count == 0)
         {
@@ -1360,6 +1360,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     partial void OnDefaultRefreshMsChanged(int value)
     {
         MarkDirty();
+        foreach (var item in WatchItems)
+        {
+            item.DefaultRefreshMs = value;
+        }
         if (SelectedNode is { IsVariable: true } node && IsConnected)
         {
             _ = LoadAttributesAsync(node);
