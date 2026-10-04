@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.21.0...v0.21.1) (2026-10-04)
+
+
+### Fixes
+
+* clear MCP errors for rejected event subscriptions and wrong arguments ([#106](https://github.com/ZaoralJ/MachineDataBrowser/issues/106)) ([19d1bbc](https://github.com/ZaoralJ/MachineDataBrowser/commit/19d1bbcf763845238e042a2d4564a11ceab7464e))
+
 ## [0.21.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.20.0...v0.21.0) (2026-10-04)
 
 
