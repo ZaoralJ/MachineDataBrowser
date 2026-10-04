@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.20.0...v0.21.0) (2026-10-04)
+
+
+### Features
+
+* **app:** refresh time follows the monitoring sampling interval ([#103](https://github.com/ZaoralJ/MachineDataBrowser/issues/103)) ([76b52e0](https://github.com/ZaoralJ/MachineDataBrowser/commit/76b52e073cb80508c8fece4da35c75ba5396cbc5))
+* **cli:** show node ids with --ids, and always when names repeat ([#104](https://github.com/ZaoralJ/MachineDataBrowser/issues/104)) ([9de0ea9](https://github.com/ZaoralJ/MachineDataBrowser/commit/9de0ea9dc30113926553cf350cbbb8f9bcb9825c))
+
 ## [0.20.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.19.0...v0.20.0) (2026-10-03)
 
 
