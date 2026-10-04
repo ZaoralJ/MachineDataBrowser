@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.2](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.21.1...v0.21.2) (2026-10-04)
+
+
+### Fixes
+
+* **docs:** restore Material documentation builds ([#108](https://github.com/ZaoralJ/MachineDataBrowser/issues/108)) ([b5cdd25](https://github.com/ZaoralJ/MachineDataBrowser/commit/b5cdd25e96816db2992e3590692dbf950cfe7ac8))
+
 ## [0.21.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.21.0...v0.21.1) (2026-10-04)
 
 
