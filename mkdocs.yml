@@ -1,6 +1,7 @@
 site_name: Machine Data Browser
 site_description: Cross-platform viewer for machine data over OPC UA, EtherNet/IP and MQTT
 site_url: https://zaoralj.github.io/MachineDataBrowser/
+site_author: ZaoralJ
 repo_url: https://github.com/ZaoralJ/MachineDataBrowser
 repo_name: ZaoralJ/MachineDataBrowser
 edit_uri: edit/main/docs/
@@ -20,6 +21,9 @@ nav:
 
 theme:
   name: material
+  logo: images/logo.png
+  favicon: images/favicon.png
+  
   # The screenshots are dark, so the site starts dark; the toggle switches to light.
   palette:
     - scheme: slate
@@ -34,14 +38,43 @@ theme:
       toggle:
         icon: material/weather-night
         name: Dark mode
+  
   features:
+    # Navigation improvements
     - navigation.instant
+    - navigation.instant.progress
     - navigation.tracking
     - navigation.top
+    - navigation.indexes
+    
+    # Table of contents improvements
     - toc.follow
+    - toc.integrate
+    
+    # Search improvements
     - search.highlight
+    - search.share
+    - search.suggest
+    
+    # Content improvements
     - content.code.copy
+    - content.code.select
     - content.action.edit
+    - content.action.view
+    - content.tabs.link
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ZaoralJ/MachineDataBrowser
+      name: GitHub Repository
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com
+      name: Twitter
+  
+  analytics:
+    provider: google
+    property: G_XXXXXXXXXXXX  # Add your Google Analytics ID if needed
 
 markdown_extensions:
   - admonition
@@ -50,7 +83,10 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
-  - pymdownx.highlight
+      toc_depth: 3
+  - pymdownx.highlight:
+      use_pygments: true
+      pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.tabbed:
       alternate_style: true
@@ -59,6 +95,19 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.details
+  - pymdownx.snippets
+  - pymdownx.arithmatex:
+      generic: true
 
 plugins:
-  - search
+  - search:
+      lang:
+        - en
+  - minify:
+      minify_html: true
+      minify_css: true
+      minify_js: true
