@@ -70,21 +70,22 @@ public sealed class TuiModelTests(CustomTypesServerFixture custom, OpcPlcFixture
         await using (var model = await OpenAsync(custom.EndpointUrl))
         await using (model.Client)
         {
-            var int32 = await FindAsync(model, "Int32");
-            var written = await model.WriteAsync(int32.Item.NodeId, "Int32", "-4242", Ct);
+            // Int64: a variable no other test class writes (they run in parallel against the same server).
+            var int64 = await FindAsync(model, "Int64");
+            var written = await model.WriteAsync(int64.Item.NodeId, "Int64", "-4242", Ct);
             Assert.Null(written.Error);
             Assert.Equal("-4242", written.After);
 
-            var rejected = await model.WriteAsync(int32.Item.NodeId, "Int32", "not a number", Ct);
+            var rejected = await model.WriteAsync(int64.Item.NodeId, "Int64", "not a number", Ct);
             Assert.NotNull(rejected.Error);
             Assert.Equal("-4242", rejected.After);
         }
 
         await using var readOnly = await OpenAsync(custom.EndpointUrl, readOnly: true);
         await using var client = readOnly.Client;
-        var target = await FindAsync(readOnly, "Int32");
+        var target = await FindAsync(readOnly, "Int64");
         Assert.NotNull(readOnly.WriteBlockedReason);
-        await Assert.ThrowsAsync<CliException>(() => readOnly.WriteAsync(target.Item.NodeId, "Int32", "1", Ct));
+        await Assert.ThrowsAsync<CliException>(() => readOnly.WriteAsync(target.Item.NodeId, "Int64", "1", Ct));
     }
 
     [Theory]
