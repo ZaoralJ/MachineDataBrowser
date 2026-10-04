@@ -131,6 +131,12 @@ internal sealed class BrowserModel : IAsyncDisposable
         SessionPath = sessionPath;
         Root = new TreeEntry(client.Root, null);
         client.StateChanged += (_, state) => Log($"Connection {state}.");
+        if (client is IPausableDiscovery discovery)
+        {
+            discovery.DiscoveryPausedChanged += (_, _) => Log(discovery.IsDiscoveryPaused
+                ? "Discovery paused: only monitored topics are received, new topics don't appear (d resumes)."
+                : "Discovery resumed: receiving the whole topic filter again.");
+        }
     }
 
     public IDeviceClient Client { get; }
@@ -148,6 +154,16 @@ internal sealed class BrowserModel : IAsyncDisposable
     public bool SupportsEvents => Client is IEventSource;
 
     public bool SupportsHistory => Client is IHistorySource;
+
+    /// <summary>MQTT: discovery (subscribing to the whole topic filter) can be paused on busy brokers, like in the app.</summary>
+    public bool SupportsDiscoveryPause => Client is IPausableDiscovery;
+
+    public bool IsDiscoveryPaused => Client is IPausableDiscovery { IsDiscoveryPaused: true };
+
+    public Task ToggleDiscoveryAsync(CancellationToken cancellationToken = default) =>
+        Client is IPausableDiscovery discovery
+            ? discovery.SetDiscoveryPausedAsync(!discovery.IsDiscoveryPaused, cancellationToken)
+            : Task.CompletedTask;
 
     /// <summary>Raised from any thread when something the UI shows changed outside of a snapshot (log, tree).</summary>
     public event Action? Changed;

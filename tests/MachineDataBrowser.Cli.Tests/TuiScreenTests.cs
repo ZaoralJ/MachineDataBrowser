@@ -88,6 +88,21 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
     }
 
     [Fact]
+    public async Task Names_with_underscores_show_as_they_are_in_titles()
+    {
+        App.Driver!.SetScreenSize(150, 45);
+        var model = _session!.Model;
+        var counter = (await model.SearchAsync("Every10ms", cancellationToken: Ct)).Hits.Single(h => h.Item.DisplayName == "Every10ms");
+        var entry = await model.RevealAsync(counter.Path, Ct);
+        var id = (await model.LoadChildrenAsync(entry!, cancellationToken: Ct)).Single(c => c.Item.DisplayName == "Counter").Item.NodeId;
+        await model.MonitorNodesAsync([(new Node(id, "Bulk_0014", "ns=2;i=76"), 100)], Ct);
+
+        // Terminal.Gui would read '_' as a hotkey marker and show "Bulk0014".
+        var screen = await UntilScreen(s => s.Contains("⁴Trend ┤ Bulk", StringComparison.Ordinal));
+        Assert.Contains("⁴Trend ┤ Bulk_0014 ├", screen, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Monitor_hide_panes_pause_sort_and_refresh_from_the_keyboard()
     {
         App.Driver!.SetScreenSize(150, 45);
@@ -101,6 +116,14 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
         var screen = await UntilScreen(s => s.Contains("Counter", StringComparison.Ordinal) && s.Contains("Good", StringComparison.Ordinal) && s.Contains("⁴Trend ┤", StringComparison.Ordinal));
         Assert.Contains("Monitored Items (5)", screen, StringComparison.Ordinal);
         Assert.Contains("Monitoring 5 items: Counter (ns=2;i=76)", screen, StringComparison.Ordinal);
+
+        // i shows the NodeId column (hidden at first; the id is then in the table as well as in the log).
+        int Ids(string s) => s.Split("ns=2;i=77").Length - 1;
+        var before = Ids(screen);
+        Press(Key.I);
+        screen = await UntilScreen(s => Ids(s) > before);
+        Press(Key.I);
+        await UntilScreen(s => Ids(s) == before);
 
         // 4 hides the trend, and the monitored items take its room; 4 again brings it back.
         Press(new Key('4'));

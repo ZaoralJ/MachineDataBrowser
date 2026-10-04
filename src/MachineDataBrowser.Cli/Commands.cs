@@ -450,9 +450,12 @@ internal static class Commands
 
         // tui
         var tuiTarget = new Argument<string>("target") { Description = "Endpoint (opc.tcp://…, eip://…, mqtt://…) or a session file (.mdbsession)" };
+        var tuiTheme = new Option<string?>("--theme") { Description = $"Colour theme, like the app's: {string.Join(", ", ColorThemeCatalog.All.Select(t => t.Name))} (default: the app's)" };
+        tuiTheme.AcceptOnlyFromAmong([.. ColorThemeCatalog.All.Select(t => t.Name)]);
+        var tuiLight = new Option<bool>("--light") { Description = "Light appearance of the theme (default: the app's; dark when it follows the system)" };
         var tui = new Command("tui", "Full-screen browser: address space, attributes, monitored items, write, record, alarms, history");
         tui.Arguments.Add(tuiTarget);
-        foreach (var option in new Option[] { user, password, secure, trustAll, refresh })
+        foreach (var option in new Option[] { user, password, secure, trustAll, refresh, tuiTheme, tuiLight })
         {
             tui.Options.Add(option);
         }
@@ -503,7 +506,9 @@ internal static class Commands
                 await model.MonitorNodesAsync(items, ct).ConfigureAwait(false);
             }
 
-            return await Tui.TuiApp.RunAsync(model, ct).ConfigureAwait(false);
+            var (appTheme, appLight) = AppAppearance.Load();
+            var theme = r.GetValue(tuiTheme) is { } name ? ColorThemeCatalog.Find(name) : appTheme;
+            return await Tui.TuiApp.RunAsync(model, theme, r.GetValue(tuiLight) || appLight, ct).ConfigureAwait(false);
         }));
 
         return new RootCommand("Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix) and MQTT")

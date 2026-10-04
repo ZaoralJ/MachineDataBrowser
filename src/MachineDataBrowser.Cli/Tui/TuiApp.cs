@@ -4,6 +4,7 @@ using MachineDataBrowser.Core;
 using Opc.Ua;
 using Terminal.Gui.App;
 using Terminal.Gui.Drawing;
+using Terminal.Gui.Drivers;
 using Attribute = Terminal.Gui.Drawing.Attribute;
 using Terminal.Gui.Input;
 using Terminal.Gui.ViewBase;
@@ -49,7 +50,7 @@ internal sealed class TuiApp : IDisposable
     private readonly IApplication _app;
     private readonly BrowserModel _model;
     private readonly Window _window;
-    private readonly Label _header;
+    private readonly HeaderBar _header;
     private readonly TreeView<TreeEntry> _tree;
     private readonly GridSource _attributeRows = new(["Attribute", "Value"]);
     private readonly TableView _attributes;
@@ -64,7 +65,7 @@ internal sealed class TuiApp : IDisposable
     private readonly FrameView _chartFrame;
     private readonly FrameView _logFrame;
     private readonly FrameView[] _panes;
-    private readonly StatusBar _status;
+    private readonly KeyBar _status;
     private readonly Dictionary<TreeEntry, TreeEntry> _loadingPlaceholders = [];
     private readonly Dictionary<Key, Action> _extraKeys = [];
     private List<WatchRow> _shown = [];
@@ -77,13 +78,14 @@ internal sealed class TuiApp : IDisposable
     private int _attributeRequest;
     private bool _treeDirty;
 
-    public TuiApp(IApplication app, BrowserModel model)
+    public TuiApp(IApplication app, BrowserModel model, ColorTheme? theme = null, bool light = false)
     {
         _app = app;
         _model = model;
+        Theme.Apply(theme ?? ColorThemeCatalog.Find(null), light);
 
         _window = new Window { BorderStyle = global::Terminal.Gui.Drawing.LineStyle.None };
-        _header = new Label { X = 0, Y = 0, Width = Dim.Fill(), Height = 1 };
+        _header = new HeaderBar { X = 0, Y = 0, Width = Dim.Fill() };
 
         _treeFrame = new FrameView { Title = "¹Address Space" };
         _tree = new TreeView<TreeEntry>
@@ -115,10 +117,14 @@ internal sealed class TuiApp : IDisposable
         Theme.Table(_watch);
         _watch.Style.RowColorGetter = args => RowScheme(args.RowIndex);
         // Value stands out, status in its colour, time, count and id recede.
-        _watch.Style.ColumnStyles[0] = new ColumnStyle { ColorGetter = args => RowScheme(args.RowIndex) ?? Theme.Colored(ColorName16.White) };
-        _watch.Style.ColumnStyles[1] = new ColumnStyle { ColorGetter = args => RowScheme(args.RowIndex) ?? Theme.Colored(ColorName16.White, TextStyle.Bold) };
+        // Long names and JSON payloads are cut, so status, time and count stay on screen. Value stands out, status in its
+        // colour, time, count and id recede; the id column shows with i.
+        _watch.Style.ColumnStyles[0] = new ColumnStyle { MaxWidth = 28, ColorGetter = args => RowScheme(args.RowIndex) ?? Theme.Colored(Theme.Foreground) };
+        _watch.Style.ColumnStyles[1] = new ColumnStyle { MaxWidth = 30, ColorGetter = args => RowScheme(args.RowIndex) ?? Theme.Colored(Theme.Bright, TextStyle.Bold) };
         _watch.Style.ColumnStyles[2] = new ColumnStyle { ColorGetter = args => StatusScheme(args.RowIndex) };
-        _watch.Style.ColumnStyles[5] = new ColumnStyle { ColorGetter = _ => Theme.Colored(ColorName16.DarkGray) };
+        _watch.Style.ColumnStyles[3] = new ColumnStyle { ColorGetter = _ => Theme.Colored(Theme.Muted) };
+        _watch.Style.ColumnStyles[4] = new ColumnStyle { ColorGetter = _ => Theme.Colored(Theme.Muted) };
+        _watch.Style.ColumnStyles[5] = new ColumnStyle { Visible = false, ColorGetter = _ => Theme.Colored(Theme.Dim) };
         _watchFrame.Add(_watch);
 
         _chartFrame = new FrameView { Title = "⁴Trend" };
@@ -131,40 +137,55 @@ internal sealed class TuiApp : IDisposable
         _logFrame.Add(_log);
         _panes = [_treeFrame, _attributesFrame, _watchFrame, _chartFrame, _logFrame];
         _window.SetScheme(Theme.Base);
-        _header.SetScheme(Theme.Base);
         Theme.Pane(_treeFrame, _tree);
         Theme.Pane(_attributesFrame, _attributes);
         Theme.Pane(_watchFrame, _watch);
         Theme.Pane(_chartFrame, _chart);
         Theme.Pane(_logFrame, _log, Theme.Quiet);
 
-        // The main actions; ? lists every key.
-        _status = new StatusBar(
+        // The main actions; h lists every key. The bar only shows them, OnKeyDown runs them. History, alarms and events
+        // are OPC UA's: other protocols don't show them.
+        var opcUa = _model.SupportsHistory || _model.SupportsEvents;
+        _status = new KeyBar(
         [
-            new Shortcut(Key.M, "Monitor", Monitor),
-            new Shortcut(Key.U, "Unmon", Unmonitor),
-            new Shortcut(Key.W, "Write", Write),
-            new Shortcut(new Key('/'), "Search", Search),
-            new Shortcut(Key.F, "Filter", Filter),
-            new Shortcut(Key.P, "Pause", TogglePause),
-            new Shortcut(Key.R, "Record", ToggleRecording),
-            new Shortcut(Key.A, "Alarms", Alarms),
-            new Shortcut(new Key('?'), "Help", Help),
-            new Shortcut(Key.Q, "Quit", () => _app.RequestStop()),
-        ]);
-        _status.SetScheme(Theme.Base);
+            ('m', "Monitor"), ('u', "Unmonitor"), ('w', "Write"), ('/', "Search"), ('f', "Filter"), ('p', "Pause"),
+            ('o', "Sort"), ('r', "Record"),
+            .. opcUa ? new[] { ('a', "Alarms"), ('e', "Events"), ('y', "History") } : [],
+            .. _model.SupportsDiscoveryPause ? new[] { ('d', "Discovery") } : [],
+            ('t', "Theme"), ('h', "Help"), ('q', "Quit"),
+        ]) { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
         foreach (var (key, action) in new (Key, Action)[]
         {
-            (Key.O, NextSort), (Key.H, History), (Key.E, Events), (Key.S, Diagnostics), (Key.S.WithCtrl, SaveSession),
+            (Key.M, Monitor), (Key.U, Unmonitor), (Key.W, Write), (new Key('/'), Search), (Key.F, Filter), (Key.P, TogglePause),
+            (Key.O, NextSort), (Key.R, ToggleRecording), (Key.H, Help), (Key.T, NextTheme), (Key.L, ToggleLight),
+            (Key.Q, () => _app.RequestStop()), (Key.I, ToggleIds), (Key.S, Diagnostics), (Key.S.WithCtrl, SaveSession),
             (Key.F5, Reload), (Key.C, _model.ClearLog),
         })
         {
             _extraKeys[key] = action;
         }
 
+        if (_model.SupportsEvents)
+        {
+            _extraKeys[Key.A] = Alarms;
+            _extraKeys[Key.E] = Events;
+        }
+
+        if (_model.SupportsHistory)
+        {
+            _extraKeys[Key.Y] = History;
+        }
+
+        if (_model.SupportsDiscoveryPause)
+        {
+            _extraKeys[Key.D] = () => Run(() => _model.ToggleDiscoveryAsync(), "pausing or resuming discovery");
+        }
+
 
         _window.Add(_header, _treeFrame, _attributesFrame, _watchFrame, _chartFrame, _logFrame, _status);
-        _window.KeyDown += OnKeyDown;
+        // The TUI's keys work whichever pane has the focus (and with the kitty keyboard protocol, as in Warp); not while
+        // a dialog is open, so typing in a text field stays typing.
+        _app.Keyboard.KeyDown += OnAppKeyDown;
 
         // Tab / Shift+Tab move between the panes (Terminal.Gui's Tab stays inside one frame).
         foreach (var view in new View[] { _tree, _attributes, _watch, _log })
@@ -200,10 +221,10 @@ internal sealed class TuiApp : IDisposable
     public Window Window => _window;
 
     /// <summary>Runs the browser until q or Ctrl+C.</summary>
-    public static async Task<int> RunAsync(BrowserModel model, CancellationToken cancellationToken, string? driver = null)
+    public static async Task<int> RunAsync(BrowserModel model, ColorTheme theme, bool light, CancellationToken cancellationToken)
     {
-        using var app = Application.Create().Init(driver);
-        using var tui = new TuiApp(app, model);
+        using var app = Application.Create().Init();
+        using var tui = new TuiApp(app, model, theme, light);
         tui.Start();
         await app.RunAsync(tui.Window, cancellationToken).ConfigureAwait(true);
         return 0;
@@ -217,7 +238,11 @@ internal sealed class TuiApp : IDisposable
         _tree.SetFocus();
     }
 
-    public void Dispose() => _window.Dispose();
+    public void Dispose()
+    {
+        _app.Keyboard.KeyDown -= OnAppKeyDown;
+        _window.Dispose();
+    }
 
     // ------------------------------------------------------------------ tree
 
@@ -487,7 +512,7 @@ internal sealed class TuiApp : IDisposable
 
         _treeFrame.X = 0;
         _treeFrame.Y = 1;
-        _treeFrame.Width = right.Count == 0 ? Dim.Fill() : Dim.Percent(40);
+        _treeFrame.Width = right.Count == 0 ? Dim.Fill() : Dim.Percent(35);
         _treeFrame.Height = Dim.Fill(bottom);
 
         // The pane that takes the remaining height: monitored items, else attributes, else the trend.
@@ -578,6 +603,16 @@ internal sealed class TuiApp : IDisposable
         (target ?? FocusOrder().FirstOrDefault())?.SetFocus();
     }
 
+    private void OnAppKeyDown(object? sender, Key key)
+    {
+        if (key.Handled || _app.TopRunnableView != _window)
+        {
+            return;
+        }
+
+        OnKeyDown(sender, key);
+    }
+
     private void OnKeyDown(object? sender, Key key)
     {
         if (_extraKeys.TryGetValue(key, out var action))
@@ -589,6 +624,16 @@ internal sealed class TuiApp : IDisposable
 
         if (key.IsCtrl || key.IsAlt)
         {
+            return;
+        }
+
+        // Shift+1-5 zoom. Terminals send them as ! @ # $ % (classic), or as the digit key with Shift (kitty keyboard
+        // protocol, e.g. Warp), where the key has no single character to match.
+        var baseCode = key.NoShift.KeyCode;
+        if (key.IsShift && baseCode is >= KeyCode.D1 and <= KeyCode.D5)
+        {
+            ToggleZoom((int)(baseCode - KeyCode.D1));
+            key.Handled = true;
             return;
         }
 
@@ -627,15 +672,41 @@ internal sealed class TuiApp : IDisposable
     private void RefreshHeader()
     {
         var state = _model.Client.State;
-        var dot = state == ConnectionState.Connected ? "●" : "○";
-        var session = _model.SessionPath is { } path ? $"  {Path.GetFileName(path)}" : string.Empty;
-        var readOnly = _model.Args.ReadOnly ? "  read-only" : string.Empty;
-        var recording = _model.RecordingPath is { } file ? $"  ⏺ REC {Path.GetFileName(file)} {_model.RecordedSamples}" : string.Empty;
-        var left = $" mdbrowser  {_model.Args.Url}  {dot} {state}{session}{readOnly}{recording}";
-        var right = $"- {BrowserModel.RefreshText(_model.DefaultRefreshMs)} +   {DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture)} ";
-        var width = Math.Max(left.Length + right.Length + 1, _header.Viewport.Width);
-        _header.Text = left + new string(' ', width - left.Length - right.Length) + right;
-        _header.SetScheme(Theme.Colored(state == ConnectionState.Connected ? ColorName16.BrightCyan : ColorName16.BrightRed, TextStyle.Bold));
+        var connected = state == ConnectionState.Connected;
+        var left = new List<(string, Attribute)>
+        {
+            ("mdbrowser", Theme.Text(Theme.Magenta, TextStyle.Bold)),
+            ("  " + _model.Args.Url, Theme.Text(Theme.Foreground)),
+            ("  " + (connected ? "●" : "○") + " " + state, Theme.Text(connected ? Theme.Green : Theme.Red, TextStyle.Bold)),
+        };
+        if (_model.SessionPath is { } path)
+        {
+            left.Add(("  " + Path.GetFileName(path), Theme.Text(Theme.Muted)));
+        }
+
+        if (_model.Args.ReadOnly)
+        {
+            left.Add(("  read-only", Theme.Text(Theme.Yellow)));
+        }
+
+        if (_model.IsDiscoveryPaused)
+        {
+            left.Add(("  ⏸ discovery paused", Theme.Text(Theme.Yellow, TextStyle.Bold)));
+        }
+
+        if (_model.RecordingPath is { } file)
+        {
+            left.Add(($"  ⏺ REC {Path.GetFileName(file)} · {_model.RecordedSamples}", Theme.Text(Theme.Red, TextStyle.Bold)));
+        }
+
+        var right = new List<(string, Attribute)>
+        {
+            ("- ", Theme.Text(Theme.Blue, TextStyle.Bold)),
+            (BrowserModel.RefreshText(_model.DefaultRefreshMs), Theme.Text(Theme.Bright)),
+            (" +", Theme.Text(Theme.Blue, TextStyle.Bold)),
+            ("   " + DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture), Theme.Text(Theme.Muted)),
+        };
+        _header.Set(left, right);
     }
 
     /// <summary>- / +: the next refresh time for every monitored item (and new ones).</summary>
@@ -666,6 +737,13 @@ internal sealed class TuiApp : IDisposable
         RefreshWatch(force: true);
     }
 
+    /// <summary>i: the id column of the monitored items, for names that repeat.</summary>
+    private void ToggleIds()
+    {
+        _watch.Style.ColumnStyles[5].Visible = !_watch.Style.ColumnStyles[5].Visible;
+        _watch.Update();
+    }
+
     /// <summary>Freezes the display to read values; monitoring and recording go on.</summary>
     private void TogglePause()
     {
@@ -685,15 +763,15 @@ internal sealed class TuiApp : IDisposable
 
     private static Scheme? TreeColor(TreeEntry entry) => entry.Item.NodeClass switch
     {
-        NodeClass.Variable => Theme.Colored(ColorName16.BrightGreen),
-        NodeClass.Method => Theme.Colored(ColorName16.BrightMagenta),
-        NodeClass.Unspecified => Theme.Colored(ColorName16.DarkGray),
-        _ => Theme.Colored(ColorName16.White),
+        NodeClass.Variable => Theme.Colored(Theme.Green),
+        NodeClass.Method => Theme.Colored(Theme.Magenta),
+        NodeClass.Unspecified => Theme.Colored(Theme.Dim),
+        _ => Theme.Colored(Theme.Foreground),
     };
 
     /// <summary>Stale and waiting rows are dimmed.</summary>
     private Scheme? RowScheme(int row) =>
-        row < _shownSnapshots.Count && (_shownSnapshots[row].Stale || _shownSnapshots[row].Waiting) ? Theme.Colored(ColorName16.DarkGray) : null;
+        row < _shownSnapshots.Count && (_shownSnapshots[row].Stale || _shownSnapshots[row].Waiting) ? Theme.Colored(Theme.Dim) : null;
 
     /// <summary>Good green, Uncertain yellow, Bad red.</summary>
     private Scheme? StatusScheme(int row)
@@ -704,7 +782,7 @@ internal sealed class TuiApp : IDisposable
         }
 
         var code = _shownSnapshots[row].Code;
-        return Theme.Colored(StatusCode.IsGood(code) ? ColorName16.BrightGreen : StatusCode.IsUncertain(code) ? ColorName16.BrightYellow : ColorName16.BrightRed);
+        return Theme.Colored(Theme.Status(code));
     }
 
     private void RefreshLog()
@@ -766,7 +844,7 @@ internal sealed class TuiApp : IDisposable
                     var outcome = await _model.WriteAsync(id, name, text).ConfigureAwait(false);
                     if (outcome.Error is not null)
                     {
-                        Ui(() => MessageBox.ErrorQuery(_app, "Write failed", outcome.Error, "OK"));
+                        Ui(() => Error("Write failed", outcome.Error));
                     }
                 }, $"writing {name}");
             });
@@ -796,7 +874,7 @@ internal sealed class TuiApp : IDisposable
 
                 _model.Log($"{result.Hits.Count} match(es) for {text}{(result.Truncated ? " (search stopped early)" : string.Empty)}.");
                 var choice = Pick($"Search: {text}", ["Name", "Class", "Path"],
-                    [.. result.Hits.Select(h => new[] { h.Item.DisplayName, h.Item.NodeClass.ToString(), h.PathText })]);
+                    [.. result.Hits.Select(h => new[] { h.Item.DisplayName, h.Item.NodeClass.ToString(), h.PathText })], goTo: true);
                 if (choice is { } index)
                 {
                     Reveal(result.Hits[index].Path);
@@ -963,83 +1041,163 @@ internal sealed class TuiApp : IDisposable
         }, "reading diagnostics");
     }
 
-    private void Help() => Pick("Keys", ["Key", "Does"],
-    [
-        ["Enter / → / ←", "Expand or collapse a node"],
-        ["Tab / Shift+Tab", "Next / previous pane"],
-        ["1 … 5", "Show or hide a pane: address space, attributes, monitored items, trend, info"],
-        ["Shift+1 … 5", "The pane alone on the full screen; again restores the layout"],
-        ["m", "Monitor the variable, or every variable below a folder or structure"],
-        ["u", "Stop monitoring the selected monitored item"],
-        ["w", "Write a value (shows the current one, asks first, reads back)"],
-        ["/", "Search the address space by name or id (Temp*, Motor?)"],
-        ["f", "Filter the monitored items by name or id"],
-        ["o / O", "Sort the monitored items by the next column / reverse"],
-        ["p", "Pause the display (monitoring and recording go on)"],
-        ["- / +", "Refresh time of all monitored items"],
-        ["r", "Start or stop recording the monitored items (.db = SQLite, else CSV)"],
-        ["Ctrl+S", "Save the monitored items as a session file"],
-        ["h", "History of the selected variable (OPC UA)"],
-        ["a / e", "Current alarms / live events (OPC UA)"],
-        ["s", "Connection diagnostics"],
-        ["F5", "Browse the selected node again"],
-        ["c", "Clear the info log"],
-        ["q", "Quit"],
-    ]);
+    private void Help()
+    {
+        List<string[]> rows =
+        [
+            ["Enter / → / ←", "Expand or collapse a node"],
+            ["Tab / Shift+Tab", "Next / previous pane"],
+            ["1 … 5", "Show or hide a pane: address space, attributes, monitored items, trend, info"],
+            ["Shift+1 … 5", "The pane alone on the full screen; again restores the layout"],
+            ["m", "Monitor the variable, or every variable below a folder or structure"],
+            ["u", "Stop monitoring the selected monitored item"],
+            ["w", "Write a value (shows the current one, asks first, reads back)"],
+            ["/", "Search the address space by name or id (Temp*, Motor?)"],
+            ["f", "Filter the monitored items by name or id"],
+            ["o / O", "Sort the monitored items by the next column / reverse"],
+            ["i", "Show or hide the NodeId (tag, topic) column of the monitored items"],
+            ["p", "Pause the display (monitoring and recording go on)"],
+            ["- / +", "Refresh time of all monitored items"],
+            ["r", "Start or stop recording the monitored items (.db = SQLite, else CSV)"],
+            ["Ctrl+S", "Save the monitored items as a session file"],
+        ];
+        if (_model.SupportsHistory)
+        {
+            rows.Add(["y", "History of the selected variable"]);
+        }
+
+        if (_model.SupportsEvents)
+        {
+            rows.Add(["a / e", "Current alarms / live events"]);
+        }
+
+        if (_model.SupportsDiscoveryPause)
+        {
+            rows.Add(["d", "Pause / resume discovery: receive only the monitored topics (busy brokers)"]);
+        }
+
+        rows.AddRange(
+        [
+            ["s", "Connection diagnostics"],
+            ["t / l", $"Next colour theme (the app's) / light or dark; now {Theme.Current.Name}, {(Theme.Light ? "light" : "dark")}"],
+            ["F5", "Browse the selected node again"],
+            ["c", "Clear the info log"],
+            ["h", "This help"],
+            ["q", "Quit"],
+        ]);
+        Pick("Keys", ["Key", "Does"], rows);
+    }
+
+    // ------------------------------------------------------------------ themes
+
+    private void NextTheme()
+    {
+        var all = ColorThemeCatalog.All;
+        var next = all[(all.ToList().IndexOf(Theme.Current) + 1) % all.Count];
+        ApplyTheme(next, Theme.Light);
+    }
+
+    private void ToggleLight() => ApplyTheme(Theme.Current, !Theme.Light);
+
+    /// <summary>Recolours every pane at once; tables and the tree take their colours from the theme as they draw.</summary>
+    private void ApplyTheme(ColorTheme theme, bool light)
+    {
+        Theme.Apply(theme, light);
+        _window.SetScheme(Theme.Base);
+        foreach (var (pane, view) in PaneViews().Append((_chartFrame, _chart)))
+        {
+            pane.SetScheme(Theme.Frame(view.HasFocus));
+            view.SetScheme(view == _log ? Theme.Quiet : Theme.Base);
+        }
+
+        Theme.Table(_attributes);
+        Theme.Table(_watch);
+        _window.SetNeedsDraw();
+        _model.Log($"Theme {theme.Name}, {(light ? "light" : "dark")}.");
+    }
 
     private static string YesNo(bool? value) => value switch { true => "yes", false => "no", null => "-" };
 
     // ------------------------------------------------------------------ dialogs
 
+    /// <summary>A themed dialog with its buttons (the last is the default); the caller adds the content first.</summary>
+    private static Dialog NewDialog(string title, Dim width, Dim? height, View[] content, params string[] buttons)
+    {
+        var dialog = new Dialog { Title = title, Width = width };
+        if (height is not null)
+        {
+            dialog.Height = height;
+        }
+
+        dialog.Add(content);
+        foreach (var button in buttons)
+        {
+            dialog.AddButton(new Button { Title = $" {button} " });
+        }
+
+        Theme.Dialog(dialog);
+        return dialog;
+    }
+
+    private static Label Text(string text, Pos? y = null)
+    {
+        var label = new Label { Text = text, X = 1, Y = y ?? 1 };
+        Theme.PlainTitle(label);
+        return label;
+    }
+
     /// <summary>A text prompt; null when cancelled.</summary>
     private string? Ask(string title, string label, string initial)
     {
-        using var dialog = new Dialog { Title = title, Width = Dim.Percent(70) };
-        var text = new Label { Text = label, X = 1, Y = 1 };
-        var field = new TextField { Text = initial, X = 1, Y = Pos.Bottom(text), Width = Dim.Fill(1) };
-        Theme.Dialog(dialog);
-        dialog.Add(text, field);
-        dialog.AddButton(new Button { Title = "_Cancel" });
-        dialog.AddButton(new Button { Title = "_OK" });
+        var text = Text(label);
+        var field = new TextField { Text = initial, X = 1, Y = Pos.Bottom(text) + 1, Width = Dim.Fill(1) };
+        field.SetScheme(new Scheme(Theme.Base) { Normal = new Attribute(Theme.Bright, Theme.Selection), Focus = new Attribute(Theme.Bright, Theme.Selection), Editable = new Attribute(Theme.Bright, Theme.Selection) });
+        using var dialog = NewDialog(title, Dim.Percent(70), null, [text, field], "_Cancel", "_OK");
         field.SetFocus();
         _app.Run(dialog);
         return dialog.Result == 1 ? field.Text?.Trim() : null;
     }
 
-    private bool Confirm(string title, string message) =>
-        MessageBox.Query(_app, title, message, "_No", "_Yes") == 1;
-
-    /// <summary>A table in a dialog; Enter picks a row (its index), Esc closes.</summary>
-    private int? Pick(string title, string[] columns, List<string[]> rows)
+    /// <summary>A yes/no question; No is the default, so Enter alone changes nothing.</summary>
+    private bool Confirm(string title, string message)
     {
-        using var dialog = new Dialog { Title = title, Width = Dim.Percent(90), Height = Dim.Percent(80) };
+        using var dialog = NewDialog(title, Dim.Auto(minimumContentDim: 50), null, [Text(message)], "_Yes", "_No");
+        dialog.Buttons[^1].SetFocus();
+        _app.Run(dialog);
+        return dialog.Result == 0;
+    }
+
+    private void Error(string title, string message)
+    {
+        using var dialog = NewDialog(title, Dim.Auto(minimumContentDim: 50), null, [Text(message)], "_OK");
+        dialog.SetScheme(new Scheme(dialog.GetScheme()) { Normal = new Attribute(Theme.Red, Theme.Surface) });
+        _app.Run(dialog);
+    }
+
+    /// <summary>A table in a dialog; with <paramref name="goTo"/>, Enter / Go to picks a row (its index), Esc closes.</summary>
+    private int? Pick(string title, string[] columns, List<string[]> rows, bool goTo = false)
+    {
         var source = new GridSource(columns);
         source.SetRows(rows);
         var table = new TableView(source) { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(2), FullRowSelect = true, CollectionNavigator = null };
         Theme.Table(table);
-        Theme.Dialog(dialog);
-        table.SetScheme(Theme.Base);
-        dialog.Add(table);
-        dialog.AddButton(new Button { Title = "_Close" });
-        dialog.AddButton(new Button { Title = "_Go to" });
+        table.SetScheme(new Scheme(Theme.Base) { Normal = new Attribute(Theme.Foreground, Theme.Surface) });
+        using var dialog = NewDialog(title, Dim.Percent(90), Dim.Percent(80), [table], goTo ? ["_Close", "_Go to"] : ["_Close"]);
         table.SetFocus();
         _app.Run(dialog);
         var row = table.Value?.SelectedCell.Y ?? -1;
-        return dialog.Result == 1 && row >= 0 && row < rows.Count ? row : null;
+        return goTo && dialog.Result == 1 && row >= 0 && row < rows.Count ? row : null;
     }
 
     /// <summary>A table that keeps updating while open (alarms, events).</summary>
     private void Live(string title, string[] columns, Func<IReadOnlyList<string[]>> rows)
     {
-        using var dialog = new Dialog { Title = title, Width = Dim.Percent(95), Height = Dim.Percent(80) };
         var source = new GridSource(columns);
         source.SetRows(rows());
         var table = new TableView(source) { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(2), FullRowSelect = true, CollectionNavigator = null };
         Theme.Table(table);
-        Theme.Dialog(dialog);
-        table.SetScheme(Theme.Base);
-        dialog.Add(table);
-        dialog.AddButton(new Button { Title = "_Close" });
+        table.SetScheme(new Scheme(Theme.Base) { Normal = new Attribute(Theme.Foreground, Theme.Surface) });
+        using var dialog = NewDialog(title, Dim.Percent(95), Dim.Percent(80), [table], "_Close");
         var open = true;
         _app.AddTimeout(TimeSpan.FromMilliseconds(500), () =>
         {

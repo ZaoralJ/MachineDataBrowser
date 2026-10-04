@@ -35,7 +35,7 @@ internal sealed class TrendChart : View
         var values = Tail(_values, width);
         if (width <= 0 || height <= 0 || values.Count < 2)
         {
-            SetAttribute(new Attribute(ColorName16.DarkGray, background));
+            SetAttribute(Theme.Text(Theme.Dim));
             AddStr(0, 0, values.Count == 0 ? "Select a monitored numeric item (Tab to Monitored Items)." : "Waiting for more samples…");
             return true;
         }
@@ -81,15 +81,5 @@ internal sealed class TrendChart : View
         return true;
     }
 
-    private static Color RowColor(int row, int height)
-    {
-        var fromTop = height <= 1 ? 1.0 : (double)row / (height - 1);
-        return fromTop switch
-        {
-            < 0.25 => new Color(ColorName16.BrightRed),
-            < 0.5 => new Color(ColorName16.BrightYellow),
-            < 0.75 => new Color(ColorName16.Yellow),
-            _ => new Color(ColorName16.BrightGreen),
-        };
-    }
+    private static Color RowColor(int row, int height) => Theme.Gradient(height <= 1 ? 1.0 : (double)row / (height - 1));
 }
