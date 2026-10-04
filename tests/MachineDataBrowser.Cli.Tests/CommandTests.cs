@@ -60,6 +60,24 @@ public sealed class CommandTests(OpcPlcFixture plc, MqttSimulatorFixture broker)
     }
 
     [Fact]
+    public async Task Ids_are_shown_with_the_switch_and_when_names_repeat()
+    {
+        var (_, plain, _) = await RunAsync("read", plc.EndpointUrl, StepUp, "--trust-all", "-f", "csv");
+        Assert.StartsWith("name,type,value", plain, StringComparison.Ordinal);
+
+        var (_, withIds, _) = await RunAsync("read", plc.EndpointUrl, StepUp, "--trust-all", "-f", "csv", "--ids");
+        Assert.StartsWith("name,id,type,value", withIds, StringComparison.Ordinal);
+        Assert.Contains("StepUp,ns=3;s=StepUp,", withIds, StringComparison.Ordinal);
+
+        // The same name twice: ids tell them apart without the switch.
+        var (_, repeated, _) = await RunAsync("read", plc.EndpointUrl, StepUp, StepUp, "--trust-all");
+        Assert.Contains("ns=3;s=StepUp", repeated.Split('\n')[1], StringComparison.Ordinal);
+
+        var (_, lines, _) = await RunAsync("monitor", plc.EndpointUrl, StepUp, "--trust-all", "-n", "1", "-r", "100", "--ids");
+        Assert.Contains("ns=3;s=StepUp", lines, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Errors_are_one_line_on_stderr_with_exit_code_1()
     {
         var (exit, output, error) = await RunAsync("read", plc.EndpointUrl, "/Objects/Nope", "--trust-all");
