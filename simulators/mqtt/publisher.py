@@ -396,9 +396,32 @@ def main():
 
     print("MQTT simulator ready (mqtt://localhost:1883, ws://localhost:9001)", flush=True)
 
+    # Writing true/false to simulator/PauseSimulation pauses and continues all traffic (the app can write topics).
+    paused = threading.Event()
+
+    def on_pause(_client, _userdata, message):
+        if message.payload.decode("utf-8", "replace").strip().lower() in ("true", "1", "on"):
+            if not paused.is_set():
+                print("Simulation paused", flush=True)
+            paused.set()
+        else:
+            if paused.is_set():
+                print("Simulation resumed", flush=True)
+            paused.clear()
+
+    client.message_callback_add("simulator/PauseSimulation", on_pause)
+    client.subscribe("simulator/PauseSimulation", 1)
+    pub("simulator/PauseSimulation", "false", retain=True)
+
     tick = 0
     tick_s = TICK_MS / 1000.0
     while True:
+        if paused.is_set():
+            # The clock stops too, so values resume where they were.
+            paused_since = time.time()
+            while paused.is_set():
+                time.sleep(0.1)
+            start += time.time() - paused_since
         t = time.time() - start
         every = lambda ms: tick % max(1, round(ms / TICK_MS)) == 0
 

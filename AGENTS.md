@@ -73,3 +73,27 @@ Run the narrowest test class that covers your change first, then the affected pr
   doesn't overwrite its binaries. `MACHINEDATABROWSER_DATA_DIR` points settings, PKI and logs elsewhere.
 - **Error log:** `~/Library/Application Support/MachineDataBrowser/logs/machinedatabrowser.log` (macOS) has full stack
   traces of everything shown in the red error bar; check it first when a user reports an error message.
+
+## Simulators through MCP
+
+The `mdbrowser-*` MCP servers (and `mdbrowser` itself) are often pointed at the local simulators (`just all`); see
+[docs/simulators.md](docs/simulators.md). What an agent driving them must know:
+
+| Simulator | Endpoint | Pause tag |
+|---|---|---|
+| Logix | `eip://localhost:44818/1,0` | `PauseSimulation` |
+| Custom types | `opc.tcp://localhost:4841` | `/Objects/Custom/PauseSimulation` |
+| MQTT | `mqtt://localhost:1883` | `/Topics/simulator/PauseSimulation` (retained topic) |
+| opc-plc | `opc.tcp://localhost:50000` | none: methods `/Objects/OpcPlc/Methods/Stop…`/`StartUpdateFastNodes`/`SlowNodes` |
+
+- **Pause before asserting exact values.** Write `true` to freeze every changing value (the clock stops, so values
+  continue from where they were), `false` to continue. Always write `false` again when done: the containers are
+  shared with the user and the integration tests.
+- **Writes to changing values succeed but don't stick** (Logix behaves like a PLC: the next update replaces the
+  value). Pause first to keep a written value; `AccessLevel` "Read, Write" means the data type allows it.
+- **Custom types**: only the `DataTypes` scalars and `PauseSimulation` are writable; everything else is read-only.
+- **MCP writes** need `mdbrowser mcp --allow-writes` and are confirmed by the user; read-only servers can't pause.
+  Without it, use `mdbrowser write <url> <node> true --yes`.
+- **Containers start slowly**: the custom server builds 15 000 nodes; `BadConnectionClosed` in the first ~20 s
+  after `just all` means wait and retry. `diagnostics` shows whether the connection is healthy.
+- **Don't pause in automated tests**: test classes share the containers and run in parallel.
