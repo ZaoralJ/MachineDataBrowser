@@ -466,7 +466,20 @@ async def animate(ctl, tick_ms):
     loop = asyncio.get_running_loop()
     start = loop.time()
     tick = 0
+    pause = ctl.ref("PauseSimulation")
+    paused_since = None
     while True:
+        # PauseSimulation freezes every value; the animation clock stops too, so values resume where they were.
+        if pause.tag.buffer[pause.offset]:
+            if paused_since is None:
+                paused_since = loop.time()
+                log.info("Simulation paused")
+            await asyncio.sleep(0.1)
+            continue
+        if paused_since is not None:
+            start += loop.time() - paused_since
+            paused_since = None
+            log.info("Simulation resumed")
         elapsed = loop.time() - start
         for ref, every, fn in schedule:
             if tick % every == 0:

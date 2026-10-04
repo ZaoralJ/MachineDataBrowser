@@ -296,12 +296,24 @@ async def start_history(server, historized):
     log.info("History: %d variables, %d prefilled samples each", len(historized), HISTORY_PREFILL_S // 10)
 
 
-async def animate(server, animated, tick_ms):
+async def animate(server, animated, tick_ms, pause):
     tick_s = tick_ms / 1000.0
     schedule = [(node.nodeid, max(1, round(period / tick_ms)), fn) for node, period, fn in animated]
     print("Animating {} nodes, tick {} ms".format(len(schedule), tick_ms), flush=True)
     start, tick = time.monotonic(), 0
+    paused_since = None
     while True:
+        # PauseSimulation freezes every value; the animation clock stops too, so values resume where they were.
+        if await pause.read_value():
+            if paused_since is None:
+                paused_since = time.monotonic()
+                log.info("Simulation paused")
+            await asyncio.sleep(0.1)
+            continue
+        if paused_since is not None:
+            start += time.monotonic() - paused_since
+            paused_since = None
+            log.info("Simulation resumed")
         elapsed = time.monotonic() - start
         for nodeid, every, fn in schedule:
             if tick % every == 0:
@@ -331,6 +343,9 @@ async def main():
     types = await create_types(server, idx)
     await server.load_data_type_definitions()
     animated, historized = await build(server, idx, types)
+    custom = await server.nodes.objects.get_child(["{}:Custom".format(idx)])
+    pause = await custom.add_variable(ua.NodeId("PauseSimulation", idx), "PauseSimulation", ua.Variant(False, ua.VariantType.Boolean))
+    await pause.set_writable()
     async with server:
         await start_history(server, historized)
         # Advertise a host clients can reach instead of the 0.0.0.0 bind address.
@@ -339,7 +354,7 @@ async def main():
         print("OPC UA custom server ready on opc.tcp://{}:{}/".format(host, port), flush=True)
         tick_ms = int(os.environ.get("OPCUA_CUSTOM_FAST_MS", "10"))
         if tick_ms > 0:
-            await animate(server, animated, tick_ms)
+            await animate(server, animated, tick_ms, pause)
         else:
             await asyncio.Event().wait()
 

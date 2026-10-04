@@ -174,6 +174,7 @@ class Controller:
         add("Setpoints", REAL, 50)
         add("Totals", LINT, 10)
         add("Heartbeat", DINT)
+        add("PauseSimulation", BOOL)
         add("Recipe_Active", DINT)
         add("TagWithLongName_ThatIsFortyCharsLong_Ok", DINT)
 

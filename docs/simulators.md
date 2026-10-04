@@ -16,6 +16,26 @@ just test-sim       # Core tests against the simulators
 
 Recipe parameters are positional, e.g. `just cip 44900 20` (port 44900, 20 ms base tick).
 
+## Pausing the simulation
+
+Write `true` to the pause tag to freeze every changing value, `false` to continue. The simulation clock stops
+while paused, so values continue from where they were rather than jumping. Each simulator logs the change.
+
+| Simulator | Pause tag |
+|---|---|
+| Logix | `PauseSimulation` (controller tag, BOOL) |
+| Custom types | `/Objects/Custom/PauseSimulation` |
+| MQTT | topic `simulator/PauseSimulation` (retained, payload `true`/`false`); the app writes it like any topic |
+| opc-plc | no single tag; call `Objects/OpcPlc/Methods/StopUpdateFastNodes` / `StopUpdateSlowNodes` (and `Start…`) |
+
+```sh
+mdbrowser write eip://localhost:44818/1,0 PauseSimulation true --yes
+mdbrowser write opc.tcp://localhost:4841 /Objects/Custom/PauseSimulation false --yes
+```
+
+opc-plc is Microsoft's image: its methods pause only the Fast and Slow telemetry nodes. Basic, Anomaly, alarms and
+boilers keep running.
+
 ## Logix simulator (`simulators/cip`)
 
 A pure-Python (no packages) EtherNet/IP server that answers like a ControlLogix controller. Every tag is stored
