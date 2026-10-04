@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.22.0...v0.22.1) (2026-10-04)
+
+
+### Fixes
+
+* **cli:** live table shows when a value really changed ([#112](https://github.com/ZaoralJ/MachineDataBrowser/issues/112)) ([090b482](https://github.com/ZaoralJ/MachineDataBrowser/commit/090b482dcc2f7c79e68830d3e52c182254ba5491))
+
 ## [0.22.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.21.2...v0.22.0) (2026-10-04)
 
 
