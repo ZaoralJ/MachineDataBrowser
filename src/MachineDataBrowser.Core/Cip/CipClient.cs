@@ -327,7 +327,13 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         catch (LibPlcTagException ex)
         {
             var status = ToStatus(ex);
-            throw new ServiceResultException(status == StatusCodes.BadNotReadable ? StatusCodes.BadNotWritable : status, $"{tag.Name}: {ex.Message}");
+            if (status == StatusCodes.BadNotReadable)
+            {
+                // CIP privilege violation: External Access read-only, a constant, or a value the program owns.
+                throw new ServiceResultException(StatusCodes.BadNotWritable, $"{tag.Name}: the controller doesn't allow writing it (read-only or owned by the program; {ex.Message}).");
+            }
+
+            throw new ServiceResultException(status, $"{tag.Name}: {ex.Message}");
         }
     }
 

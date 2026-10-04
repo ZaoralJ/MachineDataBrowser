@@ -50,6 +50,7 @@ public sealed class CipWriteTests(LogixSimulatorFixture plc) : IAsyncLifetime
     {
         var ex = await Assert.ThrowsAsync<ServiceResultException>(() => _client.WriteValueAsync(Tag("Fast.Counter"), "1", Ct));
         Assert.Equal(StatusCodes.BadNotWritable, ex.StatusCode);
+        Assert.Contains("doesn't allow writing it", ex.Message, StringComparison.Ordinal);
         await Assert.ThrowsAsync<ServiceResultException>(() => _client.WriteValueAsync(Tag("Stations[1].Robot.Speed"), "1", Ct));
     }
 

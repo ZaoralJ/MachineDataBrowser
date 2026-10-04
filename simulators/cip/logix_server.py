@@ -310,8 +310,14 @@ class Cip:
         return reply(service)
 
 
+_pause = None  # the PauseSimulation tag, set when the animations start
+
+
 def _animated(tag, start, end):
-    """True when [start, end) overlaps a value the simulator animates (those are read-only, like PLC-owned outputs)."""
+    """True when [start, end) overlaps a value the simulator animates (those are read-only, like PLC-owned outputs).
+    While PauseSimulation is set they are writable, so a test value can be set and held until the simulation resumes."""
+    if _pause is not None and _pause.tag.buffer[_pause.offset]:
+        return False
     return any(start < a_end and a_start < end for a_start, a_end in tag.animated)
 
 
@@ -467,6 +473,8 @@ async def animate(ctl, tick_ms):
     start = loop.time()
     tick = 0
     pause = ctl.ref("PauseSimulation")
+    global _pause
+    _pause = pause
     paused_since = None
     while True:
         # PauseSimulation freezes every value; the animation clock stops too, so values resume where they were.

@@ -67,7 +67,8 @@ Every value that is not animated accepts Write Tag, so it keeps whatever a clien
 strings and arrays, `Types.*`, `Arrays.*`, `Setpoints`, `Recipe_Active`, `Recipes`, `Motor1`/`Motor2`, static
 members such as `Stations[*].Name`, program tags such as `Program:Packaging.Mode`. Animated values (the
 *Changing values* row) are owned by the simulated program: writes that touch their bytes fail with CIP status
-`0x0F` (privilege violation), which the browser shows as `BadNotWritable`. With `CIP_SIM_FAST_TICK_MS=0` nothing
+`0x0F` (privilege violation), which the browser shows as `BadNotWritable`. While `PauseSimulation` is set they
+accept writes too, and keep the written value until the simulation resumes. With `CIP_SIM_FAST_TICK_MS=0` nothing
 is animated and every tag is writable.
 
 ### Settings
