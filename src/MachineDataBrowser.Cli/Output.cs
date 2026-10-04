@@ -68,7 +68,7 @@ internal sealed class UpdateWriter : IUpdateSink
 
     private string Line(string name, string id, ValueUpdate update)
     {
-        var time = update.SourceTimestamp == DateTime.MinValue ? DateTime.UtcNow : update.SourceTimestamp;
+        var time = Output.Time(update) ?? DateTime.UtcNow;
         var utc = time.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
         var status = Output.Status(update.Status);
         return _format switch
@@ -95,6 +95,12 @@ internal static class Output
 
     public static string Status(StatusCode status) =>
         StatusText.Of(status);
+
+    /// <summary>When the value changed: its source timestamp, else the server's (OPC UA servers may omit the source one).</summary>
+    public static DateTime? Time(ValueUpdate update) =>
+        update.SourceTimestamp != DateTime.MinValue ? update.SourceTimestamp
+        : update.ServerTimestamp != DateTime.MinValue ? update.ServerTimestamp
+        : null;
 
     public static string Csv(string text) =>
         text.IndexOfAny([',', '"', '\n', '\r']) < 0 ? text : $"\"{text.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";

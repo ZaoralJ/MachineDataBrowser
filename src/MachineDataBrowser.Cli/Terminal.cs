@@ -80,7 +80,7 @@ internal sealed class LiveWatch : IUpdateSink
 
     private readonly IReadOnlyList<Node> _items;
     private readonly bool _showIds;
-    private readonly ConcurrentDictionary<string, (ValueUpdate Update, int Count, bool Seeded)> _latest = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, (ValueUpdate Update, int Count, bool Seeded, DateTime ReceivedAt)> _latest = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _stop = new();
     private readonly Task _render;
 
@@ -108,17 +108,17 @@ internal sealed class LiveWatch : IUpdateSink
 
     public bool WantsInitialValues => true;
 
-    public void Seed(string id, ValueUpdate current) => _latest.TryAdd(id, (current, 0, true));
+    public void Seed(string id, ValueUpdate current) => _latest.TryAdd(id, (current, 0, true, DateTime.Now));
 
     /// <summary>
     /// Counts updates. Right after subscribing, servers (and Logix polling, and MQTT retained messages) send the current
     /// value once more; when that only repeats the value read at the start, it is not counted.
     /// </summary>
     public void Post(string name, string id, ValueUpdate update) =>
-        _latest.AddOrUpdate(id, (update, 1, false), (_, previous) =>
+        _latest.AddOrUpdate(id, (update, 1, false, DateTime.Now), (_, previous) =>
             previous.Seeded && previous.Count == 0 && previous.Update.Value == update.Value && StatusCode.IsGood(update.Status)
-                ? (update, 0, false)
-                : (update, previous.Count + 1, false));
+                ? (update, 0, false, DateTime.Now)
+                : (update, previous.Count + 1, false, DateTime.Now));
 
     public async ValueTask DisposeAsync()
     {
@@ -145,12 +145,17 @@ internal sealed class LiveWatch : IUpdateSink
             var name = _showIds ? new IRenderable[] { new Text(item.Name), new Markup($"[grey]{Markup.Escape(item.DisplayId)}[/]") } : [new Text(item.Name)];
             if (_latest.TryGetValue(item.DisplayId, out var latest))
             {
-                var time = latest.Update.SourceTimestamp == DateTime.MinValue ? DateTime.Now : latest.Update.SourceTimestamp.ToLocalTime();
+                // OPC UA servers may leave out the source timestamp: then the server's, else when it arrived ("now"
+                // at every redraw would look like an update). The value read at the start has none until the first
+                // notification brings it.
+                var time = Output.Time(latest.Update) is { } stamp ? stamp.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)
+                    : latest.Seeded ? string.Empty
+                    : latest.ReceivedAt.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture);
                 table.AddRow([
                     .. name,
                     new Markup(Terminal.StatusMarkup(latest.Update.Status)),
                     new Text(latest.Update.Value),
-                    new Text(time.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)),
+                    new Text(time),
                     new Text(latest.Count.ToString(CultureInfo.InvariantCulture))]);
             }
             else
