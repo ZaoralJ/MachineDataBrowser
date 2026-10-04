@@ -1,5 +1,6 @@
 using Terminal.Gui.Drawing;
 using Terminal.Gui.ViewBase;
+using Attribute = Terminal.Gui.Drawing.Attribute;
 
 namespace MachineDataBrowser.Cli.Tui;
 
@@ -37,8 +38,10 @@ internal sealed class KeyBar : View
 
     protected override bool OnDrawingContent(DrawContext? context)
     {
-        var normal = Theme.Text(Theme.Muted);
-        var hot = Theme.Text(Theme.Blue, TextStyle.Bold | TextStyle.Underline);
+        var normal = new Attribute(Theme.Muted, Theme.Band);
+        var hot = new Attribute(Theme.Blue, Theme.Band, TextStyle.Bold | TextStyle.Underline);
+        SetAttribute(normal);
+        AddRune(0, 0, new System.Text.Rune(' '));
         var x = 1;
         foreach (var (key, word) in _items)
         {
@@ -49,7 +52,11 @@ internal sealed class KeyBar : View
                 AddRune(x, 0, new System.Text.Rune(text[i]));
             }
 
-            x += 2;
+            SetAttribute(normal);
+            for (var gap = 0; gap < 2 && x < Viewport.Width; gap++, x++)
+            {
+                AddRune(x, 0, new System.Text.Rune(' '));
+            }
         }
 
         SetAttribute(normal);

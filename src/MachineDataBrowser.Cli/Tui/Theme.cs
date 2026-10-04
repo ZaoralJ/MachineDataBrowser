@@ -53,6 +53,33 @@ internal static class Theme
     /// Takes a colour theme of the app: its window, surface, border, text and accent colours; status colours stay
     /// green / amber / red, darker on a light background so they stay readable.
     /// </summary>
+    /// <summary>
+    /// Status and chart colours per theme, (green, yellow, orange, red, magenta) for dark and light: the palette's own where
+    /// it has them (Nord's aurora, Dracula, Solarized), tones that sit with the theme otherwise. Light ones are darker so
+    /// they read on a light background.
+    /// </summary>
+    private static readonly Dictionary<string, (string[] Dark, string[] Light)> Accents = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Indigo"] = (["#7EE787", "#E3B341", "#FFA657", "#FF7B72", "#D2A8FF"], ["#1A7F37", "#9A6700", "#BC4C00", "#CF222E", "#8250DF"]),
+        ["Graphite"] = (["#86EFAC", "#FCD34D", "#FDBA74", "#F87171", "#C4B5FD"], ["#15803D", "#A16207", "#C2410C", "#DC2626", "#7C3AED"]),
+        ["Ocean"] = (["#9AE6B4", "#F6E05E", "#FBB97C", "#FC8181", "#B794F4"], ["#2F855A", "#975A16", "#C05621", "#C53030", "#6B46C1"]),
+        ["Forest"] = (["#BEF264", "#FDE68A", "#FDBA74", "#FCA5A5", "#F0ABFC"], ["#3F6212", "#854D0E", "#9A3412", "#B91C1C", "#86198F"]),
+        ["Amber"] = (["#B5CC7A", "#F2C14E", "#F28C38", "#F87171", "#E8A0BF"], ["#4D7C0F", "#A16207", "#C2410C", "#B91C1C", "#9D174D"]),
+        ["Nord"] = (["#A3BE8C", "#EBCB8B", "#D08770", "#BF616A", "#B48EAD"], ["#5E8A47", "#A97F23", "#B9603C", "#B4434F", "#8B5E89"]),
+        ["Solarized"] = (["#859900", "#B58900", "#CB4B16", "#DC322F", "#D33682"], ["#859900", "#B58900", "#CB4B16", "#DC322F", "#D33682"]),
+        ["Dracula"] = (["#50FA7B", "#F1FA8C", "#FFB86C", "#FF5555", "#FF79C6"], ["#1F9D47", "#8A7A00", "#C66A1C", "#D93D63", "#B0368A"]),
+    };
+
+    /// <summary>The header and key bar: a band a step off the background.</summary>
+    public static Color Band { get; private set; }
+
+    /// <summary>Pane borders without the focus: quiet, so the focused pane stands out.</summary>
+    public static Color QuietBorder { get; private set; }
+
+    /// <summary>
+    /// Takes a colour theme of the app: its window, surface, border, text and accent colours, plus status and chart
+    /// colours that belong to the theme.
+    /// </summary>
     public static void Apply(ColorTheme theme, bool light)
     {
         ArgumentNullException.ThrowIfNull(theme);
@@ -61,18 +88,22 @@ internal static class Theme
         var c = light ? theme.Light : theme.Dark;
         Background = new Color(c.Window);
         Surface = new Color(c.Surface);
+        Band = light ? new Color(c.Chip) : new Color(c.SurfaceAlt);
         Border = new Color(c.BorderStrong);
+        // Title and line share one colour in Terminal.Gui: soft for the line, still readable as a title.
+        QuietBorder = Mix(new Color(c.BorderStrong), new Color(c.Muted), light ? 0.75 : 0.55);
         Dim = new Color(c.MutedLow);
         Muted = new Color(c.Muted);
         Foreground = new Color(c.TextMid);
         Bright = new Color(c.Text);
         Blue = new Color(c.Accent);
-        Selection = Mix(Background, Blue, light ? 0.18 : 0.28);
-        Red = new Color(c.Error);
-        Green = new Color(light ? "#2E7D32" : "#98C379");
-        Yellow = new Color(light ? "#9A6700" : "#E5C07B");
-        Orange = new Color(light ? "#C2410C" : "#D19A66");
-        Magenta = new Color(light ? "#8E44AD" : "#C678DD");
+        Selection = Mix(Surface, Blue, light ? 0.16 : 0.26);
+        var accents = Accents.TryGetValue(theme.Name, out var set) ? (light ? set.Light : set.Dark) : (light ? Accents["Indigo"].Light : Accents["Indigo"].Dark);
+        Green = new Color(accents[0]);
+        Yellow = new Color(accents[1]);
+        Orange = new Color(accents[2]);
+        Red = new Color(accents[3]);
+        Magenta = new Color(accents[4]);
         Base = new Scheme(Text(Foreground))
         {
             Focus = new Attribute(Bright, Selection, TextStyle.Bold),
@@ -99,7 +130,7 @@ internal static class Theme
     /// <summary>A pane's border and title: blue when it has the focus, muted otherwise.</summary>
     public static Scheme Frame(bool focused) => new(Base)
     {
-        Normal = focused ? Text(Blue, TextStyle.Bold) : Text(Muted),
+        Normal = focused ? Text(Blue, TextStyle.Bold) : Text(QuietBorder),
         Focus = focused ? Text(Blue, TextStyle.Bold) : Text(Muted),
         Active = focused ? Text(Blue, TextStyle.Bold) : Text(Muted),
     };

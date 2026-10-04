@@ -29,7 +29,7 @@ internal sealed class HeaderBar : View
     protected override bool OnDrawingContent(DrawContext? context)
     {
         var width = Viewport.Width;
-        SetAttribute(Theme.Text(Theme.Foreground));
+        SetAttribute(new Attribute(Theme.Foreground, Theme.Band));
         for (var x = 0; x < width; x++)
         {
             AddRune(x, 0, new System.Text.Rune(' '));
@@ -38,7 +38,7 @@ internal sealed class HeaderBar : View
         var position = 1;
         foreach (var (text, look) in _left)
         {
-            SetAttribute(look);
+            SetAttribute(new Attribute(look.Foreground, Theme.Band, look.Style));
             AddStr(position, 0, text);
             position += text.Length;
         }
@@ -46,7 +46,7 @@ internal sealed class HeaderBar : View
         var right = width - 1 - _right.Sum(s => s.Text.Length);
         foreach (var (text, look) in _right)
         {
-            SetAttribute(look);
+            SetAttribute(new Attribute(look.Foreground, Theme.Band, look.Style));
             AddStr(Math.Max(position + 1, right), 0, text);
             right += text.Length;
         }
