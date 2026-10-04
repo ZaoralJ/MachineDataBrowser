@@ -159,6 +159,7 @@ the main ones and `h` lists them all.
 | `s` | search the address space by name or id (`Temp*`, `Motor?`) and go to a match |
 | `f` / `o` `O` / `i` / `p` | filter the monitored items / sort by a column, reverse / show the NodeId column / pause the display |
 | `-` / `+` | refresh time of all monitored items |
+| `x` / `[` `]` | reset the trend / fewer or more samples in it (fit the width, 30, 60, 120, 300, 600) |
 | `r` | start or stop recording the monitored items: SQLite for `.db`, CSV otherwise (like `--record`) |
 | `Ctrl+S` | save the monitored items as a session file; an existing one keeps everything else |
 | `Ctrl+O` | open a session (the app's recent ones, those in this folder, or any file): its endpoint, options and watch list, in place |

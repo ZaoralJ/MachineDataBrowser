@@ -63,6 +63,14 @@ internal sealed class WatchRow(Node node, int refreshMs)
         }
     }
 
+    public void ClearHistory()
+    {
+        lock (_lock)
+        {
+            _history.Clear();
+        }
+    }
+
     public IReadOnlyList<double> History
     {
         get

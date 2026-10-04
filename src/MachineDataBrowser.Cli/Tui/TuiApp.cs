@@ -222,6 +222,7 @@ internal sealed class TuiApp : IDisposable
             (Key.O, NextSort), (Key.R, ToggleRecording), (Key.H, Help), (Key.T, NextTheme), (Key.L, ToggleLight),
             (Key.Q, Quit), (Key.I, ToggleIds), (Key.G, Diagnostics), (Key.S.WithCtrl, SaveSession),
             (Key.F5, Reload), (Key.C, () => _model.ClearLog()), (Key.O.WithCtrl, OpenSession),
+            (Key.X, ResetTrend), (new Key('['), () => StepTrendWindow(-1)), (new Key(']'), () => StepTrendWindow(+1)),
         })
         {
             _extraKeys[key] = action;
@@ -510,6 +511,17 @@ internal sealed class TuiApp : IDisposable
         return string.Join("├─┤", parts);
     }
 
+    /// <summary>Samples the trend shows: 0 fits the width (two per column), otherwise the last this many.</summary>
+    private static readonly int[] TrendWindows = [0, 30, 60, 120, 300, WatchRow.MaxHistory];
+
+    private int _trendWindow;
+
+    /// <summary>The row the trend shows: the selected one when it holds a number, else the first that does.</summary>
+    private WatchRow? ChartRow =>
+        SelectedRow is { } selected && (selected.History.Count > 0 || selected.Snapshot().Numeric is not null)
+            ? selected
+            : _shown.FirstOrDefault(r => r.History.Count > 0);
+
     private void RefreshChart()
     {
         if (!_chartFrame.Visible || _paused)
@@ -517,9 +529,7 @@ internal sealed class TuiApp : IDisposable
             return;
         }
 
-        // The selected row, else the first numeric one.
-        var row = SelectedRow is { } selected && selected.History.Count > 0 ? selected : _shown.FirstOrDefault(r => r.History.Count > 0);
-        if (row is null)
+        if (ChartRow is not { } row)
         {
             _chartFrame.Title = "⁴Trend";
             _chart.SetValues([]);
@@ -527,10 +537,39 @@ internal sealed class TuiApp : IDisposable
         }
 
         var values = row.History;
+        if (_trendWindow > 0 && values.Count > _trendWindow)
+        {
+            values = [.. values.Skip(values.Count - _trendWindow)];
+        }
+
+        var window = _trendWindow == 0 ? "fit" : _trendWindow.ToString(CultureInfo.InvariantCulture);
         var visible = TrendChart.Tail(values, Math.Max(1, _chart.Viewport.Width));
-        _chartFrame.Title = string.Create(CultureInfo.InvariantCulture,
-            $"⁴Trend ┤ {row.Node.Name} ├ last {visible.Count} · min {visible.Min():G6} · max {visible.Max():G6} · avg {visible.Average():G6} · now {visible[^1]:G6}");
+        _chartFrame.Title = visible.Count == 0
+            ? $"⁴Trend ┤ {row.Node.Name} ├ window {window}"
+            : string.Create(CultureInfo.InvariantCulture,
+                $"⁴Trend ┤ {row.Node.Name} ├ last {visible.Count} of {window} · min {visible.Min():G6} · max {visible.Max():G6} · avg {visible.Average():G6} · now {visible[^1]:G6}");
         _chart.SetValues(values);
+    }
+
+    /// <summary>x: the trend starts again from the next sample (e.g. after a change on the machine).</summary>
+    private void ResetTrend()
+    {
+        if (ChartRow is not { } row)
+        {
+            return;
+        }
+
+        row.ClearHistory();
+        _model.Log($"Trend of {BrowserModel.Describe(row.Node)} reset.");
+        RefreshChart();
+    }
+
+    /// <summary>[ / ]: fewer or more samples in the trend.</summary>
+    private void StepTrendWindow(int direction)
+    {
+        var index = Array.IndexOf(TrendWindows, _trendWindow);
+        _trendWindow = TrendWindows[Math.Clamp(index + direction, 0, TrendWindows.Length - 1)];
+        RefreshChart();
     }
 
     // ------------------------------------------------------------------ layout, header and panes
@@ -1150,6 +1189,8 @@ internal sealed class TuiApp : IDisposable
             ["i", "Show or hide the NodeId (tag, topic) column of the monitored items"],
             ["p", "Pause the display (monitoring and recording go on)"],
             ["- / +", "Refresh time of all monitored items"],
+            ["x", "Reset the trend: start again from the next sample"],
+            ["[ / ]", "Fewer / more samples in the trend: fit the width, 30, 60, 120, 300, 600"],
             ["r", "Start or stop recording the monitored items (.db = SQLite, else CSV)"],
             ["Ctrl+S", "Save the monitored items as a session file"],
             ["Ctrl+O", "Open a session: its endpoint, options and watch list (recent ones and those in this folder)"],
