@@ -161,6 +161,7 @@ the main ones and `h` lists them all.
 | `-` / `+` | refresh time of all monitored items |
 | `r` | start or stop recording the monitored items: SQLite for `.db`, CSV otherwise (like `--record`) |
 | `Ctrl+S` | save the monitored items as a session file; an existing one keeps everything else |
+| `Ctrl+O` | open a session (the app's recent ones, those in this folder, or any file): its endpoint, options and watch list, in place |
 | `y` / `a` / `e` | OPC UA: history of the variable / current alarms / live events |
 | `d` | MQTT: pause discovery, receiving only the monitored topics (like *Pause discovery* in the app) |
 | `g` / `t` / `l` | connection diagnostics / next colour theme / light or dark |

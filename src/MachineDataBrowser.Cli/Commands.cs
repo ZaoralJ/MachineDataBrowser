@@ -467,25 +467,42 @@ internal static class Commands
                 throw new CliException("tui needs an interactive terminal; use browse, read or monitor in scripts.");
             }
 
-            var text = r.GetValue(tuiTarget)!;
+            var (appTheme, appLight) = AppAppearance.Load();
+            var theme = r.GetValue(tuiTheme) is { } name ? ColorThemeCatalog.Find(name) : appTheme;
+            var light = r.GetValue(tuiLight) || appLight;
+
+            // The first connection prints its errors plainly; sessions opened later (Ctrl+O) report them in the browser.
+            var model = await OpenTuiAsync(r, r.GetValue(tuiTarget)!, first: true, ct).ConfigureAwait(false);
+            await Tui.TuiApp.RunAsync(model, path => OpenTuiAsync(r, path, first: false, ct), theme, light, ct).ConfigureAwait(false);
+            return 0;
+        }));
+
+        // An endpoint or a session file, connected, with the session's watch list monitored. The model owns the
+        // connection. Options given on the command line apply to the first one only; later sessions bring their own.
+        async Task<Tui.BrowserModel> OpenTuiAsync(ParseResult r, string text, bool first, CancellationToken ct)
+        {
             var secret = r.GetValue(password) ?? Environment.GetEnvironmentVariable(PasswordVariable);
             SessionFile? file = null;
             ConnectionArgs target;
             if (!text.Contains("://", StringComparison.Ordinal))
             {
                 file = await SessionFile.LoadAsync(text, ct).ConfigureAwait(false);
-                target = new ConnectionArgs(file.EndpointUrl, r.GetValue(user) ?? file.UserName, secret, file.UseSecurity || r.GetValue(secure),
-                    file.AutoAcceptCertificates || r.GetValue(trustAll), file.ReadOnly);
+                target = new ConnectionArgs(file.EndpointUrl, (first ? r.GetValue(user) : null) ?? file.UserName, secret,
+                    file.UseSecurity || (first && r.GetValue(secure)), file.AutoAcceptCertificates || (first && r.GetValue(trustAll)), file.ReadOnly);
             }
             else
             {
                 target = Connection(r) with { Url = text };
             }
 
-            await stderr.WriteLineAsync($"mdbrowser: connecting to {target.Url}…").ConfigureAwait(false);
-            await using var client = await Cli.Connection.ConnectAsync(target, ct).ConfigureAwait(false);
-            var refreshMs = r.GetValue(refresh) ?? file?.DefaultRefreshMs ?? (DeviceClient.IsMqtt(target.Url) ? 0 : 250);
-            await using var model = new Tui.BrowserModel(client, target, refreshMs, file is null ? null : text);
+            if (first)
+            {
+                await stderr.WriteLineAsync($"mdbrowser: connecting to {target.Url}…").ConfigureAwait(false);
+            }
+
+            var client = await Cli.Connection.ConnectAsync(target, ct).ConfigureAwait(false);
+            var refreshMs = (first ? r.GetValue(refresh) : null) ?? file?.DefaultRefreshMs ?? (DeviceClient.IsMqtt(target.Url) ? 0 : 250);
+            var model = new Tui.BrowserModel(client, target, refreshMs, file is null ? null : text, ownsClient: true);
             model.Log($"Connected to {target.Url}.");
             if (file?.Watch is { Count: > 0 } watch)
             {
@@ -506,10 +523,8 @@ internal static class Commands
                 await model.MonitorNodesAsync(items, ct).ConfigureAwait(false);
             }
 
-            var (appTheme, appLight) = AppAppearance.Load();
-            var theme = r.GetValue(tuiTheme) is { } name ? ColorThemeCatalog.Find(name) : appTheme;
-            return await Tui.TuiApp.RunAsync(model, theme, r.GetValue(tuiLight) || appLight, ct).ConfigureAwait(false);
-        }));
+            return model;
+        }
 
         return new RootCommand("Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix) and MQTT")
         {

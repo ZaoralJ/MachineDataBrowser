@@ -29,4 +29,23 @@ internal static class AppAppearance
 
         return (ColorThemeCatalog.Find(null), false);
     }
+
+    /// <summary>The sessions the app opened last, newest first, that still exist.</summary>
+    public static IReadOnlyList<string> RecentSessions(string? settingsPath = null)
+    {
+        var path = settingsPath ?? Path.Combine(ClientPaths.DataRoot, "settings.json");
+        try
+        {
+            if (File.Exists(path) && JsonNode.Parse(File.ReadAllText(path))?["recentSessions"] is JsonArray recent)
+            {
+                return [.. recent.Select(r => (string?)r).OfType<string>().Where(File.Exists)];
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        {
+            // No recent sessions then.
+        }
+
+        return [];
+    }
 }

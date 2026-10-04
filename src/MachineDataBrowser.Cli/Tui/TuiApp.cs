@@ -48,7 +48,8 @@ internal sealed class TuiApp : IDisposable
     private static readonly string[] SortColumns = ["Name", "Value", "Status", "Updated", "Updates"];
 
     private readonly IApplication _app;
-    private readonly BrowserModel _model;
+    private BrowserModel _model;
+    private readonly Func<string, Task<BrowserModel>>? _openSession;
     private readonly Window _window;
     private readonly HeaderBar _header;
     private readonly TreeView<TreeEntry> _tree;
@@ -78,10 +79,11 @@ internal sealed class TuiApp : IDisposable
     private int _attributeRequest;
     private bool _treeDirty;
 
-    public TuiApp(IApplication app, BrowserModel model, ColorTheme? theme = null, bool light = false)
+    public TuiApp(IApplication app, BrowserModel model, ColorTheme? theme = null, bool light = false, Func<string, Task<BrowserModel>>? openSession = null)
     {
         _app = app;
         _model = model;
+        _openSession = openSession;
         Theme.Apply(theme ?? ColorThemeCatalog.Find(null), light);
 
         _window = new Window { BorderStyle = global::Terminal.Gui.Drawing.LineStyle.None };
@@ -143,23 +145,83 @@ internal sealed class TuiApp : IDisposable
         Theme.Pane(_chartFrame, _chart);
         Theme.Pane(_logFrame, _log, Theme.Quiet);
 
-        // The main actions; h lists every key. The bar only shows them, OnKeyDown runs them. History, alarms and events
-        // are OPC UA's: other protocols don't show them.
+        _status = new KeyBar([]) { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
+        ConfigureKeys();
+
+        _window.Add(_header, _treeFrame, _attributesFrame, _watchFrame, _chartFrame, _logFrame, _status);
+        // The TUI's keys work whichever pane has the focus (and with the kitty keyboard protocol, as in Warp); not while
+        // a dialog is open, so typing in a text field stays typing.
+        _app.Keyboard.KeyDown += OnAppKeyDown;
+
+        // Tab / Shift+Tab move between the panes (Terminal.Gui's Tab stays inside one frame).
+        foreach (var view in new View[] { _tree, _attributes, _watch, _log })
+        {
+            view.KeyDown += (_, key) =>
+            {
+                if (key == Key.Tab || key == Key.Tab.WithShift)
+                {
+                    FocusNextPane(view, key == Key.Tab ? 1 : -1);
+                    key.Handled = true;
+                }
+            };
+        }
+        Attach(_model);
+
+        LayoutPanes();
+        _app.ScreenChanged += (_, _) => LayoutPanes();
+        _app.AddTimeout(RefreshInterval, () =>
+        {
+            RefreshWatch();
+            RefreshChart();
+            RefreshLog();
+            RefreshDynamicTree();
+            RefreshHeader();
+            return true;
+        });
+    }
+
+    public Window Window => _window;
+
+    /// <summary>Runs the browser until q or Ctrl+C.</summary>
+    /// <summary>
+    /// Runs the browser until q or Ctrl+C. Sessions opened with Ctrl+O replace the connection in place, within this one
+    /// run: the terminal (and its keyboard mode) stays set up. The models it ends with are disposed.
+    /// </summary>
+    public static async Task RunAsync(BrowserModel model, Func<string, Task<BrowserModel>> openSession, ColorTheme theme, bool light, CancellationToken cancellationToken)
+    {
+        using var app = Application.Create().Init();
+        var tui = new TuiApp(app, model, theme, light, openSession);
+        try
+        {
+            tui.Start();
+            await app.RunAsync(tui.Window, cancellationToken).ConfigureAwait(true);
+        }
+        finally
+        {
+            tui.Dispose();
+            await tui._model.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>The main actions in the key bar and every key; history, alarms, events and discovery per protocol.</summary>
+    private void ConfigureKeys()
+    {
         var opcUa = _model.SupportsHistory || _model.SupportsEvents;
-        _status = new KeyBar(
+        _status.SetItems(
         [
             ('m', "Monitor"), ('u', "Unmonitor"), ('w', "Write"), ('s', "Search"), ('f', "Filter"), ('p', "Pause"),
             ('o', "Sort"), ('r', "Record"),
             .. opcUa ? new[] { ('a', "Alarms"), ('e', "Events"), ('y', "History") } : [],
             .. _model.SupportsDiscoveryPause ? new[] { ('d', "Discovery") } : [],
             ('t', "Theme"), ('h', "Help"), ('q', "Quit"),
-        ]) { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
+        ]);
+        _extraKeys.Clear();
         foreach (var (key, action) in new (Key, Action)[]
         {
             (Key.M, Monitor), (Key.U, Unmonitor), (Key.W, Write), (Key.S, Search), (Key.F, Filter), (Key.P, TogglePause),
             (Key.O, NextSort), (Key.R, ToggleRecording), (Key.H, Help), (Key.T, NextTheme), (Key.L, ToggleLight),
-            (Key.Q, () => _app.RequestStop()), (Key.I, ToggleIds), (Key.G, Diagnostics), (Key.S.WithCtrl, SaveSession),
-            (Key.F5, Reload), (Key.C, _model.ClearLog),
+            (Key.Q, Quit), (Key.I, ToggleIds), (Key.G, Diagnostics), (Key.S.WithCtrl, SaveSession),
+            (Key.F5, Reload), (Key.C, () => _model.ClearLog()), (Key.O.WithCtrl, OpenSession),
         })
         {
             _extraKeys[key] = action;
@@ -180,54 +242,40 @@ internal sealed class TuiApp : IDisposable
         {
             _extraKeys[Key.D] = () => Run(() => _model.ToggleDiscoveryAsync(), "pausing or resuming discovery");
         }
+    }
 
-
-        _window.Add(_header, _treeFrame, _attributesFrame, _watchFrame, _chartFrame, _logFrame, _status);
-        // The TUI's keys work whichever pane has the focus (and with the kitty keyboard protocol, as in Warp); not while
-        // a dialog is open, so typing in a text field stays typing.
-        _app.Keyboard.KeyDown += OnAppKeyDown;
-
-        // Tab / Shift+Tab move between the panes (Terminal.Gui's Tab stays inside one frame).
-        foreach (var view in new View[] { _tree, _attributes, _watch, _log })
-        {
-            view.KeyDown += (_, key) =>
-            {
-                if (key == Key.Tab || key == Key.Tab.WithShift)
-                {
-                    FocusNextPane(view, key == Key.Tab ? 1 : -1);
-                    key.Handled = true;
-                }
-            };
-        }
-        _model.Changed += () => _treeDirty = true;
-        if (_model.Client is IDynamicAddressSpace dynamic)
+    private void Attach(BrowserModel model)
+    {
+        model.Changed += () => _treeDirty = true;
+        if (model.Client is IDynamicAddressSpace dynamic)
         {
             dynamic.AddressSpaceChanged += (_, _) => _treeDirty = true;
         }
-
-        LayoutPanes();
-        _app.ScreenChanged += (_, _) => LayoutPanes();
-        _app.AddTimeout(RefreshInterval, () =>
-        {
-            RefreshWatch();
-            RefreshChart();
-            RefreshLog();
-            RefreshDynamicTree();
-            RefreshHeader();
-            return true;
-        });
     }
 
-    public Window Window => _window;
-
-    /// <summary>Runs the browser until q or Ctrl+C.</summary>
-    public static async Task<int> RunAsync(BrowserModel model, ColorTheme theme, bool light, CancellationToken cancellationToken)
+    /// <summary>
+    /// Shows another connection (Ctrl+O): its tree, monitored items and keys. The previous one is closed, with any
+    /// recording it ran.
+    /// </summary>
+    private void SwitchTo(BrowserModel model)
     {
-        using var app = Application.Create().Init();
-        using var tui = new TuiApp(app, model, theme, light);
-        tui.Start();
-        await app.RunAsync(tui.Window, cancellationToken).ConfigureAwait(true);
-        return 0;
+        var previous = _model;
+        _model = model;
+        Attach(model);
+        _loadingPlaceholders.Clear();
+        _tree.ClearObjects();
+        _tree.AddObject(model.Root);
+        _tree.Expand(model.Root);
+        _tree.SelectedObject = model.Root;
+        _filter = string.Empty;
+        _sortColumn = -1;
+        _paused = false;
+        _shownLogCount = -1;
+        ConfigureKeys();
+        RefreshWatch(force: true);
+        RefreshHeader();
+        _tree.SetFocus();
+        Run(async () => await previous.DisposeAsync().ConfigureAwait(false), $"closing {previous.Args.Url}");
     }
 
     /// <summary>First expand, focus and attributes; separate so tests can start without running the loop.</summary>
@@ -937,6 +985,50 @@ internal sealed class TuiApp : IDisposable
         Run(() => _model.StartRecordingAsync(path), $"recording to {path}");
     }
 
+    private void Quit() => _app.RequestStop(_window);
+
+    /// <summary>Ctrl+O: a session from the app's recent ones or this folder, or any file; the browser reopens with it.</summary>
+    private void OpenSession()
+    {
+        var candidates = AppAppearance.RecentSessions()
+            .Concat(Directory.EnumerateFiles(Directory.GetCurrentDirectory(), "*.mdbsession").Concat(Directory.EnumerateFiles(Directory.GetCurrentDirectory(), "*.opcsession")))
+            .Select(Path.GetFullPath).Distinct(StringComparer.Ordinal).Take(50).ToList();
+        List<string[]> rows = [.. candidates.Select(c => new[] { Path.GetFileNameWithoutExtension(c), Path.GetDirectoryName(c) ?? string.Empty }), ["Other file…", string.Empty]];
+        if (Pick("Open session", ["Session", "Folder"], rows, goTo: true, goToTitle: "_Open") is not { } index)
+        {
+            return;
+        }
+
+        var path = index < candidates.Count ? candidates[index] : Ask("Open session", "Session file (.mdbsession):", _model.SessionPath ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        if (!File.Exists(path))
+        {
+            Error("Open session", $"{path} doesn't exist.");
+            return;
+        }
+
+        if (_model.RecordingPath is { } recording && !Confirm("Open session", $"Recording to {recording} stops when the session opens. Open {Path.GetFileName(path)}?"))
+        {
+            return;
+        }
+
+        if (_openSession is not { } open)
+        {
+            return;
+        }
+
+        _model.Log($"Opening {Path.GetFileName(path)}…");
+        Run(async () =>
+        {
+            var model = await open(path).ConfigureAwait(false);
+            Ui(() => SwitchTo(model));
+        }, $"opening {path}");
+    }
+
     private void SaveSession()
     {
         var suggestion = _model.SessionPath ?? "mdbrowser.mdbsession";
@@ -1060,6 +1152,7 @@ internal sealed class TuiApp : IDisposable
             ["- / +", "Refresh time of all monitored items"],
             ["r", "Start or stop recording the monitored items (.db = SQLite, else CSV)"],
             ["Ctrl+S", "Save the monitored items as a session file"],
+            ["Ctrl+O", "Open a session: its endpoint, options and watch list (recent ones and those in this folder)"],
         ];
         if (_model.SupportsHistory)
         {
@@ -1175,14 +1268,14 @@ internal sealed class TuiApp : IDisposable
     }
 
     /// <summary>A table in a dialog; with <paramref name="goTo"/>, Enter / Go to picks a row (its index), Esc closes.</summary>
-    private int? Pick(string title, string[] columns, List<string[]> rows, bool goTo = false)
+    private int? Pick(string title, string[] columns, List<string[]> rows, bool goTo = false, string goToTitle = "_Go to")
     {
         var source = new GridSource(columns);
         source.SetRows(rows);
         var table = new TableView(source) { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(2), FullRowSelect = true, CollectionNavigator = null };
         Theme.Table(table);
         table.SetScheme(new Scheme(Theme.Base) { Normal = new Attribute(Theme.Foreground, Theme.Surface) });
-        using var dialog = NewDialog(title, Dim.Percent(90), Dim.Percent(80), [table], goTo ? ["_Close", "_Go to"] : ["_Close"]);
+        using var dialog = NewDialog(title, Dim.Percent(90), Dim.Percent(80), [table], goTo ? ["_Close", goToTitle] : ["_Close"]);
         table.SetFocus();
         _app.Run(dialog);
         var row = table.Value?.SelectedCell.Y ?? -1;

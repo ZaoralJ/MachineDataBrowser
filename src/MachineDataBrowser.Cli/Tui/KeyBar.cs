@@ -9,13 +9,19 @@ namespace MachineDataBrowser.Cli.Tui;
 /// </summary>
 internal sealed class KeyBar : View
 {
-    private readonly IReadOnlyList<(char Key, string Word)> _items;
+    private IReadOnlyList<(char Key, string Word)> _items;
 
     public KeyBar(IReadOnlyList<(char Key, string Word)> items)
     {
         _items = items;
         CanFocus = false;
         Height = 1;
+    }
+
+    public void SetItems(IReadOnlyList<(char Key, string Word)> items)
+    {
+        _items = items;
+        SetNeedsDraw();
     }
 
     /// <summary>The bar as plain text, for tests and widths.</summary>

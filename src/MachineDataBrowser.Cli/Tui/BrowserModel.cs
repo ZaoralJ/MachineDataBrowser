@@ -123,8 +123,12 @@ internal sealed class BrowserModel : IAsyncDisposable
     private Recording? _recording;
     private string? _recordingPath;
 
-    public BrowserModel(IDeviceClient client, ConnectionArgs args, int defaultRefreshMs, string? sessionPath = null)
+    private readonly bool _ownsClient;
+
+    /// <summary><paramref name="ownsClient"/>: disposing the model also closes the connection (a session the TUI opened).</summary>
+    public BrowserModel(IDeviceClient client, ConnectionArgs args, int defaultRefreshMs, string? sessionPath = null, bool ownsClient = false)
     {
+        _ownsClient = ownsClient;
         Client = client;
         Args = args;
         DefaultRefreshMs = defaultRefreshMs;
@@ -619,6 +623,11 @@ internal sealed class BrowserModel : IAsyncDisposable
             {
                 await monitor.DisposeAsync().ConfigureAwait(false);
             }
+        }
+
+        if (_ownsClient)
+        {
+            await Client.DisposeAsync().ConfigureAwait(false);
         }
     }
 
