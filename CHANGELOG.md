@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.22.1...v0.23.0) (2026-10-04)
+
+
+### Features
+
+* **cli:** mdbrowser tui, a full-screen terminal browser for every protocol ([#114](https://github.com/ZaoralJ/MachineDataBrowser/issues/114)) ([c0a286a](https://github.com/ZaoralJ/MachineDataBrowser/commit/c0a286a666e28b242e9440b563d71957bf83e1af))
+
 ## [0.22.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.22.0...v0.22.1) (2026-10-04)
 
 
