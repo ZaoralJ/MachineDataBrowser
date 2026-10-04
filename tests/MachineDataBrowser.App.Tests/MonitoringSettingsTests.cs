@@ -32,6 +32,24 @@ public sealed class MonitoringSettingsTests(OpcPlcFixture plc) : IDisposable
         return item;
     }
 
+    [Fact]
+    public void Refresh_is_marked_only_when_it_differs_from_the_default_or_has_a_queue_or_deadband()
+    {
+        var item = new WatchItemViewModel(Opc.Ua.NodeId.Null, "x") { RefreshMs = 250, DefaultRefreshMs = 250 };
+        Assert.Equal("250 ms", item.RefreshText);
+
+        item.Monitoring = new MonitoringOptions { SamplingIntervalMs = 250 };
+        Assert.Equal("250 ms", item.RefreshText); // sampling at the refresh time says nothing new
+
+        item.RefreshMs = 1000;
+        Assert.Equal("1 s ⚙", item.RefreshText);
+        Assert.StartsWith("Refresh 1 s (default 250 ms)", item.RefreshToolTip, StringComparison.Ordinal);
+
+        item.DefaultRefreshMs = 1000;
+        item.Monitoring = new MonitoringOptions { SamplingIntervalMs = 1000 };
+        Assert.Equal("1 s", item.RefreshText);
+    }
+
     [AvaloniaFact]
     public async Task Settings_apply_survive_refresh_changes_and_sessions_and_rejections_keep_the_old()
     {
@@ -46,8 +64,12 @@ public sealed class MonitoringSettingsTests(OpcPlcFixture plc) : IDisposable
 
             await vm.EditMonitoringCommand.ExecuteAsync(null);
             Assert.Equal(options, item.Monitoring);
+            Assert.Equal(100, item.RefreshMs); // the refresh time follows the sampling interval
+            Assert.Equal(100, OpcUaClient.GetRevisedMonitoring(item.Monitor!)!.Value.SamplingIntervalMs);
             Assert.EndsWith("⚙", item.RefreshText, StringComparison.Ordinal);
             Assert.Contains("queue 20", item.RefreshToolTip, StringComparison.Ordinal);
+            Assert.DoesNotContain("sampling", item.RefreshToolTip, StringComparison.Ordinal); // same as the refresh time
+            Assert.Contains("default 250 ms", item.RefreshToolTip, StringComparison.Ordinal);
             Assert.Equal(20u, OpcUaClient.GetRevisedMonitoring(item.Monitor!)!.Value.QueueSize);
 
             // Changing the refresh time re-creates the monitor: the settings are applied again.

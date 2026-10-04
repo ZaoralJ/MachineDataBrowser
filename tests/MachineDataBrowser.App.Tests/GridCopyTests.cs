@@ -21,7 +21,7 @@ public sealed class GridCopyTests
         var vm = new MainWindowViewModel();
         for (var i = 0; i < 3; i++)
         {
-            var item = new WatchItemViewModel(new NodeId((uint)i + 1, 2), $"item{i}") { RefreshMs = 500 };
+            var item = new WatchItemViewModel(new NodeId((uint)i + 1, 2), $"item{i}") { RefreshMs = 500, DefaultRefreshMs = 500 };
             item.Apply(new ValueUpdate(item.NodeId, $"v\t{i}", StatusCodes.Good, DateTime.UtcNow, DateTime.UtcNow));
             vm.WatchItems.Add(item);
         }
