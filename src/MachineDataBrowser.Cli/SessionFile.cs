@@ -44,7 +44,7 @@ internal sealed record SessionFile
     }
 }
 
-internal sealed record SessionWatchEntry(string NodeId, string DisplayName, int? RefreshMs = null);
+internal sealed record SessionWatchEntry(string NodeId, string DisplayName, int? RefreshMs = null, string? Path = null);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true)]
 [JsonSerializable(typeof(SessionFile))]
