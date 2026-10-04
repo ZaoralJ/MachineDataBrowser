@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.21.2...v0.22.0) (2026-10-04)
+
+
+### Features
+
+* **simulators:** PauseSimulation tag pauses and continues every simulation ([#110](https://github.com/ZaoralJ/MachineDataBrowser/issues/110)) ([4fe336c](https://github.com/ZaoralJ/MachineDataBrowser/commit/4fe336cad66488e15f287ab80d3593e76511eca7))
+
 ## [0.21.2](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.21.1...v0.21.2) (2026-10-04)
 
 
