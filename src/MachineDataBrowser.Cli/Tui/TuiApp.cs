@@ -514,7 +514,7 @@ internal sealed class TuiApp : IDisposable
     /// <summary>Samples the trend shows: 0 fits the width (two per column), otherwise the last this many.</summary>
     private static readonly int[] TrendWindows = [0, 30, 60, 120, 300, WatchRow.MaxHistory];
 
-    private int _trendWindow;
+    private int _trendWindow = 30;
 
     /// <summary>The row the trend shows: the selected one when it holds a number, else the first that does.</summary>
     private WatchRow? ChartRow =>
@@ -910,32 +910,21 @@ internal sealed class TuiApp : IDisposable
             return;
         }
 
-        Run(async () =>
+        // Dialogs open from the key press itself (see Load); the current value fills in as it arrives.
+        var now = "…";
+        if (Ask($"Write {name}", "New value:", string.Empty, async () => now = await _model.ReadValueTextAsync(id).ConfigureAwait(false)) is not { } text)
         {
-            var now = await _model.ReadValueTextAsync(id).ConfigureAwait(false);
-            Ui(() =>
-            {
-                if (Ask($"Write {name}", $"Now: {now}\nNew value:", now) is not { } text)
-                {
-                    return;
-                }
+            return;
+        }
 
-                if (!Confirm("Write value", $"Write {text} to {name} on {_model.Args.Url}?\nIt is {now} now."))
-                {
-                    _model.Log("Nothing written.");
-                    return;
-                }
+        if (!Confirm("Write value", $"Write {text} to {name} on {_model.Args.Url}?\nIt is {now} now."))
+        {
+            _model.Log("Nothing written.");
+            return;
+        }
 
-                Run(async () =>
-                {
-                    var outcome = await _model.WriteAsync(id, name, text).ConfigureAwait(false);
-                    if (outcome.Error is not null)
-                    {
-                        Ui(() => Error("Write failed", outcome.Error));
-                    }
-                }, $"writing {name}");
-            });
-        }, $"reading {name}");
+        // A failed write is reported in the info log with its reason.
+        Run(() => _model.WriteAsync(id, name, text), $"writing {name}");
     }
 
     // ------------------------------------------------------------------ search
@@ -947,27 +936,19 @@ internal sealed class TuiApp : IDisposable
             return;
         }
 
-        _model.Log($"Searching for {text}…");
-        Run(async () =>
+        SearchResult? result = null;
+        var choice = Pick($"Search: {text}", ["Name", "Class", "Path"], async () =>
         {
-            var result = await _model.SearchAsync(text).ConfigureAwait(false);
-            Ui(() =>
-            {
-                if (result.Hits.Count == 0)
-                {
-                    _model.Log($"Nothing matches {text} ({result.NodesVisited} nodes searched).");
-                    return;
-                }
-
-                _model.Log($"{result.Hits.Count} match(es) for {text}{(result.Truncated ? " (search stopped early)" : string.Empty)}.");
-                var choice = Pick($"Search: {text}", ["Name", "Class", "Path"],
-                    [.. result.Hits.Select(h => new[] { h.Item.DisplayName, h.Item.NodeClass.ToString(), h.PathText })], goTo: true);
-                if (choice is { } index)
-                {
-                    Reveal(result.Hits[index].Path);
-                }
-            });
-        }, $"searching for {text}");
+            result = await _model.SearchAsync(text).ConfigureAwait(false);
+            _model.Log(result.Hits.Count == 0
+                ? $"Nothing matches {text} ({result.NodesVisited} nodes searched)."
+                : $"{result.Hits.Count} match(es) for {text}{(result.Truncated ? " (search stopped early)" : string.Empty)}.");
+            return (null, [.. result.Hits.Select(h => new[] { h.Item.DisplayName, h.Item.NodeClass.ToString(), h.PathText })]);
+        }, goTo: true);
+        if (choice is { } index && result is { } found && index < found.Hits.Count)
+        {
+            Reveal(found.Hits[index].Path);
+        }
     }
 
     internal void Reveal(IReadOnlyList<Opc.Ua.NodeId> path)
@@ -1016,7 +997,7 @@ internal sealed class TuiApp : IDisposable
         }
 
         var suggestion = $"mdbrowser-{DateTime.Now:yyyyMMdd-HHmmss}.db";
-        if (Ask("Record", "File (.db/.sqlite = SQLite, otherwise CSV):", suggestion) is not { Length: > 0 } path)
+        if (Ask("Record", "File (.db/.sqlite = SQLite, otherwise CSV; Tab completes):", suggestion, path: true) is not { Length: > 0 } path)
         {
             return;
         }
@@ -1038,7 +1019,7 @@ internal sealed class TuiApp : IDisposable
             return;
         }
 
-        var path = index < candidates.Count ? candidates[index] : Ask("Open session", "Session file (.mdbsession):", _model.SessionPath ?? string.Empty);
+        var path = index < candidates.Count ? candidates[index] : Ask("Open session", "Session file (.mdbsession; Tab completes):", _model.SessionPath ?? string.Empty, path: true);
         if (string.IsNullOrWhiteSpace(path))
         {
             return;
@@ -1071,7 +1052,7 @@ internal sealed class TuiApp : IDisposable
     private void SaveSession()
     {
         var suggestion = _model.SessionPath ?? "mdbrowser.mdbsession";
-        if (Ask("Save session", "Session file (opens in the app and with mdbrowser run):", suggestion) is not { Length: > 0 } path)
+        if (Ask("Save session", "Session file (opens in the app and with mdbrowser run; Tab completes):", suggestion, path: true) is not { Length: > 0 } path)
         {
             return;
         }
@@ -1106,7 +1087,7 @@ internal sealed class TuiApp : IDisposable
             return;
         }
 
-        Run(async () =>
+        Pick($"History of {entry.Item.DisplayName}, last {minutes} min", ["Time", "Status", "Value"], async () =>
         {
             var result = await _model.ReadHistoryAsync(entry.Item.NodeId, TimeSpan.FromMinutes(minutes)).ConfigureAwait(false);
             var numbers = result.Values.Select(v => v.Numeric).OfType<double>().ToList();
@@ -1114,11 +1095,10 @@ internal sealed class TuiApp : IDisposable
                 ? "no values stored"
                 : string.Create(CultureInfo.InvariantCulture, $"{result.Values.Count} values{(result.Truncated ? " (truncated)" : string.Empty)}")
                     + (numbers.Count > 0 ? string.Create(CultureInfo.InvariantCulture, $" · min {numbers.Min():G6} · max {numbers.Max():G6} · avg {numbers.Average():G6}") : string.Empty);
-            var rows = result.Values.OrderByDescending(v => v.SourceTimestamp)
-                .Select(v => new[] { (Output.Time(v) ?? DateTime.MinValue).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture), StatusText.Of(v.Status), v.Value })
-                .ToList();
-            Ui(() => Pick($"History of {entry.Item.DisplayName}, last {minutes} min: {summary}", ["Time", "Status", "Value"], rows));
-        }, $"reading the history of {entry.Item.DisplayName}");
+            List<string[]> rows = [.. result.Values.OrderByDescending(v => v.SourceTimestamp)
+                .Select(v => new[] { (Output.Time(v) ?? DateTime.MinValue).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture), StatusText.Of(v.Status), v.Value })];
+            return ($"History of {entry.Item.DisplayName}, last {minutes} min: {summary}", rows);
+        });
     }
 
     private void Alarms()
@@ -1129,18 +1109,14 @@ internal sealed class TuiApp : IDisposable
             return;
         }
 
-        Run(async () =>
-        {
-            await _model.StartEventsAsync().ConfigureAwait(false);
-            // A refresh makes the server resend the conditions it holds; give them a moment.
-            await Task.Delay(1500).ConfigureAwait(false);
-            Ui(() => Live("Alarms (active or not acknowledged)", ["Severity", "Source", "Alarm", "Active", "Acked", "Message", "Time"], () =>
-                [.. _model.Alarms.Select(a => new[]
-                {
-                    a.Severity.ToString(CultureInfo.InvariantCulture), a.SourceName, a.ConditionName ?? a.EventType,
-                    YesNo(a.IsActive), YesNo(a.IsAcked), a.Message, a.Time.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture),
-                })]));
-        }, "subscribing to alarms");
+        // The subscription makes the server resend the conditions it holds; the table fills in as they arrive.
+        Run(() => _model.StartEventsAsync(), "subscribing to alarms");
+        Live("Alarms (active or not acknowledged)", ["Severity", "Source", "Alarm", "Active", "Acked", "Message", "Time"], () =>
+            [.. _model.Alarms.Select(a => new[]
+            {
+                a.Severity.ToString(CultureInfo.InvariantCulture), a.SourceName, a.ConditionName ?? a.EventType,
+                YesNo(a.IsActive), YesNo(a.IsAcked), a.Message, a.Time.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture),
+            })]);
     }
 
     private void Events()
@@ -1151,26 +1127,21 @@ internal sealed class TuiApp : IDisposable
             return;
         }
 
-        Run(async () =>
-        {
-            await _model.StartEventsAsync().ConfigureAwait(false);
-            Ui(() => Live("Events (newest first)", ["Time", "Severity", "Source", "Type", "Message"], () =>
-                [.. _model.Events.Select(e => new[]
-                {
-                    e.Time.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture), e.Severity.ToString(CultureInfo.InvariantCulture),
-                    e.SourceName, e.EventType, e.Message,
-                })]));
-        }, "subscribing to events");
+        Run(() => _model.StartEventsAsync(), "subscribing to events");
+        Live("Events (newest first)", ["Time", "Severity", "Source", "Type", "Message"], () =>
+            [.. _model.Events.Select(e => new[]
+            {
+                e.Time.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture), e.Severity.ToString(CultureInfo.InvariantCulture),
+                e.SourceName, e.EventType, e.Message,
+            })]);
     }
 
-    private void Diagnostics()
-    {
-        Run(async () =>
+    private void Diagnostics() =>
+        Pick("Connection diagnostics", ["Name", "Value"], async () =>
         {
             var lines = await _model.DiagnosticsAsync().ConfigureAwait(false);
-            Ui(() => Pick("Connection diagnostics", ["Name", "Value"], [.. lines.Select(l => new[] { l.Name, l.Value })]));
-        }, "reading diagnostics");
-    }
+            return (null, [.. lines.Select(l => new[] { l.Name, l.Value })]);
+        });
 
     private void Help()
     {
@@ -1273,6 +1244,46 @@ internal sealed class TuiApp : IDisposable
         return dialog;
     }
 
+    /// <summary>
+    /// Runs a dialog with its buttons' letters as keys (C for Close, Y / N, …): Terminal.Gui only takes them with Alt or
+    /// when the focused view passes letters on, and not as the kitty keyboard protocol (Warp) sends them. A text field
+    /// with the focus keeps its letters.
+    /// </summary>
+    private void RunDialog(Dialog dialog)
+    {
+        var letters = dialog.Buttons
+            .Select((button, index) => (Index: index, Title: button.Title ?? string.Empty))
+            .Select(b => (b.Index, At: b.Title.IndexOf('_', StringComparison.Ordinal)))
+            .Where(b => b.At >= 0)
+            .ToDictionary(b => char.ToLowerInvariant(dialog.Buttons[b.Index].Title[b.At + 1]), b => b.Index);
+
+        void OnKey(object? sender, Key key)
+        {
+            if (key.Handled || _app.TopRunnableView != dialog || dialog.MostFocused is TextField || key.IsCtrl || key.IsAlt)
+            {
+                return;
+            }
+
+            var rune = key.NoShift.AsRune.Value;
+            if (rune > 0 && rune < 0x10000 && letters.TryGetValue(char.ToLowerInvariant((char)rune), out var index))
+            {
+                dialog.Result = index;
+                dialog.RequestStop();
+                key.Handled = true;
+            }
+        }
+
+        _app.Keyboard.KeyDown += OnKey;
+        try
+        {
+            _app.Run(dialog);
+        }
+        finally
+        {
+            _app.Keyboard.KeyDown -= OnKey;
+        }
+    }
+
     private static Label Text(string text, Pos? y = null)
     {
         var label = new Label { Text = text, X = 1, Y = y ?? 1 };
@@ -1280,16 +1291,68 @@ internal sealed class TuiApp : IDisposable
         return label;
     }
 
-    /// <summary>A text prompt; null when cancelled.</summary>
-    private string? Ask(string title, string label, string initial)
+    /// <summary>
+    /// A text prompt; null when cancelled. <paramref name="load"/> fetches the initial text while the prompt is open
+    /// (filled in unless something was typed already).
+    /// </summary>
+    private string? Ask(string title, string label, string initial, Func<Task<string>>? load = null, bool path = false)
     {
         var text = Text(label);
         var field = new TextField { Text = initial, X = 1, Y = Pos.Bottom(text) + 1, Width = Dim.Fill(1) };
         field.SetScheme(new Scheme(Theme.Base) { Normal = new Attribute(Theme.Bright, Theme.Selection), Focus = new Attribute(Theme.Bright, Theme.Selection), Editable = new Attribute(Theme.Bright, Theme.Selection) });
         using var dialog = NewDialog(title, Dim.Percent(70), null, [text, field], "_Cancel", "_OK");
+        if (load is not null)
+        {
+            text.Text = $"{label} (reading the current value…)";
+            Run(async () =>
+            {
+                var value = await load().ConfigureAwait(false);
+                Ui(() =>
+                {
+                    text.Text = $"Now: {value}. {label}";
+                    if (string.IsNullOrEmpty(field.Text))
+                    {
+                        field.Text = value;
+                    }
+                });
+            }, $"reading {title}");
+        }
+
+        if (path)
+        {
+            // Tab completes the path like a shell; several matches are listed under the field.
+            var matches = Text(string.Empty, Pos.Bottom(field) + 1);
+            matches.SetScheme(new Scheme(Theme.Base) { Normal = new Attribute(Theme.Muted, Theme.Surface) });
+            dialog.Add(matches);
+            field.KeyDown += (_, key) =>
+            {
+                if (key != Key.Tab)
+                {
+                    return;
+                }
+
+                var (completed, found) = PathCompletion.Complete(field.Text ?? string.Empty);
+                field.Text = completed;
+                field.MoveEnd();
+                matches.Text = found.Count switch
+                {
+                    0 => "no match",
+                    1 => string.Empty,
+                    _ => string.Join("  ", found.Take(12)) + (found.Count > 12 ? $"  … {found.Count - 12} more" : string.Empty),
+                };
+                key.Handled = true;
+            };
+        }
+
         field.SetFocus();
-        _app.Run(dialog);
-        return dialog.Result == 1 ? field.Text?.Trim() : null;
+        RunDialog(dialog);
+        if (dialog.Result != 1)
+        {
+            return null;
+        }
+
+        var answer = field.Text?.Trim() ?? string.Empty;
+        return path ? PathCompletion.Expand(answer) : answer;
     }
 
     /// <summary>A yes/no question; No is the default, so Enter alone changes nothing.</summary>
@@ -1297,7 +1360,7 @@ internal sealed class TuiApp : IDisposable
     {
         using var dialog = NewDialog(title, Dim.Auto(minimumContentDim: 50), null, [Text(message)], "_Yes", "_No");
         dialog.Buttons[^1].SetFocus();
-        _app.Run(dialog);
+        RunDialog(dialog);
         return dialog.Result == 0;
     }
 
@@ -1305,7 +1368,42 @@ internal sealed class TuiApp : IDisposable
     {
         using var dialog = NewDialog(title, Dim.Auto(minimumContentDim: 50), null, [Text(message)], "_OK");
         dialog.SetScheme(new Scheme(dialog.GetScheme()) { Normal = new Attribute(Theme.Red, Theme.Surface) });
-        _app.Run(dialog);
+        RunDialog(dialog);
+    }
+
+    /// <summary>
+    /// A table dialog that opens at once and fills in when <paramref name="load"/> returns (and may give a new title).
+    /// Dialogs are only opened from key presses: one opened from a background callback gets no keys with the kitty
+    /// keyboard protocol (Warp).
+    /// </summary>
+    private int? Pick(string title, string[] columns, Func<Task<(string? Title, List<string[]> Rows)>> load, bool goTo = false)
+    {
+        var source = new GridSource(columns);
+        source.SetRows([[.. columns.Select((_, i) => i == 0 ? "loading…" : string.Empty)]]);
+        var table = new TableView(source) { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(2), FullRowSelect = true, CollectionNavigator = null };
+        Theme.Table(table);
+        table.SetScheme(new Scheme(Theme.Base) { Normal = new Attribute(Theme.Foreground, Theme.Surface) });
+        using var dialog = NewDialog(title, Dim.Percent(90), Dim.Percent(80), [table], goTo ? ["_Close", "_Go to"] : ["_Close"]);
+        var loaded = 0;
+        Run(async () =>
+        {
+            var (newTitle, rows) = await load().ConfigureAwait(false);
+            Ui(() =>
+            {
+                source.SetRows(rows.Count == 0 ? [[.. columns.Select((_, i) => i == 0 ? "nothing found" : string.Empty)]] : rows);
+                loaded = rows.Count;
+                if (newTitle is not null)
+                {
+                    dialog.Title = newTitle;
+                }
+
+                table.Update();
+            });
+        }, title);
+        table.SetFocus();
+        RunDialog(dialog);
+        var row = table.Value?.SelectedCell.Y ?? -1;
+        return goTo && dialog.Result == 1 && row >= 0 && row < loaded ? row : null;
     }
 
     /// <summary>A table in a dialog; with <paramref name="goTo"/>, Enter / Go to picks a row (its index), Esc closes.</summary>
@@ -1318,7 +1416,7 @@ internal sealed class TuiApp : IDisposable
         table.SetScheme(new Scheme(Theme.Base) { Normal = new Attribute(Theme.Foreground, Theme.Surface) });
         using var dialog = NewDialog(title, Dim.Percent(90), Dim.Percent(80), [table], goTo ? ["_Close", goToTitle] : ["_Close"]);
         table.SetFocus();
-        _app.Run(dialog);
+        RunDialog(dialog);
         var row = table.Value?.SelectedCell.Y ?? -1;
         return goTo && dialog.Result == 1 && row >= 0 && row < rows.Count ? row : null;
     }
@@ -1344,7 +1442,7 @@ internal sealed class TuiApp : IDisposable
             return open;
         });
         table.SetFocus();
-        _app.Run(dialog);
+        RunDialog(dialog);
         open = false;
     }
 

@@ -150,10 +150,11 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
         await UntilScreen(s => s.Contains("- 250 ms +", StringComparison.Ordinal));
         Assert.All(model.Watch, r => Assert.Equal(250, r.RefreshMs));
 
-        // ] limits the trend to the last 30 samples; x resets it.
+        // The trend shows the last 30 samples at first; ] shows more; x resets it.
         Press(Key.P);
-        Press(new Key(']'));
         await UntilScreen(s => s.Contains("of 30 ·", StringComparison.Ordinal) || s.Contains("window 30", StringComparison.Ordinal));
+        Press(new Key(']'));
+        await UntilScreen(s => s.Contains("of 60 ·", StringComparison.Ordinal) || s.Contains("window 60", StringComparison.Ordinal));
         Press(Key.X);
         await UntilScreen(s => s.Contains("reset.", StringComparison.Ordinal));
     }
