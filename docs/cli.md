@@ -29,6 +29,7 @@ command line for them, with the endpoint and options of the connection.
 | `mdbrowser session create <file> <url> <node>...` | a session file for the app with these nodes as its watch list |
 | `mdbrowser session add <file> <node>...` | adds nodes to a session's watch list; everything else in the file is kept |
 | `mdbrowser run <session>` | the watch list of a session file saved by the app (`.mdbsession`), each item at its refresh time |
+| `mdbrowser tui <url or session>` | a full-screen browser in the terminal: tree, attributes, live values, trend, write, record; see [below](#full-screen-browser-tui) |
 | `mdbrowser mcp --endpoint <url>... --recording <file.db>...` | an MCP server for AI agents (machines and SQLite recordings), read-only; see [MCP server](mcp.md) |
 
 `mdbrowser <command> --help` lists every option.
@@ -129,6 +130,47 @@ mdbrowser write opc.tcp://plc:4840 --set /Objects/Line1/Mode=AUTO --set /Objects
 - `--set node=value` writes several in one go. Paths split at the first `=` (values may contain `=`), ids at the last
   (`--set "ns=3;s=Mode=AUTO"`); for a value with `=` on an id, use `write <url> <id> <value>`.
 - Exit code 1 when any value was not written; the reason is in the *result* column (`-f json`: `written`, `error`).
+
+### Full-screen browser (`tui`)
+
+`mdbrowser tui` is the app in a terminal, for every protocol: over SSH, on a headless box next to the line, or
+when a window is one too many.
+
+```sh
+mdbrowser tui opc.tcp://plc:4840
+mdbrowser tui eip://10.0.0.5/1,0
+mdbrowser tui mqtt://broker:1883
+mdbrowser tui line1.mdbsession          # the session's endpoint, options and watch list, monitored at once
+```
+
+![mdbrowser tui: address space, attributes, monitored items with a trend chart, and the info log](images/tui.png)
+
+Five panes: **¹** address space, **²** attributes of the selected node, **³** monitored items, **⁴** a trend
+chart of the selected (numeric) item, **⁵** an info log. The header shows the endpoint and its state, the
+refresh time and, while recording, the file and sample count. Every action is a key; the bar at the bottom shows
+the main ones and `h` lists them all.
+
+| Key | Does |
+|---|---|
+| `Tab` / `Shift+Tab`, `→` / `←` / `Enter` | move between panes; expand and collapse nodes |
+| `1` … `5` / `Shift+1` … `5` | show or hide a pane / the pane alone on the full screen (again restores the layout) |
+| `m` / `u` | monitor the variable, or every variable below a folder or structure / stop monitoring it |
+| `w` | write a value: shows the current one, asks first, reads it back |
+| `s` | search the address space by name or id (`Temp*`, `Motor?`) and go to a match |
+| `f` / `o` `O` / `i` / `p` | filter the monitored items / sort by a column, reverse / show the NodeId column / pause the display |
+| `-` / `+` | refresh time of all monitored items |
+| `r` | start or stop recording the monitored items: SQLite for `.db`, CSV otherwise (like `--record`) |
+| `Ctrl+S` | save the monitored items as a session file; an existing one keeps everything else |
+| `y` / `a` / `e` | OPC UA: history of the variable / current alarms / live events |
+| `d` | MQTT: pause discovery, receiving only the monitored topics (like *Pause discovery* in the app) |
+| `g` / `t` / `l` | connection diagnostics / next colour theme / light or dark |
+| `q` | quit |
+
+- **Colours** are the app's themes, the one chosen in the app by default; `--theme Nord` and `--light` pick another
+  for this run, `t` and `l` switch while running. Status is green, amber or red; stale values are dimmed.
+- **Writes** follow the session: a read-only session never writes. Names keep their underscores (`Bulk_0014`).
+- The display can pause (`p`) while monitoring and any recording go on; `-`/`+` change the rate at the device.
+- It needs an interactive terminal; scripts use `browse`, `read` and `monitor`.
 
 ### Connection options
 

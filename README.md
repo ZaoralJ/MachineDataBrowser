@@ -55,8 +55,9 @@ brew install zaoralj/tap/mdbrowser
 mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1/Speed
 ```
 
-`mdbrowser` browses, reads and monitors from a terminal or a script, and runs sessions saved in the app; see
-[docs/cli.md](docs/cli.md). `mdbrowser mcp` lets AI agents (Copilot, Claude, opencode) browse and read machines,
+`mdbrowser` browses, reads and monitors from a terminal or a script, and runs sessions saved in the app;
+`mdbrowser tui` is a full-screen browser in the terminal (tree, live values, trend, write, record) for every protocol.
+See [docs/cli.md](docs/cli.md). `mdbrowser mcp` lets AI agents (Copilot, Claude, opencode) browse and read machines,
 read-only; see [docs/mcp.md](docs/mcp.md).
 
 ## Try it with the test servers

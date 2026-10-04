@@ -148,7 +148,7 @@ internal sealed class TuiApp : IDisposable
         var opcUa = _model.SupportsHistory || _model.SupportsEvents;
         _status = new KeyBar(
         [
-            ('m', "Monitor"), ('u', "Unmonitor"), ('w', "Write"), ('/', "Search"), ('f', "Filter"), ('p', "Pause"),
+            ('m', "Monitor"), ('u', "Unmonitor"), ('w', "Write"), ('s', "Search"), ('f', "Filter"), ('p', "Pause"),
             ('o', "Sort"), ('r', "Record"),
             .. opcUa ? new[] { ('a', "Alarms"), ('e', "Events"), ('y', "History") } : [],
             .. _model.SupportsDiscoveryPause ? new[] { ('d', "Discovery") } : [],
@@ -156,9 +156,9 @@ internal sealed class TuiApp : IDisposable
         ]) { X = 0, Y = Pos.AnchorEnd(1), Width = Dim.Fill() };
         foreach (var (key, action) in new (Key, Action)[]
         {
-            (Key.M, Monitor), (Key.U, Unmonitor), (Key.W, Write), (new Key('/'), Search), (Key.F, Filter), (Key.P, TogglePause),
+            (Key.M, Monitor), (Key.U, Unmonitor), (Key.W, Write), (Key.S, Search), (Key.F, Filter), (Key.P, TogglePause),
             (Key.O, NextSort), (Key.R, ToggleRecording), (Key.H, Help), (Key.T, NextTheme), (Key.L, ToggleLight),
-            (Key.Q, () => _app.RequestStop()), (Key.I, ToggleIds), (Key.S, Diagnostics), (Key.S.WithCtrl, SaveSession),
+            (Key.Q, () => _app.RequestStop()), (Key.I, ToggleIds), (Key.G, Diagnostics), (Key.S.WithCtrl, SaveSession),
             (Key.F5, Reload), (Key.C, _model.ClearLog),
         })
         {
@@ -1052,7 +1052,7 @@ internal sealed class TuiApp : IDisposable
             ["m", "Monitor the variable, or every variable below a folder or structure"],
             ["u", "Stop monitoring the selected monitored item"],
             ["w", "Write a value (shows the current one, asks first, reads back)"],
-            ["/", "Search the address space by name or id (Temp*, Motor?)"],
+            ["s", "Search the address space by name or id (Temp*, Motor?)"],
             ["f", "Filter the monitored items by name or id"],
             ["o / O", "Sort the monitored items by the next column / reverse"],
             ["i", "Show or hide the NodeId (tag, topic) column of the monitored items"],
@@ -1078,7 +1078,7 @@ internal sealed class TuiApp : IDisposable
 
         rows.AddRange(
         [
-            ["s", "Connection diagnostics"],
+            ["g", "Connection diagnostics"],
             ["t / l", $"Next colour theme (the app's) / light or dark; now {Theme.Current.Name}, {(Theme.Light ? "light" : "dark")}"],
             ["F5", "Browse the selected node again"],
             ["c", "Clear the info log"],
