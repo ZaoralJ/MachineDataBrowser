@@ -80,7 +80,7 @@ internal sealed class LiveWatch : IUpdateSink
 
     private readonly IReadOnlyList<Node> _items;
     private readonly bool _showIds;
-    private readonly ConcurrentDictionary<string, (ValueUpdate Update, int Count, bool Seeded)> _latest = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, (ValueUpdate Update, int Count, bool Seeded, DateTime ReceivedAt)> _latest = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _stop = new();
     private readonly Task _render;
 
@@ -108,17 +108,17 @@ internal sealed class LiveWatch : IUpdateSink
 
     public bool WantsInitialValues => true;
 
-    public void Seed(string id, ValueUpdate current) => _latest.TryAdd(id, (current, 0, true));
+    public void Seed(string id, ValueUpdate current) => _latest.TryAdd(id, (current, 0, true, DateTime.Now));
 
     /// <summary>
     /// Counts updates. Right after subscribing, servers (and Logix polling, and MQTT retained messages) send the current
     /// value once more; when that only repeats the value read at the start, it is not counted.
     /// </summary>
     public void Post(string name, string id, ValueUpdate update) =>
-        _latest.AddOrUpdate(id, (update, 1, false), (_, previous) =>
+        _latest.AddOrUpdate(id, (update, 1, false, DateTime.Now), (_, previous) =>
             previous.Seeded && previous.Count == 0 && previous.Update.Value == update.Value && StatusCode.IsGood(update.Status)
-                ? (update, 0, false)
-                : (update, previous.Count + 1, false));
+                ? (update, 0, false, DateTime.Now)
+                : (update, previous.Count + 1, false, DateTime.Now));
 
     public async ValueTask DisposeAsync()
     {
@@ -145,7 +145,8 @@ internal sealed class LiveWatch : IUpdateSink
             var name = _showIds ? new IRenderable[] { new Text(item.Name), new Markup($"[grey]{Markup.Escape(item.DisplayId)}[/]") } : [new Text(item.Name)];
             if (_latest.TryGetValue(item.DisplayId, out var latest))
             {
-                var time = latest.Update.SourceTimestamp == DateTime.MinValue ? DateTime.Now : latest.Update.SourceTimestamp.ToLocalTime();
+                // Without a source timestamp, when it arrived: "now" at every redraw would look like an update.
+                var time = latest.Update.SourceTimestamp == DateTime.MinValue ? latest.ReceivedAt : latest.Update.SourceTimestamp.ToLocalTime();
                 table.AddRow([
                     .. name,
                     new Markup(Terminal.StatusMarkup(latest.Update.Status)),
