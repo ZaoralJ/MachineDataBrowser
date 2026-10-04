@@ -145,8 +145,9 @@ internal sealed class LiveWatch : IUpdateSink
             var name = _showIds ? new IRenderable[] { new Text(item.Name), new Markup($"[grey]{Markup.Escape(item.DisplayId)}[/]") } : [new Text(item.Name)];
             if (_latest.TryGetValue(item.DisplayId, out var latest))
             {
-                // Without a source timestamp, when it arrived: "now" at every redraw would look like an update.
-                var time = latest.Update.SourceTimestamp == DateTime.MinValue ? latest.ReceivedAt : latest.Update.SourceTimestamp.ToLocalTime();
+                // OPC UA servers may leave out the source timestamp: then the server's, else when it arrived ("now"
+                // at every redraw would look like an update).
+                var time = Output.Time(latest.Update) is { } stamp ? stamp.ToLocalTime() : latest.ReceivedAt;
                 table.AddRow([
                     .. name,
                     new Markup(Terminal.StatusMarkup(latest.Update.Status)),
