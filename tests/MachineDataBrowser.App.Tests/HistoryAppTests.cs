@@ -29,7 +29,8 @@ public sealed class HistoryAppTests(CustomTypesServerFixture server)
         await vm.ShowHistoryCommand.ExecuteAsync(60);
         var viewer = Assert.IsType<RecordingViewerViewModel>(dialogs.Viewer);
         Assert.Contains("Temperature", viewer.Title, StringComparison.Ordinal);
-        Assert.InRange(viewer.Rows.Count, 355, 450);
+        // 360 prefilled samples (one per 10 s) plus one per second since the shared container started.
+        Assert.InRange(viewer.Rows.Count, 355, 360 + 3600);
         Assert.True(viewer.HasChart);
         Assert.StartsWith("History from the server", viewer.StatusText, StringComparison.Ordinal);
 
