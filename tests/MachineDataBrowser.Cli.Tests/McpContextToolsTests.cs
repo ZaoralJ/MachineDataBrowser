@@ -83,6 +83,16 @@ public sealed class McpContextToolsTests(OpcPlcFixture plc, CustomTypesServerFix
     }
 
     [Fact]
+    public async Task Events_below_an_object_without_events_explain_why()
+    {
+        var result = await _client.CallToolAsync("events", new Dictionary<string, object?> { ["seconds"] = 1, ["node"] = "/Objects/Custom", ["endpoint"] = custom.EndpointUrl },
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(result.IsError);
+        var text = Assert.IsType<TextContentBlock>(Assert.Single(result.Content)).Text;
+        Assert.Contains("'/Objects/Custom' doesn't report events", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Context_tools_are_listed_as_read_only()
     {
         var tools = await _client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken);

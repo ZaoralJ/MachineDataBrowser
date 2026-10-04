@@ -83,8 +83,10 @@ public sealed partial class OpcUaClient : IEventSource
         await subscription.CreateAsync(cancellationToken).ConfigureAwait(false);
         if (ServiceResult.IsBad(item.Status.Error))
         {
+            // Removing the subscription clears the item's status: keep the server's answer first.
+            var error = item.Status.Error;
             await session.RemoveSubscriptionAsync(subscription, cancellationToken).ConfigureAwait(false);
-            throw new ServiceResultException(item.Status.Error);
+            throw new ServiceResultException(error);
         }
 
         try

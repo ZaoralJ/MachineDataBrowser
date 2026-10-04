@@ -28,6 +28,14 @@ public sealed class CustomTypesTests(CustomTypesServerFixture server) : IAsyncLi
         return current;
     }
 
+    [Fact]
+    public async Task Events_from_an_object_without_events_report_the_server_status()
+    {
+        var custom = await FindAsync("Custom");
+        var ex = await Assert.ThrowsAsync<ServiceResultException>(async () => await _client.SubscribeEventsAsync(custom.NodeId, _ => { }, Ct));
+        Assert.True(StatusCode.IsBad(ex.StatusCode));
+    }
+
     private async Task<object?> ReadAsync(params string[] path) =>
         (await _client.ReadValuesAsync([(await FindAsync(path)).NodeId], Ct))[0];
 
