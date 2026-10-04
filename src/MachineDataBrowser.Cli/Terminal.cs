@@ -79,13 +79,15 @@ internal sealed class LiveWatch : IUpdateSink
     private static readonly TimeSpan RedrawInterval = TimeSpan.FromMilliseconds(200);
 
     private readonly IReadOnlyList<Node> _items;
+    private readonly bool _showIds;
     private readonly ConcurrentDictionary<string, (ValueUpdate Update, int Count, bool Seeded)> _latest = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _stop = new();
     private readonly Task _render;
 
-    public LiveWatch(IAnsiConsole console, IReadOnlyList<Node> items)
+    public LiveWatch(IAnsiConsole console, IReadOnlyList<Node> items, bool showIds = false)
     {
         _items = items;
+        _showIds = showIds;
         _render = console.Live(Build()).AutoClear(false).StartAsync(async context =>
         {
             while (!_stop.IsCancellationRequested)
@@ -127,27 +129,33 @@ internal sealed class LiveWatch : IUpdateSink
 
     private Table Build()
     {
-        var table = new Table().RoundedBorder().BorderColor(Color.Grey)
-            .AddColumn("[bold]Name[/]")
+        var table = new Table().RoundedBorder().BorderColor(Color.Grey).AddColumn("[bold]Name[/]");
+        if (_showIds)
+        {
+            table.AddColumn("[bold]Id[/]");
+        }
+
+        table
             .AddColumn("[bold]Status[/]")
             .AddColumn("[bold]Value[/]")
             .AddColumn(new TableColumn("[bold]Updated[/]").RightAligned())
             .AddColumn(new TableColumn("[bold]Updates[/]").RightAligned());
         foreach (var item in _items)
         {
+            var name = _showIds ? new IRenderable[] { new Text(item.Name), new Markup($"[grey]{Markup.Escape(item.DisplayId)}[/]") } : [new Text(item.Name)];
             if (_latest.TryGetValue(item.DisplayId, out var latest))
             {
                 var time = latest.Update.SourceTimestamp == DateTime.MinValue ? DateTime.Now : latest.Update.SourceTimestamp.ToLocalTime();
-                table.AddRow(
-                    new Text(item.Name),
+                table.AddRow([
+                    .. name,
                     new Markup(Terminal.StatusMarkup(latest.Update.Status)),
                     new Text(latest.Update.Value),
                     new Text(time.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)),
-                    new Text(latest.Count.ToString(CultureInfo.InvariantCulture)));
+                    new Text(latest.Count.ToString(CultureInfo.InvariantCulture))]);
             }
             else
             {
-                table.AddRow(new Text(item.Name), new Markup("[grey]waiting[/]"), new Text("…"), new Text(string.Empty), new Text("0"));
+                table.AddRow([.. name, new Markup("[grey]waiting[/]"), new Text("…"), new Text(string.Empty), new Text("0")]);
             }
         }
 

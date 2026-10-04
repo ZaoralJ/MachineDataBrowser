@@ -27,12 +27,14 @@ internal sealed class UpdateWriter : IUpdateSink
 
     private readonly TextWriter _output;
     private readonly OutputFormat _format;
+    private readonly bool _showIds;
     private readonly Task _pump;
 
-    public UpdateWriter(TextWriter output, OutputFormat format)
+    public UpdateWriter(TextWriter output, OutputFormat format, bool showIds = false)
     {
         _output = output;
         _format = format;
+        _showIds = showIds;
         _pump = PumpAsync();
     }
 
@@ -80,7 +82,9 @@ internal sealed class UpdateWriter : IUpdateSink
                 ["value"] = update.Raw is null ? JsonValue.Create(update.Value) : ValueJson.ToJson(update.Raw),
             }.ToJsonString(Compact),
             OutputFormat.Csv => string.Join(',', Output.Csv(utc), Output.Csv(name), Output.Csv(id), Output.Csv(status), Output.Csv(update.Value)),
-            _ => $"{time.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)}  {name,-28} {status,-12} {update.Value}",
+            _ => _showIds
+                ? $"{time.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)}  {name,-28} {id,-28} {status,-12} {update.Value}"
+                : $"{time.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)}  {name,-28} {status,-12} {update.Value}",
         };
     }
 }

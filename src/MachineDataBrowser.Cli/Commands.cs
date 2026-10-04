@@ -32,6 +32,11 @@ internal static class Commands
             CustomParser = r => ParseDuration(r.Tokens.Single().Value, r),
         };
         var count = new Option<int?>("--count", "-n") { Description = "Stop after this many updates" };
+        var ids = new Option<bool>("--ids") { Description = "Show node ids next to names (shown anyway when names repeat)" };
+
+        // Equal names (the same variable under two objects) can't be told apart without their ids.
+        bool ShowIds(ParseResult r, IEnumerable<Node> items) =>
+            r.GetValue(ids) || items.GroupBy(n => n.Name, StringComparer.Ordinal).Any(g => g.Count() > 1);
 
         IAnsiConsole? Rich(ParseResult r) => r.GetValue(format) == OutputFormat.Text ? terminal : null;
 
@@ -48,7 +53,7 @@ internal static class Commands
         }
 
         IUpdateSink Sink(ParseResult r, IReadOnlyList<Node> items) =>
-            Rich(r) is { } console ? new LiveWatch(console, items) : new UpdateWriter(stdout, r.GetValue(format));
+            Rich(r) is { } console ? new LiveWatch(console, items, ShowIds(r, items)) : new UpdateWriter(stdout, r.GetValue(format), ShowIds(r, items));
 
         ConnectionArgs Connection(ParseResult r) => new(
             r.GetValue(url)!,
@@ -135,6 +140,7 @@ internal static class Commands
         var read = WithConnection(new Command("read", "Read the current value of one or more variables"));
         read.Arguments.Add(nodes);
         AddRecursiveOptions(read);
+        read.Options.Add(ids);
         read.SetAction((r, ct) => Guard(stderr, async () =>
         {
             await using var client = await Cli.Connection.ConnectAsync(Connection(r), ct).ConfigureAwait(false);
@@ -155,8 +161,9 @@ internal static class Commands
             }
             else
             {
-                await RowsAsync(r, ["name", "type", "value"],
-                    resolved.Select((n, i) => (IReadOnlyList<string>)[n.Name, values[i] is null ? "-" : ValueJson.TypeName(values[i]), values[i] is null ? "(read failed)" : ValueFormatter.Format(new Variant(values[i]))])).ConfigureAwait(false);
+                var showIds = ShowIds(r, resolved);
+                await RowsAsync(r, WithId(showIds, ["name", "type", "value"]),
+                    resolved.Select((n, i) => WithId(showIds, [n.Name, values[i] is null ? "-" : ValueJson.TypeName(values[i]), values[i] is null ? "(read failed)" : ValueFormatter.Format(new Variant(values[i]))], n.DisplayId))).ConfigureAwait(false);
             }
 
             return values.Any(v => v is null) ? 1 : 0;
@@ -174,7 +181,7 @@ internal static class Commands
         var monitor = WithConnection(new Command("monitor", "Stream live values until Ctrl+C, --duration or --count"));
         monitor.Arguments.Add(nodes);
         AddRecursiveOptions(monitor);
-        foreach (var option in new Option[] { refresh, duration, count, save, force, record, retention })
+        foreach (var option in new Option[] { ids, refresh, duration, count, save, force, record, retention })
         {
             monitor.Options.Add(option);
         }
@@ -200,7 +207,7 @@ internal static class Commands
         var sessionPath = new Argument<string>("session") { Description = "Session file saved by the app (.mdbsession)" };
         var run = new Command("run", "Monitor the watch list of an app session file, without the app");
         run.Arguments.Add(sessionPath);
-        foreach (var option in new Option[] { password, trustAll, format, duration, count, record, retention })
+        foreach (var option in new Option[] { password, trustAll, format, ids, duration, count, record, retention })
         {
             run.Options.Add(option);
         }
@@ -328,6 +335,7 @@ internal static class Commands
         write.Arguments.Add(writeValue);
         write.Options.Add(sets);
         write.Options.Add(yes);
+        write.Options.Add(ids);
         write.SetAction((r, ct) => Guard(stderr, async () =>
         {
             var requests = WriteRequests(r.GetValue(writeNode), r.GetValue(writeValue), r.GetValue(sets) ?? []);
@@ -343,7 +351,8 @@ internal static class Commands
                     throw new CliException("Writing changes the device. Confirm it in a terminal, or add --yes.");
                 }
 
-                Terminal.Table(terminal, ["name", "now", "write"], targets.Select((n, i) => (IReadOnlyList<string>)[n.Name, Text(before[i]), requests[i].Value]));
+                var confirmIds = ShowIds(r, targets);
+                Terminal.Table(terminal, WithId(confirmIds, ["name", "now", "write"]), targets.Select((n, i) => WithId(confirmIds, [n.Name, Text(before[i]), requests[i].Value], n.DisplayId)));
                 var question = $"Write {(targets.Count == 1 ? "this value" : $"these {targets.Count} values")} to {r.GetValue(url)}?";
                 if (!await new ConfirmationPrompt(question) { DefaultValue = false }.ShowAsync(terminal, ct).ConfigureAwait(false))
                 {
@@ -382,8 +391,9 @@ internal static class Commands
             }
             else
             {
-                await RowsAsync(r, ["name", "before", "after", "result"],
-                    targets.Select((n, i) => (IReadOnlyList<string>)[n.Name, Text(before[i]), Text(after[i]), errors[i] ?? "written"])).ConfigureAwait(false);
+                var showIds = ShowIds(r, targets);
+                await RowsAsync(r, WithId(showIds, ["name", "before", "after", "result"]),
+                    targets.Select((n, i) => WithId(showIds, [n.Name, Text(before[i]), Text(after[i]), errors[i] ?? "written"], n.DisplayId))).ConfigureAwait(false);
             }
 
             return errors.Any(e => e is not null) ? 1 : 0;
@@ -540,6 +550,10 @@ internal static class Commands
     }
 
     private static string Text(object? value) => value is null ? "-" : ValueFormatter.Format(new Variant(value));
+
+    /// <summary>The row with an id column after the name (the first column) when ids are shown.</summary>
+    private static IReadOnlyList<string> WithId(bool show, IReadOnlyList<string> row, string id = "id") =>
+        show ? [row[0], id, .. row.Skip(1)] : row;
 
     private static async Task<int> Guard(TextWriter stderr, Func<Task<int>> action)
     {

@@ -154,6 +154,9 @@ The live table starts with the current values, read when monitoring starts; *Upd
 arrived (the device's first notification that only repeats the starting value isn't counted). Redirected output and
 JSON/CSV stream only the notifications.
 
+Text and CSV show names only; add `--ids` (`read`, `write`, `monitor`, `run`) for an id column next to the name.
+When two items have the same name, ids are shown anyway. JSON always includes `id`, and `monitor`/`run` CSV too.
+
 ```sh
 mdbrowser read opc.tcp://plc:4840 /Objects/Line1/Speed -f json | jq '.[0].value'
 mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1/Speed -f json | jq -c 'select(.status != "Good")'
