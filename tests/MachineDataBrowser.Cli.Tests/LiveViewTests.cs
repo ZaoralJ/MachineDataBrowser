@@ -49,9 +49,10 @@ public sealed class LiveViewTests(CustomTypesServerFixture server)
             .Parse(["monitor", server.EndpointUrl, "/Objects/Custom/PauseSimulation", "-r", "1000", "-d", "2s"])
             .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
-        // "Now" at every redraw (5 a second) would look like updates; it is the read and the server's first notification.
+        // "Now" at every redraw (5 a second) would look like updates; the time is the server's, and the value read at the
+        // start shows none until the first notification brings it.
         var times = console.Output.Split('\n').Where(l => l.Contains("│ PauseSimulation ", StringComparison.Ordinal))
-            .Select(l => System.Text.RegularExpressions.Regex.Match(l, @"\d\d:\d\d:\d\d\.\d{3}").Value).Distinct().ToList();
-        Assert.True(times.Count <= 2, $"the time changed at every redraw: {string.Join(", ", times)}");
+            .Select(l => System.Text.RegularExpressions.Regex.Match(l, @"\d\d:\d\d:\d\d\.\d{3}").Value).Where(t => t.Length > 0).Distinct().ToList();
+        Assert.True(times.Count == 1, $"expected one time, got: {string.Join(", ", times)}");
     }
 }

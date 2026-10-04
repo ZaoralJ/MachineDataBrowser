@@ -146,13 +146,16 @@ internal sealed class LiveWatch : IUpdateSink
             if (_latest.TryGetValue(item.DisplayId, out var latest))
             {
                 // OPC UA servers may leave out the source timestamp: then the server's, else when it arrived ("now"
-                // at every redraw would look like an update).
-                var time = Output.Time(latest.Update) is { } stamp ? stamp.ToLocalTime() : latest.ReceivedAt;
+                // at every redraw would look like an update). The value read at the start has none until the first
+                // notification brings it.
+                var time = Output.Time(latest.Update) is { } stamp ? stamp.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)
+                    : latest.Seeded ? string.Empty
+                    : latest.ReceivedAt.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture);
                 table.AddRow([
                     .. name,
                     new Markup(Terminal.StatusMarkup(latest.Update.Status)),
                     new Text(latest.Update.Value),
-                    new Text(time.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)),
+                    new Text(time),
                     new Text(latest.Count.ToString(CultureInfo.InvariantCulture))]);
             }
             else
