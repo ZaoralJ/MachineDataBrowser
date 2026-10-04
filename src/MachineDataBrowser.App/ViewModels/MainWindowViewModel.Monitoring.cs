@@ -29,10 +29,19 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
+        // Watch shows one value per publish, so the refresh time follows the sampling interval: otherwise faster
+        // sampling isn't visible.
+        var sampled = options.SamplingIntervalMs is { } sampling ? (int)sampling : (int?)null;
+        if (sampled is { } refreshMs && items.Where(i => i.RefreshMs != refreshMs).ToList() is { Count: > 0 } moving)
+        {
+            await ChangeRefreshAsync(moving, refreshMs);
+            items = [.. items.Where(i => i.Monitor is not null)];
+        }
+
         var failed = await ApplyMonitoringAsync(items, options);
         MarkDirty();
         StatusMessage = failed == 0
-            ? $"Monitoring {options.Describe()} for {label}"
+            ? $"Monitoring {options.Describe()}{(sampled is { } r ? $", refresh {FormatRefresh(r)}" : string.Empty)} for {label}"
             : $"Monitoring changed for {items.Count - failed} of {items.Count} item(s)";
     }
 

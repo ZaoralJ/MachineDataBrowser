@@ -46,6 +46,8 @@ public sealed class MonitoringSettingsTests(OpcPlcFixture plc) : IDisposable
 
             await vm.EditMonitoringCommand.ExecuteAsync(null);
             Assert.Equal(options, item.Monitoring);
+            Assert.Equal(100, item.RefreshMs); // the refresh time follows the sampling interval
+            Assert.Equal(100, OpcUaClient.GetRevisedMonitoring(item.Monitor!)!.Value.SamplingIntervalMs);
             Assert.EndsWith("⚙", item.RefreshText, StringComparison.Ordinal);
             Assert.Contains("queue 20", item.RefreshToolTip, StringComparison.Ordinal);
             Assert.Equal(20u, OpcUaClient.GetRevisedMonitoring(item.Monitor!)!.Value.QueueSize);

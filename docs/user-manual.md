@@ -196,7 +196,8 @@ and sort order are saved with the session.
   - Display only: filters, snapshots, recordings, exports and *Write value* use the device's value; the tooltip shows
     it. Saved with the session.
 - **Monitoring settings** (OPC UA): right-click ▸ **Monitoring settings…** for the selected rows.
-  - *Own sampling interval*: sample faster or slower than the refresh time, at which values are still published.
+  - *Own sampling interval*: how often the server reads the value. The refresh time follows it, so Watch updates at
+    the sampling pace; changing the refresh time afterwards publishes at that rate again.
   - *Queue size*: how many samples the server keeps between publishes; above 1, every sample arrives, not only the
     last. *Discard oldest* decides which ones are dropped when the queue overflows.
   - *Deadband*: report only changes larger than an absolute amount, or a percent of the variable's EURange (the

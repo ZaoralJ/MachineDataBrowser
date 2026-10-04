@@ -576,6 +576,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             return;
         }
 
+        if (await ChangeRefreshAsync(items, refreshMs))
+        {
+            StatusMessage = $"Refresh time {FormatRefresh(refreshMs)} for {items.Count} item(s)";
+        }
+    }
+
+    /// <summary>Moves the items to the subscription publishing every <paramref name="refreshMs"/>; false on error.</summary>
+    private async Task<bool> ChangeRefreshAsync(List<WatchItemViewModel> items, int refreshMs)
+    {
         var byNodeId = items.ToDictionary(i => i.NodeId);
         try
         {
@@ -603,11 +612,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             // Re-created monitors start with default settings: apply the items' own again.
             await ReapplyMonitoringAsync([.. items.Where(i => !i.Monitoring.IsDefault && i.Monitor is not null)]);
             MarkDirty();
-            StatusMessage = $"Refresh time {FormatRefresh(refreshMs)} for {items.Count} item(s)";
+            return true;
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
             ReportError(ex);
+            return false;
         }
     }
 

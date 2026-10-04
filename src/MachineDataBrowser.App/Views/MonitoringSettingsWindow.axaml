@@ -22,6 +22,8 @@
         <TextBlock Text="ms · 0 = as fast as the server can" VerticalAlignment="Center" FontSize="12"
                    Foreground="{DynamicResource AppMutedTextBrush}" />
       </StackPanel>
+      <TextBlock Text="The refresh time follows it, so Watch updates at the sampling pace." Margin="28,0,0,0" FontSize="12"
+                 TextWrapping="Wrap" Foreground="{DynamicResource AppMutedTextBrush}" IsVisible="{Binding UseOwnSampling}" />
     </StackPanel>
 
     <StackPanel Spacing="6">
