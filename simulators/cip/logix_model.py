@@ -167,7 +167,6 @@ class Tag:
         self.system = system
         self.raw_type = raw_type
         self.instance_id = 0
-        self.animated = []  # (start, end) byte ranges the animations own; external writes there are rejected
         self.bool_array = type_ is BOOL and bool(self.dims)
         if self.bool_array:
             self.buffer = bytearray(4 * ((self.dims[0] + 31) // 32))

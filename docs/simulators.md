@@ -63,13 +63,12 @@ instance addressing, Forward Open (small and large), Unconnected Send and the Id
 
 ### Writing
 
-Every value that is not animated accepts Write Tag, so it keeps whatever a client writes: the `Test*` atomics,
+Every tag accepts Write Tag. Values that are not animated keep whatever a client writes: the `Test*` atomics,
 strings and arrays, `Types.*`, `Arrays.*`, `Setpoints`, `Recipe_Active`, `Recipes`, `Motor1`/`Motor2`, static
 members such as `Stations[*].Name`, program tags such as `Program:Packaging.Mode`. Animated values (the
-*Changing values* row) are owned by the simulated program: writes that touch their bytes fail with CIP status
-`0x0F` (privilege violation), which the browser shows as `BadNotWritable`. While `PauseSimulation` is set they
-accept writes too, and keep the written value until the simulation resumes. With `CIP_SIM_FAST_TICK_MS=0` nothing
-is animated and every tag is writable.
+*Changing values* row) are owned by the simulated program: as on a real controller, a write succeeds and the next
+update replaces it. While `PauseSimulation` is set, the written value stays until the simulation resumes; with
+`CIP_SIM_FAST_TICK_MS=0` nothing is animated at all.
 
 ### Settings
 
@@ -84,7 +83,7 @@ is animated and every tag is writable.
 
 Known simplifications: writes of whole structures are accepted as raw bytes, BOOL arrays are addressed by DWORD
 index (`Bits[1]` is the second 32-bit word, as pycomm3 expects) and reads of `n` BOOLs return `ceil(n/32)` DWORDs,
-there are no aliases, AOIs, produced/consumed tags or External Access settings (only animated values are read-only).
+there are no aliases, AOIs, produced/consumed tags or External Access settings (every tag is writable).
 
 ## opc-plc (`simulators/opcua`)
 

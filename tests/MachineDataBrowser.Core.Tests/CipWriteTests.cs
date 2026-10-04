@@ -4,7 +4,7 @@ using Xunit;
 
 namespace MachineDataBrowser.Core.Tests;
 
-/// <summary>Writes through CipClient to the Logix simulator: static tags accept writes, animated values are read-only.</summary>
+/// <summary>Writes through CipClient to the Logix simulator: static tags keep what is written, animated values accept it until the next update, like on a PLC.</summary>
 public sealed class CipWriteTests(LogixSimulatorFixture plc) : IAsyncLifetime
 {
     private readonly CipClient _client = new();
@@ -46,12 +46,16 @@ public sealed class CipWriteTests(LogixSimulatorFixture plc) : IAsyncLifetime
             await WriteAndReadAsync("Arrays.Ints", "[" + string.Join(", ", Enumerable.Range(0, 16).Select(i => i * 3)) + "]"));
 
     [Fact]
-    public async Task Rejects_writes_to_animated_values()
+    public async Task Writes_to_animated_values_are_accepted_and_overwritten_like_on_a_PLC()
     {
-        var ex = await Assert.ThrowsAsync<ServiceResultException>(() => _client.WriteValueAsync(Tag("Fast.Counter"), "1", Ct));
-        Assert.Equal(StatusCodes.BadNotWritable, ex.StatusCode);
-        Assert.Contains("doesn't allow writing it", ex.Message, StringComparison.Ordinal);
-        await Assert.ThrowsAsync<ServiceResultException>(() => _client.WriteValueAsync(Tag("Stations[1].Robot.Speed"), "1", Ct));
+        await _client.WriteValueAsync(Tag("Medium.Counter"), "-5", Ct);
+        // The simulated program owns the value: like a PLC scan, its next update replaces what was written.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (Convert.ToInt32((await _client.ReadValuesAsync([Tag("Medium.Counter")], Ct))[0], System.Globalization.CultureInfo.InvariantCulture) == -5)
+        {
+            Assert.True(DateTime.UtcNow < deadline, "the animation never replaced the written value");
+            await Task.Delay(100, Ct);
+        }
     }
 
     [Fact]
