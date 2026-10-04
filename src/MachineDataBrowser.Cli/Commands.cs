@@ -448,9 +448,87 @@ internal static class Commands
 
         var session = new Command("session", "Create session files for the app, or add nodes to them") { create, add };
 
+        // tui
+        var tuiTarget = new Argument<string>("target") { Description = "Endpoint (opc.tcp://…, eip://…, mqtt://…) or a session file (.mdbsession)" };
+        var tuiTheme = new Option<string?>("--theme") { Description = $"Colour theme, like the app's: {string.Join(", ", ColorThemeCatalog.All.Select(t => t.Name))} (default: the app's)" };
+        tuiTheme.AcceptOnlyFromAmong([.. ColorThemeCatalog.All.Select(t => t.Name)]);
+        var tuiLight = new Option<bool>("--light") { Description = "Light appearance of the theme (default: the app's; dark when it follows the system)" };
+        var tui = new Command("tui", "Full-screen browser: address space, attributes, monitored items, write, record, alarms, history");
+        tui.Arguments.Add(tuiTarget);
+        foreach (var option in new Option[] { user, password, secure, trustAll, refresh, tuiTheme, tuiLight })
+        {
+            tui.Options.Add(option);
+        }
+
+        tui.SetAction((r, ct) => Guard(stderr, async () =>
+        {
+            if (Console.IsInputRedirected || Console.IsOutputRedirected)
+            {
+                throw new CliException("tui needs an interactive terminal; use browse, read or monitor in scripts.");
+            }
+
+            var (appTheme, appLight) = AppAppearance.Load();
+            var theme = r.GetValue(tuiTheme) is { } name ? ColorThemeCatalog.Find(name) : appTheme;
+            var light = r.GetValue(tuiLight) || appLight;
+
+            // The first connection prints its errors plainly; sessions opened later (Ctrl+O) report them in the browser.
+            var model = await OpenTuiAsync(r, r.GetValue(tuiTarget)!, first: true, ct).ConfigureAwait(false);
+            await Tui.TuiApp.RunAsync(model, path => OpenTuiAsync(r, path, first: false, ct), theme, light, ct).ConfigureAwait(false);
+            return 0;
+        }));
+
+        // An endpoint or a session file, connected, with the session's watch list monitored. The model owns the
+        // connection. Options given on the command line apply to the first one only; later sessions bring their own.
+        async Task<Tui.BrowserModel> OpenTuiAsync(ParseResult r, string text, bool first, CancellationToken ct)
+        {
+            var secret = r.GetValue(password) ?? Environment.GetEnvironmentVariable(PasswordVariable);
+            SessionFile? file = null;
+            ConnectionArgs target;
+            if (!text.Contains("://", StringComparison.Ordinal))
+            {
+                file = await SessionFile.LoadAsync(text, ct).ConfigureAwait(false);
+                target = new ConnectionArgs(file.EndpointUrl, (first ? r.GetValue(user) : null) ?? file.UserName, secret,
+                    file.UseSecurity || (first && r.GetValue(secure)), file.AutoAcceptCertificates || (first && r.GetValue(trustAll)), file.ReadOnly);
+            }
+            else
+            {
+                target = Connection(r) with { Url = text };
+            }
+
+            if (first)
+            {
+                await stderr.WriteLineAsync($"mdbrowser: connecting to {target.Url}…").ConfigureAwait(false);
+            }
+
+            var client = await Cli.Connection.ConnectAsync(target, ct).ConfigureAwait(false);
+            var refreshMs = (first ? r.GetValue(refresh) : null) ?? file?.DefaultRefreshMs ?? (DeviceClient.IsMqtt(target.Url) ? 0 : 250);
+            var model = new Tui.BrowserModel(client, target, refreshMs, file is null ? null : text, ownsClient: true);
+            model.Log($"Connected to {target.Url}.");
+            if (file?.Watch is { Count: > 0 } watch)
+            {
+                var items = new List<(Node, int)>();
+                foreach (var entry in watch)
+                {
+                    try
+                    {
+                        var id = client.ParsePortableId(entry.NodeId);
+                        items.Add((new Node(id, entry.DisplayName, client.ToDisplayId(id), entry.DisplayName, entry.Path), entry.RefreshMs ?? refreshMs));
+                    }
+                    catch (Exception ex) when (ex is ServiceResultException or FormatException or ArgumentException)
+                    {
+                        model.Log($"Skipped {entry.DisplayName}: {ex.Message}");
+                    }
+                }
+
+                await model.MonitorNodesAsync(items, ct).ConfigureAwait(false);
+            }
+
+            return model;
+        }
+
         return new RootCommand("Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix) and MQTT")
         {
-            endpoints, browse, read, monitor, run, write, session, mcp,
+            endpoints, browse, read, monitor, run, write, session, mcp, tui,
         };
     }
 

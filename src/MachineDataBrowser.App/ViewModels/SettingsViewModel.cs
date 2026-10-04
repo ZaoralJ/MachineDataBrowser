@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using MachineDataBrowser.App.Services;
+using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.App.ViewModels;
 

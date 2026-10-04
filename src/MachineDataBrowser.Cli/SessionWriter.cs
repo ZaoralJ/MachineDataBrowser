@@ -50,6 +50,30 @@ internal static class SessionWriter
         return result;
     }
 
+    /// <summary>
+    /// Makes the file's watch list exactly <paramref name="items"/>: a new file is created; in an existing one, rows still
+    /// watched keep their own settings (display format, monitoring, …), the rest of the file is kept, others are removed.
+    /// </summary>
+    public static async Task<Result> SaveWatchAsync(string path, ConnectionArgs connection, int? defaultRefreshMs, IDeviceClient client, IReadOnlyList<Item> items, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(path))
+        {
+            return await CreateAsync(path, connection, defaultRefreshMs, client, items, force: false, cancellationToken).ConfigureAwait(false);
+        }
+
+        var document = await LoadAsync(path, cancellationToken).ConfigureAwait(false);
+        var keep = items.Select(i => client.ToPortableId(i.Node.Id)).ToHashSet(StringComparer.Ordinal);
+        if (document["watch"] is JsonArray watch)
+        {
+            foreach (var entry in watch.Where(e => !keep.Contains((string?)e?["nodeId"] ?? string.Empty)).ToList())
+            {
+                watch.Remove(entry);
+            }
+        }
+
+        return await AddAsync(path, document, client, items, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>An existing session file as JSON, so adding to it keeps every field, including ones the CLI doesn't know.</summary>
     public static async Task<JsonObject> LoadAsync(string path, CancellationToken cancellationToken)
     {
