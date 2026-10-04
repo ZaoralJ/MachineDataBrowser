@@ -21,8 +21,9 @@ nav:
 
 theme:
   name: material
-  logo: images/logo.png
-  favicon: images/favicon.png
+  # Uncomment after adding the images to docs/images/.
+  # logo: images/logo.png
+  # favicon: images/favicon.png
   
   # The screenshots are dark, so the site starts dark; the toggle switches to light.
   palette:
@@ -68,13 +69,11 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/ZaoralJ/MachineDataBrowser
       name: GitHub Repository
-    - icon: fontawesome/brands/twitter
-      link: https://twitter.com
-      name: Twitter
-  
-  analytics:
-    provider: google
-    property: G_XXXXXXXXXXXX  # Add your Google Analytics ID if needed
+
+  # Uncomment and replace the placeholder to enable Google Analytics.
+  # analytics:
+  #   provider: google
+  #   property: G_XXXXXXXXXXXX
 
 markdown_extensions:
   - admonition
