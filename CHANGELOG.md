@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.25.0...v0.26.0) (2026-10-05)
+
+
+### Features
+
+* **cli:** tui resize with Alt+arrows, click to focus a pane, hidden panes remembered per endpoint ([#124](https://github.com/ZaoralJ/MachineDataBrowser/issues/124)) ([3bb0686](https://github.com/ZaoralJ/MachineDataBrowser/commit/3bb06868e9bd2eb0de3291df17b230e76613ed4d))
+
 ## [0.25.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.24.0...v0.25.0) (2026-10-05)
 
 
