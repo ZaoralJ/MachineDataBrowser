@@ -281,10 +281,29 @@ internal sealed class TuiApp : IDisposable
 
         var layout = _layouts.Get(model.Args.Url);
         (_treeWidth, _attributesHeight, _chartHeight, _infoHeight) = (layout.TreeWidth, layout.AttributesHeight, layout.ChartHeight, layout.InfoHeight);
+        _beforeZoom = null;
+        for (var i = 0; i < _panes.Length; i++)
+        {
+            _panes[i].Visible = layout.HiddenPanes?.Contains(i + 1) != true;
+        }
+
+        // Every pane hidden would leave nothing to focus; the tree comes back, as when the last pane is hidden with 1-5.
+        if (!_panes.Any(p => p.Visible))
+        {
+            _treeFrame.Visible = true;
+        }
     }
 
-    private void SaveLayout() =>
-        _layouts.Set(_model.Args.Url, new PaneLayout(_treeWidth, _attributesHeight, _chartHeight, _infoHeight));
+    /// <summary>
+    /// Sizes and the panes hidden with 1-5; a zoom (Shift+1-5) is temporary, so while zoomed the layout before it is
+    /// what's saved.
+    /// </summary>
+    private void SaveLayout()
+    {
+        var visible = _beforeZoom ?? [.. _panes.Select(p => p.Visible)];
+        var hidden = Enumerable.Range(1, _panes.Length).Where(n => !visible[n - 1]).ToList();
+        _layouts.Set(_model.Args.Url, new PaneLayout(_treeWidth, _attributesHeight, _chartHeight, _infoHeight, hidden.Count == 0 ? null : hidden));
+    }
 
     /// <summary>0: every pane back, at its default size; the endpoint's saved sizes are forgotten.</summary>
     private void ResetLayout()
@@ -738,6 +757,7 @@ internal sealed class TuiApp : IDisposable
         var pane = _panes[index];
         pane.Visible = !pane.Visible;
         LayoutPanes();
+        SaveLayout();
         View? target = pane.Visible ? PaneViews().FirstOrDefault(p => p.Pane == pane).View : null;
         (target ?? FocusOrder().FirstOrDefault())?.SetFocus();
     }
@@ -769,6 +789,11 @@ internal sealed class TuiApp : IDisposable
         var splitter = SplitterAt(at);
         if (splitter == Splitter.None)
         {
+            if (mouse.Flags.HasFlag(MouseFlags.LeftButtonPressed))
+            {
+                FocusPaneAt(at);
+            }
+
             return;
         }
 
@@ -794,6 +819,19 @@ internal sealed class TuiApp : IDisposable
         {
             // The click that ends a drag shouldn't also select or focus what's under the border.
             mouse.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// A click anywhere in a pane, its title and border too, focuses it, as Tab would; the click still reaches the
+    /// pane, so it also selects the row under it. The trend has nothing to focus.
+    /// </summary>
+    private void FocusPaneAt(System.Drawing.Point at)
+    {
+        var (_, view) = PaneViews().FirstOrDefault(p => p.Pane.Visible && p.Pane.Frame.Contains(at));
+        if (view is { HasFocus: false })
+        {
+            view.SetFocus();
         }
     }
 
@@ -852,6 +890,39 @@ internal sealed class TuiApp : IDisposable
         LayoutPanes();
     }
 
+    /// <summary>
+    /// Alt+arrows: the keyboard's drag. ←/→ move the tree's border; ↑/↓ the border of the focused pane: below
+    /// attributes, above the trend (or info) for monitored items, above info for the tree and info.
+    /// </summary>
+    private bool ResizeFromKeyboard(Key key)
+    {
+        var (dx, dy) = key == Key.CursorLeft.WithAlt ? (-1, 0) : key == Key.CursorRight.WithAlt ? (1, 0)
+            : key == Key.CursorUp.WithAlt ? (0, -1) : key == Key.CursorDown.WithAlt ? (0, 1) : (0, 0);
+        if (dx == 0 && dy == 0)
+        {
+            return false;
+        }
+
+        var tree = _treeFrame.Frame;
+        var attributes = _attributesFrame.Frame;
+        var chart = _chartFrame.Frame;
+        var log = _logFrame.Frame;
+        var (splitter, at) = dx != 0
+            ? (Splitter.Tree, new System.Drawing.Point(tree.Right - 1, tree.Y + 1))
+            : _attributes.HasFocus ? (Splitter.Attributes, new System.Drawing.Point(attributes.X + 1, attributes.Bottom - 1))
+            : _watch.HasFocus && _chartFrame.Visible ? (Splitter.Chart, new System.Drawing.Point(chart.X + 1, chart.Y))
+            : (Splitter.Info, new System.Drawing.Point(log.X + 1, log.Y));
+
+        // Only a border that's on screen moves, the same check as for the mouse.
+        if (SplitterAt(at) == splitter)
+        {
+            Resize(splitter, new System.Drawing.Point(at.X + dx, at.Y + dy));
+            SaveLayout();
+        }
+
+        return true;
+    }
+
     private void OnAppKeyDown(object? sender, Key key)
     {
         if (key.Handled || _app.TopRunnableView != _window)
@@ -867,6 +938,12 @@ internal sealed class TuiApp : IDisposable
         if (_extraKeys.TryGetValue(key, out var action))
         {
             action();
+            key.Handled = true;
+            return;
+        }
+
+        if (ResizeFromKeyboard(key))
+        {
             key.Handled = true;
             return;
         }
@@ -1326,7 +1403,8 @@ internal sealed class TuiApp : IDisposable
             ["1 … 5", "Show or hide a pane: address space, attributes, monitored items, trend, info"],
             ["Shift+1 … 5", "The pane alone on the full screen; again restores the layout"],
             ["0", "Reset the layout: every pane, default sizes (forgets the sizes saved for this endpoint)"],
-            ["Mouse drag", "Resize panes by their borders (saved per endpoint); double-click a border: its default"],
+            ["Alt+arrows", "Resize: ←/→ the address space, ↑/↓ the focused pane's border (saved per endpoint)"],
+            ["Mouse", "Click a pane to focus it; drag a border to resize; double-click a border: its default"],
             ["m", "Monitor the variable, or every variable below a folder or structure"],
             ["u", "Stop monitoring the selected monitored item"],
             ["w", "Write a value (shows the current one, asks first, reads back)"],

@@ -27,6 +27,7 @@ dotnet test tests/MachineDataBrowser.App.Tests -- --filter-class "*WatchFilterTe
 dotnet test tests/MachineDataBrowser.Core.Tests -- --filter-method "*Collect_variables*"
 dotnet test                                                 # everything; needs Docker, takes several minutes
 just docs-screenshots                                       # regenerate docs/images (needs Docker + pngquant)
+just docs-tui-screenshot                                    # regenerate docs/images/tui.png (MQTT simulator, uv, pngquant)
 just docs-serve                                             # preview the docs site (MkDocs Material, needs uv)
 ```
 
@@ -45,12 +46,14 @@ Run the narrowest test class that covers your change first, then the affected pr
   `OPCUABROWSER_DATA_DIR`, migration of the `OpcUaBrowser` data folder, Homebrew cask rename. See `docs/decisions.md`.
 - **Tests:** new behaviour needs a test: Core against opc-plc or `simulators/`, UI with Avalonia.Headless.
 - **Docs:** user-visible changes update `docs/user-manual.md` (keep lines ≤ 120 chars). Visible UI changes: rerun
-  `just docs-screenshots` and commit the PNGs. Architecture changes update `docs/architecture.md`. `docs/` is
-  also the website (`mkdocs.yml`): new pages go in its `nav`, and `mkdocs build --strict` must pass.
+  `just docs-screenshots` and commit the PNGs (`just docs-tui-screenshot` for the TUI). Architecture changes update
+  `docs/architecture.md`. `docs/` is also the website (`mkdocs.yml`): new pages go in its `nav`, and
+  `mkdocs build --strict` must pass.
 - **Comments** explain *why*, not *what*; match the surrounding density.
 - **Commits / PR titles:** Conventional Commits (`feat(app): …`, `fix(core): …`, `docs: …`, `test: …`); the PR title
   becomes the squash commit and the changelog entry (release-please). Fill in `.github/PULL_REQUEST_TEMPLATE.md`.
-  Branch from `main` (`feat/…`, `fix/…`, `docs/…`); never push to `main`.
+  Branch from `main` (`feat/…`, `fix/…`, `docs/…`); never push to `main`. Merging: see "Releases" in
+  CONTRIBUTING.md (approve release-please PRs; admin-merge own PRs only once every check is green).
 
 ## Gotchas
 
