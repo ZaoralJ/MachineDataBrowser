@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.24.0...v0.25.0) (2026-10-05)
+
+
+### Features
+
+* **cli:** remember mdbrowser tui pane sizes per endpoint, 0 resets the layout ([#122](https://github.com/ZaoralJ/MachineDataBrowser/issues/122)) ([24ef0c7](https://github.com/ZaoralJ/MachineDataBrowser/commit/24ef0c78bd79f85d68910412f7cf7cfa6cef236c))
+
 ## [0.24.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.23.2...v0.24.0) (2026-10-05)
 
 
