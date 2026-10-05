@@ -74,6 +74,8 @@ patch; while below 1.0 a breaking change (`feat!:`) bumps the minor. PR titles b
 Pre-releases: `scripts/release.sh X.Y.Z-rc.N` on an up-to-date `main`.
 
 `main` needs one approving review and green `build & test (linux)` / `build & package (macOS)`. The release-please PR
-is opened by `github-actions[bot]`, so a maintainer approves it normally (`gh pr review --approve`). A maintainer's
+is opened by `github-actions[bot]`, so GitHub holds its `ci` run ("action required") until a maintainer allows it:
+*Approve and run* in the Actions tab, or `gh api -X POST repos/ZaoralJ/MachineDataBrowser/actions/runs/<id>/approve`.
+Once it's green, approve the PR (`gh pr review --approve`) and merge it normally. A maintainer's
 own PR can't be self-approved; it's merged with the admin bypass (`gh pr merge --squash --admin`), and **only after
 every check has passed**: never bypass pending or failing checks.
