@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.23.2...v0.24.0) (2026-10-05)
+
+
+### Features
+
+* **cli:** resize mdbrowser tui panes by dragging their borders ([#120](https://github.com/ZaoralJ/MachineDataBrowser/issues/120)) ([beff9db](https://github.com/ZaoralJ/MachineDataBrowser/commit/beff9db7e042dab7f061de8d0b89570cad85a4e0))
+
 ## [0.23.2](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.23.1...v0.23.2) (2026-10-05)
 
 
