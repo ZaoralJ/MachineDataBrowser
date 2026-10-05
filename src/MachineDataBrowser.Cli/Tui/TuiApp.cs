@@ -63,6 +63,7 @@ internal sealed class TuiApp : IDisposable
     private int? _chartHeight;
     private int? _infoHeight;
     private Splitter _dragging;
+    private readonly TuiLayouts _layouts;
 
     private static readonly string[] SortColumns = ["Name", "Value", "Status", "Updated", "Updates"];
 
@@ -99,11 +100,12 @@ internal sealed class TuiApp : IDisposable
     private bool _treeDirty;
     private string? _terminalTitle;
 
-    public TuiApp(IApplication app, BrowserModel model, ColorTheme? theme = null, bool light = false, Func<string, Task<BrowserModel>>? openSession = null)
+    public TuiApp(IApplication app, BrowserModel model, ColorTheme? theme = null, bool light = false, Func<string, Task<BrowserModel>>? openSession = null, TuiLayouts? layouts = null)
     {
         _app = app;
         _model = model;
         _openSession = openSession;
+        _layouts = layouts ?? new TuiLayouts();
         Theme.Apply(theme ?? ColorThemeCatalog.Find(null), light);
 
         _window = new Window { BorderStyle = global::Terminal.Gui.Drawing.LineStyle.None };
@@ -276,6 +278,26 @@ internal sealed class TuiApp : IDisposable
         {
             dynamic.AddressSpaceChanged += (_, _) => _treeDirty = true;
         }
+
+        var layout = _layouts.Get(model.Args.Url);
+        (_treeWidth, _attributesHeight, _chartHeight, _infoHeight) = (layout.TreeWidth, layout.AttributesHeight, layout.ChartHeight, layout.InfoHeight);
+    }
+
+    private void SaveLayout() =>
+        _layouts.Set(_model.Args.Url, new PaneLayout(_treeWidth, _attributesHeight, _chartHeight, _infoHeight));
+
+    /// <summary>0: every pane back, at its default size; the endpoint's saved sizes are forgotten.</summary>
+    private void ResetLayout()
+    {
+        (_treeWidth, _attributesHeight, _chartHeight, _infoHeight) = (null, null, null, null);
+        _beforeZoom = null;
+        foreach (var pane in _panes)
+        {
+            pane.Visible = true;
+        }
+
+        SaveLayout();
+        LayoutPanes();
     }
 
     /// <summary>
@@ -297,6 +319,7 @@ internal sealed class TuiApp : IDisposable
         _paused = false;
         _shownLogCount = -1;
         ConfigureKeys();
+        LayoutPanes();
         RefreshWatch(force: true);
         RefreshHeader();
         _tree.SetFocus();
@@ -731,6 +754,7 @@ internal sealed class TuiApp : IDisposable
         if (mouse.Flags.HasFlag(MouseFlags.LeftButtonReleased) && _dragging != Splitter.None)
         {
             _dragging = Splitter.None;
+            SaveLayout();
             mouse.Handled = true;
             return;
         }
@@ -757,6 +781,7 @@ internal sealed class TuiApp : IDisposable
                 Splitter.Chart => _chartHeight = null,
                 _ => _infoHeight = null,
             };
+            SaveLayout();
             LayoutPanes();
             mouse.Handled = true;
         }
@@ -869,6 +894,10 @@ internal sealed class TuiApp : IDisposable
                 break;
             case '!' or '@' or '#' or '$' or '%':
                 ToggleZoom("!@#$%".IndexOf((char)key.AsRune.Value, StringComparison.Ordinal));
+                key.Handled = true;
+                break;
+            case '0':
+                ResetLayout();
                 key.Handled = true;
                 break;
             case >= '1' and <= '5':
@@ -1296,6 +1325,8 @@ internal sealed class TuiApp : IDisposable
             ["Tab / Shift+Tab", "Next / previous pane"],
             ["1 … 5", "Show or hide a pane: address space, attributes, monitored items, trend, info"],
             ["Shift+1 … 5", "The pane alone on the full screen; again restores the layout"],
+            ["0", "Reset the layout: every pane, default sizes (forgets the sizes saved for this endpoint)"],
+            ["Mouse drag", "Resize panes by their borders (saved per endpoint); double-click a border: its default"],
             ["m", "Monitor the variable, or every variable below a folder or structure"],
             ["u", "Stop monitoring the selected monitored item"],
             ["w", "Write a value (shows the current one, asks first, reads back)"],
