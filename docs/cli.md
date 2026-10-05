@@ -148,7 +148,8 @@ mdbrowser tui line1.mdbsession          # the session's endpoint, options and wa
 Five panes: **¹** address space, **²** attributes of the selected node, **³** monitored items, **⁴** a trend
 chart of the selected (numeric) item, **⁵** an info log. The header shows the endpoint and its state, the
 refresh time and, while recording, the file and sample count. Every action is a key; the bar at the bottom shows
-the main ones and `h` lists them all.
+the main ones and `h` lists them all. Drag the border between two panes with the mouse to resize them; a
+double-click on it restores the default size.
 
 | Key | Does |
 |---|---|

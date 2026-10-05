@@ -5,6 +5,7 @@ using Terminal.Gui.Drivers;
 using Terminal.Gui.Input;
 using Terminal.Gui.Testing;
 using Terminal.Gui.Time;
+using Terminal.Gui.Views;
 using Xunit;
 
 namespace MachineDataBrowser.Cli.Tests;
@@ -93,6 +94,36 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
         await UntilScreen(s => s.Contains("Objects", StringComparison.Ordinal));
 
         Assert.Equal($"mdbrowser {custom.EndpointUrl}", _session!.Tui.TerminalTitle);
+    }
+
+    private void Mouse(MouseFlags flags, int x, int y)
+    {
+        App.InjectMouse(new Mouse { Flags = flags, ScreenPosition = new System.Drawing.Point(x, y) });
+        App.LayoutAndDraw(true);
+    }
+
+    private void Drag(int fromX, int fromY, int toX, int toY)
+    {
+        Mouse(MouseFlags.LeftButtonPressed, fromX, fromY);
+        Mouse(MouseFlags.LeftButtonPressed | MouseFlags.PositionReport, toX, toY);
+        Mouse(MouseFlags.LeftButtonReleased, toX, toY);
+    }
+
+    [Fact]
+    public async Task Dragging_pane_borders_resizes_the_panes()
+    {
+        App.Driver!.SetScreenSize(100, 30);
+        await UntilScreen(s => s.Contains("Objects", StringComparison.Ordinal));
+        var tree = _session!.Tui.Window.SubViews.OfType<FrameView>().Single(f => f.Title.Contains("Address Space", StringComparison.Ordinal));
+        var info = _session.Tui.Window.SubViews.OfType<FrameView>().Single(f => f.Title.Contains("Info", StringComparison.Ordinal));
+
+        Drag(tree.Frame.Right - 1, 5, 59, 5);
+        Assert.Equal(60, tree.Frame.Width);
+
+        var infoHeight = info.Frame.Height;
+        Drag(10, info.Frame.Y, 10, info.Frame.Y - 4);
+        Assert.Equal(infoHeight + 4, info.Frame.Height);
+        Assert.Equal(29, info.Frame.Bottom);
     }
 
     [Fact]

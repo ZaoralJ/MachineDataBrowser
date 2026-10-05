@@ -40,10 +40,29 @@ internal sealed class TuiApp : IDisposable
     /// <summary>The refresh times - and + step through; 0 (every message) only for MQTT.</summary>
     private static readonly int[] RefreshSteps = [0, 50, 100, 250, 500, 1000, 2000, 5000, 10_000];
 
-    /// <summary>Info and trend take a share of the height, so monitored items keep room on a small terminal.</summary>
-    private int InfoHeight => Math.Clamp(_app.Screen.Height / 6, 3, 8);
+    /// <summary>
+    /// Info and trend take a share of the height, so monitored items keep room on a small terminal; a dragged border
+    /// replaces the share, but never squeezes the other panes away.
+    /// </summary>
+    private int InfoHeight => Math.Clamp(_infoHeight ?? Math.Clamp(_app.Screen.Height / 6, 3, 8), 3, Math.Max(3, _app.Screen.Height - 8));
 
-    private int ChartHeight => Math.Clamp(_app.Screen.Height / 4, 4, 10);
+    private int ChartHeight => Math.Clamp(_chartHeight ?? Math.Clamp(_app.Screen.Height / 4, 4, 10), 3, Math.Max(3, _app.Screen.Height - 10));
+
+    private enum Splitter
+    {
+        None,
+        Tree,
+        Attributes,
+        Chart,
+        Info,
+    }
+
+    /// <summary>Sizes set by dragging a pane border with the mouse; null is the default share.</summary>
+    private int? _treeWidth;
+    private int? _attributesHeight;
+    private int? _chartHeight;
+    private int? _infoHeight;
+    private Splitter _dragging;
 
     private static readonly string[] SortColumns = ["Name", "Value", "Status", "Updated", "Updates"];
 
@@ -153,6 +172,7 @@ internal sealed class TuiApp : IDisposable
         // The TUI's keys work whichever pane has the focus (and with the kitty keyboard protocol, as in Warp); not while
         // a dialog is open, so typing in a text field stays typing.
         _app.Keyboard.KeyDown += OnAppKeyDown;
+        _app.Mouse.MouseEvent += OnAppMouse;
 
         // Tab / Shift+Tab move between the panes (Terminal.Gui's Tab stays inside one frame).
         foreach (var view in new View[] { _tree, _attributes, _watch, _log })
@@ -294,6 +314,7 @@ internal sealed class TuiApp : IDisposable
     public void Dispose()
     {
         _app.Keyboard.KeyDown -= OnAppKeyDown;
+        _app.Mouse.MouseEvent -= OnAppMouse;
         _window.Dispose();
     }
 
@@ -603,7 +624,9 @@ internal sealed class TuiApp : IDisposable
 
         _treeFrame.X = 0;
         _treeFrame.Y = 1;
-        _treeFrame.Width = right.Count == 0 ? Dim.Fill() : Dim.Percent(35);
+        _treeFrame.Width = right.Count == 0 ? Dim.Fill()
+            : _treeWidth is { } width ? Math.Clamp(width, 10, Math.Max(10, _app.Screen.Width - 20))
+            : Dim.Percent(35);
         _treeFrame.Height = Dim.Fill(bottom);
 
         // The pane that takes the remaining height: monitored items, else attributes, else the trend.
@@ -622,7 +645,9 @@ internal sealed class TuiApp : IDisposable
             }
             else
             {
-                pane.Height = pane == _chartFrame ? ChartHeight : Dim.Percent(25);
+                pane.Height = pane == _chartFrame ? ChartHeight
+                    : _attributesHeight is { } height ? Math.Clamp(height, 3, Math.Max(3, _app.Screen.Height - 12))
+                    : Dim.Percent(25);
             }
 
             y = Pos.Bottom(pane);
@@ -692,6 +717,114 @@ internal sealed class TuiApp : IDisposable
         LayoutPanes();
         View? target = pane.Visible ? PaneViews().FirstOrDefault(p => p.Pane == pane).View : null;
         (target ?? FocusOrder().FirstOrDefault())?.SetFocus();
+    }
+
+    /// <summary>Dragging a border between panes resizes them; a double-click on it restores the default size.</summary>
+    private void OnAppMouse(object? sender, Mouse mouse)
+    {
+        if (mouse.Handled || _app.TopRunnableView != _window)
+        {
+            return;
+        }
+
+        var at = mouse.ScreenPosition;
+        if (mouse.Flags.HasFlag(MouseFlags.LeftButtonReleased) && _dragging != Splitter.None)
+        {
+            _dragging = Splitter.None;
+            mouse.Handled = true;
+            return;
+        }
+
+        if (_dragging != Splitter.None && (mouse.Flags.HasFlag(MouseFlags.PositionReport) || mouse.Flags.HasFlag(MouseFlags.LeftButtonPressed)))
+        {
+            Resize(_dragging, at);
+            mouse.Handled = true;
+            return;
+        }
+
+        var splitter = SplitterAt(at);
+        if (splitter == Splitter.None)
+        {
+            return;
+        }
+
+        if (mouse.Flags.HasFlag(MouseFlags.LeftButtonDoubleClicked))
+        {
+            _ = splitter switch
+            {
+                Splitter.Tree => _treeWidth = null,
+                Splitter.Attributes => _attributesHeight = null,
+                Splitter.Chart => _chartHeight = null,
+                _ => _infoHeight = null,
+            };
+            LayoutPanes();
+            mouse.Handled = true;
+        }
+        else if (mouse.Flags.HasFlag(MouseFlags.LeftButtonPressed))
+        {
+            _dragging = splitter;
+            mouse.Handled = true;
+        }
+        else if (mouse.Flags.HasFlag(MouseFlags.LeftButtonClicked) || mouse.Flags.HasFlag(MouseFlags.LeftButtonReleased))
+        {
+            // The click that ends a drag shouldn't also select or focus what's under the border.
+            mouse.Handled = true;
+        }
+    }
+
+    /// <summary>The border under <paramref name="at"/> (screen cells): a pane's edge or the one next to it.</summary>
+    private Splitter SplitterAt(System.Drawing.Point at)
+    {
+        static bool Within(int value, int start, int end) => value >= start && value < end;
+
+        var log = _logFrame.Frame;
+        var othersVisible = _panes.Any(p => p != _logFrame && p.Visible);
+        if (_logFrame.Visible && othersVisible && (at.Y == log.Y || at.Y == log.Y - 1))
+        {
+            return Splitter.Info;
+        }
+
+        var filler = _watchFrame.Visible ? _watchFrame : new[] { _attributesFrame, _chartFrame }.FirstOrDefault(p => p.Visible);
+        var chart = _chartFrame.Frame;
+        if (_chartFrame.Visible && filler != _chartFrame && Within(at.X, chart.X, chart.Right) && (at.Y == chart.Y || at.Y == chart.Y - 1))
+        {
+            return Splitter.Chart;
+        }
+
+        var attributes = _attributesFrame.Frame;
+        if (_attributesFrame.Visible && filler != _attributesFrame && Within(at.X, attributes.X, attributes.Right)
+            && (at.Y == attributes.Bottom - 1 || at.Y == attributes.Bottom))
+        {
+            return Splitter.Attributes;
+        }
+
+        var tree = _treeFrame.Frame;
+        var rightVisible = _attributesFrame.Visible || _watchFrame.Visible || _chartFrame.Visible;
+        return _treeFrame.Visible && rightVisible && Within(at.Y, tree.Y, tree.Bottom) && (at.X == tree.Right - 1 || at.X == tree.Right)
+            ? Splitter.Tree
+            : Splitter.None;
+    }
+
+    private void Resize(Splitter splitter, System.Drawing.Point at)
+    {
+        switch (splitter)
+        {
+            case Splitter.Tree:
+                _treeWidth = at.X + 1;
+                break;
+            case Splitter.Attributes:
+                _attributesHeight = at.Y - _attributesFrame.Frame.Y + 1;
+                break;
+            case Splitter.Chart:
+                _chartHeight = _chartFrame.Frame.Bottom - at.Y;
+                break;
+            case Splitter.Info:
+                // The key bar is the last line; info ends just above it.
+                _infoHeight = _app.Screen.Height - 1 - at.Y;
+                break;
+        }
+
+        LayoutPanes();
     }
 
     private void OnAppKeyDown(object? sender, Key key)
