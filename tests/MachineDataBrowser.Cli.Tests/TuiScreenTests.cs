@@ -88,6 +88,14 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
     }
 
     [Fact]
+    public async Task Terminal_title_names_the_endpoint()
+    {
+        await UntilScreen(s => s.Contains("Objects", StringComparison.Ordinal));
+
+        Assert.Equal($"mdbrowser {custom.EndpointUrl}", _session!.Tui.TerminalTitle);
+    }
+
+    [Fact]
     public async Task Names_with_underscores_show_as_they_are_in_titles()
     {
         App.Driver!.SetScreenSize(150, 45);
