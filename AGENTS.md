@@ -53,7 +53,8 @@ Run the narrowest test class that covers your change first, then the affected pr
 - **Commits / PR titles:** Conventional Commits (`feat(app): …`, `fix(core): …`, `docs: …`, `test: …`); the PR title
   becomes the squash commit and the changelog entry (release-please). Fill in `.github/PULL_REQUEST_TEMPLATE.md`.
   Branch from `main` (`feat/…`, `fix/…`, `docs/…`); never push to `main`. Merging: see "Releases" in
-  CONTRIBUTING.md (approve release-please PRs; admin-merge own PRs only once every check is green).
+  CONTRIBUTING.md (release-please PRs: allow their CI run, then approve; admin-merge own PRs only once every check is
+  green).
 
 ## Gotchas
 
