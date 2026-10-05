@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.23.0...v0.23.1) (2026-10-05)
+
+
+### Performance
+
+* **core:** load OPC UA structure types on first use instead of at connect ([#116](https://github.com/ZaoralJ/MachineDataBrowser/issues/116)) ([176c7f2](https://github.com/ZaoralJ/MachineDataBrowser/commit/176c7f2d6182dc5a4f8cdb4c84cb4dce61efd662))
+
 ## [0.23.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.22.1...v0.23.0) (2026-10-04)
 
 
