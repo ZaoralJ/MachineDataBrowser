@@ -165,6 +165,69 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
         Assert.Equal(6, layouts.Get(custom.EndpointUrl.ToUpperInvariant()).InfoHeight);
     }
 
+    private FrameView Pane(string title) =>
+        _session!.Tui.Window.SubViews.OfType<FrameView>().Single(f => f.Title.Contains(title, StringComparison.Ordinal));
+
+    [Fact]
+    public async Task Alt_arrows_resize_and_a_click_focuses_a_pane()
+    {
+        App.Driver!.SetScreenSize(100, 30);
+        await UntilScreen(s => s.Contains("Objects", StringComparison.Ordinal));
+        var tree = Pane("Address Space");
+        var attributes = Pane("Attributes");
+        var info = Pane("Info");
+
+        // Alt+→ widens the address space, from whichever pane has the focus.
+        var width = tree.Frame.Width;
+        Press(Key.CursorRight.WithAlt);
+        Press(Key.CursorRight.WithAlt);
+        Assert.Equal(width + 2, tree.Frame.Width);
+
+        // Alt+↑ with the tree focused moves the info border up.
+        var infoHeight = info.Frame.Height;
+        Press(Key.CursorUp.WithAlt);
+        Assert.Equal(infoHeight + 1, info.Frame.Height);
+
+        // A click on the attributes' title focuses them; Alt+↓ then moves their bottom border down.
+        Mouse(MouseFlags.LeftButtonPressed, attributes.Frame.X + 3, attributes.Frame.Y);
+        Mouse(MouseFlags.LeftButtonReleased, attributes.Frame.X + 3, attributes.Frame.Y);
+        Assert.True(attributes.SubViews.Single().HasFocus);
+        var attributesHeight = attributes.Frame.Height;
+        Press(Key.CursorDown.WithAlt);
+        Assert.Equal(attributesHeight + 1, attributes.Frame.Height);
+
+        var saved = new TuiLayouts(_layoutsPath).Get(custom.EndpointUrl);
+        Assert.Equal(width + 2, saved.TreeWidth);
+        Assert.Equal(attributesHeight + 1, saved.AttributesHeight);
+    }
+
+    [Fact]
+    public void Hidden_panes_are_saved_and_restored_but_a_zoom_is_not()
+    {
+        App.Driver!.SetScreenSize(100, 30);
+        App.LayoutAndDraw(true);
+
+        // 4 hides the trend; Shift+1 (!) zooms the tree, which is temporary.
+        Press(new Key('4'));
+        Press(new Key('!'));
+        Assert.Equal([4], new TuiLayouts(_layoutsPath).Get(custom.EndpointUrl).HiddenPanes);
+
+        using var app = Application.Create(_time).Init(DriverRegistry.Names.ANSI);
+        app.Driver!.SetScreenSize(100, 30);
+        using var tui = new TuiApp(app, _session!.Model, layouts: new TuiLayouts(_layoutsPath));
+        app.Begin(tui.Window);
+        app.LayoutAndDraw(true);
+        var screen = app.Driver.ToString() ?? string.Empty;
+        Assert.DoesNotContain("⁴Trend", screen, StringComparison.Ordinal);
+        Assert.Contains("³Monitored Items", screen, StringComparison.Ordinal);
+
+        // 0 shows every pane again and forgets the entry.
+        app.InjectKey(new Key('0'));
+        app.LayoutAndDraw(true);
+        Assert.Contains("⁴Trend", app.Driver.ToString() ?? string.Empty, StringComparison.Ordinal);
+        Assert.True(new TuiLayouts(_layoutsPath).Get(custom.EndpointUrl).IsDefault);
+    }
+
     [Fact]
     public async Task Names_with_underscores_show_as_they_are_in_titles()
     {

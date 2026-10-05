@@ -82,6 +82,12 @@ docs-screenshots:
     MDB_DOCS_SCREENSHOTS=1 dotnet test tests/MachineDataBrowser.App.Tests -- --filter-class "*DocsScreenshotTests"
     PATH="/opt/homebrew/bin:/usr/local/bin:$PATH" pngquant --force --skip-if-larger --quality=80-95 --strip --ext .png docs/images/*.png
 
+# Regenerate docs/images/tui.png: the real mdbrowser tui in a pseudo-terminal (needs the MQTT simulator, uv, pngquant)
+docs-tui-screenshot:
+    dotnet build src/MachineDataBrowser.Cli -o artifacts/docs-cli
+    uv run scripts/tui-screenshot.py artifacts/docs-cli/mdbrowser docs/images/tui.png
+    PATH="/opt/homebrew/bin:/usr/local/bin:$PATH" pngquant --force --skip-if-larger --quality=80-95 --strip --ext .png docs/images/tui.png
+
 # Preview the documentation site at http://127.0.0.1:8000 (needs uv)
 docs-serve:
     uv run --with-requirements .github/mkdocs-requirements.txt mkdocs serve

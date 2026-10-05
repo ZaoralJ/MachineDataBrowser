@@ -4,10 +4,12 @@ using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.Cli.Tui;
 
-/// <summary>Pane sizes dragged with the mouse; null is the default share.</summary>
-internal sealed record PaneLayout(int? TreeWidth = null, int? AttributesHeight = null, int? ChartHeight = null, int? InfoHeight = null)
+/// <summary>Pane sizes dragged with the mouse (null is the default share) and the panes hidden with 1-5 (1-based).</summary>
+internal sealed record PaneLayout(int? TreeWidth = null, int? AttributesHeight = null, int? ChartHeight = null, int? InfoHeight = null,
+    IReadOnlyList<int>? HiddenPanes = null)
 {
-    public bool IsDefault => this == new PaneLayout();
+    public bool IsDefault => TreeWidth is null && AttributesHeight is null && ChartHeight is null && InfoHeight is null
+        && (HiddenPanes is null || HiddenPanes.Count == 0);
 }
 
 /// <summary>

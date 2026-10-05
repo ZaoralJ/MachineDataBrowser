@@ -148,15 +148,17 @@ mdbrowser tui line1.mdbsession          # the session's endpoint, options and wa
 Five panes: **¹** address space, **²** attributes of the selected node, **³** monitored items, **⁴** a trend
 chart of the selected (numeric) item, **⁵** an info log. The header shows the endpoint and its state, the
 refresh time and, while recording, the file and sample count. Every action is a key; the bar at the bottom shows
-the main ones and `h` lists them all. Drag the border between two panes with the mouse to resize them; a
-double-click on it restores the default size. The sizes are remembered per endpoint URL (in `tui-layouts.json`
-in the data folder, not in the session file); `0` resets the layout.
+the main ones and `h` lists them all. Click a pane to focus it. Drag the border between two panes with the mouse
+to resize them (or `Alt+←`/`→` for the address space, `Alt+↑`/`↓` for the focused pane's border); a
+double-click on a border restores its default size. The sizes and the panes hidden with `1` … `5` are remembered
+per endpoint URL (in `tui-layouts.json` in the data folder, not in the session file); `0` resets the layout.
 
 | Key | Does |
 |---|---|
 | `Tab` / `Shift+Tab`, `→` / `←` / `Enter` | move between panes; expand and collapse nodes |
 | `1` … `5` / `Shift+1` … `5` | show or hide a pane / the pane alone on the full screen (again restores the layout) |
-| `0` | reset the layout: every pane shown, default sizes, the endpoint's saved sizes forgotten |
+| `0` | reset the layout: every pane shown, default sizes, the endpoint's saved layout forgotten |
+| `Alt+←` `→` / `Alt+↑` `↓` | resize the address space / move the focused pane's border (like dragging it) |
 | `m` / `u` | monitor the variable, or every variable below a folder or structure / stop monitoring it |
 | `w` | write a value: shows the current one, asks first, reads it back |
 | `s` | search the address space by name or id (`Temp*`, `Motor?`) and go to a match |
