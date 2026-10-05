@@ -78,6 +78,7 @@ internal sealed class TuiApp : IDisposable
     private int _shownLogCount;
     private int _attributeRequest;
     private bool _treeDirty;
+    private string? _terminalTitle;
 
     public TuiApp(IApplication app, BrowserModel model, ColorTheme? theme = null, bool light = false, Func<string, Task<BrowserModel>>? openSession = null)
     {
@@ -181,6 +182,9 @@ internal sealed class TuiApp : IDisposable
     }
 
     public Window Window => _window;
+
+    /// <summary>The title last sent to the terminal (its tab), for tests.</summary>
+    internal string? TerminalTitle => _terminalTitle;
 
     /// <summary>Runs the browser until q or Ctrl+C.</summary>
     /// <summary>
@@ -794,6 +798,14 @@ internal sealed class TuiApp : IDisposable
             ("   " + DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture), Theme.Text(Theme.Muted)),
         };
         _header.Set(left, right);
+
+        // The terminal's tab title: the driver clears it at startup.
+        var title = "mdbrowser " + (_model.SessionPath is { } session ? Path.GetFileName(session) : _model.Args.Url);
+        if (title != _terminalTitle && _app.Driver is { } driver)
+        {
+            driver.SetTerminalTitle(title);
+            _terminalTitle = title;
+        }
     }
 
     /// <summary>- / +: the next refresh time for every monitored item (and new ones).</summary>
