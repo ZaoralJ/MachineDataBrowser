@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.2](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.23.1...v0.23.2) (2026-10-05)
+
+
+### Fixes
+
+* **cli:** set the terminal tab title in mdbrowser tui ([#118](https://github.com/ZaoralJ/MachineDataBrowser/issues/118)) ([b30b9f5](https://github.com/ZaoralJ/MachineDataBrowser/commit/b30b9f50988d5820aa5a31320312b006f7d1ef69))
+
 ## [0.23.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.23.0...v0.23.1) (2026-10-05)
 
 
