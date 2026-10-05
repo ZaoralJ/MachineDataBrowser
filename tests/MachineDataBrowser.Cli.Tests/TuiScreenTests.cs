@@ -14,6 +14,7 @@ namespace MachineDataBrowser.Cli.Tests;
 public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLifetime
 {
     private readonly VirtualTimeProvider _time = new();
+    private readonly string _layoutsPath = Path.Combine(Path.GetTempPath(), $"tui-layouts-{Guid.NewGuid():N}.json");
     private IDeviceClientHolder? _session;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -26,7 +27,7 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
         var client = await Connection.ConnectAsync(args, Ct);
         var model = new BrowserModel(client, args, 100);
         var app = Application.Create(_time).Init(DriverRegistry.Names.ANSI);
-        var tui = new TuiApp(app, model);
+        var tui = new TuiApp(app, model, layouts: new TuiLayouts(_layoutsPath));
         tui.Start();
         app.Begin(tui.Window);
         _session = new IDeviceClientHolder(client, model, app, tui);
@@ -41,6 +42,8 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
             await s.Model.DisposeAsync();
             await s.Client.DisposeAsync();
         }
+
+        File.Delete(_layoutsPath);
     }
 
     private IApplication App => _session!.App;
@@ -124,6 +127,42 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
         Drag(10, info.Frame.Y, 10, info.Frame.Y - 4);
         Assert.Equal(infoHeight + 4, info.Frame.Height);
         Assert.Equal(29, info.Frame.Bottom);
+
+        // Saved for the endpoint, without touching any session file.
+        var saved = new TuiLayouts(_layoutsPath).Get(custom.EndpointUrl);
+        Assert.Equal(60, saved.TreeWidth);
+        Assert.Equal(infoHeight + 4, saved.InfoHeight);
+
+        // 0 resets the layout and forgets the saved sizes.
+        Press(new Key('0'));
+        Assert.Equal(35, tree.Frame.Width);
+        Assert.Equal(infoHeight, info.Frame.Height);
+        Assert.True(new TuiLayouts(_layoutsPath).Get(custom.EndpointUrl).IsDefault);
+    }
+
+    [Fact]
+    public void Saved_layout_is_used_when_the_endpoint_opens_again()
+    {
+        new TuiLayouts(_layoutsPath).Set(custom.EndpointUrl + "/", new PaneLayout(TreeWidth: 50));
+        using var app = Application.Create(_time).Init(DriverRegistry.Names.ANSI);
+        app.Driver!.SetScreenSize(100, 30);
+        using var tui = new TuiApp(app, _session!.Model, layouts: new TuiLayouts(_layoutsPath));
+        app.Begin(tui.Window);
+        app.LayoutAndDraw(true);
+
+        var tree = tui.Window.SubViews.OfType<FrameView>().Single(f => f.Title.Contains("Address Space", StringComparison.Ordinal));
+        Assert.Equal(50, tree.Frame.Width);
+    }
+
+    [Fact]
+    public void A_broken_layouts_file_is_the_default_layout_and_is_replaced()
+    {
+        File.WriteAllText(_layoutsPath, "{ not json");
+        var layouts = new TuiLayouts(_layoutsPath);
+        Assert.True(layouts.Get(custom.EndpointUrl).IsDefault);
+
+        layouts.Set(custom.EndpointUrl, new PaneLayout(InfoHeight: 6));
+        Assert.Equal(6, layouts.Get(custom.EndpointUrl.ToUpperInvariant()).InfoHeight);
     }
 
     [Fact]
