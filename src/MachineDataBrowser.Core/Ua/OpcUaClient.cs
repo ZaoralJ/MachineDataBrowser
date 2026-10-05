@@ -158,16 +158,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             session.TransferSubscriptionsOnReconnect = true;
             session.KeepAlive += OnKeepAlive;
 
-            // Custom structures: without this, ExtensionObjects of server-specific types display as raw bytes.
-            try
-            {
-                await new ComplexTypeSystem(session, Telemetry).LoadAsync(false, true, cancellationToken).ConfigureAwait(false);
-            }
-            catch (ServiceResultException)
-            {
-                // Server without type info: values still show, just undecoded.
-            }
-
+            // Custom structure types load when a value first needs them (OpcUaClient.Structures.cs), not here.
             _session = session;
             _connectedAt = DateTime.UtcNow;
             _reconnects = 0;
@@ -368,7 +359,10 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             }
             else
             {
-                text = FormatAttribute(attributeId, dv.Value);
+                var value = attributeId == Attributes.Value
+                    ? await DecodeStructuresAsync(dv.Value, cancellationToken).ConfigureAwait(false)
+                    : dv.Value;
+                text = FormatAttribute(attributeId, value);
             }
 
             result.Add(new AttributeValue(DisplayedAttributes[i].Name, text));
@@ -407,6 +401,9 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
                 DiscardOldest = true,
                 MonitoringMode = MonitoringMode.Reporting,
             };
+            // Values waiting for their structure type to load; later values queue behind them to keep the order.
+            var pending = Task.CompletedTask;
+            var pendingLock = new object();
             item.Notification += (monitoredItem, e) =>
             {
                 // Runs on an SDK thread: an exception here would take down the process.
@@ -415,34 +412,63 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
                     return;
                 }
 
-                ValueUpdate update;
-                try
+                lock (pendingLock)
                 {
-                    update = new ValueUpdate(
-                        monitoredItem.StartNodeId,
-                        ValueFormatter.Format(dv.WrappedValue),
-                        dv.StatusCode,
-                        dv.SourceTimestamp,
-                        dv.ServerTimestamp,
-                        ValueFormatter.ToNumeric(dv.WrappedValue),
-                        dv.WrappedValue.Value);
-                }
-                catch (Exception ex) when (Errors.IsRecoverable(ex))
-                {
-                    update = new ValueUpdate(monitoredItem.StartNodeId, $"<cannot display value: {ex.Message}>", StatusCodes.BadDecodingError, dv.SourceTimestamp, dv.ServerTimestamp);
+                    if (!pending.IsCompleted || StructureTypes.HasUndecoded(dv.Value))
+                    {
+                        pending = DeliverAfterAsync(pending, monitoredItem.StartNodeId, dv);
+                        return;
+                    }
                 }
 
-                try
-                {
-                    onUpdate(update);
-                }
-                catch (Exception ex) when (Errors.IsRecoverable(ex))
-                {
-                    System.Diagnostics.Trace.TraceError($"Value update handler failed: {ex}");
-                }
+                Deliver(monitoredItem.StartNodeId, dv);
             };
             return item;
         }).ToList();
+
+        async Task DeliverAfterAsync(Task previous, NodeId nodeId, DataValue dv)
+        {
+            await previous.ConfigureAwait(false);
+            try
+            {
+                dv = await DecodeStructuresAsync(dv, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (Errors.IsRecoverable(ex))
+            {
+                System.Diagnostics.Trace.TraceWarning($"Decoding a monitored structure failed: {ex.Message}");
+            }
+
+            Deliver(nodeId, dv);
+        }
+
+        void Deliver(NodeId nodeId, DataValue dv)
+        {
+            ValueUpdate update;
+            try
+            {
+                update = new ValueUpdate(
+                    nodeId,
+                    ValueFormatter.Format(dv.WrappedValue),
+                    dv.StatusCode,
+                    dv.SourceTimestamp,
+                    dv.ServerTimestamp,
+                    ValueFormatter.ToNumeric(dv.WrappedValue),
+                    dv.WrappedValue.Value);
+            }
+            catch (Exception ex) when (Errors.IsRecoverable(ex))
+            {
+                update = new ValueUpdate(nodeId, $"<cannot display value: {ex.Message}>", StatusCodes.BadDecodingError, dv.SourceTimestamp, dv.ServerTimestamp);
+            }
+
+            try
+            {
+                onUpdate(update);
+            }
+            catch (Exception ex) when (Errors.IsRecoverable(ex))
+            {
+                System.Diagnostics.Trace.TraceError($"Value update handler failed: {ex}");
+            }
+        }
 
         subscription.AddItems(items);
         await subscription.ApplyChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -482,7 +508,9 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             var response = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, toRead, cancellationToken).ConfigureAwait(false);
             for (var i = 0; i < chunk.Length; i++)
             {
-                result.Add(i < response.Results.Count && !StatusCode.IsBad(response.Results[i].StatusCode) ? response.Results[i].Value : null);
+                result.Add(i < response.Results.Count && !StatusCode.IsBad(response.Results[i].StatusCode)
+                    ? await DecodeStructuresAsync(response.Results[i].Value, cancellationToken).ConfigureAwait(false)
+                    : null);
             }
         }
 

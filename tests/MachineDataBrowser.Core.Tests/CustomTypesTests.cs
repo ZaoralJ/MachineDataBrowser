@@ -66,6 +66,26 @@ public sealed class CustomTypesTests(CustomTypesServerFixture server) : IAsyncLi
     }
 
     [Fact]
+    public async Task Monitored_structure_is_decoded_from_the_first_update()
+    {
+        // Types load on first use, so the first notification arrives before its type is known.
+        var node = await FindAsync("Custom", "Structures", "Position");
+        var updates = new System.Collections.Concurrent.ConcurrentQueue<ValueUpdate>();
+        await using var handle = await _client.MonitorAsync(node.NodeId, updates.Enqueue, 100, Ct);
+
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (updates.Count < 3 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(50, Ct);
+        }
+
+        Assert.True(updates.Count >= 3, $"only {updates.Count} updates");
+        Assert.All(updates, u => Assert.IsAssignableFrom<IEncodeable>(Assert.IsType<ExtensionObject>(u.Raw).Body));
+        var times = updates.Select(u => u.SourceTimestamp).ToList();
+        Assert.Equal(times.Order(), times); // waiting for the type load doesn't reorder updates
+    }
+
+    [Fact]
     public async Task Multi_dimensional_arrays_read_as_matrices()
     {
         var matrix = await ReadAsync("Custom", "DataTypes", "Arrays", "Matrix3x4");

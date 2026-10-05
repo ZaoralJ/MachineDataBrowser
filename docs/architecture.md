@@ -179,8 +179,10 @@ stateDiagram-v2
   - Server certificates: without auto-trust, an untrusted certificate fails the connect and is kept in
     `IServerCertificateTrust.LastUntrustedCertificate`. The App shows it and connects again with its thumbprint in
     `ConnectOptions.AcceptedCertificateThumbprints` (once), or after `TrustPermanently` wrote it to `pki/trusted/certs`.
-  - Loads the complex type definitions (`ComplexTypeSystem`), so server-specific structures decode instead of
-    showing as bytes.
+  - Does **not** load the complex type definitions up front: on a server with hundreds of controller UDTs that
+    took ~40 s. `OpcUaClient.Structures.cs` loads a structure's type (`ComplexTypeSystem.LoadTypeAsync`, field
+    types first) the first time a read, monitored item, history read or method output carries it undecoded, then
+    decodes those bytes. Monitored updates that wait for a type are queued per item, so they stay in order.
 - **Browse:** follows hierarchical forward references. The tree uses `BrowseQuickAsync` (one round trip, every child
   gets an expander) and then `ProbeHasChildrenAsync` in the background (one batched Browse), which removes the
   expanders of children that have nothing below them.

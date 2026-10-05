@@ -49,14 +49,15 @@ public sealed partial class OpcUaClient : IHistorySource
                         continue;
                     }
 
+                    var decoded = await DecodeStructuresAsync(dv, cancellationToken).ConfigureAwait(false);
                     values.Add(new ValueUpdate(
                         nodeId,
-                        ValueFormatter.Format(dv.WrappedValue),
+                        ValueFormatter.Format(decoded.WrappedValue),
                         dv.StatusCode,
                         dv.SourceTimestamp,
                         dv.ServerTimestamp,
-                        ValueFormatter.ToNumeric(dv.WrappedValue),
-                        dv.WrappedValue.Value));
+                        ValueFormatter.ToNumeric(decoded.WrappedValue),
+                        decoded.WrappedValue.Value));
                 }
             }
 

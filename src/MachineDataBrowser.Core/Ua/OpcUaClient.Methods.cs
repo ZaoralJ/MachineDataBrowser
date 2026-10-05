@@ -58,7 +58,13 @@ public sealed partial class OpcUaClient : IMethodCaller
             throw new ServiceResultException(result.StatusCode);
         }
 
-        return [.. result.OutputArguments.Select(ValueFormatter.Format)];
+        var outputs = new List<string>(result.OutputArguments.Count);
+        foreach (var output in result.OutputArguments)
+        {
+            outputs.Add(ValueFormatter.Format(new Variant(await DecodeStructuresAsync(output.Value, cancellationToken).ConfigureAwait(false))));
+        }
+
+        return outputs;
     }
 
     private async Task<IReadOnlyList<MethodArgument>> ReadArgumentsAsync(ISession session, NodeId methodId, string browseName, CancellationToken cancellationToken)
