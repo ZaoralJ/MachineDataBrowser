@@ -28,6 +28,7 @@ command line for them, with the endpoint and options of the connection.
 | `mdbrowser write <url> <node> <value>` | write a value (or several with `--set`); asks first unless `--yes` |
 | `mdbrowser session create <file> <url> <node>...` | a session file for the app with these nodes as its watch list |
 | `mdbrowser session add <file> <node>...` | adds nodes to a session's watch list; everything else in the file is kept |
+| `mdbrowser session remove <file> <node>...` | removes items from a session's watch list (`rm`; `-R` for a folder), offline |
 | `mdbrowser run <session>` | the watch list of a session file saved by the app (`.mdbsession`), each item at its refresh time |
 | `mdbrowser tui <url or session>` | a full-screen browser in the terminal: tree, attributes, live values, trend, write, record; see [below](#full-screen-browser-tui) |
 | `mdbrowser mcp --endpoint <url>... --recording <file.db>...` | an MCP server for AI agents (machines and SQLite recordings), read-only; see [MCP server](mcp.md) |
@@ -78,6 +79,7 @@ The command line reads and writes the same files, so a watch list can go both wa
 ```sh
 mdbrowser session create line1.mdbsession opc.tcp://plc:4840 /Objects/Line1 -R -r 1000 --trust-all
 mdbrowser session add line1.mdbsession /Objects/Line2/Speed "ns=3;s=Pressure"
+mdbrowser session remove line1.mdbsession /Objects/Line2/Speed                          # -R removes a whole folder
 mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1/Speed --save quick.mdbsession     # watch now, keep it for later
 mdbrowser run line1.mdbsession                                                         # or File ▸ Open in the app
 ```
@@ -90,6 +92,12 @@ mdbrowser run line1.mdbsession                                                  
   file's endpoint, skips nodes already in the watch list and keeps everything else (bookmarks, columns, display
   formats, monitoring settings).
 - Nodes given by id are checked with the device first; one that doesn't exist is an error and nothing is written.
+- `session remove` doesn't connect: it matches the path and name as shown, the name alone (every item with it), or the saved id
+  (`nsu=…;s=Speed`, or just `s=Speed`). A node that matches nothing is an error and nothing is removed.
+- `run` and `tui` follow their session file: when the app, another `tui` or `session add` changes it, `run`
+  monitors the new watch list (rows still watched keep their values and update counts; it reconnects only when the
+  endpoint or its options changed; `--duration`, `--count` and `--record` continue). `tui` reopens the session,
+  and asks first when that would drop monitored items changed there or a running recording.
 
 ### Recording to a file
 

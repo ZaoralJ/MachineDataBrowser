@@ -263,6 +263,14 @@ flowchart TB
   - User name and password come from the connection options or the URL.
   - "Auto-trust server certificates" also applies to TLS brokers.
 
+## Session file changes (`Core/SessionFileWatcher.cs`)
+
+- The app, `mdbrowser run` and `mdbrowser tui` each watch their open session file, so a change made elsewhere
+  (another window or instance, `session add`/`remove`, an editor) reaches them.
+- File events are debounced and compared by content hash; a process's own saves (`Accept()`) are not reported.
+- The app and the TUI reload the session, asking first when that would lose unsaved changes or a recording. `run`
+  swaps its watch list in place, keeping its connection when the endpoint options didn't change.
+
 ## Recordings (`Core/Recording.cs`)
 
 - A recording monitors its own items through the client, independently of the Watch list.

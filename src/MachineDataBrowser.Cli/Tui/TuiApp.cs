@@ -273,6 +273,15 @@ internal sealed class TuiApp : IDisposable
 
     private void Attach(BrowserModel model)
     {
+        WatchSessionFile(model.SessionPath);
+        // Our own save is not a change by someone else; it may also have moved the session to another file.
+        model.SessionSaved += () => Ui(() =>
+        {
+            if (ReferenceEquals(model, _model))
+            {
+                WatchSessionFile(model.SessionPath);
+            }
+        });
         model.Changed += () => _treeDirty = true;
         if (model.Client is IDynamicAddressSpace dynamic)
         {
@@ -355,6 +364,7 @@ internal sealed class TuiApp : IDisposable
 
     public void Dispose()
     {
+        _sessionWatcher?.Dispose();
         _app.Keyboard.KeyDown -= OnAppKeyDown;
         _app.Mouse.MouseEvent -= OnAppMouse;
         _window.Dispose();
@@ -1315,6 +1325,57 @@ internal sealed class TuiApp : IDisposable
         }
 
         Run(() => _model.SaveSessionAsync(path), $"saving {path}");
+    }
+
+    private SessionFileWatcher? _sessionWatcher;
+
+    /// <summary>Delay after the last file event before reacting; tests shorten it.</summary>
+    internal static TimeSpan SessionChangeDelay { get; set; } = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>
+    /// Follows the session file: when someone else changes it (the app, another TUI, <c>mdbrowser session add</c>) it
+    /// is reopened, after asking when that would drop monitored items changed here or a running recording.
+    /// </summary>
+    private void WatchSessionFile(string? path)
+    {
+        _sessionWatcher?.Dispose();
+        _sessionWatcher = null;
+        if (path is not null && File.Exists(path))
+        {
+            var watcher = new SessionFileWatcher(path, SessionChangeDelay);
+            watcher.Changed += () => Ui(() =>
+            {
+                if (ReferenceEquals(watcher, _sessionWatcher))
+                {
+                    OnSessionFileChanged(path);
+                }
+            });
+            _sessionWatcher = watcher;
+        }
+    }
+
+    private void OnSessionFileChanged(string path)
+    {
+        var name = Path.GetFileName(path);
+        string? loses = _model.RecordingPath is { } recording ? $"Recording to {recording} stops."
+            : _model.HasUnsavedWatch ? "Monitored items changed here are replaced." : null;
+        if (loses is not null && !Confirm("Session changed", $"{name} was changed outside this window. Reload it?\n{loses}"))
+        {
+            _model.Log($"{name} was changed outside this window; Ctrl+S overwrites it, Ctrl+O reopens it.");
+            return;
+        }
+
+        if (_openSession is not { } open)
+        {
+            return;
+        }
+
+        _model.Log($"{name} was changed outside this window; reloading…");
+        Run(async () =>
+        {
+            var model = await open(path).ConfigureAwait(false);
+            Ui(() => SwitchTo(model));
+        }, $"reloading {path}");
     }
 
     // ------------------------------------------------------------------ history, alarms, events, diagnostics

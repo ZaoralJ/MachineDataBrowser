@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using MachineDataBrowser.Core;
 using MachineDataBrowser.Core.Ua;
@@ -214,40 +215,136 @@ internal static class Commands
 
         run.SetAction((r, ct) => Guard(stderr, async () =>
         {
-            var session = await SessionFile.LoadAsync(r.GetValue(sessionPath)!, ct).ConfigureAwait(false);
-            var watch = session.Watch ?? [];
-            if (watch.Count == 0)
-            {
-                throw new CliException("The session has no watch items.");
-            }
+            var path = r.GetValue(sessionPath)!;
+            var session = await SessionFile.LoadAsync(path, ct).ConfigureAwait(false);
+            using var watcher = new SessionFileWatcher(path);
 
-            var target = new ConnectionArgs(
-                session.EndpointUrl,
-                session.UserName,
-                r.GetValue(password) ?? Environment.GetEnvironmentVariable(PasswordVariable),
-                session.UseSecurity,
-                session.AutoAcceptCertificates || r.GetValue(trustAll));
-            await using var client = await Cli.Connection.ConnectAsync(target, ct).ConfigureAwait(false);
-            var fallback = session.DefaultRefreshMs ?? (DeviceClient.IsMqtt(session.EndpointUrl) ? 0 : 250);
-            var items = new List<(Node, int)>();
-            foreach (var entry in watch)
+            // The file can change while it runs (the app, the TUI, `session add`): the new watch list replaces the old
+            // one, without reconnecting unless the endpoint or its options changed. --duration and --count are totals.
+            var deadline = r.GetValue(duration) is { } total ? DateTime.UtcNow + total : (DateTime?)null;
+            var received = new StrongBox<int>();
+            IUpdateSink? sink = null;
+            ConnectionArgs? connected = null;
+            IDeviceClient? client = null;
+            try
             {
-                try
+                while (true)
                 {
-                    var id = client.ParsePortableId(entry.NodeId);
-                    items.Add((new Node(id, entry.DisplayName, client.ToDisplayId(id)), entry.RefreshMs ?? fallback));
-                }
-                catch (Exception ex) when (ex is ServiceResultException or FormatException or ArgumentException)
-                {
-                    await stderr.WriteLineAsync($"mdbrowser: skipped {entry.DisplayName}: {ex.Message}").ConfigureAwait(false);
+                    var watch = session.Watch ?? [];
+                    if (watch.Count == 0)
+                    {
+                        throw new CliException("The session has no watch items.");
+                    }
+
+                    var target = new ConnectionArgs(
+                        session.EndpointUrl,
+                        session.UserName,
+                        r.GetValue(password) ?? Environment.GetEnvironmentVariable(PasswordVariable),
+                        session.UseSecurity,
+                        session.AutoAcceptCertificates || r.GetValue(trustAll));
+                    if (client is null || target != connected)
+                    {
+                        if (client is not null)
+                        {
+                            await client.DisposeAsync().ConfigureAwait(false);
+                            client = null;
+                        }
+
+                        client = await Cli.Connection.ConnectAsync(target, ct).ConfigureAwait(false);
+                        connected = target;
+                    }
+
+                    var fallback = session.DefaultRefreshMs ?? (DeviceClient.IsMqtt(session.EndpointUrl) ? 0 : 250);
+                    var items = new List<(Node, int)>();
+                    foreach (var entry in watch)
+                    {
+                        try
+                        {
+                            var id = client.ParsePortableId(entry.NodeId);
+                            items.Add((new Node(id, entry.DisplayName, client.ToDisplayId(id)), entry.RefreshMs ?? fallback));
+                        }
+                        catch (Exception ex) when (ex is ServiceResultException or FormatException or ArgumentException)
+                        {
+                            await stderr.WriteLineAsync($"mdbrowser: skipped {entry.DisplayName}: {ex.Message}").ConfigureAwait(false);
+                        }
+                    }
+
+                    using var reload = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    SessionFile? next = null;
+                    void OnChanged() => _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            next = await SessionFile.LoadAsync(path, reload.Token).ConfigureAwait(false);
+                            await reload.CancelAsync().ConfigureAwait(false);
+                        }
+                        catch (CliException ex)
+                        {
+                            // Half-written or broken: keep monitoring what we have; the next save is picked up again.
+                            await stderr.WriteLineAsync($"mdbrowser: {ex.Message} Still monitoring the previous watch list.").ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                        }
+                    });
+                    watcher.Changed += OnChanged;
+                    int result;
+                    try
+                    {
+                        var recordRefresh = items.Count == 0 ? fallback : items.Min(i => i.Item2);
+                        await using var recording = await RecordAsync(r.GetValue(record), r.GetValue(retention), client, [.. items.Select(i => i.Item1)], recordRefresh, session.EndpointUrl,
+                            Path.GetFileNameWithoutExtension(path), stderr, ct).ConfigureAwait(false);
+                        IReadOnlyList<Node> nodes = [.. items.Select(i => i.Item1)];
+                        if (sink is null)
+                        {
+                            sink = Sink(r, nodes);
+                        }
+                        else
+                        {
+                            sink.SetItems(nodes);
+                        }
+
+                        var remaining = deadline is { } end ? end - DateTime.UtcNow : (TimeSpan?)null;
+                        try
+                        {
+                            result = remaining <= TimeSpan.Zero ? 0
+                                : await StreamAsync(client, items, sink, stderr, remaining, r.GetValue(count), reload.Token, received).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                        {
+                            result = 0;
+                        }
+                    }
+                    finally
+                    {
+                        watcher.Changed -= OnChanged;
+                    }
+
+                    if (ct.IsCancellationRequested || next is null || !reload.IsCancellationRequested)
+                    {
+                        return result;
+                    }
+
+                    session = next;
+                    // The live table shows the new rows itself; a line printed under it would break its redraw.
+                    if (sink is not LiveWatch)
+                    {
+                        await stderr.WriteLineAsync($"mdbrowser: {Path.GetFileName(path)} changed; monitoring its {session.Watch?.Count ?? 0} watch item(s).").ConfigureAwait(false);
+                    }
                 }
             }
+            finally
+            {
+                if (sink is not null)
+                {
+                    await sink.DisposeAsync().ConfigureAwait(false);
+                }
 
-            var recordRefresh = items.Count == 0 ? fallback : items.Min(i => i.Item2);
-            await using var recording = await RecordAsync(r.GetValue(record), r.GetValue(retention), client, [.. items.Select(i => i.Item1)], recordRefresh, session.EndpointUrl,
-                Path.GetFileNameWithoutExtension(r.GetValue(sessionPath)!), stderr, ct).ConfigureAwait(false);
-            await using var sink = Sink(r, [.. items.Select(i => i.Item1)]);
-            return await StreamAsync(client, items, sink, stderr, r.GetValue(duration), r.GetValue(count), ct).ConfigureAwait(false);
+                if (client is not null)
+                {
+                    await client.DisposeAsync().ConfigureAwait(false);
+                }
+            }
         }));
 
         // mcp
@@ -446,7 +543,22 @@ internal static class Commands
             return 0;
         }));
 
-        var session = new Command("session", "Create session files for the app, or add nodes to them") { create, add };
+        var removeNodes = new Argument<string[]>("nodes") { Description = "Items to remove: /Objects/Line1/Speed, a tag name, or an id as saved (nsu=…;s=Speed or s=Speed)", Arity = ArgumentArity.OneOrMore };
+        var removeRecursive = new Option<bool>("--recursive", "-R") { Description = "A folder removes every item below it" };
+        var remove = new Command("remove", "Remove items from the watch list of a session file, without connecting; everything else in it is kept");
+        remove.Aliases.Add("rm");
+        remove.Arguments.Add(sessionFile);
+        remove.Arguments.Add(removeNodes);
+        remove.Options.Add(removeRecursive);
+        remove.SetAction((r, ct) => Guard(stderr, async () =>
+        {
+            var file = r.GetValue(sessionFile)!;
+            var (removed, total) = await SessionWriter.RemoveAsync(file, r.GetValue(removeNodes)!, r.GetValue(removeRecursive), ct).ConfigureAwait(false);
+            await stdout.WriteLineAsync($"Removed {removed} watch item(s) from {file}; {total} left.").ConfigureAwait(false);
+            return 0;
+        }));
+
+        var session = new Command("session", "Create session files for the app, or add nodes to them or remove them") { create, add, remove };
 
         // tui
         var tuiTarget = new Argument<string>("target") { Description = "Endpoint (opc.tcp://…, eip://…, mqtt://…) or a session file (.mdbsession)" };
@@ -523,6 +635,7 @@ internal static class Commands
                 await model.MonitorNodesAsync(items, ct).ConfigureAwait(false);
             }
 
+            model.MarkSessionSaved();
             return model;
         }
 
@@ -668,11 +781,18 @@ internal static class Commands
         TextWriter stderr,
         TimeSpan? duration,
         int? count,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        StrongBox<int>? counted = null)
     {
         var byId = items.GroupBy(i => i.Node.Id).ToDictionary(g => g.Key, g => g.First().Node);
-        var received = 0;
+        // Shared across restarts of the stream (run reloading its session), so --count stays a total.
+        counted ??= new StrongBox<int>();
         var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (count is { } limit && counted.Value >= limit)
+        {
+            return 0;
+        }
+
         void OnUpdate(ValueUpdate update)
         {
             if (done.Task.IsCompleted || !byId.TryGetValue(update.NodeId, out var node))
@@ -681,7 +801,7 @@ internal static class Commands
             }
 
             writer.Post(node.Name, node.DisplayId, update);
-            if (count is { } max && Interlocked.Increment(ref received) >= max)
+            if (count is { } max && Interlocked.Increment(ref counted.Value) >= max)
             {
                 done.TrySetResult();
             }

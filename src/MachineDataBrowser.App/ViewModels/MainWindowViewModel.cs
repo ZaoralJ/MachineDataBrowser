@@ -1197,6 +1197,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     {
         _flushTimer.Stop();
         _treeTimer.Stop();
+        StopWatchingSessionFile();
         AppErrors.Reported -= OnAppError;
 
         // Shutdown must not fail because a server is gone or a recording file is locked.

@@ -613,9 +613,25 @@ internal sealed class BrowserModel : IAsyncDisposable
         var items = Watch.Select(r => new SessionWriter.Item(r.Node, r.RefreshMs)).ToList();
         var result = await SessionWriter.SaveWatchAsync(path, Args, DefaultRefreshMs, Client, items, cancellationToken).ConfigureAwait(false);
         SessionPath = path;
+        MarkSessionSaved();
         Log($"Saved {result.Total} watch item(s) to {path}.");
+        SessionSaved?.Invoke();
         return result;
     }
+
+    /// <summary>Raised after <see cref="SaveSessionAsync"/> wrote the file, on the thread that saved it.</summary>
+    public event Action? SessionSaved;
+
+    private string? _savedWatch;
+
+    /// <summary>The monitored items now match the session file (just opened or saved).</summary>
+    public void MarkSessionSaved() => _savedWatch = WatchSignature();
+
+    /// <summary>Items were monitored, unmonitored or got another refresh time since the session was opened or saved.</summary>
+    public bool HasUnsavedWatch => _savedWatch != WatchSignature();
+
+    private string WatchSignature() =>
+        string.Join('\n', Watch.Select(r => $"{Client.ToPortableId(r.Node.Id)} {r.RefreshMs}").Order(StringComparer.Ordinal));
 
     public async ValueTask DisposeAsync()
     {

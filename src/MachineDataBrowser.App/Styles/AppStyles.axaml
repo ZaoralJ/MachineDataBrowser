@@ -664,6 +664,14 @@
     <Setter Property="BorderBrush" Value="#66E5484D" />
     <Setter Property="BorderThickness" Value="1" />
   </Style>
+  <Style Selector="Border.info-banner">
+    <Setter Property="Margin" Value="8,0,8,8" />
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="CornerRadius" Value="{StaticResource AppCardRadius}" />
+    <Setter Property="Background" Value="#1F3E8EF7" />
+    <Setter Property="BorderBrush" Value="#663E8EF7" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
   <Style Selector="Border.status-bar">
     <!-- Right inset matches the dock host margin plus the card border, so the chip lines up with the panes. -->
     <Setter Property="Padding" Value="14,6,8,6" />
