@@ -403,6 +403,9 @@ wins.
     settings, plus columns, sort order and grouping.
   - New ⌘N, Open ⌘O, Save ⌘S, Save As ⇧⌘S, File ▸ Open Recent.
   - Settings can reopen the last session at start.
+  - When the open session file is changed elsewhere (another window or instance, `mdbrowser session`, the MCP
+    server, an editor), the app reloads it. With unsaved changes or running recordings it asks first in a bar:
+    **Reload** opens the file as it is now, **Keep mine** keeps the window (saving then overwrites the file).
 - **Settings (⌘,):** appearance and colour theme, default refresh time, the item limit for "monitor all variables
   in folder", and whether to reopen the last session at start.
 - **Data folder:** Help ▸ Show Settings Folder (⌥⇧⌘,). On macOS it is

@@ -19,6 +19,11 @@ internal interface IUpdateSink : IAsyncDisposable
     }
 
     void Post(string name, string id, ValueUpdate update);
+
+    /// <summary>The watch list changed (run reloading its session): rows still watched keep what they showed.</summary>
+    void SetItems(IReadOnlyList<Node> items)
+    {
+    }
 }
 
 /// <summary>Rich output for an interactive terminal: tables, trees and a live watch view (text format only).</summary>
@@ -78,9 +83,9 @@ internal sealed class LiveWatch : IUpdateSink
 {
     private static readonly TimeSpan RedrawInterval = TimeSpan.FromMilliseconds(200);
 
-    private readonly IReadOnlyList<Node> _items;
+    private IReadOnlyList<Node> _items;
     private readonly bool _showIds;
-    private readonly ConcurrentDictionary<string, (ValueUpdate Update, int Count, bool Seeded, DateTime ReceivedAt)> _latest = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, Row> _latest = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _stop = new();
     private readonly Task _render;
 
@@ -108,17 +113,36 @@ internal sealed class LiveWatch : IUpdateSink
 
     public bool WantsInitialValues => true;
 
-    public void Seed(string id, ValueUpdate current) => _latest.TryAdd(id, (current, 0, true, DateTime.Now));
+    public void Seed(string id, ValueUpdate current) => _latest.TryAdd(id, new Row(current, 0, true, DateTime.Now, SkipRepeat: true));
 
     /// <summary>
     /// Counts updates. Right after subscribing, servers (and Logix polling, and MQTT retained messages) send the current
-    /// value once more; when that only repeats the value read at the start, it is not counted.
+    /// value once more; when that only repeats the value already shown, it is not counted.
     /// </summary>
     public void Post(string name, string id, ValueUpdate update) =>
-        _latest.AddOrUpdate(id, (update, 1, false, DateTime.Now), (_, previous) =>
-            previous.Seeded && previous.Count == 0 && previous.Update.Value == update.Value && StatusCode.IsGood(update.Status)
-                ? (update, 0, false, DateTime.Now)
-                : (update, previous.Count + 1, false, DateTime.Now));
+        _latest.AddOrUpdate(id, new Row(update, 1, false, DateTime.Now, false), (_, previous) =>
+            previous.SkipRepeat && previous.Update.Value == update.Value && StatusCode.IsGood(update.Status)
+                ? new Row(update, previous.Count, false, DateTime.Now, false)
+                : new Row(update, previous.Count + 1, false, DateTime.Now, false));
+
+    public void SetItems(IReadOnlyList<Node> items)
+    {
+        var keep = items.Select(i => i.DisplayId).ToHashSet(StringComparer.Ordinal);
+        foreach (var id in _latest.Keys.Where(k => !keep.Contains(k)))
+        {
+            _latest.TryRemove(id, out _);
+        }
+
+        // Kept rows are subscribed again, so their next update may only repeat the value shown.
+        foreach (var (id, row) in _latest)
+        {
+            _latest.TryUpdate(id, row with { SkipRepeat = true }, row);
+        }
+
+        _items = items;
+    }
+
+    private readonly record struct Row(ValueUpdate Update, int Count, bool Seeded, DateTime ReceivedAt, bool SkipRepeat);
 
     public async ValueTask DisposeAsync()
     {

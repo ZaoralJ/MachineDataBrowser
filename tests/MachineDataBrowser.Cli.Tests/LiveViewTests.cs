@@ -55,4 +55,33 @@ public sealed class LiveViewTests(CustomTypesServerFixture server)
             .Select(l => System.Text.RegularExpressions.Regex.Match(l, @"\d\d:\d\d:\d\d\.\d{3}").Value).Where(t => t.Length > 0).Distinct().ToList();
         Assert.True(times.Count == 1, $"expected one time, got: {string.Join(", ", times)}");
     }
+
+    [Fact]
+    public async Task Live_view_keeps_rows_still_watched_when_the_watch_list_changes()
+    {
+        var console = new TestConsole().Width(140).Interactive();
+        var a = new Node(new Opc.Ua.NodeId("A", 2), "Alpha", "ns=2;s=A");
+        var b = new Node(new Opc.Ua.NodeId("B", 2), "Beta", "ns=2;s=B");
+        var c = new Node(new Opc.Ua.NodeId("C", 2), "Gamma", "ns=2;s=C");
+        static MachineDataBrowser.Core.ValueUpdate Value(Node node, string value) =>
+            new(node.Id, value, Opc.Ua.StatusCodes.Good, DateTime.UtcNow, DateTime.UtcNow);
+
+        await using (var live = new LiveWatch(console, [a, b]))
+        {
+            live.Post(a.Name, a.DisplayId, Value(a, "1"));
+            live.Post(a.Name, a.DisplayId, Value(a, "2"));
+            live.Post(b.Name, b.DisplayId, Value(b, "1"));
+
+            // Run reloading its session: Beta is gone, Gamma is new, Alpha is subscribed again and repeats its value.
+            live.SetItems([a, c]);
+            live.Post(a.Name, a.DisplayId, Value(a, "2"));
+            live.Post(a.Name, a.DisplayId, Value(a, "3"));
+        }
+
+        var lastFrame = console.Output[console.Output.LastIndexOf('╭')..];
+        var alpha = lastFrame.Split('\n').Single(l => l.Contains("│ Alpha ", StringComparison.Ordinal));
+        Assert.EndsWith("3 │", alpha.TrimEnd(), StringComparison.Ordinal);
+        Assert.Contains("│ Gamma ", lastFrame, StringComparison.Ordinal);
+        Assert.DoesNotContain("│ Beta ", lastFrame, StringComparison.Ordinal);
+    }
 }

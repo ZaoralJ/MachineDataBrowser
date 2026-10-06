@@ -74,6 +74,52 @@ internal static class SessionWriter
         return await AddAsync(path, document, client, items, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Removes watch items from the file without connecting: a node matches by its path and name as shown
+    /// (<c>/Objects/Line1/Speed</c>) or just its name (<c>Speed</c>; every item with that name), its saved id, or the end of it
+    /// (<c>s=Speed</c>). With <paramref name="recursive"/>, a folder removes every item below it. Every node must match
+    /// something, else nothing is written; everything else in the file is kept.
+    /// </summary>
+    public static async Task<(int Removed, int Total)> RemoveAsync(string path, IReadOnlyList<string> nodes, bool recursive, CancellationToken cancellationToken)
+    {
+        var document = await LoadAsync(path, cancellationToken).ConfigureAwait(false);
+        var watch = document["watch"] as JsonArray ?? [];
+        var remove = new HashSet<JsonNode>(ReferenceEqualityComparer.Instance);
+        foreach (var node in nodes)
+        {
+            var matches = watch.OfType<JsonObject>().Where(e => Matches(e, node, recursive)).ToList();
+            if (matches.Count == 0)
+            {
+                throw new CliException($"'{node}' is not in the watch list of {path}; nothing was removed." +
+                    (recursive ? string.Empty : " A folder needs -R."));
+            }
+
+            remove.UnionWith(matches);
+        }
+
+        foreach (var entry in remove)
+        {
+            watch.Remove(entry);
+        }
+
+        await SaveAsync(path, document, cancellationToken).ConfigureAwait(false);
+        return (remove.Count, watch.Count);
+    }
+
+    private static bool Matches(JsonObject entry, string node, bool recursive)
+    {
+        var id = (string?)entry["nodeId"] ?? string.Empty;
+        var name = (string?)entry["displayName"] ?? string.Empty;
+        var parent = ((string?)entry["path"] ?? string.Empty).Trim('/');
+        var full = parent.Length == 0 ? name : $"{parent}/{name}";
+        var wanted = node.Trim('/');
+        return id == node
+            || id.EndsWith(";" + node, StringComparison.Ordinal)
+            || string.Equals(full, wanted, StringComparison.Ordinal)
+            || string.Equals(name, node, StringComparison.Ordinal)
+            || (recursive && wanted.Length > 0 && (parent == wanted || parent.StartsWith(wanted + "/", StringComparison.Ordinal)));
+    }
+
     /// <summary>An existing session file as JSON, so adding to it keeps every field, including ones the CLI doesn't know.</summary>
     public static async Task<JsonObject> LoadAsync(string path, CancellationToken cancellationToken)
     {

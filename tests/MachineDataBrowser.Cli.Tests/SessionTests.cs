@@ -95,4 +95,63 @@ public sealed class SessionTests(OpcPlcFixture plc) : IDisposable
         Assert.Equal(0, runExit);
         Assert.Contains(",StepUp,", runOutput, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Remove_takes_items_out_by_path_name_or_id_without_connecting()
+    {
+        var file = Path.Combine(_dir, "remove.mdbsession");
+        Assert.Equal(0, (await RunAsync("session", "create", file, plc.EndpointUrl, Basic, "-R", "--trust-all")).Exit);
+        var json = Load(file);
+        json["endpointUrl"] = "opc.tcp://offline.invalid:4840";
+        await File.WriteAllTextAsync(file, json.ToJsonString(), TestContext.Current.CancellationToken);
+
+        var (exit, output, _) = await RunAsync("session", "remove", file, $"{Basic}/StepUp", "s=AlternatingBoolean");
+        Assert.Equal(0, exit);
+        Assert.Contains("Removed 2 watch item(s)", output, StringComparison.Ordinal);
+        Assert.Equal(["RandomSignedInt32", "RandomUnsignedInt32"], Load(file)["watch"]!.AsArray().Select(w => (string)w!["displayName"]!).Order());
+
+        var (missingExit, _, error) = await RunAsync("session", "rm", file, "RandomSignedInt32", "NotThere");
+        Assert.Equal(1, missingExit);
+        Assert.Contains("'NotThere' is not in the watch list", error, StringComparison.Ordinal);
+        Assert.Equal(2, Load(file)["watch"]!.AsArray().Count);
+
+        Assert.Equal(0, (await RunAsync("session", "rm", file, Basic, "-R")).Exit);
+        Assert.Empty(Load(file)["watch"]!.AsArray());
+        Assert.Equal("opc.tcp://offline.invalid:4840", (string)Load(file)["endpointUrl"]!);
+    }
+
+    [Fact]
+    public async Task Run_follows_changes_to_its_session_file()
+    {
+        var file = Path.Combine(_dir, "follow.mdbsession");
+        Assert.Equal(0, (await RunAsync("session", "create", file, plc.EndpointUrl, $"{Basic}/StepUp", "--trust-all", "-r", "100")).Exit);
+
+        var output = new StringWriter();
+        var errors = new StringWriter();
+        using var stdout = TextWriter.Synchronized(output);
+        using var stderr = TextWriter.Synchronized(errors);
+        string Out() { lock (stdout) { return output.ToString(); } }
+        string Err() { lock (stderr) { return errors.ToString(); } }
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var run = Commands.Build(stdout, stderr).Parse(["run", file, "-f", "csv", "--duration", "60s"]).InvokeAsync(cancellationToken: stop.Token);
+
+        await Until(() => Out().Contains(",StepUp,", StringComparison.Ordinal));
+        Assert.Equal(0, (await RunAsync("session", "add", file, $"{Basic}/AlternatingBoolean", "-r", "100")).Exit);
+
+        await Until(() => Out().Contains(",AlternatingBoolean,", StringComparison.Ordinal));
+        Assert.Contains("follow.mdbsession changed; monitoring its 2 watch item(s)", Err(), StringComparison.Ordinal);
+        await stop.CancelAsync();
+        Assert.Equal(0, await run);
+        Assert.Single(Out().Split('\n'), line => line.StartsWith("time,", StringComparison.Ordinal));
+    }
+
+    private static async Task Until(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "condition never became true");
+            await Task.Delay(100, TestContext.Current.CancellationToken);
+        }
+    }
 }

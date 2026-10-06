@@ -138,6 +138,7 @@ public sealed partial class MainWindowViewModel
         try
         {
             document = await SessionDocument.LoadAsync(path);
+            AcceptSessionFile();
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
@@ -276,7 +277,9 @@ public sealed partial class MainWindowViewModel
         try
         {
             await document.SaveAsync(path);
+            AcceptSessionFile();
             CurrentSessionPath = path;
+            IsSessionChangedOnDisk = false;
             IsDirty = false;
             UpdateSettings(Settings.WithRecentSession(path));
             StatusMessage = $"Saved {DocumentName}";
