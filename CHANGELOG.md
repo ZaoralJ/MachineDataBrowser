@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.26.0...v0.27.0) (2026-10-06)
+
+
+### Features
+
+* reload session files changed elsewhere (app, run, tui) and add session remove ([#127](https://github.com/ZaoralJ/MachineDataBrowser/issues/127)) ([13d59e9](https://github.com/ZaoralJ/MachineDataBrowser/commit/13d59e935189d5dbfb6f6c0142b7592b1d16e42d))
+
 ## [0.26.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.25.0...v0.26.0) (2026-10-05)
 
 
