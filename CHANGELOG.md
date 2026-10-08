@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.27.0...v0.27.1) (2026-10-08)
+
+
+### Fixes
+
+* **cli:** keep monitoring through disconnects and reload values on reconnect ([#129](https://github.com/ZaoralJ/MachineDataBrowser/issues/129)) ([a5be0a1](https://github.com/ZaoralJ/MachineDataBrowser/commit/a5be0a17d9d83f53a43ad3a78cc36c64fffa70fe))
+
 ## [0.27.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.26.0...v0.27.0) (2026-10-06)
 
 
