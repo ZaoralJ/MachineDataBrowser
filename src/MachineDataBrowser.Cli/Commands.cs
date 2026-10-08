@@ -190,7 +190,7 @@ internal static class Commands
         monitor.SetAction((r, ct) => Guard(stderr, async () =>
         {
             var target = Connection(r);
-            await using var client = await Cli.Connection.ConnectAsync(target, ct).ConfigureAwait(false);
+            await using var client = await Cli.Connection.ConnectUntilReachableAsync(target, ct).ConfigureAwait(false);
             var resolved = await NodesAsync(client, r, ct).ConfigureAwait(false);
             var interval = r.GetValue(refresh) ?? (DeviceClient.IsMqtt(target.Url) ? 0 : 250);
             if (r.GetValue(save) is { } sessionFile)
@@ -250,7 +250,7 @@ internal static class Commands
                             client = null;
                         }
 
-                        client = await Cli.Connection.ConnectAsync(target, ct).ConfigureAwait(false);
+                        client = await Cli.Connection.ConnectUntilReachableAsync(target, ct).ConfigureAwait(false);
                         connected = target;
                     }
 
@@ -822,7 +822,64 @@ internal static class Commands
             }
         }
 
+        var lost = false;
+
+        void MarkAll(StatusCode status)
+        {
+            var now = DateTime.UtcNow;
+            foreach (var (id, node) in byId)
+            {
+                writer.Post(node.Name, node.DisplayId, new ValueUpdate(id, string.Empty, status, now, now));
+            }
+        }
+
+        async Task ReloadAsync()
+        {
+            try
+            {
+                var ids = byId.Keys.ToList();
+                var current = await client.ReadValuesAsync(ids, cancellationToken).ConfigureAwait(false);
+                var now = DateTime.UtcNow;
+                for (var i = 0; i < ids.Count; i++)
+                {
+                    if (current[i] is { } value && !done.Task.IsCompleted)
+                    {
+                        var node = byId[ids[i]];
+                        writer.Post(node.Name, node.DisplayId, new ValueUpdate(ids[i], ValueFormatter.Format(new Variant(value)), StatusCodes.Good, now, now, Raw: value));
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // The connection dropped again: the next reconnect reloads.
+                System.Diagnostics.Trace.TraceWarning($"Reloading values after reconnect failed: {ex.Message}");
+            }
+        }
+
+        // The device can go away mid-stream: show every value as bad until the client (which retries on its own, without
+        // giving up) is back, then read them all again, since a restored subscription only reports later changes.
+        void OnStateChanged(object? sender, ConnectionState state)
+        {
+            if (done.Task.IsCompleted)
+            {
+                return;
+            }
+
+            switch (state)
+            {
+                case ConnectionState.Reconnecting when !lost:
+                    lost = true;
+                    MarkAll(StatusCodes.BadNotConnected);
+                    break;
+                case ConnectionState.Connected when lost:
+                    lost = false;
+                    _ = ReloadAsync();
+                    break;
+            }
+        }
+
         var handles = new List<IAsyncDisposable>();
+        client.StateChanged += OnStateChanged;
         try
         {
             foreach (var group in items.GroupBy(i => i.RefreshMs))
@@ -859,6 +916,7 @@ internal static class Commands
         }
         finally
         {
+            client.StateChanged -= OnStateChanged;
             done.TrySetResult();
             await DeviceClient.StopMonitoringAsync(handles, CancellationToken.None).ConfigureAwait(false);
         }

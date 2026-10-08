@@ -232,3 +232,8 @@ after `--count` updates, and close the connection properly.
 | `130` | cancelled before the command finished (e.g. Ctrl+C during `read`) |
 
 Items that can't be monitored are reported on stderr and the rest continue.
+
+`monitor` and `run` keep trying to connect, without messages: a device that is off when they start is picked up once
+it is reachable (a wrong URL, certificate or login still fails at once). If the connection drops while streaming,
+every item is shown with status `BadNotConnected` and the client retries until the device is back; then all values
+are read again so the output is current.

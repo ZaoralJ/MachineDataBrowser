@@ -640,26 +640,49 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
 
     private void OnKeepAlive(ISession session, KeepAliveEventArgs e)
     {
-        if (!ReferenceEquals(session, _session) || !ServiceResult.IsBad(e.Status) || _reconnectHandler is not null)
+        if (!ReferenceEquals(session, _session) || !ServiceResult.IsBad(e.Status) || _reconnectHandler is not null || State == ConnectionState.Reconnecting)
         {
             return;
         }
 
-        // SDK thread: a failure to start reconnecting must leave the client disconnected, not crash the app.
+        // SDK thread: a failure to start reconnecting must not crash the app; the next attempt follows.
+        State = ConnectionState.Reconnecting;
+        BeginReconnect(session);
+    }
+
+    private static readonly TimeSpan ReconnectRetryDelay = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// Reconnects until it works or the client is closed: a machine that is switched off for a while must come back
+    /// on its own, like the Logix and MQTT clients do.
+    /// </summary>
+    private void BeginReconnect(ISession session)
+    {
         try
         {
-            State = ConnectionState.Reconnecting;
             _reconnectHandler = new SessionReconnectHandler(Telemetry, true, 30_000);
             _reconnectHandler.BeginReconnect(session, 1_000, OnReconnectComplete);
         }
         catch (Exception ex) when (Errors.IsRecoverable(ex))
         {
-            System.Diagnostics.Trace.TraceError($"Reconnect could not start: {ex}");
+            System.Diagnostics.Trace.TraceWarning($"Reconnect could not start: {ex.Message}");
             _reconnectHandler?.Dispose();
             _reconnectHandler = null;
-            State = ConnectionState.Disconnected;
+            RetryReconnectLater(session);
         }
     }
+
+    private void RetryReconnectLater(ISession session) =>
+        _ = Task.Delay(ReconnectRetryDelay).ContinueWith(
+            _ =>
+            {
+                // Closed or reconnected meanwhile: nothing to do.
+                if (_reconnectHandler is null && _session is not null && State == ConnectionState.Reconnecting)
+                {
+                    BeginReconnect(_session ?? session);
+                }
+            },
+            TaskScheduler.Default);
 
     private void OnReconnectComplete(object? sender, EventArgs e)
     {
@@ -669,9 +692,13 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
         }
         catch (Exception ex) when (Errors.IsRecoverable(ex))
         {
-            System.Diagnostics.Trace.TraceError($"Reconnect failed: {ex}");
+            System.Diagnostics.Trace.TraceWarning($"Reconnect failed: {ex.Message}");
+            _reconnectHandler?.Dispose();
             _reconnectHandler = null;
-            State = ConnectionState.Disconnected;
+            if (_session is { } session)
+            {
+                RetryReconnectLater(session);
+            }
         }
     }
 
@@ -701,9 +728,19 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
 
         handler.Dispose();
         _reconnectHandler = null;
+        if (_session is not { Connected: true })
+        {
+            if (_session is { } session)
+            {
+                RetryReconnectLater(session);
+            }
+
+            return;
+        }
+
         _reconnects++;
         _lastReconnect = DateTime.UtcNow;
-        State = _session is { Connected: true } ? ConnectionState.Connected : ConnectionState.Disconnected;
+        State = ConnectionState.Connected;
     }
 
     private async Task CloseCoreAsync()
@@ -779,7 +816,15 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             group.Key.RemoveItems(group.Select(h => h.Item));
             if (group.Key.Session is { Connected: true })
             {
-                await group.Key.ApplyChangesAsync(cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await group.Key.ApplyChangesAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (ServiceResultException ex)
+                {
+                    // After the server restarted, the subscription may no longer exist there: nothing left to stop.
+                    System.Diagnostics.Trace.TraceWarning($"Stopping monitored items failed: {ex.Message}");
+                }
             }
         }
     }
