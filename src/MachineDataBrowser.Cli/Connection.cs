@@ -27,6 +27,39 @@ internal static class Connection
 
     private static readonly TimeSpan SettleMax = TimeSpan.FromSeconds(10);
 
+    private static readonly TimeSpan ConnectRetryDelay = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// For long-running streams: waits silently until the device can be reached, so a machine that is off when the
+    /// command starts is picked up once it is on. Other errors (bad URL, certificate, login) still fail at once.
+    /// </summary>
+    public static async Task<IDeviceClient> ConnectUntilReachableAsync(ConnectionArgs args, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            try
+            {
+                return await ConnectAsync(args, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (IsUnreachable(ex))
+            {
+                await Task.Delay(ConnectRetryDelay, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    internal static bool IsUnreachable(Exception ex) => ex switch
+    {
+        AggregateException { InnerExceptions.Count: 1 } a => IsUnreachable(a.InnerExceptions[0]),
+        System.Net.Sockets.SocketException or TimeoutException or IOException => true,
+        ServiceResultException s => s.StatusCode is StatusCodes.BadCommunicationError or StatusCodes.BadNotConnected
+            or StatusCodes.BadTimeout or StatusCodes.BadRequestTimeout or StatusCodes.BadConnectionClosed
+            or StatusCodes.BadConnectionRejected or StatusCodes.BadServerNotConnected or StatusCodes.BadServerHalted
+            or StatusCodes.BadSecureChannelClosed or StatusCodes.BadNoCommunication or StatusCodes.BadTcpInternalError
+            || (ex.InnerException is { } inner && IsUnreachable(inner)),
+        _ => ex.InnerException is { } inner && IsUnreachable(inner),
+    };
+
     public static async Task<IDeviceClient> ConnectAsync(ConnectionArgs args, CancellationToken cancellationToken)
     {
         var client = DeviceClient.Create(args.Url);
