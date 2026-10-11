@@ -883,8 +883,8 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
     /// Stops many monitored items with one DeleteMonitoredItems round trip per subscription.
     /// Handles of other clients are ignored.
     /// </summary>
-    public Task StopMonitoringAsync(IEnumerable<IAsyncDisposable> handles, CancellationToken cancellationToken = default) =>
-        StopMonitorsAsync(handles, cancellationToken);
+    public Task StopMonitoringAsync(IEnumerable<IAsyncDisposable> monitors, CancellationToken cancellationToken = default) =>
+        StopMonitorsAsync(monitors, cancellationToken);
 
     private static async Task StopMonitorsAsync(IEnumerable<IAsyncDisposable> handles, CancellationToken cancellationToken = default)
     {

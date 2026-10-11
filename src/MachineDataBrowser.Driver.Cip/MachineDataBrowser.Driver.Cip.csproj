@@ -13,4 +13,7 @@
   <ItemGroup>
     <PackageReference Include="libplctag" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="MachineDataBrowser.Core.Tests" />
+  </ItemGroup>
 </Project>

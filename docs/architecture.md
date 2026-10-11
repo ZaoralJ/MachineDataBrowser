@@ -56,8 +56,8 @@ flowchart LR
 | `src/MachineDataBrowser.Driver.Cip` | EtherNet/IP (Logix) client. References Core. |
 | `src/MachineDataBrowser.Driver.Mqtt` | MQTT client, topic model and Sparkplug B support. References Core. |
 | `src/MachineDataBrowser.Drivers` | Composition project selecting a driver from an endpoint URL; referenced by app and CLI. |
-| `src/MachineDataBrowser.App` | Avalonia 12 desktop app (MVVM with CommunityToolkit.Mvvm, docking with Dock.Avalonia). |
-| `src/MachineDataBrowser.Cli` | `mdbrowser` command line ([cli.md](cli.md)): System.CommandLine parsing, Spectre.Console output in a terminal; `Tui/` is the full-screen browser on Terminal.Gui (a UI-free `BrowserModel` behind a `TuiApp` view). References Core only; colour themes come from Core's `ColorThemeCatalog`, shared with the app. |
+| `src/MachineDataBrowser.App` | Avalonia 12 desktop app (MVVM with CommunityToolkit.Mvvm, docking with Dock.Avalonia); uses the driver composition project. |
+| `src/MachineDataBrowser.Cli` | `mdbrowser` command line ([cli.md](cli.md)): System.CommandLine parsing, Spectre.Console output in a terminal; `Tui/` is the full-screen browser on Terminal.Gui (a UI-free `BrowserModel` behind a `TuiApp` view). References Core and the driver composition project; colour themes come from Core's `ColorThemeCatalog`, shared with the app. |
 | `tests/MachineDataBrowser.Core.Tests` | Integration tests against containers (opc-plc and the `simulators/` images, via Testcontainers) plus unit tests. |
 | `tests/MachineDataBrowser.App.Tests` | Headless Avalonia UI tests with real rendering (screenshots) against the same containers. |
 | `tests/MachineDataBrowser.Cli.Tests` | The CLI's commands end to end against opc-plc and the simulators, plain and terminal output; the TUI's model against every protocol and its screen headlessly (ANSI driver, virtual time). |
@@ -73,8 +73,8 @@ The client implementations share a protocol-neutral tree, value, and monitoring 
 `DeviceDataType`, `ValueParser` and `ValueFormatter` likewise avoid OPC UA `BuiltInType` and `Variant`. Conversion to
 and from OPC UA SDK types is isolated in the OPC UA driver; CIP and Sparkplug map their native identities, statuses and value
 types directly to the neutral types. The UA adapter retains namespace-URI-based portable IDs, so existing session,
-bookmark and recording identifiers remain compatible. `DeviceClient.Create(url)` picks the client from the URL
-scheme in `MachineDataBrowser.Drivers.DeviceClientFactory`; Core defines the client contract and never constructs a
+bookmark and recording identifiers remain compatible. `DeviceClientFactory.Create(url)` picks the client from the URL
+scheme; Core defines the client contract and never constructs a
 driver. Session files need no protocol field.
 
 ```mermaid

@@ -986,7 +986,7 @@ internal sealed class MqttModel
         public DateTime ReceivedUtc { get; set; }
     }
 
-    private class SpbContainer(string group, string edge, string device)
+    private sealed class SpbContainer(string group, string edge, string device)
     {
         public string Group { get; } = group;
 

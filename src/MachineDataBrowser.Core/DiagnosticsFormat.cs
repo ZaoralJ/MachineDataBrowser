@@ -3,7 +3,7 @@ using System.Globalization;
 namespace MachineDataBrowser.Core;
 
 /// <summary>Shared wording for the protocol clients' <see cref="IConnectionDiagnosticsSource"/> rows.</summary>
-internal static class DiagnosticsFormat
+public static class DiagnosticsFormat
 {
     public static string Duration(double ms) => ms >= 1000
         ? (ms / 1000).ToString("0.#", CultureInfo.InvariantCulture) + " s"

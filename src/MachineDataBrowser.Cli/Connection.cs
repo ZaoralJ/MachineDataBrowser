@@ -20,7 +20,7 @@ internal sealed record Node(NodeId Id, string Name, string DisplayId, string? Di
 
 internal static class Connection
 {
-    private static readonly IDeviceClientFactory ClientFactory = new DeviceClientFactory();
+    private static readonly DeviceClientFactory ClientFactory = new();
 
     /// <summary>MQTT topics appear as messages arrive, so path lookups wait this long for them.</summary>
     private static readonly TimeSpan DynamicLookupTimeout = TimeSpan.FromSeconds(5);
