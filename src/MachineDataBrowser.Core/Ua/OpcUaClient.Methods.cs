@@ -29,7 +29,7 @@ public sealed partial class OpcUaClient : IMethodCaller
             var argument = signature.Inputs[i];
             try
             {
-                arguments.Add(new Variant(ValueParser.Parse(inputs[i], argument.BuiltInType, argument.IsArray)));
+                arguments.Add(ValueFormatter.ToVariant(ValueParser.Parse(inputs[i], argument.BuiltInType, argument.IsArray)));
             }
             catch (FormatException ex)
             {
@@ -37,7 +37,7 @@ public sealed partial class OpcUaClient : IMethodCaller
             }
         }
 
-        var request = new CallMethodRequestCollection
+        var request = new List<CallMethodRequest>
         {
             new CallMethodRequest { ObjectId = objectId, MethodId = methodId, InputArguments = arguments },
         };
@@ -46,12 +46,12 @@ public sealed partial class OpcUaClient : IMethodCaller
         if (StatusCode.IsBad(result.StatusCode))
         {
             // A rejected argument says more than the overall status.
-            for (var i = 0; i < (result.InputArgumentResults?.Count ?? 0); i++)
+            for (var i = 0; i < result.InputArgumentResults.Count; i++)
             {
                 if (StatusCode.IsBad(result.InputArgumentResults![i]))
                 {
-                    throw new ServiceResultException(new ServiceResult(result.InputArgumentResults[i],
-                        new LocalizedText($"Argument {signature.Inputs[i].Name} was rejected")));
+                    throw new ServiceResultException(ServiceResult.Create(result.InputArgumentResults[i],
+                        $"Argument {signature.Inputs[i].Name} was rejected"));
                 }
             }
 
@@ -59,9 +59,10 @@ public sealed partial class OpcUaClient : IMethodCaller
         }
 
         var outputs = new List<string>(result.OutputArguments.Count);
-        foreach (var output in result.OutputArguments)
+        foreach (var output in result.OutputArguments.ToList())
         {
-            outputs.Add(ValueFormatter.Format(new Variant(await DecodeStructuresAsync(output.Value, cancellationToken).ConfigureAwait(false))));
+            outputs.Add(ValueFormatter.Format(ValueFormatter.ToVariant(
+                await DecodeStructuresAsync(output.AsBoxedObject(), cancellationToken).ConfigureAwait(false))));
         }
 
         return outputs;
@@ -78,25 +79,26 @@ public sealed partial class OpcUaClient : IMethodCaller
 
         var propertyId = property.NodeId;
         var read = await session.ReadAsync(null, 0, TimestampsToReturn.Neither,
-            new ReadValueIdCollection { new ReadValueId { NodeId = propertyId, AttributeId = Attributes.Value } }, cancellationToken).ConfigureAwait(false);
+            new List<ReadValueId> { new ReadValueId { NodeId = propertyId, AttributeId = Attributes.Value } }, cancellationToken).ConfigureAwait(false);
         // The SDK may hand back ExtensionObject[] or already decoded Argument[].
-        if (read.Results[0].Value is not Array values)
+        if (read.Results[0].WrappedValue.AsBoxedObject() is not Array values)
         {
             return [];
         }
 
         var arguments = new List<MethodArgument>(values.Length);
-        foreach (var argument in values.Cast<object?>().Select(v => v is ExtensionObject e ? e.Body : v).OfType<Argument>())
+        foreach (var argument in values.Cast<object?>().Select(v =>
+                     v is ExtensionObject e && e.TryGetValue(out IEncodeable? body) ? body : v).OfType<Argument>())
         {
             var builtIn = TypeInfo.GetBuiltInType(argument.DataType, session.TypeTree);
             var typeName = await session.NodeCache.GetDisplayTextAsync(argument.DataType, cancellationToken).ConfigureAwait(false);
             var isArray = argument.ValueRank >= ValueRanks.OneDimension;
             arguments.Add(new MethodArgument(
-                argument.Name,
+                argument.Name ?? string.Empty,
                 (string.IsNullOrEmpty(typeName) ? argument.DataType.ToString() : typeName) + (isArray ? "[]" : string.Empty),
                 builtIn,
                 isArray,
-                argument.Description?.Text ?? string.Empty));
+                argument.Description.Text ?? string.Empty));
         }
 
         return arguments;

@@ -263,7 +263,7 @@ public static class NodeExport
         LocalizedText or QualifiedName or NodeId or ExpandedNodeId or StatusCode or System.Xml.XmlElement => "string",
         Matrix m => ElementType(m.Elements) + "[" + new string(',', m.Dimensions.Length - 1) + "]",
         Array a => ElementType(a) + "[]",
-        ExtensionObject { Body: IEncodeable e } => e.GetType().Name,
+        ExtensionObject eo when eo.TryGetValue(out IEncodeable? e) => e.GetType().Name,
         ExtensionObject => "object",
         IEncodeable e => e.GetType().Name,
         Enum e => e.GetType().Name,

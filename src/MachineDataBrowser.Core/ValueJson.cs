@@ -19,10 +19,10 @@ public static class ValueJson
         Matrix m => $"{TypeName(m.Elements.Length > 0 ? m.Elements.GetValue(0) : null)}[{string.Join(',', m.Dimensions)}]",
         byte[] => "ByteString",
         Array a => $"{TypeName(a.Length > 0 ? a.GetValue(0) : null)}[]",
-        ExtensionObject { Body: IEncodeable e } => e.GetType().Name,
+        ExtensionObject eo when eo.TryGetValue(out IEncodeable? e) => e.GetType().Name,
         ExtensionObject => "ExtensionObject",
         Uuid => "Guid",
-        _ => Variant.From(value).TypeInfo.BuiltInType.ToString(),
+        _ => Variant.From((dynamic)value).TypeInfo.BuiltInType.ToString(),
     };
 
     private static JsonNode? Convert(object? value, int depth)
@@ -52,10 +52,8 @@ public static class ValueJson
             NodeId or ExpandedNodeId or StatusCode => JsonValue.Create(value.ToString()),
             System.Xml.XmlElement xml => JsonValue.Create(xml.OuterXml),
             Matrix matrix => MatrixToJson(matrix, depth),
-            ExtensionObject eo => eo.Body is byte[] raw
-                ? new JsonObject { ["typeId"] = eo.TypeId?.ToString(), ["body"] = System.Convert.ToBase64String(raw) }
-                : Convert(eo.Body, depth + 1),
-            DataValue dv => Convert(dv.Value, depth + 1),
+            ExtensionObject eo => ExtensionObjectToJson(eo, depth),
+            DataValue dv => Convert(dv.WrappedValue.AsBoxedObject(), depth + 1),
             IEncodeable encodeable => StructToJson(encodeable, depth),
             Enum e => JsonValue.Create(e.ToString()),
             IEnumerable list => new JsonArray([.. list.Cast<object?>().Select(i => Convert(i, depth + 1))]),
@@ -65,6 +63,22 @@ public static class ValueJson
 
     private static JsonValue Number(double d) =>
         double.IsFinite(d) ? JsonValue.Create(d) : JsonValue.Create(d.ToString(CultureInfo.InvariantCulture))!;
+
+    private static JsonNode? ExtensionObjectToJson(ExtensionObject extensionObject, int depth)
+    {
+        if (extensionObject.TryGetAsBinary(out ByteString bytes))
+        {
+            return new JsonObject
+            {
+                ["typeId"] = extensionObject.TypeId.ToString(),
+                ["body"] = bytes.IsNull ? null : System.Convert.ToBase64String(bytes.Memory.ToArray()),
+            };
+        }
+
+        return extensionObject.TryGetValue(out IEncodeable? encodeable)
+            ? Convert(encodeable, depth + 1)
+            : new JsonObject { ["typeId"] = extensionObject.TypeId.ToString() };
+    }
 
     private static JsonArray MatrixToJson(Matrix matrix, int depth)
     {

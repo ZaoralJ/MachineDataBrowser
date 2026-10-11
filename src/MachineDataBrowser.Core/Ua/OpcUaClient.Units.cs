@@ -21,10 +21,10 @@ public sealed partial class OpcUaClient : IEngineeringUnitsSource
             (uint)NodeClass.Variable, cancellationToken).ConfigureAwait(false);
 
         var owners = new List<int>();
-        var toRead = new ReadValueIdCollection();
+        var toRead = new List<ReadValueId>();
         for (var i = 0; i < nodeIds.Count && i < references.Count; i++)
         {
-            if (references[i].FirstOrDefault(r => r.BrowseName?.Name == BrowseNames.EngineeringUnits) is { } property)
+            if (references[i].ToList().FirstOrDefault(r => r.BrowseName.Name == BrowseNames.EngineeringUnits) is { } property)
             {
                 owners.Add(i);
                 toRead.Add(new ReadValueId { NodeId = ExpandedNodeId.ToNodeId(property.NodeId, session.NamespaceUris), AttributeId = Attributes.Value });
@@ -39,7 +39,8 @@ public sealed partial class OpcUaClient : IEngineeringUnitsSource
         var read = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, toRead, cancellationToken).ConfigureAwait(false);
         for (var j = 0; j < owners.Count && j < read.Results.Count; j++)
         {
-            var value = read.Results[j].Value is ExtensionObject e ? e.Body : read.Results[j].Value;
+            var raw = read.Results[j].WrappedValue.AsBoxedObject();
+            var value = raw is ExtensionObject e && e.TryGetValue(out IEncodeable? body) ? body : raw;
             if (value is EUInformation { DisplayName.Text: { Length: > 0 } text })
             {
                 units[owners[j]] = text;

@@ -88,7 +88,7 @@ public sealed partial class OpcUaClient : IEventSource
             // Removing the subscription clears the item's status: keep the server's answer first.
             var error = item.Status.Error;
             await session.RemoveSubscriptionAsync(subscription, cancellationToken).ConfigureAwait(false);
-            throw new ServiceResultException(error);
+            throw new ServiceResultException(error?.StatusCode ?? StatusCodes.BadUnexpectedError);
         }
 
         try
@@ -106,7 +106,7 @@ public sealed partial class OpcUaClient : IEventSource
     public async Task AcknowledgeAsync(NodeId conditionId, byte[] eventId, string comment, CancellationToken cancellationToken = default)
     {
         var session = RequireSession();
-        var request = new CallMethodRequestCollection
+        var request = new List<CallMethodRequest>
         {
             new CallMethodRequest
             {
@@ -118,7 +118,7 @@ public sealed partial class OpcUaClient : IEventSource
         var response = await session.CallAsync(null, request, cancellationToken).ConfigureAwait(false);
         if (response.Results.Count > 0 && StatusCode.IsBad(response.Results[0].StatusCode))
         {
-            var argument = response.Results[0].InputArgumentResults.FirstOrDefault(StatusCode.IsBad);
+            var argument = response.Results[0].InputArgumentResults.ToList().FirstOrDefault(StatusCode.IsBad);
             throw new ServiceResultException(argument is { } bad && StatusCode.IsBad(bad) ? bad : response.Results[0].StatusCode);
         }
     }
@@ -142,9 +142,9 @@ public sealed partial class OpcUaClient : IEventSource
             fields[3].AsBoxedObject() is DateTimeUtc time ? time.ToDateTime() : DateTime.UtcNow,
             fields[5].AsBoxedObject() is ushort severity ? severity : (ushort)0,
             fields[2].AsBoxedObject() as string ?? string.Empty,
-            fields[4].AsBoxedObject() is LocalizedText message ? message.Text : string.Empty,
+            fields[4].AsBoxedObject() is LocalizedText message ? message.Text ?? string.Empty : string.Empty,
             typeName,
-            fields[0].AsBoxedObject() is ByteString eventId ? (byte[])eventId : null,
+            fields[0].AsBoxedObject() is ByteString eventId ? eventId.Memory.ToArray() : null,
             fields[ConditionIdField].AsBoxedObject() is NodeId conditionId && !conditionId.IsNull ? conditionId : null,
             fields[6].AsBoxedObject() as string,
             fields[8].AsBoxedObject() is bool active ? active : null,

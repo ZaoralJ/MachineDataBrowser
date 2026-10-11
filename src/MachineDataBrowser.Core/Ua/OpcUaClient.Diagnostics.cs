@@ -15,9 +15,9 @@ public sealed partial class OpcUaClient : IConnectionDiagnosticsSource
         var endpoint = session.Endpoint;
         var info = new List<(string, string)>
         {
-            ("Endpoint", endpoint.EndpointUrl),
+            ("Endpoint", endpoint.EndpointUrl ?? string.Empty),
             ("Server", ServerUri ?? string.Empty),
-            ("Security", $"{endpoint.SecurityMode} · {SecurityPolicies.GetDisplayName(endpoint.SecurityPolicyUri) ?? endpoint.SecurityPolicyUri}"),
+            ("Security", $"{endpoint.SecurityMode} · {SecurityPolicies.Default.GetDisplayName(endpoint.SecurityPolicyUri ?? string.Empty) ?? endpoint.SecurityPolicyUri ?? string.Empty}"),
             ("User", session.Identity?.DisplayName ?? "Anonymous"),
             ("Session", $"{session.SessionName} · timeout {DiagnosticsFormat.Duration(session.SessionTimeout)}"),
             ("Connected since", DiagnosticsFormat.Since(_connectedAt)),
@@ -30,7 +30,7 @@ public sealed partial class OpcUaClient : IConnectionDiagnosticsSource
         try
         {
             var read = await session.ReadAsync(null, 0, TimestampsToReturn.Neither,
-                new ReadValueIdCollection
+                new List<ReadValueId>
                 {
                     new ReadValueId { NodeId = VariableIds.Server_ServerStatus_State, AttributeId = Attributes.Value },
                     new ReadValueId { NodeId = VariableIds.Server_ServerStatus_CurrentTime, AttributeId = Attributes.Value },
@@ -39,7 +39,7 @@ public sealed partial class OpcUaClient : IConnectionDiagnosticsSource
                     new ReadValueId { NodeId = VariableIds.Server_ServerStatus_BuildInfo_SoftwareVersion, AttributeId = Attributes.Value },
                 },
                 cancellationToken).ConfigureAwait(false);
-            var values = read.Results.Select(r => StatusCode.IsGood(r.StatusCode) ? r.Value : null).ToList();
+            var values = read.Results.ToList().Select(r => StatusCode.IsGood(r.StatusCode) ? r.WrappedValue.AsBoxedObject() : null).ToList();
             if (values[0] is int state)
             {
                 info.Add(("Server state", ((ServerState)state).ToString()));

@@ -71,8 +71,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
 
     public string ToPortableId(NodeId nodeId)
     {
-        ArgumentNullException.ThrowIfNull(nodeId);
-        return nodeId.Identifier as string ?? nodeId.ToString();
+        return nodeId.IdentifierAsString;
     }
 
     public string ToDisplayId(NodeId nodeId) => ToPortableId(nodeId);
@@ -308,7 +307,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
             var id = Id(nodeId);
             if (!(id.StartsWith("t:", StringComparison.Ordinal) || id.StartsWith("m:", StringComparison.Ordinal)))
             {
-                results.Add(new MonitorResult(nodeId, null, new ServiceResult(StatusCodes.BadNodeIdInvalid, $"'{id}' is a folder, not a value.")));
+                results.Add(new MonitorResult(nodeId, null, ServiceResult.Create(StatusCodes.BadNodeIdInvalid, $"'{id}' is a folder, not a value.")));
                 continue;
             }
 
@@ -359,8 +358,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
 
     private static string Id(NodeId nodeId)
     {
-        ArgumentNullException.ThrowIfNull(nodeId);
-        return nodeId.Identifier as string ?? throw new ServiceResultException(StatusCodes.BadNodeIdInvalid, $"'{nodeId}' is not an MQTT node id.");
+        return nodeId.IdentifierAsString;
     }
 
     private static MqttClientOptions BuildOptions(MqttEndpoint endpoint, ConnectOptions options)

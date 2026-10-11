@@ -44,13 +44,13 @@ public sealed partial class OpcUaClient
 
     private async Task<DataValue> DecodeStructuresAsync(DataValue dv, CancellationToken cancellationToken)
     {
-        if (!StructureTypes.HasUndecoded(dv.Value))
+        if (!StructureTypes.HasUndecoded(dv.WrappedValue.AsBoxedObject()))
         {
             return dv;
         }
 
-        var decoded = await DecodeStructuresAsync(dv.Value, cancellationToken).ConfigureAwait(false);
-        return new DataValue(new Variant(decoded), dv.StatusCode, dv.SourceTimestamp, dv.ServerTimestamp);
+        var decoded = await DecodeStructuresAsync(dv.WrappedValue.AsBoxedObject(), cancellationToken).ConfigureAwait(false);
+        return new DataValue(ValueFormatter.ToVariant(decoded), dv.StatusCode, dv.SourceTimestamp, dv.ServerTimestamp);
     }
 
     /// <summary>
@@ -58,9 +58,9 @@ public sealed partial class OpcUaClient
     /// all at connect (<see cref="ComplexTypeSystem.LoadAsync"/>) took ~40 s on a FactoryTalk Linx server with a few
     /// hundred controller UDTs, most of which the user never looks at.
     /// </summary>
-    private sealed class StructureTypes(ISession session)
+    private sealed class StructureTypes(ISession session) : IDisposable
     {
-        private readonly ComplexTypeSystem _system = new(session, Telemetry);
+        private readonly ComplexTypeSystem _system = ComplexTypeSystem.Create(session, Telemetry);
         private readonly ConcurrentDictionary<ExpandedNodeId, Lazy<Task>> _loads = new();
 
         // ComplexTypeSystem isn't safe for concurrent loads (they share its caches), so they run one after another.
@@ -69,6 +69,8 @@ public sealed partial class OpcUaClient
 
         public ISession Session => session;
 
+        public void Dispose() => _system.Dispose();
+
         public static bool HasUndecoded(object? value) => value switch
         {
             ExtensionObject eo => IsUndecoded(eo),
@@ -76,7 +78,8 @@ public sealed partial class OpcUaClient
             _ => false,
         };
 
-        private static bool IsUndecoded(ExtensionObject? eo) => eo is { Body: byte[] } && !NodeId.IsNull(eo.TypeId);
+        private static bool IsUndecoded(ExtensionObject eo) =>
+            eo.TryGetAsBinary(out ByteString bytes) && !bytes.IsNull && !eo.TypeId.IsNull;
 
         public async Task LoadAsync(object? value, CancellationToken cancellationToken)
         {
@@ -88,7 +91,7 @@ public sealed partial class OpcUaClient
             };
 
             // Shared between callers, so it runs to completion even if this caller gives up.
-            foreach (var encodingId in encodings.Where(IsUndecoded).Select(e => e.TypeId).Distinct())
+            foreach (var encodingId in encodings.Where(e => IsUndecoded(e)).Select(e => e.TypeId).Distinct())
             {
                 if (session.Factory.GetSystemType(encodingId) is null)
                 {
@@ -113,7 +116,7 @@ public sealed partial class OpcUaClient
             try
             {
                 // Values carry the encoding id; the type system wants the data type it encodes.
-                var browse = new BrowseDescriptionCollection
+                var browse = new List<BrowseDescription>
                 {
                     new BrowseDescription
                     {
@@ -149,13 +152,16 @@ public sealed partial class OpcUaClient
                 return;
             }
 
-            var read = new ReadValueIdCollection { new ReadValueId { NodeId = dataTypeId, AttributeId = Attributes.DataTypeDefinition } };
+            var read = new List<ReadValueId> { new ReadValueId { NodeId = dataTypeId, AttributeId = Attributes.DataTypeDefinition } };
             var response = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, read, CancellationToken.None).ConfigureAwait(false);
 
             // Servers without DataTypeDefinition (pre-1.04) describe types in dictionaries, which LoadTypeAsync reads itself.
-            if (response.Results is [{ Value: ExtensionObject { Body: StructureDefinition definition } }, ..])
+            if (response.Results is [{ } result]
+                && result.WrappedValue.AsBoxedObject() is ExtensionObject encoded
+                && encoded.TryGetValue(out IEncodeable? body)
+                && body is StructureDefinition definition)
             {
-                foreach (var field in definition.Fields.Where(f => f.DataType.NamespaceIndex != 0).DistinctBy(f => f.DataType))
+                foreach (var field in definition.Fields.ToList().Where(f => f.DataType.NamespaceIndex != 0).DistinctBy(f => f.DataType))
                 {
                     await LoadWithFieldTypesAsync(field.DataType, visited).ConfigureAwait(false);
                 }
@@ -182,7 +188,8 @@ public sealed partial class OpcUaClient
 
             try
             {
-                using var decoder = new BinaryDecoder((byte[])eo.Body, session.MessageContext);
+                _ = eo.TryGetAsBinary(out ByteString bytes);
+                using var decoder = new BinaryDecoder(bytes.Memory.ToArray(), session.MessageContext);
                 body.Decode(decoder);
                 return new ExtensionObject(eo.TypeId, body);
             }

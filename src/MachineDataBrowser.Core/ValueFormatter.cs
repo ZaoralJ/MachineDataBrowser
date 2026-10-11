@@ -7,13 +7,16 @@ public static class ValueFormatter
 {
     private const int MaxArrayItems = 32;
 
-    public static string Format(Variant value) => FormatObject(value.Value);
+    internal static Variant ToVariant(object? value) =>
+        value is null ? Variant.Null : Variant.From((dynamic)value);
 
-    public static double? ToNumeric(Variant value) => value.Value switch
+    public static string Format(Variant value) => FormatObject(value.AsBoxedObject());
+
+    public static double? ToNumeric(Variant value) => value.AsBoxedObject() switch
     {
         bool b => b ? 1 : 0,
         sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal =>
-            Convert.ToDouble(value.Value, CultureInfo.InvariantCulture),
+            Convert.ToDouble(value.AsBoxedObject(), CultureInfo.InvariantCulture),
         _ => null,
     };
 
@@ -39,11 +42,15 @@ public static class ValueFormatter
         return $"[{string.Join(", ", items)}{suffix}]";
     }
 
-    private static string FormatExtensionObject(ExtensionObject eo) => eo.Body switch
+    private static string FormatExtensionObject(ExtensionObject eo)
     {
-        // Decoded structure (built-in or loaded via ComplexTypeSystem): its ToString lists fields.
-        IEncodeable encodeable => encodeable.ToString() ?? encodeable.GetType().Name,
-        byte[] raw => $"ExtensionObject {eo.TypeId} (undecoded, {raw.Length} bytes)",
-        _ => eo.ToString() ?? "ExtensionObject",
-    };
+        if (eo.TryGetValue(out IEncodeable? encodeable))
+        {
+            return encodeable.ToString() ?? encodeable.GetType().Name;
+        }
+
+        return eo.TryGetAsBinary(out ByteString raw)
+            ? $"ExtensionObject {eo.TypeId} (undecoded, {raw.Length} bytes)"
+            : eo.ToString() ?? "ExtensionObject";
+    }
 }

@@ -85,7 +85,6 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
     /// <summary>The familiar <c>ns=1;s=...</c> form.</summary>
     public string ToDisplayId(NodeId nodeId)
     {
-        ArgumentNullException.ThrowIfNull(nodeId);
         return nodeId.ToString();
     }
 
@@ -146,7 +145,8 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
                     Telemetry,
                     cancellationToken).ConfigureAwait(false);
 
-                var endpoint = new ConfiguredEndpoint(null, description, EndpointConfiguration.Create(config));
+                var endpoint = new ConfiguredEndpoint(null,
+                    description ?? throw new ServiceResultException(StatusCodes.BadServerNotConnected), EndpointConfiguration.Create(config));
 
                 IUserIdentity identity = string.IsNullOrEmpty(options.UserName)
                     ? new UserIdentity(new AnonymousIdentityToken())
@@ -159,7 +159,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
                     ClientConfiguration.ApplicationName,
                     options.SessionTimeoutMs,
                     identity,
-                    null,
+                    [],
                     cancellationToken).ConfigureAwait(false);
 
                 session.DeleteSubscriptionsOnClose = true;
@@ -243,7 +243,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             return [];
         }
 
-        var children = references[0]
+        var children = references[0].ToList()
             .Where(r => !r.NodeId.IsAbsolute)
             .Select(r => (Reference: r, NodeId: ExpandedNodeId.ToNodeId(r.NodeId, session.NamespaceUris)))
             .ToList();
@@ -255,8 +255,8 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
         return children
             .Select((c, i) => new BrowseItem(
                 c.NodeId,
-                c.Reference.DisplayName?.Text ?? c.Reference.BrowseName?.Name ?? c.Reference.NodeId.ToString(),
-                c.Reference.BrowseName?.ToString() ?? string.Empty,
+                c.Reference.DisplayName.Text ?? c.Reference.BrowseName.Name ?? c.Reference.NodeId.ToString(),
+                    c.Reference.BrowseName.ToString(),
                 c.Reference.NodeClass,
                 hasChildren?[i] ?? true))
             .ToList();
@@ -286,13 +286,17 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
                 return [];
             }
 
-            var parents = references[0].Select(r => ExpandedNodeId.ToNodeId(r.NodeId, session.NamespaceUris)).Where(p => p is not null && !path.Contains(p)).ToList();
+            var parents = references[0].ToList()
+                .Select(r => ExpandedNodeId.ToNodeId(r.NodeId, session.NamespaceUris))
+                .Where(p => !p.IsNull && !path.Contains(p))
+                .ToList();
             if (parents.Count == 0)
             {
                 return [];
             }
 
-            current = parents.FirstOrDefault(p => p == ObjectIds.ObjectsFolder || p == ObjectIds.RootFolder) ?? parents[0];
+            var preferred = parents.FirstOrDefault(p => p == ObjectIds.ObjectsFolder || p == ObjectIds.RootFolder);
+            current = preferred.IsNull ? parents[0] : preferred;
             path.Insert(0, current);
         }
 
@@ -327,7 +331,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
                 result[i] = failed || truncated || referenceLists[i].Count > 0;
             }
 
-            var pending = new List<ByteString>(continuationPoints.Where(cp => cp is { Length: > 0 }));
+            var pending = continuationPoints.ToList().Where(cp => !cp.IsNull && !cp.IsEmpty).ToList();
             if (pending.Count > 0)
             {
                 await session.BrowseNextAsync(null, pending, true, cancellationToken).ConfigureAwait(false);
@@ -346,7 +350,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
     {
         var session = RequireSession();
 
-        var toRead = new ReadValueIdCollection(
+        var toRead = new List<ReadValueId>(
             DisplayedAttributes.Select(a => new ReadValueId { NodeId = nodeId, AttributeId = a.Id }));
 
         var response = await session.ReadAsync(null, 0, TimestampsToReturn.Both, toRead, cancellationToken)
@@ -367,7 +371,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             {
                 text = dv.StatusCode.ToString();
             }
-            else if (attributeId == Attributes.DataType && dv.Value is NodeId dataType)
+            else if (attributeId == Attributes.DataType && dv.WrappedValue.AsBoxedObject() is NodeId dataType)
             {
                 var name = await session.NodeCache.GetDisplayTextAsync(dataType, cancellationToken).ConfigureAwait(false);
                 text = string.IsNullOrEmpty(name) ? dataType.ToString() : $"{name} ({dataType})";
@@ -375,8 +379,8 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             else
             {
                 var value = attributeId == Attributes.Value
-                    ? await DecodeStructuresAsync(dv.Value, cancellationToken).ConfigureAwait(false)
-                    : dv.Value;
+                    ? await DecodeStructuresAsync(dv.WrappedValue.AsBoxedObject(), cancellationToken).ConfigureAwait(false)
+                    : dv.WrappedValue.AsBoxedObject();
                 text = FormatAttribute(attributeId, value);
             }
 
@@ -429,7 +433,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
 
                 lock (pendingLock)
                 {
-                    if (!pending.IsCompleted || StructureTypes.HasUndecoded(dv.Value))
+                    if (!pending.IsCompleted || StructureTypes.HasUndecoded(dv.WrappedValue.AsBoxedObject()))
                     {
                         pending = DeliverAfterAsync(pending, monitoredItem.StartNodeId, dv);
                         return;
@@ -468,7 +472,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
                     dv.SourceTimestamp.ToDateTime(),
                     dv.ServerTimestamp.ToDateTime(),
                     ValueFormatter.ToNumeric(dv.WrappedValue),
-                    dv.WrappedValue.Value);
+                    dv.WrappedValue.AsBoxedObject());
             }
             catch (Exception ex) when (Errors.IsRecoverable(ex))
             {
@@ -519,12 +523,12 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
         var result = new List<object?>(nodeIds.Count);
         foreach (var chunk in nodeIds.Chunk(500))
         {
-            var toRead = new ReadValueIdCollection(chunk.Select(id => new ReadValueId { NodeId = id, AttributeId = Attributes.Value }));
+            var toRead = new List<ReadValueId>(chunk.Select(id => new ReadValueId { NodeId = id, AttributeId = Attributes.Value }));
             var response = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, toRead, cancellationToken).ConfigureAwait(false);
             for (var i = 0; i < chunk.Length; i++)
             {
                 result.Add(i < response.Results.Count && !StatusCode.IsBad(response.Results[i].StatusCode)
-                    ? await DecodeStructuresAsync(response.Results[i].Value, cancellationToken).ConfigureAwait(false)
+                    ? await DecodeStructuresAsync(response.Results[i].WrappedValue.AsBoxedObject(), cancellationToken).ConfigureAwait(false)
                     : null);
             }
         }
@@ -537,7 +541,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
         ArgumentNullException.ThrowIfNull(text);
         var session = RequireSession();
 
-        var toRead = new ReadValueIdCollection
+        var toRead = new List<ReadValueId>
         {
             new ReadValueId { NodeId = nodeId, AttributeId = Attributes.Value },
             new ReadValueId { NodeId = nodeId, AttributeId = Attributes.DataType },
@@ -548,15 +552,15 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
         var current = read.Results[0];
         BuiltInType type;
         bool isArray;
-        if (!StatusCode.IsBad(current.StatusCode) && current.Value is not null)
+        if (!StatusCode.IsBad(current.StatusCode) && !current.WrappedValue.IsNull)
         {
             type = current.WrappedValue.TypeInfo.BuiltInType;
             isArray = current.WrappedValue.TypeInfo.ValueRank >= ValueRanks.OneDimension;
         }
-        else if (read.Results[1].Value is NodeId dataType)
+        else if (read.Results[1].WrappedValue.AsBoxedObject() is NodeId dataType)
         {
             type = TypeInfo.GetBuiltInType(dataType, session.TypeTree);
-            isArray = read.Results[2].Value is int rank && rank >= ValueRanks.OneDimension;
+            isArray = read.Results[2].WrappedValue.AsBoxedObject() is int rank && rank >= ValueRanks.OneDimension;
         }
         else
         {
@@ -564,9 +568,9 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
         }
 
         var value = ValueParser.Parse(text, type, isArray);
-        var toWrite = new WriteValueCollection
+        var toWrite = new List<WriteValue>
         {
-            new WriteValue { NodeId = nodeId, AttributeId = Attributes.Value, Value = new DataValue(new Variant(value)) },
+            new WriteValue { NodeId = nodeId, AttributeId = Attributes.Value, Value = new DataValue(ValueFormatter.ToVariant(value)) },
         };
         var response = await session.WriteAsync(null, toWrite, cancellationToken).ConfigureAwait(false);
         if (response.Results.Count > 0 && StatusCode.IsBad(response.Results[0]))
@@ -788,6 +792,9 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             }
         }
 
+        _structureTypes?.Dispose();
+        _structureTypes = null;
+
         if (_applicationInstance is { } instance)
         {
             _applicationInstance = null;
@@ -810,7 +817,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             _ => rank.ToString(System.Globalization.CultureInfo.InvariantCulture),
         },
         Attributes.AccessLevel or Attributes.UserAccessLevel when value is byte access => FormatAccessLevel(access),
-        _ => ValueFormatter.Format(new Variant(value)),
+        _ => ValueFormatter.Format(ValueFormatter.ToVariant(value)),
     };
 
     private static string FormatAccessLevel(byte access)
