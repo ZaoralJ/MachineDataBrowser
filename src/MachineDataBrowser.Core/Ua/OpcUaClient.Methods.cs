@@ -23,7 +23,7 @@ public sealed partial class OpcUaClient : IMethodCaller
             throw new ArgumentException($"The method takes {signature.Inputs.Count} argument(s), {inputs.Count} given.", nameof(inputs));
         }
 
-        var arguments = new VariantCollection();
+        var arguments = new List<Variant>();
         for (var i = 0; i < inputs.Count; i++)
         {
             var argument = signature.Inputs[i];

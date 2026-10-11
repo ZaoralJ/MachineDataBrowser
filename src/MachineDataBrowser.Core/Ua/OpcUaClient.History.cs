@@ -22,7 +22,7 @@ public sealed partial class OpcUaClient : IHistorySource
 
         var values = new List<ValueUpdate>();
         DateTime? pagedAfter = null;
-        byte[]? continuation = null;
+        ByteString continuation = ByteString.Null;
         var truncated = false;
         do
         {
@@ -35,7 +35,7 @@ public sealed partial class OpcUaClient : IHistorySource
                 throw new ServiceResultException(result.StatusCode);
             }
 
-            continuation = result.ContinuationPoint is { Length: > 0 } cp ? cp : null;
+            continuation = result.ContinuationPoint;
             var page = 0;
             var before = values.Count;
             if (ExtensionObject.ToEncodeable(result.HistoryData) is HistoryData data)
@@ -54,8 +54,8 @@ public sealed partial class OpcUaClient : IHistorySource
                         nodeId,
                         ValueFormatter.Format(decoded.WrappedValue),
                         dv.StatusCode,
-                        dv.SourceTimestamp,
-                        dv.ServerTimestamp,
+                        dv.SourceTimestamp.ToDateTime(),
+                        dv.ServerTimestamp.ToDateTime(),
                         ValueFormatter.ToNumeric(decoded.WrappedValue),
                         decoded.WrappedValue.Value));
                 }
@@ -67,7 +67,7 @@ public sealed partial class OpcUaClient : IHistorySource
                 break;
             }
 
-            if (continuation is not null)
+            if (!continuation.IsEmpty)
             {
                 continue;
             }

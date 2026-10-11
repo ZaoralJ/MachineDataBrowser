@@ -4,8 +4,9 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- OPC UA -->
-    <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.Client" Version="1.5.378.176" />
-    <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.Client.ComplexTypes" Version="1.5.378.176" />
+    <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.Client" Version="2.0.0" />
+    <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.Client.ComplexTypes" Version="2.0.0" />
+    <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.MigrationAnalyzer" Version="2.0.0" />
     <!-- EtherNet/IP (CIP) -->
     <PackageVersion Include="libplctag" Version="1.5.2" />
     <PackageVersion Include="MQTTnet" Version="5.2.0.1603" />

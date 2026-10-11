@@ -17,27 +17,34 @@ public sealed partial class OpcUaClient
     public static async Task<IReadOnlyList<EndpointInfo>> GetEndpointsAsync(string endpointUrl, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(endpointUrl);
-        var config = await ClientConfiguration.CreateAsync(Telemetry, _ => false, cancellationToken).ConfigureAwait(false);
-        using var discovery = await DiscoveryClient.CreateAsync(config, new Uri(endpointUrl), DiagnosticsMasks.None, cancellationToken).ConfigureAwait(false);
-        EndpointDescriptionCollection endpoints;
+        var (config, instance) = await ClientConfiguration.CreateAsync(Telemetry, (_, _) => false, cancellationToken).ConfigureAwait(false);
         try
         {
-            endpoints = await discovery.GetEndpointsAsync(null, cancellationToken).ConfigureAwait(false);
+            using var discovery = await DiscoveryClient.CreateAsync(config, new Uri(endpointUrl), DiagnosticsMasks.None, cancellationToken).ConfigureAwait(false);
+            EndpointDescriptionCollection endpoints;
+            try
+            {
+                endpoints = await discovery.GetEndpointsAsync(null, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                await discovery.CloseAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+
+            return [.. endpoints
+                .OrderByDescending(e => e.SecurityLevel)
+                .Select(e => new EndpointInfo(
+                    e.EndpointUrl,
+                    e.SecurityMode.ToString(),
+                    SecurityPolicies.GetDisplayName(e.SecurityPolicyUri) ?? e.SecurityPolicyUri,
+                    e.SecurityLevel,
+                    [.. (e.UserIdentityTokens ?? []).Select(t => t.TokenType.ToString()).Distinct()],
+                    e.ServerCertificate is { Length: > 0 } raw ? Thumbprint(raw) : null))];
         }
         finally
         {
-            await discovery.CloseAsync(CancellationToken.None).ConfigureAwait(false);
+            await instance.DisposeAsync().ConfigureAwait(false);
         }
-
-        return [.. endpoints
-            .OrderByDescending(e => e.SecurityLevel)
-            .Select(e => new EndpointInfo(
-                e.EndpointUrl,
-                e.SecurityMode.ToString(),
-                SecurityPolicies.GetDisplayName(e.SecurityPolicyUri) ?? e.SecurityPolicyUri,
-                e.SecurityLevel,
-                [.. (e.UserIdentityTokens ?? []).Select(t => t.TokenType.ToString()).Distinct()],
-                e.ServerCertificate is { Length: > 0 } raw ? Thumbprint(raw) : null))];
     }
 
     private static string Thumbprint(byte[] certificate)

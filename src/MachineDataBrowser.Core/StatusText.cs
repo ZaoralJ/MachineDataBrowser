@@ -10,5 +10,5 @@ public static class StatusText
     /// the hex code is the last resort.
     /// </summary>
     public static string Of(StatusCode status) =>
-        status.SymbolicId ?? (StatusCodes.GetBrowseName(status.Code) is { Length: > 0 } name ? name : status.ToString());
+        status.SymbolicId ?? status.ToString();
 }

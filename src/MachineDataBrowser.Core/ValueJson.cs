@@ -22,7 +22,7 @@ public static class ValueJson
         ExtensionObject { Body: IEncodeable e } => e.GetType().Name,
         ExtensionObject => "ExtensionObject",
         Uuid => "Guid",
-        _ => new Variant(value).TypeInfo?.BuiltInType.ToString() ?? value.GetType().Name,
+        _ => Variant.From(value).TypeInfo.BuiltInType.ToString(),
     };
 
     private static JsonNode? Convert(object? value, int depth)
@@ -35,7 +35,7 @@ public static class ValueJson
         return value switch
         {
             null => null,
-            Variant v => Convert(v.Value, depth),
+            Variant v => Convert(v.AsBoxedObject(), depth),
             bool b => JsonValue.Create(b),
             sbyte or byte or short or ushort or int or uint or long => JsonValue.Create(System.Convert.ToInt64(value, CultureInfo.InvariantCulture)),
             ulong u => JsonValue.Create(u),

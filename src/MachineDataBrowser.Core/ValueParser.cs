@@ -28,7 +28,7 @@ public static class ValueParser
         }
 
         var parts = body.Trim().Length == 0 ? [] : body.Split(',').Select(p => p.Trim()).ToArray();
-        var elements = Array.CreateInstance(TypeInfo.GetSystemType(type, ValueRanks.Scalar), parts.Length);
+        var elements = Array.CreateInstance(TypeInfo.GetSystemType(type).Type, parts.Length);
         for (var i = 0; i < parts.Length; i++)
         {
             elements.SetValue(ParseScalar(parts[i], type), i);
@@ -60,7 +60,7 @@ public static class ValueParser
                 BuiltInType.DateTime => DateTime.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeLocal),
                 BuiltInType.Float => float.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture),
                 BuiltInType.Double => double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture),
-                _ => TypeInfo.Cast(text, type) ?? throw new FormatException(),
+                _ => System.Convert.ChangeType(text, TypeInfo.GetSystemType(type).Type, CultureInfo.InvariantCulture),
             };
         }
         catch (Exception ex) when (ex is FormatException or OverflowException or InvalidCastException or ServiceResultException)

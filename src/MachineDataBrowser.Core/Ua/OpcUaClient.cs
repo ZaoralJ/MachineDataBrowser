@@ -1,6 +1,8 @@
 using Opc.Ua;
 using Opc.Ua.Client;
 using Opc.Ua.Client.ComplexTypes;
+using Opc.Ua.Configuration;
+using Opc.Ua.Security.Certificates;
 
 namespace MachineDataBrowser.Core.Ua;
 
@@ -33,6 +35,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
 
     private readonly SemaphoreSlim _gate = new(1, 1);
     private ISession? _session;
+    private ApplicationInstance? _applicationInstance;
     private readonly Dictionary<int, Subscription> _subscriptions = [];
     private SessionReconnectHandler? _reconnectHandler;
     private ConnectionState _state = ConnectionState.Disconnected;
@@ -91,8 +94,10 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
     {
         var session = RequireSession();
         var expanded = ExpandedNodeId.Parse(text);
-        return ExpandedNodeId.ToNodeId(expanded, session.NamespaceUris)
-            ?? throw new ServiceResultException(StatusCodes.BadNodeIdUnknown, $"Namespace of '{text}' is not known by this server.");
+        var nodeId = ExpandedNodeId.ToNodeId(expanded, session.NamespaceUris);
+        return nodeId.IsNull
+            ? throw new ServiceResultException(StatusCodes.BadNodeIdUnknown, $"Namespace of '{text}' is not known by this server.")
+            : nodeId;
     }
 
     public async Task ConnectAsync(ConnectOptions options, CancellationToken cancellationToken = default)
@@ -107,63 +112,73 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
 
             var accepted = options.AcceptedCertificateThumbprints;
             LastUntrustedCertificate = null;
-            var config = await ClientConfiguration.CreateAsync(
+            var (config, applicationInstance) = await ClientConfiguration.CreateAsync(
                 Telemetry,
-                e =>
+                (certificate, error) =>
                 {
                     // The trusted store doesn't lift policy failures, so a certificate trusted "always" is checked here.
                     if (options.AutoAcceptUntrustedCertificates
-                        || accepted.Contains(e.Certificate.Thumbprint, StringComparer.OrdinalIgnoreCase)
-                        || ClientConfiguration.IsTrusted(e.Certificate.Thumbprint))
+                        || accepted.Contains(certificate.Thumbprint, StringComparer.OrdinalIgnoreCase)
+                        || ClientConfiguration.IsTrusted(certificate.Thumbprint))
                     {
                         return true;
                     }
 
                     LastUntrustedCertificate = new ServerCertificate(
-                        e.Certificate.Subject,
-                        e.Certificate.Issuer,
-                        e.Certificate.Thumbprint,
-                        e.Certificate.NotBefore,
-                        e.Certificate.NotAfter,
-                        e.Error.LocalizedText?.Text is { Length: > 0 } text ? text : e.Error.StatusCode.ToString(),
-                        e.Certificate.RawData);
+                        certificate.Subject,
+                        certificate.Issuer,
+                        certificate.Thumbprint,
+                        certificate.NotBefore,
+                        certificate.NotAfter,
+                        error.LocalizedText.Text is { Length: > 0 } text ? text : error.StatusCode.ToString(),
+                        certificate.RawData);
                     return false;
                 },
                 cancellationToken).ConfigureAwait(false);
 
-            var description = await CoreClientUtils.SelectEndpointAsync(
-                config,
-                options.EndpointUrl,
-                options.UseSecurity,
-                Telemetry,
-                cancellationToken).ConfigureAwait(false);
+            _applicationInstance = applicationInstance;
+            try
+            {
+                var description = await CoreClientUtils.SelectEndpointAsync(
+                    config,
+                    options.EndpointUrl,
+                    options.UseSecurity,
+                    Telemetry,
+                    cancellationToken).ConfigureAwait(false);
 
-            var endpoint = new ConfiguredEndpoint(null, description, EndpointConfiguration.Create(config));
+                var endpoint = new ConfiguredEndpoint(null, description, EndpointConfiguration.Create(config));
 
-            IUserIdentity identity = string.IsNullOrEmpty(options.UserName)
-                ? new UserIdentity(new AnonymousIdentityToken())
-                : new UserIdentity(options.UserName, System.Text.Encoding.UTF8.GetBytes(options.Password ?? string.Empty));
+                IUserIdentity identity = string.IsNullOrEmpty(options.UserName)
+                    ? new UserIdentity(new AnonymousIdentityToken())
+                    : new UserIdentity(options.UserName, System.Text.Encoding.UTF8.GetBytes(options.Password ?? string.Empty));
 
-            var session = await new DefaultSessionFactory(Telemetry).CreateAsync(
-                config,
-                endpoint,
-                updateBeforeConnect: false,
-                ClientConfiguration.ApplicationName,
-                options.SessionTimeoutMs,
-                identity,
-                null,
-                cancellationToken).ConfigureAwait(false);
+                var session = await new DefaultSessionFactory(Telemetry).CreateAsync(
+                    config,
+                    endpoint,
+                    updateBeforeConnect: false,
+                    ClientConfiguration.ApplicationName,
+                    options.SessionTimeoutMs,
+                    identity,
+                    null,
+                    cancellationToken).ConfigureAwait(false);
 
-            session.DeleteSubscriptionsOnClose = true;
-            session.TransferSubscriptionsOnReconnect = true;
-            session.KeepAlive += OnKeepAlive;
+                session.DeleteSubscriptionsOnClose = true;
+                session.TransferSubscriptionsOnReconnect = true;
+                session.KeepAlive += OnKeepAlive;
 
-            // Custom structure types load when a value first needs them (OpcUaClient.Structures.cs), not here.
-            _session = session;
-            _connectedAt = DateTime.UtcNow;
-            _reconnects = 0;
-            _lastReconnect = null;
-            State = ConnectionState.Connected;
+                // Custom structure types load when a value first needs them (OpcUaClient.Structures.cs), not here.
+                _session = session;
+                _connectedAt = DateTime.UtcNow;
+                _reconnects = 0;
+                _lastReconnect = null;
+                State = ConnectionState.Connected;
+            }
+            catch
+            {
+                await applicationInstance.DisposeAsync().ConfigureAwait(false);
+                _applicationInstance = null;
+                throw;
+            }
         }
         catch
         {
@@ -210,7 +225,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
         var (references, errors) = await session.ManagedBrowseAsync(
             null,
             null,
-            new NodeIdCollection { nodeId },
+            new List<NodeId> { nodeId },
             0,
             BrowseDirection.Forward,
             ReferenceTypeIds.HierarchicalReferences,
@@ -264,7 +279,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             }
 
             var (references, errors) = await session.ManagedBrowseAsync(
-                null, null, new NodeIdCollection { current }, 0, BrowseDirection.Inverse,
+                null, null, new List<NodeId> { current }, 0, BrowseDirection.Inverse,
                 ReferenceTypeIds.HierarchicalReferences, true, 0, cancellationToken).ConfigureAwait(false);
             if ((errors.Count > 0 && ServiceResult.IsBad(errors[0])) || references.Count == 0 || references[0].Count == 0)
             {
@@ -312,7 +327,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
                 result[i] = failed || truncated || referenceLists[i].Count > 0;
             }
 
-            var pending = new ByteStringCollection(continuationPoints.Where(cp => cp is { Length: > 0 }));
+            var pending = new List<ByteString>(continuationPoints.Where(cp => cp is { Length: > 0 }));
             if (pending.Count > 0)
             {
                 await session.BrowseNextAsync(null, pending, true, cancellationToken).ConfigureAwait(false);
@@ -450,14 +465,14 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
                     nodeId,
                     ValueFormatter.Format(dv.WrappedValue),
                     dv.StatusCode,
-                    dv.SourceTimestamp,
-                    dv.ServerTimestamp,
+                    dv.SourceTimestamp.ToDateTime(),
+                    dv.ServerTimestamp.ToDateTime(),
                     ValueFormatter.ToNumeric(dv.WrappedValue),
                     dv.WrappedValue.Value);
             }
             catch (Exception ex) when (Errors.IsRecoverable(ex))
             {
-                update = new ValueUpdate(nodeId, $"<cannot display value: {ex.Message}>", StatusCodes.BadDecodingError, dv.SourceTimestamp, dv.ServerTimestamp);
+                update = new ValueUpdate(nodeId, $"<cannot display value: {ex.Message}>", StatusCodes.BadDecodingError, dv.SourceTimestamp.ToDateTime(), dv.ServerTimestamp.ToDateTime());
             }
 
             try
@@ -771,6 +786,12 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             {
                 System.Diagnostics.Trace.TraceWarning($"Session dispose failed: {ex.Message}");
             }
+        }
+
+        if (_applicationInstance is { } instance)
+        {
+            _applicationInstance = null;
+            await instance.DisposeAsync().ConfigureAwait(false);
         }
 
         State = ConnectionState.Disconnected;
