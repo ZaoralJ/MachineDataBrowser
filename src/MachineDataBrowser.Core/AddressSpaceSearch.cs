@@ -1,10 +1,8 @@
 using System.Text.RegularExpressions;
-using Opc.Ua;
-
 namespace MachineDataBrowser.Core;
 
 /// <summary>One match of <see cref="AddressSpaceSearch.SearchAsync"/>: the node and the browse path to it.</summary>
-public sealed record SearchHit(BrowseItem Item, IReadOnlyList<NodeId> Path, IReadOnlyList<string> PathNames)
+public sealed record SearchHit(BrowseItem Item, IReadOnlyList<DeviceNodeId> Path, IReadOnlyList<string> PathNames)
 {
     /// <summary>"Objects › Boilers › Boiler #1" (without the start node).</summary>
     public string PathText => string.Join(" › ", PathNames);
@@ -50,12 +48,12 @@ public static class AddressSpaceSearch
         ArgumentNullException.ThrowIfNull(start);
         var matches = Matcher(query);
         var hits = new List<SearchHit>();
-        var visited = new HashSet<NodeId> { start.NodeId };
-        var level = new List<(BrowseItem Item, List<NodeId> Path, List<string> Names)> { (start, [start.NodeId], []) };
+        var visited = new HashSet<DeviceNodeId> { start.NodeId };
+        var level = new List<(BrowseItem Item, List<DeviceNodeId> Path, List<string> Names)> { (start, [start.NodeId], []) };
         var count = 0;
         for (var depth = 0; depth < maxDepth && level.Count > 0; depth++)
         {
-            var next = new List<(BrowseItem, List<NodeId>, List<string>)>();
+            var next = new List<(BrowseItem, List<DeviceNodeId>, List<string>)>();
             foreach (var (item, path, names) in level)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -64,7 +62,7 @@ public static class AddressSpaceSearch
                 {
                     children = await client.BrowseAsync(item.NodeId, cancellationToken).ConfigureAwait(false);
                 }
-                catch (ServiceResultException)
+                catch (DeviceClientException)
                 {
                     continue; // a node that cannot be browsed (access, removed) must not stop the search
                 }
@@ -76,7 +74,7 @@ public static class AddressSpaceSearch
                         continue;
                     }
 
-                    var childPath = new List<NodeId>(path) { child.NodeId };
+                    var childPath = new List<DeviceNodeId>(path) { child.NodeId };
                     var childNames = new List<string>(names) { child.DisplayName };
                     if (matches(child.DisplayName) || matches(client.ToDisplayId(child.NodeId)))
                     {

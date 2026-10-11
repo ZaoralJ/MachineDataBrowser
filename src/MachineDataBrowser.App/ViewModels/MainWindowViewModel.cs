@@ -3,7 +3,6 @@ using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Opc.Ua;
 using MachineDataBrowser.App.Services;
 using MachineDataBrowser.Core;
 using MachineDataBrowser.Core.Ua;
@@ -756,7 +755,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
             if (rejected.Count > 0)
             {
-                ErrorMessage = $"{rejected.Count} item(s) could not be monitored, e.g. {byNodeId[rejected[0].NodeId].DisplayName}: {rejected[0].Error.StatusCode.SymbolicId}";
+                ErrorMessage = $"{rejected.Count} item(s) could not be monitored, e.g. {byNodeId[rejected[0].NodeId].DisplayName}: {rejected[0].Error.StatusCode.Name}";
             }
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))

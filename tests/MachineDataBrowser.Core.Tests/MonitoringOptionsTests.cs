@@ -2,12 +2,13 @@ using System.Collections.Concurrent;
 using Opc.Ua;
 using MachineDataBrowser.Core.Ua;
 using Xunit;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 
 namespace MachineDataBrowser.Core.Tests;
 
 public sealed class MonitoringOptionsTests(OpcPlcFixture plc) : IAsyncLifetime
 {
-    private readonly OpcUaClient _client = new();
+    private readonly IDeviceClient _client = new OpcUaClient();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -18,7 +19,7 @@ public sealed class MonitoringOptionsTests(OpcPlcFixture plc) : IAsyncLifetime
 
     private async Task<NodeId> FindAsync(params string[] path)
     {
-        var node = ObjectIds.ObjectsFolder;
+        var node = NodeId.FromOpaque(ObjectIds.ObjectsFolder.ToString());
         foreach (var name in path)
         {
             node = (await _client.BrowseAsync(node, Ct)).Single(c => c.DisplayName == name).NodeId;
@@ -36,8 +37,9 @@ public sealed class MonitoringOptionsTests(OpcPlcFixture plc) : IAsyncLifetime
         var monitor = (await _client.MonitorManyAsync([stepUp], updates.Enqueue, 2000, Ct))[0].Handle!;
 
         // Publishing every 2 s with sampling 100 ms and a queue of 50: each publish carries ~20 values instead of one.
-        var results = await _client.ApplyMonitoringOptionsAsync([monitor], new MonitoringOptions { SamplingIntervalMs = 100, QueueSize = 50 }, Ct);
-        Assert.True(ServiceResult.IsGood(results[0]));
+        var settings = (IMonitoringSettings)_client;
+        var results = await settings.ApplyMonitoringOptionsAsync([monitor], new MonitoringOptions { SamplingIntervalMs = 100, QueueSize = 50 }, Ct);
+        Assert.True(results[0].StatusCode.IsGood);
         var revised = OpcUaClient.GetRevisedMonitoring(monitor)!.Value;
         Assert.Equal(50u, revised.QueueSize);
         updates.Clear();
@@ -45,7 +47,7 @@ public sealed class MonitoringOptionsTests(OpcPlcFixture plc) : IAsyncLifetime
         Assert.True(updates.Count >= 15, $"{updates.Count} updates with a queue; one per publish without it");
 
         // A deadband larger than any change: nothing arrives after the first value.
-        await _client.ApplyMonitoringOptionsAsync([monitor], new MonitoringOptions { Deadband = DeadbandKind.Absolute, DeadbandValue = 1e12 }, Ct);
+        await settings.ApplyMonitoringOptionsAsync([monitor], new MonitoringOptions { Deadband = DeadbandKind.Absolute, DeadbandValue = 1e12 }, Ct);
         await Task.Delay(2500, Ct);
         updates.Clear();
         await Task.Delay(4500, Ct);
@@ -60,8 +62,9 @@ public sealed class MonitoringOptionsTests(OpcPlcFixture plc) : IAsyncLifetime
         // StepUp has no EURange, so a percent deadband is not allowed.
         var stepUp = await FindAsync("OpcPlc", "Telemetry", "Basic", "StepUp");
         var monitor = (await _client.MonitorManyAsync([stepUp], _ => { }, 500, Ct))[0].Handle!;
-        var results = await _client.ApplyMonitoringOptionsAsync([monitor], new MonitoringOptions { Deadband = DeadbandKind.Percent, DeadbandValue = 5, QueueSize = 7 }, Ct);
-        Assert.True(ServiceResult.IsBad(results[0]));
+        var settings = (IMonitoringSettings)_client;
+        var results = await settings.ApplyMonitoringOptionsAsync([monitor], new MonitoringOptions { Deadband = DeadbandKind.Percent, DeadbandValue = 5, QueueSize = 7 }, Ct);
+        Assert.True(results[0].StatusCode.IsBad);
         Assert.Equal(1u, OpcUaClient.GetRevisedMonitoring(monitor)!.Value.QueueSize);
         await monitor.DisposeAsync();
     }

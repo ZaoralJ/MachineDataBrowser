@@ -2,7 +2,8 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Opc.Ua;
+using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 
 namespace MachineDataBrowser.Core.Mqtt;
 
@@ -530,15 +531,15 @@ internal sealed class MqttModel
                 var value = hash < 0 ? entry.Value : Resolve(entry.Value, rest[(hash + 1)..]);
                 if (hash >= 0 && value is null && !PointerExists(entry.Value, rest[(hash + 1)..]))
                 {
-                    return new ValueUpdate(Node(id), nameof(StatusCodes.BadNoData), StatusCodes.BadNoData, entry.ReceivedUtc, entry.ReceivedUtc);
+                    return new ValueUpdate(Node(id), nameof(DeviceStatusCodes.BadNoData), DeviceStatusCodes.BadNoData, entry.ReceivedUtc, entry.ReceivedUtc);
                 }
 
-                return Update(id, Plain(value), StatusCodes.Good, entry.ReceivedUtc, entry.ReceivedUtc);
+                return Update(id, Plain(value), DeviceStatusCodes.Good, entry.ReceivedUtc, entry.ReceivedUtc);
             }
 
             if (id.StartsWith("m:", StringComparison.Ordinal) && FindMetric(id) is var (container, metric))
             {
-                var status = container.Online ? StatusCodes.Good : StatusCodes.BadNoCommunication;
+                var status = container.Online ? DeviceStatusCodes.Good : DeviceStatusCodes.BadNoCommunication;
                 return Update(id, metric.IsNull ? null : metric.Value, status, metric.SourceUtc, metric.ReceivedUtc);
             }
 
@@ -662,7 +663,7 @@ internal sealed class MqttModel
                 var topic = hash < 0 ? rest : rest[..hash];
                 if (!_topics.TryGetValue(topic, out var entry))
                 {
-                    throw new ServiceResultException(StatusCodes.BadNotWritable, $"'{topic}' has no messages; only topics with a payload can be written.");
+                    throw new DeviceClientException(DeviceStatusCodes.BadNotWritable, $"'{topic}' has no messages; only topics with a payload can be written.");
                 }
 
                 byte[] payload;
@@ -674,7 +675,7 @@ internal sealed class MqttModel
                 {
                     if (entry.Value is not JsonNode document)
                     {
-                        throw new ServiceResultException(StatusCodes.BadNodeIdUnknown, $"'{topic}' no longer carries JSON.");
+                        throw new DeviceClientException(DeviceStatusCodes.BadNodeIdUnknown, $"'{topic}' no longer carries JSON.");
                     }
 
                     var copy = document.DeepClone();
@@ -689,12 +690,12 @@ internal sealed class MqttModel
             {
                 if (!container.Online)
                 {
-                    throw new ServiceResultException(StatusCodes.BadNoCommunication, $"{container.Group}/{container.Edge}{(container.Device.Length > 0 ? "/" + container.Device : string.Empty)} is offline.");
+                    throw new DeviceClientException(DeviceStatusCodes.BadNoCommunication, $"{container.Group}/{container.Edge}{(container.Device.Length > 0 ? "/" + container.Device : string.Empty)} is offline.");
                 }
 
-                if (SparkplugB.ToBuiltInType(metric.DataType) is not { } type)
+                if (SparkplugB.ToValueType(metric.DataType) is not { } type)
                 {
-                    throw new ServiceResultException(StatusCodes.BadNotWritable, $"Writing Sparkplug {SparkplugB.DataTypeName(metric.DataType)} metrics is not supported.");
+                    throw new DeviceClientException(DeviceStatusCodes.BadNotWritable, $"Writing Sparkplug {SparkplugB.DataTypeName(metric.DataType)} metrics is not supported.");
                 }
 
                 var value = ValueParser.Parse(text, type, isArray: false);
@@ -704,7 +705,7 @@ internal sealed class MqttModel
                 return new MqttWrite(commandTopic, SparkplugB.EncodeCommand(name, metric.Alias, metric.DataType, value, nowUtc), Retain: false, ContentType: null, UserProperties: []);
             }
 
-            throw new ServiceResultException(StatusCodes.BadNotWritable, "Only topics, JSON fields and Sparkplug metrics can be written.");
+            throw new DeviceClientException(DeviceStatusCodes.BadNotWritable, "Only topics, JSON fields and Sparkplug metrics can be written.");
         }
     }
 
@@ -714,9 +715,9 @@ internal sealed class MqttModel
         switch (current)
         {
             case double:
-                return Encoding.UTF8.GetBytes(((double)ValueParser.Parse(text, BuiltInType.Double, isArray: false)).ToString("R", CultureInfo.InvariantCulture));
+                return Encoding.UTF8.GetBytes(((double)ValueParser.Parse(text, DeviceDataType.Double, isArray: false)).ToString("R", CultureInfo.InvariantCulture));
             case bool:
-                return Encoding.UTF8.GetBytes((bool)ValueParser.Parse(text, BuiltInType.Boolean, isArray: false) ? "true" : "false");
+                return Encoding.UTF8.GetBytes((bool)ValueParser.Parse(text, DeviceDataType.Boolean, isArray: false) ? "true" : "false");
             case JsonNode:
                 try
                 {
@@ -767,7 +768,7 @@ internal sealed class MqttModel
         var parent = document;
         foreach (var segment in segments[..^1])
         {
-            parent = Child(parent, segment) ?? throw new ServiceResultException(StatusCodes.BadNodeIdUnknown, $"JSON field '{pointer}' no longer exists.");
+            parent = Child(parent, segment) ?? throw new DeviceClientException(DeviceStatusCodes.BadNodeIdUnknown, $"JSON field '{pointer}' no longer exists.");
         }
 
         var last = segments[^1];
@@ -775,13 +776,13 @@ internal sealed class MqttModel
         {
             JsonObject obj when obj.ContainsKey(last) => obj[last],
             JsonArray arr when int.TryParse(last, NumberStyles.None, CultureInfo.InvariantCulture, out var i) && i < arr.Count => arr[i],
-            _ => throw new ServiceResultException(StatusCodes.BadNodeIdUnknown, $"JSON field '{pointer}' no longer exists."),
+            _ => throw new DeviceClientException(DeviceStatusCodes.BadNodeIdUnknown, $"JSON field '{pointer}' no longer exists."),
         };
 
         JsonNode? replacement = current switch
         {
-            JsonValue v when v.TryGetValue<bool>(out _) => JsonValue.Create((bool)ValueParser.Parse(text, BuiltInType.Boolean, isArray: false)),
-            JsonValue v when v.TryGetValue<double>(out _) => JsonNode.Parse(((double)ValueParser.Parse(text, BuiltInType.Double, isArray: false)).ToString("R", CultureInfo.InvariantCulture)),
+            JsonValue v when v.TryGetValue<bool>(out _) => JsonValue.Create((bool)ValueParser.Parse(text, DeviceDataType.Boolean, isArray: false)),
+            JsonValue v when v.TryGetValue<double>(out _) => JsonNode.Parse(((double)ValueParser.Parse(text, DeviceDataType.Double, isArray: false)).ToString("R", CultureInfo.InvariantCulture)),
             JsonValue v when v.TryGetValue<string>(out _) => JsonValue.Create(Unquote(text)),
             _ => ParseJsonOrText(text),
         };
@@ -845,10 +846,9 @@ internal sealed class MqttModel
             : null;
     }
 
-    private static ValueUpdate Update(string id, object? value, StatusCode status, DateTime source, DateTime received)
+    private static ValueUpdate Update(string id, object? value, DeviceStatusCode status, DateTime source, DateTime received)
     {
-        var variant = ValueFormatter.ToVariant(value);
-        return new ValueUpdate(Node(id), StatusCode.IsBad(status) ? status.ToString() : Format(value), status, source, received, ValueFormatter.ToNumeric(variant), value);
+        return new ValueUpdate(Node(id), status.IsBad ? status.ToString() : Format(value), status, source, received, ValueFormatter.ToNumeric(value), value);
     }
 
     /// <summary>Plain CLR value of a payload or JSON node (JSON containers become compact JSON text).</summary>
@@ -865,7 +865,7 @@ internal sealed class MqttModel
     {
         null => "null",
         string s => s,
-        _ => ValueFormatter.Format(ValueFormatter.ToVariant(value)),
+        _ => ValueFormatter.Format(value),
     };
 
     /// <summary>

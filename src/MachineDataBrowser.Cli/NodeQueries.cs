@@ -1,5 +1,4 @@
 using MachineDataBrowser.Core;
-using Opc.Ua;
 
 namespace MachineDataBrowser.Cli;
 

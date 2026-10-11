@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Opc.Ua;
 using MachineDataBrowser.App.Services;
 using MachineDataBrowser.Core;
 

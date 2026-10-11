@@ -1,9 +1,10 @@
 using System.Buffers.Binary;
 using System.Text;
 using MachineDataBrowser.Core.Cip;
-using Opc.Ua;
 using Xunit;
 using MachineDataBrowser.Core.Ua;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
+using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
 
 namespace MachineDataBrowser.Core.Tests;
 
@@ -68,6 +69,15 @@ public sealed class LogixCodecTests
         Assert.Equal(new int[] { 7 }, LogixCodec.DecodeAtomic(LogixAtomic.Dint, BitConverter.GetBytes(7), 1, forceArray: true));
     }
 
+    [Fact]
+    public void Atomic_types_map_to_neutral_value_types()
+    {
+        Assert.Equal(DeviceDataType.Boolean, LogixCodec.ToValueType(LogixAtomic.Bool));
+        Assert.Equal(DeviceDataType.Int32, LogixCodec.ToValueType(LogixAtomic.Dint));
+        Assert.Equal(DeviceDataType.UInt64, LogixCodec.ToValueType(LogixAtomic.Lword));
+        Assert.Equal(DeviceDataType.Double, LogixCodec.ToValueType(LogixAtomic.Lreal));
+    }
+
     [Theory]
     [InlineData("Counter", null, new[] { "Counter" })]
     [InlineData("Program:Main.Motor[2].Speed", "Program:Main", new[] { "Motor", "[2]", ".Speed" })]
@@ -125,8 +135,8 @@ public sealed class LogixCodecTests
     public async Task Connect_rejects_bad_url()
     {
         await using var client = new CipClient();
-        var ex = await Assert.ThrowsAsync<ServiceResultException>(() => client.ConnectAsync(new ConnectOptions { EndpointUrl = "eip://" }, TestContext.Current.CancellationToken));
-        Assert.Equal(StatusCodes.BadTcpEndpointUrlInvalid, ex.StatusCode);
+        var ex = await Assert.ThrowsAsync<DeviceClientException>(() => client.ConnectAsync(new ConnectOptions { EndpointUrl = "eip://" }, TestContext.Current.CancellationToken));
+        Assert.Equal(DeviceStatusCodes.BadTcpEndpointUrlInvalid, ex.StatusCode);
         Assert.Equal(ConnectionState.Disconnected, client.State);
     }
 

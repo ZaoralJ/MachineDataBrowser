@@ -1,7 +1,8 @@
 using System.Globalization;
 using MQTTnet;
 using MQTTnet.Protocol;
-using Opc.Ua;
+using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 
 namespace MachineDataBrowser.Core.Mqtt;
 
@@ -79,7 +80,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
     public NodeId ParsePortableId(string text)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
-        return MqttModel.IsValidId(text.Trim()) ? MqttModel.Node(text.Trim()) : throw new ServiceResultException(StatusCodes.BadNodeIdInvalid, $"'{text}' is not an MQTT node id.");
+        return MqttModel.IsValidId(text.Trim()) ? MqttModel.Node(text.Trim()) : throw new DeviceClientException(DeviceStatusCodes.BadNodeIdInvalid, $"'{text}' is not an MQTT node id.");
     }
 
     public async Task ConnectAsync(ConnectOptions options, CancellationToken cancellationToken = default)
@@ -97,7 +98,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
             catch (FormatException ex)
             {
                 State = ConnectionState.Disconnected;
-                throw new ServiceResultException(StatusCodes.BadTcpEndpointUrlInvalid, ex.Message);
+                throw new DeviceClientException(DeviceStatusCodes.BadTcpEndpointUrlInvalid, ex.Message);
             }
 
             _model = new MqttModel(MaxTopics);
@@ -120,7 +121,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
             catch (Exception ex) when (ex is not OperationCanceledException && Errors.IsRecoverable(ex))
             {
                 await CloseCoreAsync().ConfigureAwait(false);
-                throw new ServiceResultException(StatusCodes.BadCommunicationError, $"MQTT connection to {_endpoint?.Host ?? options.EndpointUrl} failed: {ex.Message}", ex);
+                throw new DeviceClientException(DeviceStatusCodes.BadCommunicationError, $"MQTT connection to {_endpoint?.Host ?? options.EndpointUrl} failed: {ex.Message}", ex);
             }
 
             _connectedAt = DateTime.UtcNow;
@@ -283,14 +284,14 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
         var result = await client.PublishAsync(builder.Build(), cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess)
         {
-            throw new ServiceResultException(StatusCodes.BadNotWritable, $"Broker rejected the publish to '{write.Topic}': {result.ReasonCode} {result.ReasonString}");
+            throw new DeviceClientException(DeviceStatusCodes.BadNotWritable, $"Broker rejected the publish to '{write.Topic}': {result.ReasonCode} {result.ReasonString}");
         }
     }
 
     public Task<IReadOnlyList<object?>> ReadValuesAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(nodeIds);
-        return Task.FromResult<IReadOnlyList<object?>>([.. nodeIds.Select(id => _model.Current(Id(id)) is { } u && StatusCode.IsGood(u.Status) ? u.Raw : null)]);
+        return Task.FromResult<IReadOnlyList<object?>>([.. nodeIds.Select(id => _model.Current(Id(id)) is { } u && u.Status.IsGood ? u.Raw : null)]);
     }
 
     public async Task<IReadOnlyList<MonitorResult>> MonitorManyAsync(
@@ -307,7 +308,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
             var id = Id(nodeId);
             if (!(id.StartsWith("t:", StringComparison.Ordinal) || id.StartsWith("m:", StringComparison.Ordinal)))
             {
-                results.Add(new MonitorResult(nodeId, null, ServiceResult.Create(StatusCodes.BadNodeIdInvalid, $"'{id}' is a folder, not a value.")));
+                results.Add(new MonitorResult(nodeId, null, new DeviceError(DeviceStatusCodes.BadNodeIdInvalid, $"'{id}' is a folder, not a value.")));
                 continue;
             }
 
@@ -328,7 +329,7 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
                 subscriber.Offer(current);
             }
 
-            results.Add(new MonitorResult(nodeId, subscriber, ServiceResult.Good));
+            results.Add(new MonitorResult(nodeId, subscriber, DeviceError.Good));
         }
 
         if (_discoveryPaused)

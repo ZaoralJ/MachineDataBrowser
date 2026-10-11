@@ -160,5 +160,5 @@ public sealed record ValueDisplay
 public interface IEngineeringUnitsSource
 {
     /// <summary>The unit of each variable (e.g. "°C"); null where it has none.</summary>
-    Task<IReadOnlyList<string?>> ReadUnitsAsync(IReadOnlyList<Opc.Ua.NodeId> nodeIds, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string?>> ReadUnitsAsync(IReadOnlyList<DeviceNodeId> nodeIds, CancellationToken cancellationToken = default);
 }

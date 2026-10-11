@@ -50,7 +50,7 @@ public sealed partial class OpcUaClient
         }
 
         var decoded = await DecodeStructuresAsync(dv.WrappedValue.AsBoxedObject(), cancellationToken).ConfigureAwait(false);
-        return new DataValue(ValueFormatter.ToVariant(decoded), dv.StatusCode, dv.SourceTimestamp, dv.ServerTimestamp);
+        return new DataValue(UaValueFormatter.ToVariant(decoded), dv.StatusCode, dv.SourceTimestamp, dv.ServerTimestamp);
     }
 
     /// <summary>

@@ -163,9 +163,9 @@ internal sealed class RecordingControlTools(EndpointPool pool, string folder) : 
         {
             throw new McpException(ex.Message);
         }
-        catch (Opc.Ua.ServiceResultException ex)
+        catch (DeviceClientException ex)
         {
-            throw new McpException($"{StatusText.Of(ex.Result.StatusCode)}: {ex.Message}");
+            throw new McpException($"{ex.StatusCode}: {ex.Message}");
         }
     }
 

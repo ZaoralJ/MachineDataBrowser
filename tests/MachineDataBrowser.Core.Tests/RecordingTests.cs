@@ -2,14 +2,16 @@ using Microsoft.Extensions.Time.Testing;
 using Opc.Ua;
 using Xunit;
 using MachineDataBrowser.Core.Ua;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
+using StatusCodes = MachineDataBrowser.Core.DeviceStatusCodes;
 
 namespace MachineDataBrowser.Core.Tests;
 
 public sealed class RecordingTests(OpcPlcFixture plc) : IAsyncLifetime
 {
-    private static readonly NodeId StaticNode = VariableIds.Server_ServerStatus_BuildInfo_ProductName;
+    private static readonly NodeId StaticNode = NodeId.FromOpaque(VariableIds.Server_ServerStatus_BuildInfo_ProductName.ToString());
 
-    private readonly OpcUaClient _client = new();
+    private readonly IDeviceClient _client = new OpcUaClient();
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 9, 26, 12, 0, 0, TimeSpan.Zero));
     private readonly string _dir = Directory.CreateTempSubdirectory("recording-tests").FullName;
 
@@ -74,7 +76,7 @@ public sealed class RecordingTests(OpcPlcFixture plc) : IAsyncLifetime
     [Fact]
     public async Task Items_added_while_recording_are_captured_and_duplicates_ignored()
     {
-        var other = VariableIds.Server_ServerStatus_BuildInfo_SoftwareVersion;
+        var other = NodeId.FromOpaque(VariableIds.Server_ServerStatus_BuildInfo_SoftwareVersion.ToString());
         await using var recording = await StartedAsync(new RecordingOptions { Name = "add" });
 
         var added = await recording.AddItemsAsync([new RecordedItem(other, "Version", "v"), new RecordedItem(StaticNode, "dup", "d")], Ct);

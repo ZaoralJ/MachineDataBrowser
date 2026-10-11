@@ -1,6 +1,6 @@
-using Opc.Ua;
 using MachineDataBrowser.Core.Cip;
 using Xunit;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 
 namespace MachineDataBrowser.Core.Tests;
 

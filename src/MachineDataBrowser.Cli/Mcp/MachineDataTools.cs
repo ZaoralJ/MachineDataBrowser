@@ -5,7 +5,6 @@ using System.Text.Json.Nodes;
 using MachineDataBrowser.Core;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-using Opc.Ua;
 
 namespace MachineDataBrowser.Cli.Mcp;
 
@@ -207,9 +206,9 @@ internal sealed partial class MachineDataTools(EndpointPool pool)
         {
             throw new McpException(ex.Message);
         }
-        catch (ServiceResultException ex)
+        catch (DeviceClientException ex)
         {
-            throw new McpException($"{StatusText.Of(ex.Result.StatusCode)}: {ex.Message}");
+            throw new McpException($"{ex.StatusCode}: {ex.Message}");
         }
         catch (Exception ex) when (ex is IOException or TimeoutException or InvalidOperationException or System.Net.Sockets.SocketException)
         {

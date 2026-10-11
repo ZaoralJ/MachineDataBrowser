@@ -1,12 +1,11 @@
-using Opc.Ua;
 using MachineDataBrowser.Core.Ua;
+using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 
 namespace MachineDataBrowser.Core;
 
 /// <summary>
-/// A connection to one device (OPC UA server, Logix controller or MQTT broker). The OPC UA information model
-/// (<see cref="NodeId"/>, <see cref="NodeClass"/>, <see cref="StatusCode"/>) is the common vocabulary: other
-/// protocols map their items onto it, so the tree, watch list, recordings and exports work unchanged.
+/// A connection to one device (OPC UA server, Logix controller or MQTT broker), using shared device-neutral node identities.
 /// </summary>
 public interface IDeviceClient : IAsyncDisposable
 {
@@ -21,43 +20,43 @@ public interface IDeviceClient : IAsyncDisposable
     BrowseItem Root { get; }
 
     /// <summary>Id stable across reconnects/restarts; used for anything persisted.</summary>
-    string ToPortableId(NodeId nodeId);
+    string ToPortableId(DeviceNodeId nodeId);
 
-    NodeId ParsePortableId(string text);
+    DeviceNodeId ParsePortableId(string text);
 
     /// <summary>Id as shown to people: in the tree, watch list, clipboard and generated code.</summary>
-    string ToDisplayId(NodeId nodeId);
+    string ToDisplayId(DeviceNodeId nodeId);
 
     Task ConnectAsync(ConnectOptions options, CancellationToken cancellationToken = default);
 
     Task DisconnectAsync();
 
-    Task<IReadOnlyList<BrowseItem>> BrowseAsync(NodeId nodeId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<BrowseItem>> BrowseAsync(DeviceNodeId nodeId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Children in one round trip, possibly with a provisional <see cref="BrowseItem.HasChildren"/>; resolve it later
     /// with <see cref="ProbeHasChildrenAsync"/>. Clients whose browse is already exact keep the default.
     /// </summary>
-    Task<IReadOnlyList<BrowseItem>> BrowseQuickAsync(NodeId nodeId, CancellationToken cancellationToken = default) =>
+    Task<IReadOnlyList<BrowseItem>> BrowseQuickAsync(DeviceNodeId nodeId, CancellationToken cancellationToken = default) =>
         BrowseAsync(nodeId, cancellationToken);
 
     /// <summary>Which of <paramref name="nodeIds"/> have children; <c>null</c> when <see cref="BrowseQuickAsync"/> is already exact.</summary>
-    Task<IReadOnlyList<bool>?> ProbeHasChildrenAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken cancellationToken = default) =>
+    Task<IReadOnlyList<bool>?> ProbeHasChildrenAsync(IReadOnlyList<DeviceNodeId> nodeIds, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<bool>?>(null);
 
     /// <summary>Ids from <see cref="Root"/> down to <paramref name="nodeId"/> (inclusive); empty when unknown.</summary>
-    Task<IReadOnlyList<NodeId>> GetPathFromRootAsync(NodeId nodeId, int maxDepth = 32, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<DeviceNodeId>> GetPathFromRootAsync(DeviceNodeId nodeId, int maxDepth = 32, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<AttributeValue>> ReadAttributesAsync(NodeId nodeId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<AttributeValue>> ReadAttributesAsync(DeviceNodeId nodeId, CancellationToken cancellationToken = default);
 
     /// <summary>Current values of variables; <c>null</c> where the read failed.</summary>
-    Task<IReadOnlyList<object?>> ReadValuesAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<object?>> ReadValuesAsync(IReadOnlyList<DeviceNodeId> nodeIds, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Writes the Value attribute of a variable, parsing <paramref name="text"/> into the variable's data type.
     /// Arrays are written as comma-separated elements, optionally in brackets.
     /// </summary>
-    Task WriteValueAsync(NodeId nodeId, string text, CancellationToken cancellationToken = default) =>
+    Task WriteValueAsync(DeviceNodeId nodeId, string text, CancellationToken cancellationToken = default) =>
         Task.FromException(new NotSupportedException("Writing values is not supported for this connection type."));
 
     /// <summary>
@@ -65,7 +64,7 @@ public interface IDeviceClient : IAsyncDisposable
     /// Rejected items are returned with <see cref="MonitorResult.Error"/> set and no handle.
     /// </summary>
     Task<IReadOnlyList<MonitorResult>> MonitorManyAsync(
-        IReadOnlyList<NodeId> nodeIds,
+        IReadOnlyList<DeviceNodeId> nodeIds,
         Action<ValueUpdate> onUpdate,
         double samplingIntervalMs = 250,
         CancellationToken cancellationToken = default);
@@ -150,7 +149,7 @@ public static class DeviceClientExtensions
     {
         ArgumentNullException.ThrowIfNull(client);
         var result = (await client.MonitorManyAsync([nodeId], onUpdate, samplingIntervalMs, cancellationToken).ConfigureAwait(false))[0];
-        return result.Handle ?? throw new ServiceResultException(result.Error);
+        return result.Handle ?? throw new DeviceClientException(result.Error);
     }
 
     /// <summary>

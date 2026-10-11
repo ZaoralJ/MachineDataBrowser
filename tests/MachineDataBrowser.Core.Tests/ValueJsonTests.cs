@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Opc.Ua;
+using MachineDataBrowser.Core.Ua;
 using Xunit;
 
 namespace MachineDataBrowser.Core.Tests;
@@ -45,6 +46,6 @@ public sealed class ValueJsonTests
         Assert.Equal("\"AQID\"", ValueJson.ToJson(bytes)!.ToJsonString());
         Assert.Equal("\"2026-09-27T10:00:00.0000000Z\"", ValueJson.ToJson(timestamp)!.ToJsonString());
         Assert.Equal("ByteString", ValueJson.TypeName(bytes));
-        Assert.Equal("ByteString[3] 010203", ValueFormatter.Format(Variant.From(bytes)));
+        Assert.Equal("ByteString[3] 010203", UaValueFormatter.Format(Variant.From(bytes)));
     }
 }

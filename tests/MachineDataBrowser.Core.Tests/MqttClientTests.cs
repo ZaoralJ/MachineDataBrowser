@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
-using Opc.Ua;
 using MachineDataBrowser.Core.Mqtt;
 using Xunit;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
+using StatusCodes = MachineDataBrowser.Core.DeviceStatusCodes;
+using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
 
 namespace MachineDataBrowser.Core.Tests;
 

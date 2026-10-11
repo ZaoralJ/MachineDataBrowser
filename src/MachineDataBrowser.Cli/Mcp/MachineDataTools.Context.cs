@@ -4,7 +4,6 @@ using System.Text.Json.Nodes;
 using MachineDataBrowser.Core;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-using Opc.Ua;
 
 namespace MachineDataBrowser.Cli.Mcp;
 
@@ -222,7 +221,7 @@ internal sealed partial class MachineDataTools
             throw new McpException("Events and alarms are available from OPC UA servers only.");
         }
 
-        var notifier = node is null ? ObjectIds.Server : (await Connection.ResolveAsync(client, node, cancellationToken).ConfigureAwait(false)).Id;
+        var notifier = node is null ? DeviceNodeId.Null : (await Connection.ResolveAsync(client, node, cancellationToken).ConfigureAwait(false)).Id;
         var received = new List<EventNotification>();
         IAsyncDisposable subscription;
         try
@@ -235,9 +234,9 @@ internal sealed partial class MachineDataTools
                 }
             }, cancellationToken).ConfigureAwait(false);
         }
-        catch (ServiceResultException ex) when (node is not null)
+        catch (DeviceClientException ex) when (node is not null)
         {
-            throw new McpException($"'{node}' doesn't report events ({StatusText.Of(ex.StatusCode)}): pass an object the server "
+            throw new McpException($"'{node}' doesn't report events ({ex.StatusCode}): pass an object the server "
                 + "sends events for, or leave node out for the whole server.");
         }
         await using (subscription.ConfigureAwait(false))
@@ -264,7 +263,7 @@ internal sealed partial class MachineDataTools
                 ["min"] = numbers.Count > 0 ? numbers.Min() : null,
                 ["max"] = numbers.Count > 0 ? numbers.Max() : null,
                 ["average"] = numbers.Count > 0 ? Math.Round(numbers.Average(), 6) : null,
-                ["notGood"] = g.Count(v => !StatusCode.IsGood(v.Status)),
+                ["notGood"] = g.Count(v => !v.Status.IsGood),
             };
         })]);
 

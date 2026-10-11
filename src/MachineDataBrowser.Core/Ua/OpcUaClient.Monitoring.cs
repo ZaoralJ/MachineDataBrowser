@@ -5,6 +5,15 @@ namespace MachineDataBrowser.Core.Ua;
 
 public sealed partial class OpcUaClient : IMonitoringSettings
 {
+    async Task<IReadOnlyList<DeviceError>> IMonitoringSettings.ApplyMonitoringOptionsAsync(
+        IReadOnlyList<IAsyncDisposable> monitors,
+        MonitoringOptions options,
+        CancellationToken cancellationToken) =>
+        await UaStatusAdapter.TranslateAsync(async () =>
+            (await ApplyMonitoringOptionsAsync(monitors, options, cancellationToken).ConfigureAwait(false))
+                .Select(UaStatusAdapter.ToDevice).ToList()).ConfigureAwait(false);
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Part of the connected-client API.")]
     public async Task<IReadOnlyList<ServiceResult>> ApplyMonitoringOptionsAsync(
         IReadOnlyList<IAsyncDisposable> monitors,
         MonitoringOptions options,

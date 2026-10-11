@@ -1,5 +1,4 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using Opc.Ua;
 using MachineDataBrowser.Core;
 
 using MachineDataBrowser.App.Services;

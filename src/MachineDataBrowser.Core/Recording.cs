@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
-using Opc.Ua;
 
 namespace MachineDataBrowser.Core;
 
@@ -50,7 +49,7 @@ public sealed record RecordingOptions
 }
 
 /// <summary>A recorded node; <paramref name="Path"/> is its parent path in the address space when known.</summary>
-public sealed record RecordedItem(NodeId NodeId, string DisplayName, string PortableId, string? Path = null);
+public sealed record RecordedItem(DeviceNodeId NodeId, string DisplayName, string PortableId, string? Path = null);
 
 public sealed record HistorySample(
     DateTimeOffset ReceivedAt,
@@ -58,7 +57,7 @@ public sealed record HistorySample(
     DateTime ServerTimestamp,
     string Value,
     double? Numeric,
-    StatusCode Status,
+    DeviceStatusCode Status,
     long Sequence = 0);
 
 /// <summary>
@@ -74,8 +73,8 @@ public sealed class Recording : IAsyncDisposable
 
     private readonly IDeviceClient _client;
     private readonly TimeProvider _time;
-    private readonly Dictionary<NodeId, RecordedItem> _itemsById;
-    private readonly Dictionary<NodeId, Queue<HistorySample>> _buffers;
+    private readonly Dictionary<DeviceNodeId, RecordedItem> _itemsById;
+    private readonly Dictionary<DeviceNodeId, Queue<HistorySample>> _buffers;
     private readonly Lock _sync = new();
     private readonly SemaphoreSlim _lifecycle = new(1, 1);
 
@@ -356,7 +355,7 @@ public sealed class Recording : IAsyncDisposable
         StateChanged?.Invoke(this, State);
     }
 
-    public IReadOnlyList<HistorySample> GetHistory(NodeId nodeId)
+    public IReadOnlyList<HistorySample> GetHistory(DeviceNodeId nodeId)
     {
         lock (_sync)
         {
@@ -373,7 +372,7 @@ public sealed class Recording : IAsyncDisposable
             .OrderBy(p => p.s.Sequence)];
     }
 
-    public int GetSampleCount(NodeId nodeId)
+    public int GetSampleCount(DeviceNodeId nodeId)
     {
         lock (_sync)
         {
@@ -696,7 +695,7 @@ public sealed class Recording : IAsyncDisposable
 
     private static string Csv(string value) => $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 
-    private static string StatusText(StatusCode status) => Core.StatusText.Of(status);
+    private static string StatusText(DeviceStatusCode status) => Core.StatusText.Of(status);
 
     private static DateTimeOffset? Min(DateTimeOffset? a, DateTimeOffset? b) =>
         a is null ? b : b is null ? a : a < b ? a : b;

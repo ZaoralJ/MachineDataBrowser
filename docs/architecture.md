@@ -58,9 +58,13 @@ recommended .NET analyzers are on.
 
 ## The protocol boundary: `IDeviceClient`
 
-The OPC UA information model (`NodeId`, `NodeClass`, `StatusCode`, `Variant`) is the common vocabulary. Each
-protocol maps its items onto it, so the tree, watch list, recordings, chart and exports work unchanged for every
-protocol. `DeviceClient.Create(url)` picks the client from the URL scheme, so session files need no protocol field.
+The client implementations share a protocol-neutral tree, value, and monitoring contract. `DeviceNodeId`,
+`DeviceNodeKind`, `DeviceStatusCode` and `DeviceError` describe identity, browse kinds and failures without SDK types.
+`DeviceDataType`, `ValueParser` and `ValueFormatter` likewise avoid OPC UA `BuiltInType` and `Variant`. Conversion to
+and from OPC UA SDK types is isolated in `Core/Ua`; CIP and Sparkplug map their native identities, statuses and value
+types directly to the neutral types. The UA adapter retains namespace-URI-based portable IDs, so existing session,
+bookmark and recording identifiers remain compatible. `DeviceClient.Create(url)` picks the client from the URL
+scheme, so session files need no protocol field.
 
 ```mermaid
 classDiagram
@@ -147,7 +151,8 @@ sequenceDiagram
 - `ValueUpdate` carries formatted text, status, source and server timestamps, a numeric value when there is one
   (for charts) and the raw value (for JSON and copying).
 - `ValueFormatter`, `ValueJson` and `NodeExport` turn values and subtrees into display text, JSON, and C# classes or
-  records.
+  records. The neutral formatter handles ordinary CLR values; the UA adapter preserves UA-specific formatting for
+  structures, matrices, and built-in wrapper types without exposing `Variant` at shared boundaries.
 
 ## Connection lifecycle
 

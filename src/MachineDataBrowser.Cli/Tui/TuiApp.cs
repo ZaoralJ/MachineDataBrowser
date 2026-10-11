@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using MachineDataBrowser.Core;
-using Opc.Ua;
 using Terminal.Gui.App;
 using Terminal.Gui.Drawing;
 using Terminal.Gui.Drivers;
@@ -390,7 +389,7 @@ internal sealed class TuiApp : IDisposable
 
         if (!_loadingPlaceholders.TryGetValue(entry, out var placeholder))
         {
-            placeholder = new TreeEntry(new BrowseItem(Opc.Ua.NodeId.Null, "loading…", string.Empty, NodeClass.Unspecified, false), entry);
+            placeholder = new TreeEntry(new BrowseItem(DeviceNodeId.Null, "loading…", string.Empty, NodeClass.Unspecified, false), entry);
             _loadingPlaceholders[entry] = placeholder;
         }
 
@@ -1214,7 +1213,7 @@ internal sealed class TuiApp : IDisposable
         }
     }
 
-    internal void Reveal(IReadOnlyList<Opc.Ua.NodeId> path)
+    internal void Reveal(IReadOnlyList<DeviceNodeId> path)
     {
         Run(async () =>
         {
@@ -1783,7 +1782,7 @@ internal sealed class TuiApp : IDisposable
 
     private static string Describe(Exception ex) => ex switch
     {
-        ServiceResultException sre => $"{StatusText.Of(sre.Result.StatusCode)}: {sre.Message}",
+        DeviceClientException error => $"{StatusText.Of(error.StatusCode)}: {error.Message}",
         AggregateException { InnerExceptions.Count: 1 } a => Describe(a.InnerExceptions[0]),
         _ => ex.Message,
     };

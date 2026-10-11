@@ -4,7 +4,6 @@ using MachineDataBrowser.Core;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
-using Opc.Ua;
 
 namespace MachineDataBrowser.Cli.Mcp;
 
@@ -134,7 +133,7 @@ internal sealed class WriteTools(EndpointPool pool, bool skipConfirmation)
         }
     }
 
-    private static string Text(object? value) => value is null ? "unreadable" : ValueFormatter.Format(ValueFormatter.ToVariant(value));
+    private static string Text(object? value) => value is null ? "unreadable" : ValueFormatter.Format(value);
 
     private static async Task<string> Guard(Func<Task<JsonNode>> tool)
     {
@@ -146,9 +145,9 @@ internal sealed class WriteTools(EndpointPool pool, bool skipConfirmation)
         {
             throw new McpException(ex.Message);
         }
-        catch (ServiceResultException ex)
+        catch (DeviceClientException ex)
         {
-            throw new McpException($"{StatusText.Of(ex.Result.StatusCode)}: {ex.Message}");
+            throw new McpException($"{ex.StatusCode}: {ex.Message}");
         }
         catch (Exception ex) when (ex is FormatException or NotSupportedException or ArgumentException)
         {
