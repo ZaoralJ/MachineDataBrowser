@@ -29,6 +29,21 @@ internal static class Connection
 
     private static readonly TimeSpan ConnectRetryDelay = TimeSpan.FromSeconds(2);
 
+    private static readonly HashSet<uint> UnreachableStatusCodes =
+    [
+        StatusCodes.BadCommunicationError.Code,
+        StatusCodes.BadNotConnected.Code,
+        StatusCodes.BadTimeout.Code,
+        StatusCodes.BadRequestTimeout.Code,
+        StatusCodes.BadConnectionClosed.Code,
+        StatusCodes.BadConnectionRejected.Code,
+        StatusCodes.BadServerNotConnected.Code,
+        StatusCodes.BadServerHalted.Code,
+        StatusCodes.BadSecureChannelClosed.Code,
+        StatusCodes.BadNoCommunication.Code,
+        StatusCodes.BadTcpInternalError.Code,
+    ];
+
     /// <summary>
     /// For long-running streams: waits silently until the device can be reached, so a machine that is off when the
     /// command starts is picked up once it is on. Other errors (bad URL, certificate, login) still fail at once.
@@ -52,10 +67,7 @@ internal static class Connection
     {
         AggregateException { InnerExceptions.Count: 1 } a => IsUnreachable(a.InnerExceptions[0]),
         System.Net.Sockets.SocketException or TimeoutException or IOException => true,
-        ServiceResultException s => s.StatusCode is StatusCodes.BadCommunicationError or StatusCodes.BadNotConnected
-            or StatusCodes.BadTimeout or StatusCodes.BadRequestTimeout or StatusCodes.BadConnectionClosed
-            or StatusCodes.BadConnectionRejected or StatusCodes.BadServerNotConnected or StatusCodes.BadServerHalted
-            or StatusCodes.BadSecureChannelClosed or StatusCodes.BadNoCommunication or StatusCodes.BadTcpInternalError
+        ServiceResultException s => UnreachableStatusCodes.Contains(s.StatusCode.Code)
             || (ex.InnerException is { } inner && IsUnreachable(inner)),
         _ => ex.InnerException is { } inner && IsUnreachable(inner),
     };

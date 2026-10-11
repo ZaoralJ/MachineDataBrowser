@@ -84,7 +84,7 @@ public sealed record EventNotification(
     bool? IsAcked = null,
     bool Retain = false)
 {
-    public bool IsCondition => ConditionId is not null && !NodeId.IsNull(ConditionId);
+    public bool IsCondition => ConditionId is { IsNull: false };
 }
 
 /// <summary>Clients that can read a variable's stored history (OPC UA HistoryRead).</summary>

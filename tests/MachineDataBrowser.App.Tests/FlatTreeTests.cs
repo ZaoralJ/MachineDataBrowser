@@ -20,7 +20,9 @@ public sealed class FlatTreeTests
     private static BrowseItem Leaf(uint id, string name) => new(new NodeId(id), name, name, NodeClass.Variable, false);
 
     private Task<IReadOnlyList<BrowseItem>> Browse(NodeId id) =>
-        Task.FromResult<IReadOnlyList<BrowseItem>>([.. _children[(uint)id.Identifier]]);
+        Task.FromResult<IReadOnlyList<BrowseItem>>([.. _children[id.TryGetValue(out uint identifier)
+            ? identifier
+            : throw new InvalidOperationException($"Unexpected node id {id}.")]]);
 
     private static string Names(FlatTree tree) => string.Join(",", tree.Rows.Select(r => r.IsPlaceholder ? "…" : r.DisplayName));
 

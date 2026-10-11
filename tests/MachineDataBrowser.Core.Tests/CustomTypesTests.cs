@@ -1,4 +1,5 @@
 using Opc.Ua;
+using Opc.Ua.Encoders;
 using MachineDataBrowser.Core.Ua;
 using Xunit;
 
@@ -44,8 +45,9 @@ public sealed class CustomTypesTests(CustomTypesServerFixture server) : IAsyncLi
     {
         var value = Assert.IsType<ExtensionObject>(await ReadAsync("Custom", "Machines", "Machine1", "Status"));
 
-        var body = Assert.IsAssignableFrom<IEncodeable>(value.Body);
-        Assert.Equal("MachineStatus", body.GetType().Name);
+        Assert.True(value.TryGetValue(out IEncodeable? body));
+        Assert.NotNull(body);
+        Assert.Equal("MachineStatus", Assert.IsType<Structure>(body).XmlName.Name);
         var text = ValueFormatter.Format(new Variant(value));
         Assert.StartsWith("{", text, StringComparison.Ordinal); // decoded fields: {State|Speed|{X|Y|Z}|…}
         Assert.DoesNotContain("undecoded", text, StringComparison.Ordinal);
@@ -54,14 +56,19 @@ public sealed class CustomTypesTests(CustomTypesServerFixture server) : IAsyncLi
     [Fact]
     public async Task Structure_arrays_optional_fields_and_unions_decode()
     {
-        var history = Assert.IsType<ExtensionObject[]>(await ReadAsync("Custom", "Structures", "StatusHistory"));
-        Assert.Equal(5, history.Length);
-        Assert.All(history, h => Assert.IsAssignableFrom<IEncodeable>(h.Body));
+        var history = Assert.IsType<ArrayOf<ExtensionObject>>(await ReadAsync("Custom", "Structures", "StatusHistory")).ToList();
+        Assert.Equal(5, history.Count);
+        Assert.All(history, h =>
+        {
+            Assert.True(h.TryGetValue(out IEncodeable? body));
+            Assert.NotNull(body);
+        });
 
         foreach (var name in new[] { "QualityFull", "QualityPartial", "SetpointNumeric", "SetpointText", "Position" })
         {
             var value = Assert.IsType<ExtensionObject>(await ReadAsync("Custom", "Structures", name));
-            Assert.IsAssignableFrom<IEncodeable>(value.Body);
+            Assert.True(value.TryGetValue(out IEncodeable? body));
+            Assert.NotNull(body);
         }
     }
 
@@ -80,7 +87,11 @@ public sealed class CustomTypesTests(CustomTypesServerFixture server) : IAsyncLi
         }
 
         Assert.True(updates.Count >= 3, $"only {updates.Count} updates");
-        Assert.All(updates, u => Assert.IsAssignableFrom<IEncodeable>(Assert.IsType<ExtensionObject>(u.Raw).Body));
+        Assert.All(updates, u =>
+        {
+            Assert.True(Assert.IsType<ExtensionObject>(u.Raw).TryGetValue(out IEncodeable? body));
+            Assert.NotNull(body);
+        });
         var times = updates.Select(u => u.SourceTimestamp).ToList();
         Assert.Equal(times.Order(), times); // waiting for the type load doesn't reorder updates
     }
@@ -90,7 +101,7 @@ public sealed class CustomTypesTests(CustomTypesServerFixture server) : IAsyncLi
     {
         var matrix = await ReadAsync("Custom", "DataTypes", "Arrays", "Matrix3x4");
         Assert.NotNull(matrix);
-        Assert.Contains("3", ValueFormatter.Format(new Variant(matrix)), StringComparison.Ordinal);
+        Assert.Contains("3", ValueFormatter.Format(ValueFormatter.ToVariant(matrix)), StringComparison.Ordinal);
     }
 
     [Fact]
