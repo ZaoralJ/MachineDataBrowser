@@ -1,5 +1,3 @@
-using MachineDataBrowser.Core.Ua;
-
 namespace MachineDataBrowser.Core;
 
 public static class ClientPaths
@@ -16,7 +14,7 @@ public static class ClientPaths
 
     public static string DataRoot => Root.Value;
 
-    public static string PkiRoot => ClientConfiguration.PkiRoot;
+    public static string PkiRoot => Path.Combine(DataRoot, "pki");
 
     private static string ResolveDataRoot()
     {

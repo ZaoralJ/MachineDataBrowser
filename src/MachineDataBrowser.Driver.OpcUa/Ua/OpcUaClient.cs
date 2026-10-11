@@ -684,7 +684,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
         var owned = monitors.OfType<MonitorHandle>().ToList();
         var nodeIds = owned.Select(h => h.Item.StartNodeId).ToList();
         var results = await MonitorManyAsync(nodeIds, onUpdate, refreshMs, cancellationToken).ConfigureAwait(false);
-        await StopMonitoringAsync(owned.Cast<IAsyncDisposable>(), cancellationToken).ConfigureAwait(false);
+        await StopMonitorsAsync(owned.Cast<IAsyncDisposable>(), cancellationToken).ConfigureAwait(false);
         await DeleteEmptySubscriptionsAsync(cancellationToken).ConfigureAwait(false);
         return results;
     }
@@ -879,13 +879,14 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
         return parts.Count == 0 ? "None" : string.Join(", ", parts);
     }
 
-    internal static bool IsOwnHandle(IAsyncDisposable handle) => handle is MonitorHandle;
-
     /// <summary>
     /// Stops many monitored items with one DeleteMonitoredItems round trip per subscription.
-    /// Handles of other clients are ignored; use <see cref="DeviceClient.StopMonitoringAsync"/> for mixed lists.
+    /// Handles of other clients are ignored.
     /// </summary>
-    public static async Task StopMonitoringAsync(IEnumerable<IAsyncDisposable> handles, CancellationToken cancellationToken = default)
+    public Task StopMonitoringAsync(IEnumerable<IAsyncDisposable> handles, CancellationToken cancellationToken = default) =>
+        StopMonitorsAsync(handles, cancellationToken);
+
+    private static async Task StopMonitorsAsync(IEnumerable<IAsyncDisposable> handles, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(handles);
         foreach (var group in handles.OfType<MonitorHandle>().GroupBy(h => h.Subscription))
@@ -912,6 +913,6 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
 
         public MonitoredItem Item => item;
 
-        public async ValueTask DisposeAsync() => await StopMonitoringAsync([this]).ConfigureAwait(false);
+        public async ValueTask DisposeAsync() => await StopMonitorsAsync([this]).ConfigureAwait(false);
     }
 }

@@ -21,19 +21,25 @@ flowchart LR
         VM --> Services
     end
 
-    subgraph Core["MachineDataBrowser.Core (no UI)"]
+    subgraph Core["MachineDataBrowser.Core (protocol-neutral, no UI)"]
         IDC{{"IDeviceClient"}}
         Rec["Recording<br/>bounded history · live CSV · export"]
         Fmt["ValueFormatter · ValueJson · NodeExport"]
-        Ua["Ua.OpcUaClient"]
-        Cip["Cip.CipClient"]
-        Mqtt["Mqtt.MqttDeviceClient"]
-        IDC --- Ua
-        IDC --- Cip
-        IDC --- Mqtt
         Rec --> IDC
     end
 
+    subgraph Drivers["Protocol drivers"]
+        Ua["MachineDataBrowser.Driver.OpcUa<br/>OpcUaClient"]
+        Cip["MachineDataBrowser.Driver.Cip<br/>CipClient"]
+        Mqtt["MachineDataBrowser.Driver.Mqtt<br/>MqttDeviceClient"]
+    end
+    Composition["MachineDataBrowser.Drivers<br/>DeviceClientFactory"]
+    Composition --> Ua
+    Composition --> Cip
+    Composition --> Mqtt
+    Ua -. implements .-> IDC
+    Cip -. implements .-> IDC
+    Mqtt -. implements .-> IDC
     VM --> IDC
     VM --> Rec
     VM --> Fmt
@@ -45,7 +51,11 @@ flowchart LR
 
 | Project | Role |
 |---|---|
-| `src/MachineDataBrowser.Core` | Protocol clients, recordings, value formatting/JSON/C# export. No UI dependencies. |
+| `src/MachineDataBrowser.Core` | Protocol-neutral device contracts, recordings, value formatting/JSON/C# export. No UI dependencies. |
+| `src/MachineDataBrowser.Driver.OpcUa` | OPC UA client and SDK adapter. References Core. |
+| `src/MachineDataBrowser.Driver.Cip` | EtherNet/IP (Logix) client. References Core. |
+| `src/MachineDataBrowser.Driver.Mqtt` | MQTT client, topic model and Sparkplug B support. References Core. |
+| `src/MachineDataBrowser.Drivers` | Composition project selecting a driver from an endpoint URL; referenced by app and CLI. |
 | `src/MachineDataBrowser.App` | Avalonia 12 desktop app (MVVM with CommunityToolkit.Mvvm, docking with Dock.Avalonia). |
 | `src/MachineDataBrowser.Cli` | `mdbrowser` command line ([cli.md](cli.md)): System.CommandLine parsing, Spectre.Console output in a terminal; `Tui/` is the full-screen browser on Terminal.Gui (a UI-free `BrowserModel` behind a `TuiApp` view). References Core only; colour themes come from Core's `ColorThemeCatalog`, shared with the app. |
 | `tests/MachineDataBrowser.Core.Tests` | Integration tests against containers (opc-plc and the `simulators/` images, via Testcontainers) plus unit tests. |
@@ -61,10 +71,11 @@ recommended .NET analyzers are on.
 The client implementations share a protocol-neutral tree, value, and monitoring contract. `DeviceNodeId`,
 `DeviceNodeKind`, `DeviceStatusCode` and `DeviceError` describe identity, browse kinds and failures without SDK types.
 `DeviceDataType`, `ValueParser` and `ValueFormatter` likewise avoid OPC UA `BuiltInType` and `Variant`. Conversion to
-and from OPC UA SDK types is isolated in `Core/Ua`; CIP and Sparkplug map their native identities, statuses and value
+and from OPC UA SDK types is isolated in the OPC UA driver; CIP and Sparkplug map their native identities, statuses and value
 types directly to the neutral types. The UA adapter retains namespace-URI-based portable IDs, so existing session,
 bookmark and recording identifiers remain compatible. `DeviceClient.Create(url)` picks the client from the URL
-scheme, so session files need no protocol field.
+scheme in `MachineDataBrowser.Drivers.DeviceClientFactory`; Core defines the client contract and never constructs a
+driver. Session files need no protocol field.
 
 ```mermaid
 classDiagram
@@ -125,7 +136,7 @@ classDiagram
 | Status | server status codes | `Bad…` from libplctag errors | `BadNoCommunication` while a Sparkplug node or device is dead |
 
 Shared helpers live in `DeviceClientExtensions`: `MonitorAsync`, `CollectVariablesAsync` and `ReadTreeAsync`.
-`DeviceClient.StopMonitoringAsync` stops monitor handles of any client.
+Stopping monitors is part of `IDeviceClient`, allowing drivers to batch teardown without Core knowing their concrete types.
 
 ## Values: from the device to the screen
 

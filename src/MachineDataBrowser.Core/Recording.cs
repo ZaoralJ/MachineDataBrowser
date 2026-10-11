@@ -570,7 +570,7 @@ public sealed class Recording : IAsyncDisposable
         _monitors = [];
         try
         {
-            await DeviceClient.StopMonitoringAsync(monitors, cancellationToken).ConfigureAwait(false);
+            await _client.StopMonitoringAsync(monitors, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (Errors.IsRecoverable(ex))
         {

@@ -1,4 +1,5 @@
 using MachineDataBrowser.Core;
+using MachineDataBrowser.Drivers;
 
 namespace MachineDataBrowser.Cli;
 
@@ -19,6 +20,8 @@ internal sealed record Node(NodeId Id, string Name, string DisplayId, string? Di
 
 internal static class Connection
 {
+    private static readonly IDeviceClientFactory ClientFactory = new DeviceClientFactory();
+
     /// <summary>MQTT topics appear as messages arrive, so path lookups wait this long for them.</summary>
     private static readonly TimeSpan DynamicLookupTimeout = TimeSpan.FromSeconds(5);
 
@@ -73,7 +76,7 @@ internal static class Connection
 
     public static async Task<IDeviceClient> ConnectAsync(ConnectionArgs args, CancellationToken cancellationToken)
     {
-        var client = DeviceClient.Create(args.Url);
+        var client = ClientFactory.Create(args.Url);
         try
         {
             await client.ConnectAsync(

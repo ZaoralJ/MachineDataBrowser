@@ -6,12 +6,14 @@ using CommunityToolkit.Mvvm.Input;
 using MachineDataBrowser.App.Services;
 using MachineDataBrowser.Core;
 using MachineDataBrowser.Core.Ua;
+using MachineDataBrowser.Drivers;
 
 namespace MachineDataBrowser.App.ViewModels;
 
 public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDisposable
 {
-    private IDeviceClient _client = new OpcUaClient();
+    private readonly IDeviceClientFactory _clientFactory;
+    private IDeviceClient _client;
     private readonly LayoutStore? _layoutStore;
     private DockFactory? _dockFactory;
 
@@ -24,8 +26,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     {
     }
 
-    public MainWindowViewModel(SettingsStore? settingsStore, LayoutStore? layoutStore = null)
+    public MainWindowViewModel(SettingsStore? settingsStore, LayoutStore? layoutStore = null, IDeviceClientFactory? clientFactory = null)
     {
+        _clientFactory = clientFactory ?? new DeviceClientFactory();
+        _client = _clientFactory.Create(DefaultEndpointUrl);
         _settingsStore = settingsStore;
         _layoutStore = layoutStore;
         Settings = settingsStore?.Load() ?? new AppSettings();
@@ -146,7 +150,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     /// <summary>The protocol follows the endpoint URL (<c>opc.tcp://</c> or <c>eip://</c>); swap clients when it changes.</summary>
     private async Task EnsureClientForAsync(string endpointUrl)
     {
-        if (DeviceClient.Supports(_client, endpointUrl))
+        if (_clientFactory.Supports(_client, endpointUrl))
         {
             return;
         }
@@ -163,7 +167,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             oldDiscovery.DiscoveryPausedChanged -= OnDiscoveryPausedChanged;
         }
 
-        _client = DeviceClient.Create(endpointUrl);
+        _client = _clientFactory.Create(endpointUrl);
         _client.StateChanged += OnClientStateChanged;
         if (_client is IDynamicAddressSpace dynamic)
         {
@@ -826,7 +830,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
         try
         {
-            await DeviceClient.StopMonitoringAsync(items.Select(i => i.Monitor).OfType<IAsyncDisposable>());
+            await _client.StopMonitoringAsync(items.Select(i => i.Monitor).OfType<IAsyncDisposable>());
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
@@ -1486,7 +1490,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         try
         {
             var monitors = items.Select(i => i.Monitor).OfType<IAsyncDisposable>().ToList();
-            await Task.Run(() => DeviceClient.StopMonitoringAsync(monitors));
+            await Task.Run(() => _client.StopMonitoringAsync(monitors));
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {

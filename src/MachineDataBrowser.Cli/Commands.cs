@@ -917,7 +917,7 @@ internal static class Commands
         {
             client.StateChanged -= OnStateChanged;
             done.TrySetResult();
-            await DeviceClient.StopMonitoringAsync(handles, CancellationToken.None).ConfigureAwait(false);
+            await client.StopMonitoringAsync(handles, CancellationToken.None).ConfigureAwait(false);
         }
     }
 

@@ -1,4 +1,3 @@
-using MachineDataBrowser.Core.Ua;
 using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 
@@ -75,6 +74,16 @@ public interface IDeviceClient : IAsyncDisposable
         Action<ValueUpdate> onUpdate,
         double refreshMs,
         CancellationToken cancellationToken = default);
+
+    async Task StopMonitoringAsync(IEnumerable<IAsyncDisposable> monitors, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(monitors);
+        foreach (var monitor in monitors)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await monitor.DisposeAsync().ConfigureAwait(false);
+        }
+    }
 }
 
 /// <summary>
@@ -109,31 +118,21 @@ public static class DeviceClient
         endpointUrl.TrimStart().StartsWith(EipScheme + "://", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>MQTT endpoints: <c>mqtt://</c>, <c>mqtts://</c>, <c>ws://</c>, <c>wss://</c>.</summary>
-    public static bool IsMqtt(string endpointUrl) => Mqtt.MqttEndpoint.IsMqtt(endpointUrl);
-
-    /// <summary>A new, disconnected client for the protocol of <paramref name="endpointUrl"/>.</summary>
-    public static IDeviceClient Create(string endpointUrl) =>
-        IsEip(endpointUrl) ? new Cip.CipClient() : IsMqtt(endpointUrl) ? new Mqtt.MqttDeviceClient() : new OpcUaClient();
-
-    /// <summary>True when <paramref name="client"/> can connect to <paramref name="endpointUrl"/>.</summary>
-    public static bool Supports(IDeviceClient client, string endpointUrl) => client switch
+    public static bool IsMqtt(string endpointUrl)
     {
-        Cip.CipClient => IsEip(endpointUrl),
-        Mqtt.MqttDeviceClient => IsMqtt(endpointUrl),
-        _ => !IsEip(endpointUrl) && !IsMqtt(endpointUrl),
-    };
-
-    /// <summary>Stops monitor handles of any client, batching where the protocol allows it.</summary>
-    public static async Task StopMonitoringAsync(IEnumerable<IAsyncDisposable> handles, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(handles);
-        var list = handles.ToList();
-        await OpcUaClient.StopMonitoringAsync(list, cancellationToken).ConfigureAwait(false);
-        foreach (var handle in list.Where(h => !OpcUaClient.IsOwnHandle(h)))
-        {
-            await handle.DisposeAsync().ConfigureAwait(false);
-        }
+        var trimmed = endpointUrl.TrimStart();
+        return trimmed.StartsWith("mqtt://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("mqtts://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("ws://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("wss://", StringComparison.OrdinalIgnoreCase);
     }
+}
+
+public interface IDeviceClientFactory
+{
+    IDeviceClient Create(string endpointUrl);
+
+    bool Supports(IDeviceClient client, string endpointUrl);
 }
 
 /// <summary>Protocol-independent operations built on <see cref="IDeviceClient"/>.</summary>

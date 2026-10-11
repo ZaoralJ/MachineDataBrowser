@@ -107,8 +107,9 @@ public sealed class LogixCodecTests
         var path = await client.GetPathFromRootAsync(tag, cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(["@Root", "@Programs", "@Program:Main", "Program:Main.Motor", "Program:Main.Motor.Speed"], path.Select(client.ToPortableId));
         Assert.True(DeviceClient.IsEip("eip://10.0.0.5/1,0"));
-        Assert.IsType<CipClient>(DeviceClient.Create("eip://10.0.0.5"));
-        Assert.IsType<OpcUaClient>(DeviceClient.Create("opc.tcp://localhost:4840"));
+        var factory = new MachineDataBrowser.Drivers.DeviceClientFactory();
+        Assert.IsType<CipClient>(factory.Create("eip://10.0.0.5"));
+        Assert.IsType<OpcUaClient>(factory.Create("opc.tcp://localhost:4840"));
     }
 
     [Fact]

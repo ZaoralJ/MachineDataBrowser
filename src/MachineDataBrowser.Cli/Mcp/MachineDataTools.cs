@@ -159,7 +159,7 @@ internal sealed partial class MachineDataTools(EndpointPool pool)
         }
         finally
         {
-            await DeviceClient.StopMonitoringAsync([.. results.Select(r => r.Handle).OfType<IAsyncDisposable>()], CancellationToken.None).ConfigureAwait(false);
+            await client.StopMonitoringAsync([.. results.Select(r => r.Handle).OfType<IAsyncDisposable>()], CancellationToken.None).ConfigureAwait(false);
         }
 
         return new JsonObject
