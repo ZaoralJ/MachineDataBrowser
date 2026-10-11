@@ -522,7 +522,7 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
 
         var basic = await Navigate(vm, "Objects", "OpcPlc", "Telemetry", "Basic");
         basic.IsExpanded = true;
-        await WaitUntil(() => basic.Children.Count == 4 && basic.Children.All(c => c.NodeId is not null && !c.NodeId.IsNullNodeId));
+        await WaitUntil(() => basic.Children.Count == 4 && basic.Children.All(c => !c.NodeId.IsNull));
 
         vm.SelectedNodes.Add(basic);
         vm.SelectedNodes.Add(basic.Children[0]);

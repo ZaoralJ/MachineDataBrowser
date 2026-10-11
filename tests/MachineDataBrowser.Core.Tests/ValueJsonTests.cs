@@ -24,7 +24,7 @@ public sealed class ValueJsonTests
     public void Arrays_matrices_and_structures()
     {
         Assert.Equal("[1,2,3]", ValueJson.ToJson(new[] { 1, 2, 3 })!.ToJsonString());
-        Assert.Equal("[[1,2,3],[4,5,6]]", ValueJson.ToJson(new Matrix(new[] { 1, 2, 3, 4, 5, 6 }, BuiltInType.Int32, 2, 3))!.ToJsonString());
+        Assert.Equal("[[1,2,3],[4,5,6]]", ValueJson.ToJson(new[,] { { 1, 2, 3 }, { 4, 5, 6 } }.ToMatrixOf())!.ToJsonString());
 
         var info = new BuildInfo { ProductName = "PLC", BuildNumber = "7" };
         var obj = Assert.IsType<JsonObject>(ValueJson.ToJson(new ExtensionObject(info)));
@@ -34,5 +34,17 @@ public sealed class ValueJsonTests
         Assert.Equal("Int32[]", ValueJson.TypeName(new[] { 1 }));
         Assert.Equal("Boolean", ValueJson.TypeName(true));
         Assert.Equal("BuildInfo", ValueJson.TypeName(new ExtensionObject(info)));
+    }
+
+    [Fact]
+    public void Opc_ua_byte_strings_and_utc_timestamps_keep_their_json_types()
+    {
+        var bytes = ByteString.From([1, 2, 3]);
+        var timestamp = DateTimeUtc.From(new DateTime(2026, 9, 27, 10, 0, 0, DateTimeKind.Utc));
+
+        Assert.Equal("\"AQID\"", ValueJson.ToJson(bytes)!.ToJsonString());
+        Assert.Equal("\"2026-09-27T10:00:00.0000000Z\"", ValueJson.ToJson(timestamp)!.ToJsonString());
+        Assert.Equal("ByteString", ValueJson.TypeName(bytes));
+        Assert.Equal("ByteString[3] 010203", ValueFormatter.Format(Variant.From(bytes)));
     }
 }

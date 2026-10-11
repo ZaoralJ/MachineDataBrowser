@@ -847,7 +847,7 @@ internal sealed class MqttModel
 
     private static ValueUpdate Update(string id, object? value, StatusCode status, DateTime source, DateTime received)
     {
-        var variant = value is null ? Variant.Null : Variant.From((dynamic)value);
+        var variant = ValueFormatter.ToVariant(value);
         return new ValueUpdate(Node(id), StatusCode.IsBad(status) ? status.ToString() : Format(value), status, source, received, ValueFormatter.ToNumeric(variant), value);
     }
 
@@ -865,7 +865,7 @@ internal sealed class MqttModel
     {
         null => "null",
         string s => s,
-        _ => ValueFormatter.Format(value is null ? Variant.Null : Variant.From((dynamic)value)),
+        _ => ValueFormatter.Format(ValueFormatter.ToVariant(value)),
     };
 
     /// <summary>

@@ -29,7 +29,7 @@ internal static class ClientConfiguration
         Func<Certificate, ServiceResult, bool> acceptUntrusted,
         CancellationToken cancellationToken)
     {
-        var config = new ApplicationConfiguration
+        var config = new ApplicationConfiguration(telemetry)
         {
             ApplicationName = ApplicationName,
             ApplicationUri = $"urn:{System.Net.Dns.GetHostName()}:{ApplicationName}",

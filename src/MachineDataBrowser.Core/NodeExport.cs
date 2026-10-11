@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json.Nodes;
 using Opc.Ua;
+using Opc.Ua.Encoders;
 
 namespace MachineDataBrowser.Core;
 
@@ -258,17 +259,21 @@ public static class NodeExport
         decimal => "decimal",
         string => "string",
         DateTime => "DateTime",
+        DateTimeUtc => "DateTime",
         Uuid or Guid => "Guid",
-        byte[] => "byte[]",
+        byte[] or ByteString => "byte[]",
         LocalizedText or QualifiedName or NodeId or ExpandedNodeId or StatusCode or System.Xml.XmlElement => "string",
         Matrix m => ElementType(m.Elements) + "[" + new string(',', m.Dimensions.Length - 1) + "]",
         Array a => ElementType(a) + "[]",
-        ExtensionObject eo when eo.TryGetValue(out IEncodeable? e) => e.GetType().Name,
+        ExtensionObject eo when eo.TryGetValue(out IEncodeable? e) => EncodeableTypeName(e),
         ExtensionObject => "object",
-        IEncodeable e => e.GetType().Name,
+        IEncodeable e => EncodeableTypeName(e),
         Enum e => e.GetType().Name,
         _ => "object",
     };
+
+    private static string EncodeableTypeName(IEncodeable encodeable) =>
+        encodeable is Structure structure ? structure.XmlName.Name : encodeable.GetType().Name;
 
     private static string ElementType(Array array)
     {

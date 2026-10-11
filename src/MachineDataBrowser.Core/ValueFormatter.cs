@@ -7,8 +7,8 @@ public static class ValueFormatter
 {
     private const int MaxArrayItems = 32;
 
-    internal static Variant ToVariant(object? value) =>
-        value is null ? Variant.Null : Variant.From((dynamic)value);
+    public static Variant ToVariant(object? value) =>
+        VariantHelper.CastFromWithReflectionFallback(value);
 
     public static string Format(Variant value) => FormatObject(value.AsBoxedObject());
 
@@ -25,11 +25,14 @@ public static class ValueFormatter
         null => "null",
         string s => s,
         byte[] bytes => $"ByteString[{bytes.Length}] {Convert.ToHexString(bytes.AsSpan(0, Math.Min(bytes.Length, 32)))}{(bytes.Length > 32 ? "…" : string.Empty)}",
+        ByteString bytes => $"ByteString[{bytes.Length}] {Convert.ToHexString(bytes.Memory.Span[..Math.Min(bytes.Length, 32)])}{(bytes.Length > 32 ? "…" : string.Empty)}",
         DateTime dt => dt.ToString("O", CultureInfo.InvariantCulture),
+        DateTimeUtc dt => dt.ToDateTime().ToString("O", CultureInfo.InvariantCulture),
         LocalizedText lt => lt.Text ?? string.Empty,
         QualifiedName qn => qn.ToString(),
         ExtensionObject eo => FormatExtensionObject(eo),
         Matrix m => $"Matrix[{string.Join('x', m.Dimensions)}] {FormatArray(m.Elements)}",
+        IConvertableToMatrix m => FormatMatrix(m.ToMatrix(BuiltInType.Null)),
         Array array => FormatArray(array),
         IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
         _ => value.ToString() ?? string.Empty,
@@ -53,4 +56,7 @@ public static class ValueFormatter
             ? $"ExtensionObject {eo.TypeId} (undecoded, {raw.Length} bytes)"
             : eo.ToString() ?? "ExtensionObject";
     }
+
+    private static string FormatMatrix(Matrix matrix) =>
+        $"Matrix[{string.Join('x', matrix.Dimensions)}] {FormatArray(matrix.Elements)}";
 }

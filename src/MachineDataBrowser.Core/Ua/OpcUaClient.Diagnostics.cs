@@ -40,6 +40,15 @@ public sealed partial class OpcUaClient : IConnectionDiagnosticsSource
                 },
                 cancellationToken).ConfigureAwait(false);
             var values = read.Results.ToList().Select(r => StatusCode.IsGood(r.StatusCode) ? r.WrappedValue.AsBoxedObject() : null).ToList();
+            if (values[1] is DateTimeUtc serverTimeUtc)
+            {
+                values[1] = serverTimeUtc.ToDateTime();
+            }
+            if (values[2] is DateTimeUtc startTimeUtc)
+            {
+                values[2] = startTimeUtc.ToDateTime();
+            }
+
             if (values[0] is int state)
             {
                 info.Add(("Server state", ((ServerState)state).ToString()));

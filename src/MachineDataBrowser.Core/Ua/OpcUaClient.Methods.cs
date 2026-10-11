@@ -80,15 +80,23 @@ public sealed partial class OpcUaClient : IMethodCaller
         var propertyId = property.NodeId;
         var read = await session.ReadAsync(null, 0, TimestampsToReturn.Neither,
             new List<ReadValueId> { new ReadValueId { NodeId = propertyId, AttributeId = Attributes.Value } }, cancellationToken).ConfigureAwait(false);
-        // The SDK may hand back ExtensionObject[] or already decoded Argument[].
-        if (read.Results[0].WrappedValue.AsBoxedObject() is not Array values)
+        var rawArguments = read.Results[0].WrappedValue.AsBoxedObject() switch
         {
-            return [];
-        }
+            ArrayOf<Argument> encodedArguments => encodedArguments.ToList(),
+            Argument[] decodedArguments => decodedArguments.ToList(),
+            ArrayOf<ExtensionObject> encoded => encoded.ToList()
+                .Select(e => e.TryGetValue(out IEncodeable? body, session.MessageContext) ? body : null)
+                .OfType<Argument>()
+                .ToList(),
+            ExtensionObject[] encoded => encoded
+                .Select(e => e.TryGetValue(out IEncodeable? body, session.MessageContext) ? body : null)
+                .OfType<Argument>()
+                .ToList(),
+            _ => [],
+        };
 
-        var arguments = new List<MethodArgument>(values.Length);
-        foreach (var argument in values.Cast<object?>().Select(v =>
-                     v is ExtensionObject e && e.TryGetValue(out IEncodeable? body) ? body : v).OfType<Argument>())
+        var arguments = new List<MethodArgument>(rawArguments.Count);
+        foreach (var argument in rawArguments)
         {
             var builtIn = TypeInfo.GetBuiltInType(argument.DataType, session.TypeTree);
             var typeName = await session.NodeCache.GetDisplayTextAsync(argument.DataType, cancellationToken).ConfigureAwait(false);

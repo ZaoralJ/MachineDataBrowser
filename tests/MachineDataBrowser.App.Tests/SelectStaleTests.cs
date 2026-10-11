@@ -20,10 +20,10 @@ public sealed class SelectStaleTests
         window.Show();
 
         var now = DateTimeOffset.Now;
-        WatchItemViewModel Item(string name, TimeSpan age, uint status = StatusCodes.Good)
+        WatchItemViewModel Item(string name, TimeSpan age, StatusCode? status = null)
         {
             var item = new WatchItemViewModel(new NodeId(name, 2), name) { RefreshMs = 250 };
-            item.Apply(new ValueUpdate(item.NodeId, "1", status, DateTime.UtcNow, DateTime.UtcNow), now - age);
+            item.Apply(new ValueUpdate(item.NodeId, "1", status ?? StatusCodes.Good, DateTime.UtcNow, DateTime.UtcNow), now - age);
             item.RefreshAge(now);
             vm.WatchItems.Add(item);
             return item;

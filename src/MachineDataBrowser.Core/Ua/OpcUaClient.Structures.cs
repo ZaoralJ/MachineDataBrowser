@@ -75,6 +75,7 @@ public sealed partial class OpcUaClient
         {
             ExtensionObject eo => IsUndecoded(eo),
             ExtensionObject[] array => Array.Exists(array, IsUndecoded),
+            ArrayOf<ExtensionObject> array => array.ToList().Exists(IsUndecoded),
             _ => false,
         };
 
@@ -83,10 +84,11 @@ public sealed partial class OpcUaClient
 
         public async Task LoadAsync(object? value, CancellationToken cancellationToken)
         {
-            var encodings = value switch
+            List<ExtensionObject> encodings = value switch
             {
                 ExtensionObject eo => [eo],
-                ExtensionObject[] array => array,
+                ExtensionObject[] array => [.. array],
+                ArrayOf<ExtensionObject> array => array.ToList(),
                 _ => [],
             };
 
@@ -175,30 +177,18 @@ public sealed partial class OpcUaClient
         {
             ExtensionObject eo => Decode(eo),
             ExtensionObject[] array => Array.ConvertAll(array, Decode),
+            ArrayOf<ExtensionObject> array => array.ToList().ConvertAll(Decode).ToArrayOf(),
             _ => value,
         };
 
         private ExtensionObject Decode(ExtensionObject eo)
         {
-            if (!IsUndecoded(eo) || session.Factory.GetSystemType(eo.TypeId) is not { } type
-                || Activator.CreateInstance(type) is not IEncodeable body)
+            if (!IsUndecoded(eo) || !eo.TryGetValue(out IEncodeable? body, session.MessageContext))
             {
                 return eo;
             }
 
-            try
-            {
-                _ = eo.TryGetAsBinary(out ByteString bytes);
-                using var decoder = new BinaryDecoder(bytes.Memory.ToArray(), session.MessageContext);
-                body.Decode(decoder);
-                return new ExtensionObject(eo.TypeId, body);
-            }
-            catch (ServiceResultException ex)
-            {
-                // A type the server describes differently from what it sends: show the raw bytes rather than fail.
-                System.Diagnostics.Trace.TraceWarning($"Decoding structure {eo.TypeId} failed: {ex.Message}");
-                return eo;
-            }
+            return new ExtensionObject(eo.TypeId, body);
         }
     }
 }

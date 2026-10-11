@@ -116,13 +116,18 @@ internal sealed partial class MachineDataTools
         var latest = new Dictionary<NodeId, EventNotification>();
         foreach (var e in received.Where(e => e.IsCondition))
         {
+            if (e.ConditionId is not { } conditionId)
+            {
+                continue;
+            }
+
             if (e.Retain)
             {
-                latest[e.ConditionId!] = e;
+                latest[conditionId] = e;
             }
             else
             {
-                latest.Remove(e.ConditionId!);
+                latest.Remove(conditionId);
             }
         }
 
