@@ -7,13 +7,16 @@ public static class ValueFormatter
 {
     private const int MaxArrayItems = 32;
 
-    public static string Format(Variant value) => FormatObject(value.Value);
+    public static Variant ToVariant(object? value) =>
+        VariantHelper.CastFromWithReflectionFallback(value);
 
-    public static double? ToNumeric(Variant value) => value.Value switch
+    public static string Format(Variant value) => FormatObject(value.AsBoxedObject());
+
+    public static double? ToNumeric(Variant value) => value.AsBoxedObject() switch
     {
         bool b => b ? 1 : 0,
         sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal =>
-            Convert.ToDouble(value.Value, CultureInfo.InvariantCulture),
+            Convert.ToDouble(value.AsBoxedObject(), CultureInfo.InvariantCulture),
         _ => null,
     };
 
@@ -22,11 +25,14 @@ public static class ValueFormatter
         null => "null",
         string s => s,
         byte[] bytes => $"ByteString[{bytes.Length}] {Convert.ToHexString(bytes.AsSpan(0, Math.Min(bytes.Length, 32)))}{(bytes.Length > 32 ? "…" : string.Empty)}",
+        ByteString bytes => $"ByteString[{bytes.Length}] {Convert.ToHexString(bytes.Memory.Span[..Math.Min(bytes.Length, 32)])}{(bytes.Length > 32 ? "…" : string.Empty)}",
         DateTime dt => dt.ToString("O", CultureInfo.InvariantCulture),
+        DateTimeUtc dt => dt.ToDateTime().ToString("O", CultureInfo.InvariantCulture),
         LocalizedText lt => lt.Text ?? string.Empty,
         QualifiedName qn => qn.ToString(),
         ExtensionObject eo => FormatExtensionObject(eo),
         Matrix m => $"Matrix[{string.Join('x', m.Dimensions)}] {FormatArray(m.Elements)}",
+        IConvertableToMatrix m => FormatMatrix(m.ToMatrix(BuiltInType.Null)),
         Array array => FormatArray(array),
         IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
         _ => value.ToString() ?? string.Empty,
@@ -39,11 +45,18 @@ public static class ValueFormatter
         return $"[{string.Join(", ", items)}{suffix}]";
     }
 
-    private static string FormatExtensionObject(ExtensionObject eo) => eo.Body switch
+    private static string FormatExtensionObject(ExtensionObject eo)
     {
-        // Decoded structure (built-in or loaded via ComplexTypeSystem): its ToString lists fields.
-        IEncodeable encodeable => encodeable.ToString() ?? encodeable.GetType().Name,
-        byte[] raw => $"ExtensionObject {eo.TypeId} (undecoded, {raw.Length} bytes)",
-        _ => eo.ToString() ?? "ExtensionObject",
-    };
+        if (eo.TryGetValue(out IEncodeable? encodeable))
+        {
+            return encodeable.ToString() ?? encodeable.GetType().Name;
+        }
+
+        return eo.TryGetAsBinary(out ByteString raw)
+            ? $"ExtensionObject {eo.TypeId} (undecoded, {raw.Length} bytes)"
+            : eo.ToString() ?? "ExtensionObject";
+    }
+
+    private static string FormatMatrix(Matrix matrix) =>
+        $"Matrix[{string.Join('x', matrix.Dimensions)}] {FormatArray(matrix.Elements)}";
 }

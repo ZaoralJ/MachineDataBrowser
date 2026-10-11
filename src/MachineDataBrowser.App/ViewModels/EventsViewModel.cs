@@ -269,7 +269,11 @@ public sealed partial class EventsViewModel : ObservableObject, IAsyncDisposable
 
     private void ApplyAlarm(EventNotification notification)
     {
-        var id = notification.ConditionId!;
+        var id = notification.ConditionId.GetValueOrDefault();
+        if (id.IsNull)
+        {
+            return;
+        }
         if (!notification.Retain)
         {
             // Not retained: inactive and acknowledged, nothing left to act on.

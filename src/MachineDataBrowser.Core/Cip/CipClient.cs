@@ -62,8 +62,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
 
     public string ToPortableId(NodeId nodeId)
     {
-        ArgumentNullException.ThrowIfNull(nodeId);
-        return nodeId.NamespaceIndex == FolderNamespace ? "@" + nodeId.Identifier : (string)nodeId.Identifier;
+        return nodeId.NamespaceIndex == FolderNamespace ? "@" + nodeId.IdentifierAsString : nodeId.IdentifierAsString;
     }
 
     /// <summary>The Logix tag path (<c>Program:Main.Motor.Speed</c>); folders as <c>@Programs</c>.</summary>
@@ -134,7 +133,6 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
 
     public async Task<IReadOnlyList<BrowseItem>> BrowseAsync(NodeId nodeId, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(nodeId);
         RequireEndpoint();
 
         if (nodeId == RootId)
@@ -163,7 +161,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
             ];
         }
 
-        if (nodeId.NamespaceIndex == FolderNamespace && nodeId.Identifier is string program && program.StartsWith(ProgramPrefix, StringComparison.OrdinalIgnoreCase))
+        if (nodeId.NamespaceIndex == FolderNamespace && nodeId.TryGetValue(out string? program) && program.StartsWith(ProgramPrefix, StringComparison.OrdinalIgnoreCase))
         {
             return await ListScopeAsync(program, cancellationToken).ConfigureAwait(false);
         }
@@ -174,7 +172,6 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
 
     public Task<IReadOnlyList<NodeId>> GetPathFromRootAsync(NodeId nodeId, int maxDepth = 32, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(nodeId);
         var path = new List<NodeId> { RootId };
         if (nodeId == RootId)
         {
@@ -183,7 +180,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
 
         if (nodeId.NamespaceIndex == FolderNamespace)
         {
-            var name = (string)nodeId.Identifier;
+            var name = nodeId.IdentifierAsString;
             if (name.StartsWith(ProgramPrefix, StringComparison.OrdinalIgnoreCase))
             {
                 path.Add(ProgramsId);
@@ -193,7 +190,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
             return Task.FromResult<IReadOnlyList<NodeId>>(path);
         }
 
-        if (!TagPath.TryParse((string)nodeId.Identifier, out var parsed))
+        if (!TagPath.TryParse(nodeId.IdentifierAsString, out var parsed))
         {
             return Task.FromResult<IReadOnlyList<NodeId>>([]);
         }
@@ -214,14 +211,13 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
 
     public async Task<IReadOnlyList<AttributeValue>> ReadAttributesAsync(NodeId nodeId, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(nodeId);
         RequireEndpoint();
         var result = new List<AttributeValue> { new("NodeId", ToPortableId(nodeId)) };
 
         if (nodeId.NamespaceIndex == FolderNamespace)
         {
             result.Add(new("NodeClass", nameof(NodeClass.Object)));
-            result.Add(new("DisplayName", ((string)nodeId.Identifier).Replace(ProgramPrefix, string.Empty, StringComparison.OrdinalIgnoreCase)));
+            result.Add(new("DisplayName", nodeId.IdentifierAsString.Replace(ProgramPrefix, string.Empty, StringComparison.OrdinalIgnoreCase)));
             return result;
         }
 
@@ -245,11 +241,11 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
             string value;
             try
             {
-                value = ValueFormatter.Format(new Variant(await ReadValueAsync(item, cancellationToken).ConfigureAwait(false)));
+                value = ValueFormatter.Format(ValueFormatter.ToVariant(await ReadValueAsync(item, cancellationToken).ConfigureAwait(false)));
             }
             catch (ServiceResultException ex)
             {
-                value = new StatusCode(ex.StatusCode).ToString();
+                value = ex.StatusCode.ToString();
             }
 
             result.Add(new("Value", value));
@@ -284,7 +280,6 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
     /// </summary>
     public async Task WriteValueAsync(NodeId nodeId, string text, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(nodeId);
         ArgumentNullException.ThrowIfNull(text);
         var endpoint = RequireEndpoint();
         var item = await ResolveAsync(nodeId, cancellationToken).ConfigureAwait(false);
@@ -368,7 +363,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
 
             if (!item.IsVariable)
             {
-                results.Add(new MonitorResult(nodeId, null, new ServiceResult(StatusCodes.BadAttributeIdInvalid, $"'{item.Path}' is a structure; watch its members.")));
+                results.Add(new MonitorResult(nodeId, null, ServiceResult.Create(StatusCodes.BadAttributeIdInvalid, $"'{item.Path}' is a structure; watch its members.")));
                 continue;
             }
 
@@ -584,7 +579,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
     /// <summary>Walks a tag path from its scope listing through UDT templates.</summary>
     private async Task<CipItem> ResolveAsync(NodeId nodeId, CancellationToken cancellationToken)
     {
-        if (nodeId.NamespaceIndex != TagNamespace || nodeId.Identifier is not string text || !TagPath.TryParse(text, out var path))
+        if (nodeId.NamespaceIndex != TagNamespace || !nodeId.TryGetValue(out string? text) || !TagPath.TryParse(text, out var path))
         {
             throw new ServiceResultException(StatusCodes.BadNodeIdUnknown, $"'{nodeId}' is not a Logix tag.");
         }
@@ -962,7 +957,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
                 entry.LastStatus = status;
                 entry.LastData = data;
                 var now = DateTime.UtcNow;
-                var variant = new Variant(value);
+                var variant = ValueFormatter.ToVariant(value);
                 entry.OnUpdate(new ValueUpdate(
                     entry.NodeId,
                     StatusCode.IsGood(status) ? ValueFormatter.Format(variant) : status.ToString(),

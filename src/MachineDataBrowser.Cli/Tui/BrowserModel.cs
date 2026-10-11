@@ -425,7 +425,7 @@ internal sealed class BrowserModel : IAsyncDisposable
     public async Task<string> ReadValueTextAsync(NodeId id, CancellationToken cancellationToken = default)
     {
         var values = await Client.ReadValuesAsync([id], cancellationToken).ConfigureAwait(false);
-        return values[0] is { } value ? ValueFormatter.Format(new Variant(value)) : "-";
+        return values[0] is { } value ? ValueFormatter.Format(ValueFormatter.ToVariant(value)) : "-";
     }
 
     /// <summary>Writes a value and reads it back, so a write the device accepted but didn't apply shows.</summary>
@@ -533,13 +533,16 @@ internal sealed class BrowserModel : IAsyncDisposable
 
                 if (e.IsCondition)
                 {
-                    if (e.Retain)
+                    if (e.ConditionId is { } conditionId)
                     {
-                        _alarms[e.ConditionId!] = e;
-                    }
-                    else
-                    {
-                        _alarms.Remove(e.ConditionId!);
+                        if (e.Retain)
+                        {
+                            _alarms[conditionId] = e;
+                        }
+                        else
+                        {
+                            _alarms.Remove(conditionId);
+                        }
                     }
                 }
             }

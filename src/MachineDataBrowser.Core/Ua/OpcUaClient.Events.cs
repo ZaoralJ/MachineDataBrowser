@@ -28,9 +28,10 @@ public sealed partial class OpcUaClient : IEventSource
         var session = RequireSession();
 
         var filter = new EventFilter();
+        var selectClauses = new List<SimpleAttributeOperand>();
         foreach (var (type, path) in EventFields)
         {
-            filter.SelectClauses.Add(new SimpleAttributeOperand
+            selectClauses.Add(new SimpleAttributeOperand
             {
                 TypeDefinitionId = type,
                 BrowsePath = [.. path.Select(name => new QualifiedName(name))],
@@ -39,11 +40,12 @@ public sealed partial class OpcUaClient : IEventSource
         }
 
         // The condition's own NodeId: the target of Acknowledge.
-        filter.SelectClauses.Add(new SimpleAttributeOperand
+        selectClauses.Add(new SimpleAttributeOperand
         {
             TypeDefinitionId = ObjectTypeIds.ConditionType,
             AttributeId = Attributes.NodeId,
         });
+        filter.SelectClauses = selectClauses.ToArrayOf();
 
         var subscription = new Subscription(session.DefaultSubscription)
         {
@@ -86,7 +88,7 @@ public sealed partial class OpcUaClient : IEventSource
             // Removing the subscription clears the item's status: keep the server's answer first.
             var error = item.Status.Error;
             await session.RemoveSubscriptionAsync(subscription, cancellationToken).ConfigureAwait(false);
-            throw new ServiceResultException(error);
+            throw new ServiceResultException(error?.StatusCode ?? StatusCodes.BadUnexpectedError);
         }
 
         try
@@ -104,7 +106,7 @@ public sealed partial class OpcUaClient : IEventSource
     public async Task AcknowledgeAsync(NodeId conditionId, byte[] eventId, string comment, CancellationToken cancellationToken = default)
     {
         var session = RequireSession();
-        var request = new CallMethodRequestCollection
+        var request = new List<CallMethodRequest>
         {
             new CallMethodRequest
             {
@@ -116,12 +118,12 @@ public sealed partial class OpcUaClient : IEventSource
         var response = await session.CallAsync(null, request, cancellationToken).ConfigureAwait(false);
         if (response.Results.Count > 0 && StatusCode.IsBad(response.Results[0].StatusCode))
         {
-            var argument = response.Results[0].InputArgumentResults?.FirstOrDefault(StatusCode.IsBad);
+            var argument = response.Results[0].InputArgumentResults.ToList().FirstOrDefault(StatusCode.IsBad);
             throw new ServiceResultException(argument is { } bad && StatusCode.IsBad(bad) ? bad : response.Results[0].StatusCode);
         }
     }
 
-    private static EventNotification? ToNotification(ISession session, VariantCollection fields)
+    private static EventNotification? ToNotification(ISession session, ArrayOf<Variant> fields)
     {
         if (fields.Count <= ConditionIdField)
         {
@@ -129,25 +131,25 @@ public sealed partial class OpcUaClient : IEventSource
         }
 
         // ConditionRefresh brackets the resent conditions with RefreshStart/RefreshEnd events: not shown.
-        var eventType = fields[1].Value as NodeId;
+        var eventType = fields[1].AsBoxedObject() is NodeId type ? type : NodeId.Null;
         if (eventType == ObjectTypeIds.RefreshStartEventType || eventType == ObjectTypeIds.RefreshEndEventType)
         {
             return null;
         }
 
-        var typeName = eventType is null ? string.Empty : EventTypeName(session, eventType);
+        var typeName = eventType.IsNull ? string.Empty : EventTypeName(session, eventType);
         return new EventNotification(
-            fields[3].Value is DateTime time ? time : DateTime.UtcNow,
-            fields[5].Value is ushort severity ? severity : (ushort)0,
-            fields[2].Value as string ?? string.Empty,
-            (fields[4].Value as LocalizedText)?.Text ?? string.Empty,
+            fields[3].AsBoxedObject() is DateTimeUtc time ? time.ToDateTime() : DateTime.UtcNow,
+            fields[5].AsBoxedObject() is ushort severity ? severity : (ushort)0,
+            fields[2].AsBoxedObject() as string ?? string.Empty,
+            fields[4].AsBoxedObject() is LocalizedText message ? message.Text ?? string.Empty : string.Empty,
             typeName,
-            fields[0].Value as byte[],
-            fields[ConditionIdField].Value as NodeId,
-            fields[6].Value as string,
-            fields[8].Value as bool?,
-            fields[9].Value as bool?,
-            fields[7].Value is true);
+            fields[0].AsBoxedObject() is ByteString eventId ? eventId.Memory.ToArray() : null,
+            fields[ConditionIdField].AsBoxedObject() is NodeId conditionId && !conditionId.IsNull ? conditionId : null,
+            fields[6].AsBoxedObject() as string,
+            fields[8].AsBoxedObject() is bool active ? active : null,
+            fields[9].AsBoxedObject() is bool acked ? acked : null,
+            fields[7].AsBoxedObject() is true);
     }
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<NodeId, string> EventTypeNames = new(
