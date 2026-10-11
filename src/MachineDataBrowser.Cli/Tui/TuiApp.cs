@@ -1157,8 +1157,8 @@ internal sealed class TuiApp : IDisposable
     {
         // The focused pane decides: a monitored row, or the selected node in the tree.
         var (id, name) = _watch.HasFocus && SelectedRow is { } row
-            ? (row.Node.Id, row.Node.Name)
-            : Selected is { IsVariable: true } entry ? (entry.Item.NodeId, entry.Item.DisplayName) : (null!, null!);
+            ? ((NodeId?)row.Node.Id, (string?)row.Node.Name)
+            : Selected is { IsVariable: true } entry ? (entry.Item.NodeId, entry.Item.DisplayName) : (null, null);
         if (id is null)
         {
             _model.Log("Select a variable to write.");
@@ -1173,19 +1173,21 @@ internal sealed class TuiApp : IDisposable
 
         // Dialogs open from the key press itself (see Load); the current value fills in as it arrives.
         var now = "…";
-        if (Ask($"Write {name}", "New value:", string.Empty, async () => now = await _model.ReadValueTextAsync(id).ConfigureAwait(false)) is not { } text)
+        var nodeId = id.Value;
+        var nodeName = name ?? string.Empty;
+        if (Ask($"Write {nodeName}", "New value:", string.Empty, async () => now = await _model.ReadValueTextAsync(nodeId).ConfigureAwait(false)) is not { } text)
         {
             return;
         }
 
-        if (!Confirm("Write value", $"Write {text} to {name} on {_model.Args.Url}?\nIt is {now} now."))
+        if (!Confirm("Write value", $"Write {text} to {nodeName} on {_model.Args.Url}?\nIt is {now} now."))
         {
             _model.Log("Nothing written.");
             return;
         }
 
         // A failed write is reported in the info log with its reason.
-        Run(() => _model.WriteAsync(id, name, text), $"writing {name}");
+        Run(() => _model.WriteAsync(nodeId, nodeName, text), $"writing {nodeName}");
     }
 
     // ------------------------------------------------------------------ search

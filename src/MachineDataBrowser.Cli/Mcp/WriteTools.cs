@@ -134,7 +134,7 @@ internal sealed class WriteTools(EndpointPool pool, bool skipConfirmation)
         }
     }
 
-    private static string Text(object? value) => value is null ? "unreadable" : ValueFormatter.Format(new Variant(value));
+    private static string Text(object? value) => value is null ? "unreadable" : ValueFormatter.Format(ValueFormatter.ToVariant(value));
 
     private static async Task<string> Guard(Func<Task<JsonNode>> tool)
     {

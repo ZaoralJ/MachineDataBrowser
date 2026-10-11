@@ -164,7 +164,7 @@ internal static class Commands
             {
                 var showIds = ShowIds(r, resolved);
                 await RowsAsync(r, WithId(showIds, ["name", "type", "value"]),
-                    resolved.Select((n, i) => WithId(showIds, [n.Name, values[i] is null ? "-" : ValueJson.TypeName(values[i]), values[i] is null ? "(read failed)" : ValueFormatter.Format(new Variant(values[i]))], n.DisplayId))).ConfigureAwait(false);
+                    resolved.Select((n, i) => WithId(showIds, [n.Name, values[i] is null ? "-" : ValueJson.TypeName(values[i]), values[i] is null ? "(read failed)" : ValueFormatter.Format(ValueFormatter.ToVariant(values[i]))], n.DisplayId))).ConfigureAwait(false);
             }
 
             return values.Any(v => v is null) ? 1 : 0;
@@ -740,7 +740,7 @@ internal static class Commands
         }
     }
 
-    private static string Text(object? value) => value is null ? "-" : ValueFormatter.Format(new Variant(value));
+    private static string Text(object? value) => value is null ? "-" : ValueFormatter.Format(ValueFormatter.ToVariant(value));
 
     /// <summary>The row with an id column after the name (the first column) when ids are shown.</summary>
     private static IReadOnlyList<string> WithId(bool show, IReadOnlyList<string> row, string id = "id") =>
@@ -817,7 +817,7 @@ internal static class Commands
             {
                 if (current[i] is { } value)
                 {
-                    writer.Seed(byId[ids[i]].DisplayId, new ValueUpdate(ids[i], ValueFormatter.Format(new Variant(value)), StatusCodes.Good, DateTime.MinValue, DateTime.MinValue, Raw: value));
+                    writer.Seed(byId[ids[i]].DisplayId, new ValueUpdate(ids[i], ValueFormatter.Format(ValueFormatter.ToVariant(value)), StatusCodes.Good, DateTime.MinValue, DateTime.MinValue, Raw: value));
                 }
             }
         }
@@ -845,7 +845,7 @@ internal static class Commands
                     if (current[i] is { } value && !done.Task.IsCompleted)
                     {
                         var node = byId[ids[i]];
-                        writer.Post(node.Name, node.DisplayId, new ValueUpdate(ids[i], ValueFormatter.Format(new Variant(value)), StatusCodes.Good, now, now, Raw: value));
+                        writer.Post(node.Name, node.DisplayId, new ValueUpdate(ids[i], ValueFormatter.Format(ValueFormatter.ToVariant(value)), StatusCodes.Good, now, now, Raw: value));
                     }
                 }
             }

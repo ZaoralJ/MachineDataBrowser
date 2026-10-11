@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Opc.Ua;
+using Opc.Ua.Encoders;
 
 namespace MachineDataBrowser.Core;
 
@@ -17,12 +18,13 @@ public static class ValueJson
     {
         null => "Null",
         Matrix m => $"{TypeName(m.Elements.Length > 0 ? m.Elements.GetValue(0) : null)}[{string.Join(',', m.Dimensions)}]",
-        byte[] => "ByteString",
+        IConvertableToMatrix m => MatrixTypeName(m.ToMatrix(BuiltInType.Null)),
+        byte[] or ByteString => "ByteString",
         Array a => $"{TypeName(a.Length > 0 ? a.GetValue(0) : null)}[]",
-        ExtensionObject { Body: IEncodeable e } => e.GetType().Name,
+        ExtensionObject eo when eo.TryGetValue(out IEncodeable? e) => EncodeableTypeName(e),
         ExtensionObject => "ExtensionObject",
         Uuid => "Guid",
-        _ => new Variant(value).TypeInfo?.BuiltInType.ToString() ?? value.GetType().Name,
+        _ => ValueFormatter.ToVariant(value).TypeInfo.BuiltInType.ToString(),
     };
 
     private static JsonNode? Convert(object? value, int depth)
@@ -35,7 +37,7 @@ public static class ValueJson
         return value switch
         {
             null => null,
-            Variant v => Convert(v.Value, depth),
+            Variant v => Convert(v.AsBoxedObject(), depth),
             bool b => JsonValue.Create(b),
             sbyte or byte or short or ushort or int or uint or long => JsonValue.Create(System.Convert.ToInt64(value, CultureInfo.InvariantCulture)),
             ulong u => JsonValue.Create(u),
@@ -44,18 +46,19 @@ public static class ValueJson
             decimal m => JsonValue.Create(m),
             string s => JsonValue.Create(s),
             DateTime dt => JsonValue.Create(dt == DateTime.MinValue ? null : dt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture)),
+            DateTimeUtc dt => Convert(dt.ToDateTime(), depth),
             Uuid g => JsonValue.Create(((Guid)g).ToString()),
             Guid g => JsonValue.Create(g.ToString()),
             byte[] bytes => JsonValue.Create(System.Convert.ToBase64String(bytes)),
+            ByteString bytes => bytes.IsNull ? null : JsonValue.Create(bytes.ToBase64()),
             LocalizedText lt => JsonValue.Create(lt.Text),
             QualifiedName qn => JsonValue.Create(qn.ToString()),
             NodeId or ExpandedNodeId or StatusCode => JsonValue.Create(value.ToString()),
             System.Xml.XmlElement xml => JsonValue.Create(xml.OuterXml),
             Matrix matrix => MatrixToJson(matrix, depth),
-            ExtensionObject eo => eo.Body is byte[] raw
-                ? new JsonObject { ["typeId"] = eo.TypeId?.ToString(), ["body"] = System.Convert.ToBase64String(raw) }
-                : Convert(eo.Body, depth + 1),
-            DataValue dv => Convert(dv.Value, depth + 1),
+            IConvertableToMatrix matrix => MatrixToJson(matrix.ToMatrix(BuiltInType.Null), depth),
+            ExtensionObject eo => ExtensionObjectToJson(eo, depth),
+            DataValue dv => Convert(dv.WrappedValue.AsBoxedObject(), depth + 1),
             IEncodeable encodeable => StructToJson(encodeable, depth),
             Enum e => JsonValue.Create(e.ToString()),
             IEnumerable list => new JsonArray([.. list.Cast<object?>().Select(i => Convert(i, depth + 1))]),
@@ -65,6 +68,22 @@ public static class ValueJson
 
     private static JsonValue Number(double d) =>
         double.IsFinite(d) ? JsonValue.Create(d) : JsonValue.Create(d.ToString(CultureInfo.InvariantCulture))!;
+
+    private static JsonNode? ExtensionObjectToJson(ExtensionObject extensionObject, int depth)
+    {
+        if (extensionObject.TryGetAsBinary(out ByteString bytes))
+        {
+            return new JsonObject
+            {
+                ["typeId"] = extensionObject.TypeId.ToString(),
+                ["body"] = bytes.IsNull ? null : System.Convert.ToBase64String(bytes.Memory.ToArray()),
+            };
+        }
+
+        return extensionObject.TryGetValue(out IEncodeable? encodeable)
+            ? Convert(encodeable, depth + 1)
+            : new JsonObject { ["typeId"] = extensionObject.TypeId.ToString() };
+    }
 
     private static JsonArray MatrixToJson(Matrix matrix, int depth)
     {
@@ -86,6 +105,12 @@ public static class ValueJson
             return array;
         }
     }
+
+    private static string MatrixTypeName(Matrix matrix) =>
+        $"{TypeName(matrix.Elements.Length > 0 ? matrix.Elements.GetValue(0) : null)}[{string.Join(',', matrix.Dimensions)}]";
+
+    private static string EncodeableTypeName(IEncodeable encodeable) =>
+        encodeable is Structure structure ? structure.XmlName.Name : encodeable.GetType().Name;
 
     private static readonly HashSet<string> SkippedProperties =
         ["TypeId", "BinaryEncodingId", "XmlEncodingId", "JsonEncodingId", "XmlName", "StructureType"];

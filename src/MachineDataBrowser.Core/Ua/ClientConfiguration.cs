@@ -1,5 +1,6 @@
 using Opc.Ua;
 using Opc.Ua.Configuration;
+using Opc.Ua.Security.Certificates;
 
 namespace MachineDataBrowser.Core.Ua;
 
@@ -23,29 +24,16 @@ internal static class ClientConfiguration
     public static bool IsTrusted(string thumbprint) =>
         File.Exists(Path.Combine(TrustedStorePath, "certs", $"{thumbprint}.der"));
 
-    public static async Task<ApplicationConfiguration> CreateAsync(
+    public static async Task<(ApplicationConfiguration Configuration, ApplicationInstance Instance)> CreateAsync(
         ITelemetryContext telemetry,
-        Func<CertificateValidationEventArgs, bool> acceptUntrusted,
+        Func<Certificate, ServiceResult, bool> acceptUntrusted,
         CancellationToken cancellationToken)
     {
-        var validator = new CertificateValidator(telemetry);
-        validator.CertificateValidation += (_, e) =>
-        {
-            // Policy failures (short key, SHA-1) are common on older servers; the user decides like for untrusted ones.
-            if ((e.Error.StatusCode == StatusCodes.BadCertificateUntrusted
-                    || e.Error.StatusCode == StatusCodes.BadCertificatePolicyCheckFailed)
-                && acceptUntrusted(e))
-            {
-                e.Accept = true;
-            }
-        };
-
-        var config = new ApplicationConfiguration
+        var config = new ApplicationConfiguration(telemetry)
         {
             ApplicationName = ApplicationName,
             ApplicationUri = $"urn:{System.Net.Dns.GetHostName()}:{ApplicationName}",
             ApplicationType = ApplicationType.Client,
-            CertificateValidator = validator,
             TransportQuotas = new TransportQuotas { OperationTimeout = 30_000 },
             ClientConfiguration = new Opc.Ua.ClientConfiguration { DefaultSessionTimeout = 60_000 },
             SecurityConfiguration = new SecurityConfiguration
@@ -77,9 +65,20 @@ internal static class ClientConfiguration
             ApplicationName = ApplicationName,
             ApplicationType = ApplicationType.Client,
         };
-        await instance.CheckApplicationInstanceCertificatesAsync(false, null, cancellationToken).ConfigureAwait(false);
-
-        return config;
+        try
+        {
+            await instance.CheckApplicationInstanceCertificatesAsync(false, null, cancellationToken).ConfigureAwait(false);
+            config.CertificateManager.AcceptError = (certificate, error) =>
+                (error.StatusCode == StatusCodes.BadCertificateUntrusted
+                    || error.StatusCode == StatusCodes.BadCertificatePolicyCheckFailed)
+                && acceptUntrusted(certificate, error);
+            return (config, instance);
+        }
+        catch
+        {
+            await instance.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
 
         static CertificateTrustList Store(string name) => new()
         {

@@ -22,11 +22,11 @@ public sealed partial class OpcUaClient : IHistorySource
 
         var values = new List<ValueUpdate>();
         DateTime? pagedAfter = null;
-        byte[]? continuation = null;
+        ByteString continuation = default;
         var truncated = false;
         do
         {
-            var toRead = new HistoryReadValueIdCollection { new HistoryReadValueId { NodeId = nodeId, ContinuationPoint = continuation } };
+            var toRead = new List<HistoryReadValueId> { new HistoryReadValueId { NodeId = nodeId, ContinuationPoint = continuation } };
             var response = await session.HistoryReadAsync(null, new ExtensionObject(details), TimestampsToReturn.Both, false, toRead, cancellationToken)
                 .ConfigureAwait(false);
             var result = response.Results[0];
@@ -35,13 +35,13 @@ public sealed partial class OpcUaClient : IHistorySource
                 throw new ServiceResultException(result.StatusCode);
             }
 
-            continuation = result.ContinuationPoint is { Length: > 0 } cp ? cp : null;
+            continuation = result.ContinuationPoint;
             var page = 0;
             var before = values.Count;
             if (ExtensionObject.ToEncodeable(result.HistoryData) is HistoryData data)
             {
                 page = data.DataValues.Count;
-                foreach (var dv in data.DataValues)
+                foreach (var dv in data.DataValues.ToList())
                 {
                     // Paging by time: servers may round the start (e.g. to microseconds) and return the last value again.
                     if (pagedAfter is { } after && dv.SourceTimestamp <= after)
@@ -54,20 +54,20 @@ public sealed partial class OpcUaClient : IHistorySource
                         nodeId,
                         ValueFormatter.Format(decoded.WrappedValue),
                         dv.StatusCode,
-                        dv.SourceTimestamp,
-                        dv.ServerTimestamp,
+                        dv.SourceTimestamp.ToDateTime(),
+                        dv.ServerTimestamp.ToDateTime(),
                         ValueFormatter.ToNumeric(decoded.WrappedValue),
-                        decoded.WrappedValue.Value));
+                        decoded.WrappedValue.AsBoxedObject()));
                 }
             }
 
-            if (values.Count >= maxValues && continuation is not null)
+            if (values.Count >= maxValues && !continuation.IsNull && !continuation.IsEmpty)
             {
                 truncated = true;
                 break;
             }
 
-            if (continuation is not null)
+            if (!continuation.IsNull && !continuation.IsEmpty)
             {
                 continue;
             }
@@ -88,10 +88,10 @@ public sealed partial class OpcUaClient : IHistorySource
         }
         while (true);
 
-        if (continuation is not null)
+        if (!continuation.IsNull && !continuation.IsEmpty)
         {
             // Release the server-side continuation point.
-            var release = new HistoryReadValueIdCollection { new HistoryReadValueId { NodeId = nodeId, ContinuationPoint = continuation } };
+            var release = new List<HistoryReadValueId> { new HistoryReadValueId { NodeId = nodeId, ContinuationPoint = continuation } };
             await session.HistoryReadAsync(null, new ExtensionObject(details), TimestampsToReturn.Neither, true, release, cancellationToken).ConfigureAwait(false);
         }
 
