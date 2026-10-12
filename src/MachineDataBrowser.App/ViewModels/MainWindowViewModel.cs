@@ -28,11 +28,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     public MainWindowViewModel(SettingsStore? settingsStore, LayoutStore? layoutStore = null, IDeviceClientFactory? clientFactory = null)
     {
+        _settingsStore = settingsStore;
+        Settings = settingsStore?.Load() ?? new AppSettings();
         _clientFactory = clientFactory ?? new DeviceClientFactory();
         _client = _clientFactory.Create(DefaultEndpointUrl);
-        _settingsStore = settingsStore;
         _layoutStore = layoutStore;
-        Settings = settingsStore?.Load() ?? new AppSettings();
         EndpointUrl = DefaultEndpointUrl;
         DefaultRefreshMs = DefaultRefreshFor(EndpointUrl);
         IsDirty = false;
