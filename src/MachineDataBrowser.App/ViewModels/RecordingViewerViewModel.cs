@@ -3,6 +3,7 @@ using System.Globalization;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MachineDataBrowser.Core;
+using MachineDataBrowser.Recordings.Formats;
 
 using MachineDataBrowser.App.Services;
 
@@ -105,7 +106,7 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
     public static RecordingViewerViewModel ForFile(string path)
     {
         // The file is read on the pool (opening a large file used to block the window); polls take what has been read.
-        var reader = RecordingFileReader.Open(path);
+        var reader = RecordingFormatServices.OpenReader(path);
         var pending = new System.Collections.Concurrent.ConcurrentQueue<HistoryRow>();
         Task? reading = null;
         string? error = null;

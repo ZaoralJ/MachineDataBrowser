@@ -1,78 +1,19 @@
-using System.Globalization;
-using System.Text;
-using System.Text.Json;
 using System.Threading.Channels;
 
 namespace MachineDataBrowser.Core;
 
-public enum RecordingState
-{
-    Created,
-    Scheduled,
-    Recording,
-    Paused,
-    Stopped,
-    Closed,
-}
-
-public sealed record RecordingOptions
-{
-    public required string Name { get; init; }
-
-    public double SamplingIntervalMs { get; init; } = 250;
-
-    /// <summary>Samples older than this (relative to now) are dropped. Null = no age limit.</summary>
-    public TimeSpan? MaxAge { get; init; }
-
-    public int MaxPointsPerItem { get; init; } = 100_000;
-
-    public DateTimeOffset? ScheduledStart { get; init; }
-
-    public TimeSpan? StopAfter { get; init; }
-
-    public DateTimeOffset? StopAt { get; init; }
-
-    /// <summary>
-    /// When set, every sample is also written to this file while recording: SQLite for <c>.db</c>, <c>.sqlite</c> and
-    /// <c>.sqlite3</c> (a new recording in the file each start), CSV otherwise (appended).
-    /// </summary>
-    public string? LiveFilePath { get; init; }
-
-    /// <summary>The endpoint recorded from, kept in SQLite files with the recording.</summary>
-    public string? Endpoint { get; init; }
-
-    /// <summary>
-    /// SQLite live files only: samples older than this are deleted from the file (from every recording in it), so an
-    /// always-on recording doesn't grow without end. Null = keep everything.
-    /// </summary>
-    public TimeSpan? FileRetention { get; init; }
-}
-
-/// <summary>A recorded node; <paramref name="Path"/> is its parent path in the address space when known.</summary>
-public sealed record RecordedItem(DeviceNodeId NodeId, string DisplayName, string PortableId, string? Path = null);
-
-public sealed record HistorySample(
-    DateTimeOffset ReceivedAt,
-    DateTime SourceTimestamp,
-    DateTime ServerTimestamp,
-    string Value,
-    double? Numeric,
-    DeviceStatusCode Status,
-    long Sequence = 0);
-
 /// <summary>
 /// A named capture of value history for a set of nodes on one <see cref="IDeviceClient"/> connection.
-/// History is kept in bounded in-memory buffers (per item) and can optionally be streamed to a CSV file.
+/// History is kept in bounded in-memory buffers (per item) and can optionally be streamed to a recording target.
 /// </summary>
 public sealed class Recording : IAsyncDisposable
 {
-    internal const string CsvHeader = "ReceivedAt,SourceTimestamp,ServerTimestamp,Name,NodeId,Value,Status";
-
     /// <summary>Most samples written to the live file in one go (one SQLite transaction).</summary>
     private const int LiveBatchSize = 1000;
 
     private readonly IDeviceClient _client;
     private readonly TimeProvider _time;
+    private readonly ILiveRecordingFileFactory? _liveFileFactory;
     private readonly Dictionary<DeviceNodeId, RecordedItem> _itemsById;
     private readonly Dictionary<DeviceNodeId, Queue<HistorySample>> _buffers;
     private readonly Lock _sync = new();
@@ -87,11 +28,21 @@ public sealed class Recording : IAsyncDisposable
     private long _totalSamples;
     private long _sequence;
 
-    public Recording(IDeviceClient client, RecordingOptions options, IReadOnlyList<RecordedItem> items, TimeProvider? timeProvider = null)
+    public Recording(
+        IDeviceClient client,
+        RecordingOptions options,
+        IReadOnlyList<RecordedItem> items,
+        TimeProvider? timeProvider = null,
+        ILiveRecordingFileFactory? liveFileFactory = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(items);
+        if (options.LiveFilePath is not null && liveFileFactory is null)
+        {
+            throw new ArgumentException("A live recording target factory is required when a live file is configured.", nameof(liveFileFactory));
+        }
+
         if (items.Count == 0)
         {
             throw new ArgumentException("A recording needs at least one item.", nameof(items));
@@ -99,6 +50,7 @@ public sealed class Recording : IAsyncDisposable
 
         _client = client;
         _time = timeProvider ?? TimeProvider.System;
+        _liveFileFactory = liveFileFactory;
         Options = options;
         _items = [.. items];
         _itemsById = items.ToDictionary(i => i.NodeId);
@@ -284,6 +236,11 @@ public sealed class Recording : IAsyncDisposable
     public async Task UpdateOptionsAsync(RecordingOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
+        if (options.LiveFilePath is not null && _liveFileFactory is null)
+        {
+            throw new ArgumentException("A live recording target factory is required when a live file is configured.", nameof(options));
+        }
+
         await _lifecycle.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -380,74 +337,9 @@ public sealed class Recording : IAsyncDisposable
         }
     }
 
-    public async Task ExportCsvAsync(string path, CancellationToken cancellationToken = default)
-    {
-        var builder = new StringBuilder(CsvHeader).Append('\n');
-        foreach (var (item, samples) in Snapshot())
-        {
-            foreach (var sample in samples)
-            {
-                builder.Append(CsvLine(item, sample)).Append('\n');
-            }
-        }
-
-        await File.WriteAllTextAsync(path, builder.ToString(), cancellationToken).ConfigureAwait(false);
-    }
-
-    public async Task ExportJsonAsync(string path, CancellationToken cancellationToken = default)
-    {
-        await using var stream = File.Create(path);
-        await using var json = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true });
-        json.WriteStartObject();
-        json.WriteString("name", Options.Name);
-        if (StartedAt is { } started)
-        {
-            json.WriteString("startedAt", started);
-        }
-
-        if (StoppedAt is { } stopped)
-        {
-            json.WriteString("stoppedAt", stopped);
-        }
-
-        json.WriteNumber("samplingIntervalMs", Options.SamplingIntervalMs);
-        json.WriteStartArray("items");
-        foreach (var (item, samples) in Snapshot())
-        {
-            json.WriteStartObject();
-            json.WriteString("nodeId", item.PortableId);
-            json.WriteString("displayName", item.DisplayName);
-            json.WriteStartArray("samples");
-            foreach (var sample in samples)
-            {
-                json.WriteStartObject();
-                json.WriteString("receivedAt", sample.ReceivedAt);
-                json.WriteString("sourceTimestamp", sample.SourceTimestamp);
-                json.WriteString("value", sample.Value);
-                if (sample.Numeric is { } numeric)
-                {
-                    if (double.IsFinite(numeric))
-                    {
-                        json.WriteNumber("numeric", numeric);
-                    }
-                    else
-                    {
-                        json.WriteString("numeric", numeric.ToString(CultureInfo.InvariantCulture));
-                    }
-                }
-
-                json.WriteString("status", StatusText(sample.Status));
-                json.WriteEndObject();
-            }
-
-            json.WriteEndArray();
-            json.WriteEndObject();
-        }
-
-        json.WriteEndArray();
-        json.WriteEndObject();
-        await json.FlushAsync(cancellationToken).ConfigureAwait(false);
-    }
+    public RecordingSnapshot CreateSnapshot() =>
+        new(Options.Name, Options.SamplingIntervalMs, StartedAt, StoppedAt,
+            [.. Snapshot().Select(entry => new RecordingSnapshotItem(entry.Item, entry.Samples))]);
 
     public async ValueTask DisposeAsync()
     {
@@ -589,11 +481,12 @@ public sealed class Recording : IAsyncDisposable
         {
             try
             {
-                await using var file = await RecordingFiles.OpenAsync(path, info, CancellationToken.None).ConfigureAwait(false);
+                var factory = _liveFileFactory ?? throw new InvalidOperationException("A live recording target factory is required when a live file is configured.");
+                await using var file = await factory.OpenAsync(path, info, CancellationToken.None).ConfigureAwait(false);
                 var batch = new List<LiveSample>(LiveBatchSize);
                 while (await channel.Reader.WaitToReadAsync().ConfigureAwait(false))
                 {
-                    // Everything that arrived meanwhile in one write: one transaction for SQLite, one flush for CSV.
+                    // Everything that arrived meanwhile is sent to the target in one batch.
                     while (batch.Count < LiveBatchSize && channel.Reader.TryRead(out var sample))
                     {
                         batch.Add(sample);
@@ -680,22 +573,6 @@ public sealed class Recording : IAsyncDisposable
             Faulted?.Invoke(this, ex);
         }
     }
-
-    internal static string CsvLine(RecordedItem item, HistorySample sample) => string.Join(',',
-        sample.ReceivedAt.ToString("O", CultureInfo.InvariantCulture),
-        Timestamp(sample.SourceTimestamp),
-        Timestamp(sample.ServerTimestamp),
-        Csv(item.DisplayName),
-        Csv(item.PortableId),
-        Csv(sample.Value),
-        StatusText(sample.Status));
-
-    private static string Timestamp(DateTime value) =>
-        value == DateTime.MinValue ? string.Empty : value.ToString("O", CultureInfo.InvariantCulture);
-
-    private static string Csv(string value) => $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
-
-    private static string StatusText(DeviceStatusCode status) => Core.StatusText.Of(status);
 
     private static DateTimeOffset? Min(DateTimeOffset? a, DateTimeOffset? b) =>
         a is null ? b : b is null ? a : a < b ? a : b;

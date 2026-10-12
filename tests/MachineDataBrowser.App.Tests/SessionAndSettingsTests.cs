@@ -8,6 +8,7 @@ using MachineDataBrowser.App.Services;
 using MachineDataBrowser.App.ViewModels;
 using MachineDataBrowser.App.Views;
 using MachineDataBrowser.Core.Tests;
+using MachineDataBrowser.Recordings.Formats;
 using Xunit;
 
 namespace MachineDataBrowser.App.Tests;
@@ -266,7 +267,7 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
         Assert.Equal(4, vm.WatchItems.Count(w => w.Monitor is not null));
 
         var csv = Path.Combine(_dir, "h.csv");
-        await rec.Recording.ExportCsvAsync(csv, TestContext.Current.CancellationToken);
+        await RecordingFormatServices.ExportCsvAsync(rec.Recording, csv, TestContext.Current.CancellationToken);
         Assert.True((await File.ReadAllLinesAsync(csv, TestContext.Current.CancellationToken)).Length > 1);
 
         await vm.ResetRecordingCommand.ExecuteAsync(null);

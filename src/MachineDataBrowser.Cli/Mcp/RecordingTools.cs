@@ -2,6 +2,8 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MachineDataBrowser.Core;
+using MachineDataBrowser.Recordings.Formats;
+using MachineDataBrowser.Recordings.Sqlite;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
@@ -18,7 +20,7 @@ internal sealed class RecordingLibrary(IReadOnlyList<string> files, IReadOnlyLis
     public IReadOnlyList<string> Files() =>
     [
         .. files.Select(Path.GetFullPath),
-        .. folders.Where(Directory.Exists).SelectMany(d => Directory.EnumerateFiles(Path.GetFullPath(d)).Where(RecordingFiles.IsSqlite).Order(StringComparer.Ordinal)),
+        .. folders.Where(Directory.Exists).SelectMany(d => Directory.EnumerateFiles(Path.GetFullPath(d)).Where(RecordingTargetFactory.IsSqlite).Order(StringComparer.Ordinal)),
     ];
 
     /// <summary>An allowed file by full path or by file name; anything else is refused.</summary>

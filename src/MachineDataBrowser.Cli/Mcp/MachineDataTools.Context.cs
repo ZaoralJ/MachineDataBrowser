@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using MachineDataBrowser.Core;
+using MachineDataBrowser.Recordings.Sqlite;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 

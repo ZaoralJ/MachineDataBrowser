@@ -1,4 +1,5 @@
 using Xunit;
+using MachineDataBrowser.Recordings.Csv;
 
 namespace MachineDataBrowser.Core.Tests;
 
