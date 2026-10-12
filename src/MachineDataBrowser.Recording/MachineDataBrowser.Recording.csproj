@@ -6,4 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\MachineDataBrowser.Core\MachineDataBrowser.Core.csproj" />
+    <InternalsVisibleTo Include="MachineDataBrowser.Core.Tests" />
+    <InternalsVisibleTo Include="MachineDataBrowser.App.Tests" />
+  </ItemGroup>
 </Project>

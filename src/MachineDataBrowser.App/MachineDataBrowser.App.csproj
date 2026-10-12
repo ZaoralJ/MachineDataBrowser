@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\MachineDataBrowser.Core\MachineDataBrowser.Core.csproj" />
     <ProjectReference Include="..\MachineDataBrowser.Drivers\MachineDataBrowser.Drivers.csproj" />
+    <ProjectReference Include="..\MachineDataBrowser.Recording.Formats\MachineDataBrowser.Recording.Formats.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="MachineDataBrowser.App.Tests" />

@@ -7,6 +7,11 @@
     <Project Path="src/MachineDataBrowser.Driver.Mqtt/MachineDataBrowser.Driver.Mqtt.csproj" />
     <Project Path="src/MachineDataBrowser.Driver.Cip/MachineDataBrowser.Driver.Cip.csproj" />
     <Project Path="src/MachineDataBrowser.Drivers/MachineDataBrowser.Drivers.csproj" />
+    <Project Path="src/MachineDataBrowser.Recording/MachineDataBrowser.Recording.csproj" />
+    <Project Path="src/MachineDataBrowser.Recording.Csv/MachineDataBrowser.Recording.Csv.csproj" />
+    <Project Path="src/MachineDataBrowser.Recording.Json/MachineDataBrowser.Recording.Json.csproj" />
+    <Project Path="src/MachineDataBrowser.Recording.Sqlite/MachineDataBrowser.Recording.Sqlite.csproj" />
+    <Project Path="src/MachineDataBrowser.Recording.Formats/MachineDataBrowser.Recording.Formats.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MachineDataBrowser.Cli.Tests/MachineDataBrowser.Cli.Tests.csproj" />

@@ -1,28 +1,15 @@
-using System.Globalization;
 using System.Text;
+using System.Globalization;
+using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Core;
-
-public sealed record RecordingFileRow(DateTimeOffset ReceivedAt, string SourceTimestamp, string Name, string NodeId, string Value, string Status);
-
-/// <summary>A recording file read in steps: each call returns what was added since the last one, so a file still being recorded can be followed.</summary>
-public interface IRecordingFileReader
-{
-    string Path { get; }
-
-    Task<IReadOnlyList<RecordingFileRow>> ReadNewAsync(CancellationToken cancellationToken = default);
-}
+namespace MachineDataBrowser.Recording.Csv;
 
 /// <summary>
-/// Reads the CSV written by <see cref="Recording"/> (export or live file). Call <see cref="ReadNewAsync"/> repeatedly
+/// Reads the CSV written by <see cref="CsvRecordingExporter"/> (export or live file). Call <see cref="ReadNewAsync"/> repeatedly
 /// to tail a file that is still being recorded; a partially written last line is kept until it is complete.
 /// </summary>
 public sealed class RecordingFileReader(string path) : IRecordingFileReader
 {
-    /// <summary>The reader for <paramref name="path"/>: SQLite or CSV, by extension (<see cref="RecordingFiles.IsSqlite"/>).</summary>
-    public static IRecordingFileReader Open(string path) =>
-        RecordingFiles.IsSqlite(path) ? new SqliteRecordingFileReader(path) : new RecordingFileReader(path);
-
     private long _offset;
     private string _partial = string.Empty;
     private bool _headerSkipped;

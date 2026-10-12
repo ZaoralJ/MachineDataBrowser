@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using MachineDataBrowser.Core;
+using MachineDataBrowser.Recording.Formats;
 
 namespace MachineDataBrowser.Cli.Tui;
 
@@ -487,7 +488,7 @@ internal sealed class BrowserModel : IAsyncDisposable
             LiveFilePath = System.IO.Path.GetFullPath(path),
             Endpoint = Args.Url,
         };
-        var recording = new Recording(Client, options, [.. rows.Select(ToRecordedItem)]);
+        var recording = new Recording(Client, options, [.. rows.Select(ToRecordedItem)], liveFileFactory: RecordingFormatServices.LiveFileFactory);
         recording.Faulted += (_, ex) => Log($"Recording to {path} failed: {ex.Message}");
         await recording.StartAsync(cancellationToken).ConfigureAwait(false);
         _recording = recording;

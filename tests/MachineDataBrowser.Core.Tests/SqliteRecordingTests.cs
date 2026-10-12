@@ -1,6 +1,9 @@
 using Microsoft.Data.Sqlite;
 using Opc.Ua;
 using MachineDataBrowser.Core.Ua;
+using MachineDataBrowser.Recording.Csv;
+using MachineDataBrowser.Recording.Formats;
+using MachineDataBrowser.Recording.Sqlite;
 using Xunit;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 using StatusCode = MachineDataBrowser.Core.DeviceStatusCode;
@@ -35,7 +38,8 @@ public sealed class SqliteRecordingTests(OpcPlcFixture plc) : IAsyncLifetime
 
     private async Task<Recording> RecordAsync(string file, string name, params RecordedItem[] items)
     {
-        var recording = new Recording(_client, new RecordingOptions { Name = name, LiveFilePath = file, Endpoint = "opc.tcp://plc:4840", SamplingIntervalMs = 500 }, items);
+        var recording = new Recording(_client, new RecordingOptions { Name = name, LiveFilePath = file, Endpoint = "opc.tcp://plc:4840", SamplingIntervalMs = 500 }, items,
+            liveFileFactory: RecordingFormatServices.LiveFileFactory);
         await recording.StartAsync(Ct);
         return recording;
     }
@@ -92,7 +96,7 @@ public sealed class SqliteRecordingTests(OpcPlcFixture plc) : IAsyncLifetime
     public async Task Each_start_adds_a_recording_to_the_file_and_the_reader_follows_it()
     {
         var file = Path.Combine(_dir, "shift.sqlite");
-        var reader = RecordingFileReader.Open(file);
+        var reader = RecordingFormatServices.OpenReader(file);
         Assert.IsType<SqliteRecordingFileReader>(reader);
         Assert.Empty(await reader.ReadNewAsync(Ct));   // not created yet: nothing to read, no error
 
@@ -113,7 +117,7 @@ public sealed class SqliteRecordingTests(OpcPlcFixture plc) : IAsyncLifetime
         }
 
         Assert.Equal(["Morning", "Evening"], await QueryAsync(file, "SELECT name FROM recordings ORDER BY recording_id", r => r.GetString(0)));
-        var all = await RecordingFileReader.Open(file).ReadNewAsync(Ct);
+        var all = await RecordingFormatServices.OpenReader(file).ReadNewAsync(Ct);
         Assert.Contains(all, r => r.Value == "c" && r.Name == "Evening › Product");   // several recordings: names say which
     }
 
@@ -128,8 +132,8 @@ public sealed class SqliteRecordingTests(OpcPlcFixture plc) : IAsyncLifetime
         }
 
         Assert.StartsWith("ReceivedAt,SourceTimestamp", await File.ReadAllTextAsync(file, Ct), StringComparison.Ordinal);
-        Assert.IsType<RecordingFileReader>(RecordingFileReader.Open(file));
-        Assert.Contains(await RecordingFileReader.Open(file).ReadNewAsync(Ct), r => r.Value == "x");
+        Assert.IsType<RecordingFileReader>(RecordingFormatServices.OpenReader(file));
+        Assert.Contains(await RecordingFormatServices.OpenReader(file).ReadNewAsync(Ct), r => r.Value == "x");
     }
 
     [Fact]
@@ -139,7 +143,7 @@ public sealed class SqliteRecordingTests(OpcPlcFixture plc) : IAsyncLifetime
         var time = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(new DateTimeOffset(2026, 10, 1, 8, 0, 0, TimeSpan.Zero));
         var item = Item(ProductName, "Product");
 
-        await using (var old = new Recording(_client, new RecordingOptions { Name = "Old", LiveFilePath = file }, [item], time))
+        await using (var old = new Recording(_client, new RecordingOptions { Name = "Old", LiveFilePath = file }, [item], time, RecordingFormatServices.LiveFileFactory))
         {
             await old.StartAsync(Ct);
             old.Append(Update(ProductName, "old"));
@@ -147,7 +151,7 @@ public sealed class SqliteRecordingTests(OpcPlcFixture plc) : IAsyncLifetime
         }
 
         var options = new RecordingOptions { Name = "Current", LiveFilePath = file, FileRetention = TimeSpan.FromHours(1) };
-        await using (var current = new Recording(_client, options, [item], time))
+        await using (var current = new Recording(_client, options, [item], time, RecordingFormatServices.LiveFileFactory))
         {
             await current.StartAsync(Ct);
             current.Append(Update(ProductName, "early"));

@@ -1,80 +1,80 @@
+using System.Globalization;
 using System.Text;
+using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Core;
+namespace MachineDataBrowser.Recording.Csv;
 
-/// <summary>One recorded sample on its way to the live file, with the device's typed value for formats that keep it.</summary>
-internal sealed record LiveSample(RecordedItem Item, HistorySample Sample, object? Raw);
-
-/// <summary>
-/// What a live file knows about the recording it belongs to. <paramref name="Retention"/> is read each time, so a
-/// change in the recording's settings applies while it runs.
-/// </summary>
-internal sealed record LiveRecordingInfo(string Name, string? Endpoint, double SamplingIntervalMs, DateTimeOffset StartedAt, Func<TimeSpan?> Retention, TimeProvider Time);
-
-/// <summary>
-/// The file a recording streams every sample to while it runs (<see cref="RecordingOptions.LiveFilePath"/>): CSV, or
-/// SQLite for <c>.db</c> / <c>.sqlite</c> / <c>.sqlite3</c>. Called from one writer task, in order.
-/// </summary>
-internal interface ILiveRecordingFile : IAsyncDisposable
+public sealed class CsvRecordingFileFactory : ILiveRecordingFileFactory
 {
-    Task WriteAsync(IReadOnlyList<LiveSample> batch, CancellationToken cancellationToken);
-
-    /// <summary>The recording stopped (or the file changed); the file is closed after this.</summary>
-    Task CompleteAsync(DateTimeOffset stoppedAt, CancellationToken cancellationToken);
-}
-
-public static class RecordingFiles
-{
-    private static readonly string[] SqliteExtensions = [".db", ".sqlite", ".sqlite3"];
-
-    /// <summary>True for files recorded into SQLite, chosen by extension; anything else is CSV.</summary>
-    public static bool IsSqlite(string path) =>
-        SqliteExtensions.Contains(System.IO.Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
-
-    internal static async Task<ILiveRecordingFile> OpenAsync(string path, LiveRecordingInfo info, CancellationToken cancellationToken)
+    public async Task<ILiveRecordingFile> OpenAsync(string path, LiveRecordingInfo info, CancellationToken cancellationToken)
     {
-        var directory = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(path));
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        return IsSqlite(path)
-            ? await SqliteRecordingFile.OpenAsync(path, info, cancellationToken).ConfigureAwait(false)
-            : await CsvRecordingFile.OpenAsync(path, cancellationToken).ConfigureAwait(false);
-    }
-}
-
-/// <summary>The CSV live file: one line per sample, appended; the header is written to a new or empty file.</summary>
-internal sealed class CsvRecordingFile : ILiveRecordingFile
-{
-    private readonly StreamWriter _writer;
-
-    private CsvRecordingFile(StreamWriter writer) => _writer = writer;
-
-    public static async Task<CsvRecordingFile> OpenAsync(string path, CancellationToken cancellationToken)
-    {
+        CreateDirectory(path);
         var writeHeader = !File.Exists(path) || new FileInfo(path).Length == 0;
         var writer = new StreamWriter(path, append: true, new UTF8Encoding(false));
         if (writeHeader)
         {
-            await writer.WriteLineAsync(Recording.CsvHeader.AsMemory(), cancellationToken).ConfigureAwait(false);
+            await writer.WriteLineAsync(CsvRecordingExporter.Header.AsMemory(), cancellationToken).ConfigureAwait(false);
         }
 
-        return new CsvRecordingFile(writer);
+        return new CsvLiveRecordingFile(writer);
     }
 
+    internal static void CreateDirectory(string path)
+    {
+        var directory = Path.GetDirectoryName(Path.GetFullPath(path));
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+    }
+}
+
+internal sealed class CsvLiveRecordingFile(StreamWriter writer) : ILiveRecordingFile
+{
     public async Task WriteAsync(IReadOnlyList<LiveSample> batch, CancellationToken cancellationToken)
     {
         foreach (var sample in batch)
         {
-            await _writer.WriteLineAsync(Recording.CsvLine(sample.Item, sample.Sample).AsMemory(), cancellationToken).ConfigureAwait(false);
+            await writer.WriteLineAsync(CsvRecordingExporter.Line(sample.Item, sample.Sample).AsMemory(), cancellationToken).ConfigureAwait(false);
         }
 
-        await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+        await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public Task CompleteAsync(DateTimeOffset stoppedAt, CancellationToken cancellationToken) => _writer.FlushAsync(cancellationToken);
+    public Task CompleteAsync(DateTimeOffset stoppedAt, CancellationToken cancellationToken) => writer.FlushAsync(cancellationToken);
 
-    public ValueTask DisposeAsync() => _writer.DisposeAsync();
+    public ValueTask DisposeAsync() => writer.DisposeAsync();
+}
+
+public static class CsvRecordingExporter
+{
+    public const string Header = "ReceivedAt,SourceTimestamp,ServerTimestamp,Name,NodeId,Value,Status";
+
+    public static async Task ExportAsync(RecordingSnapshot snapshot, string path, CancellationToken cancellationToken = default)
+    {
+        var builder = new StringBuilder(Header).Append('\n');
+        foreach (var entry in snapshot.Items)
+        {
+            foreach (var sample in entry.Samples)
+            {
+                builder.Append(Line(entry.Item, sample)).Append('\n');
+            }
+        }
+
+        await File.WriteAllTextAsync(path, builder.ToString(), cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static string Line(RecordedItem item, HistorySample sample) => string.Join(',',
+        sample.ReceivedAt.ToString("O", CultureInfo.InvariantCulture),
+        Timestamp(sample.SourceTimestamp),
+        Timestamp(sample.ServerTimestamp),
+        Csv(item.DisplayName),
+        Csv(item.PortableId),
+        Csv(sample.Value),
+        MachineDataBrowser.Core.StatusText.Of(sample.Status));
+
+    private static string Timestamp(DateTime value) =>
+        value == DateTime.MinValue ? string.Empty : value.ToString("O", CultureInfo.InvariantCulture);
+
+    private static string Csv(string value) => $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 }

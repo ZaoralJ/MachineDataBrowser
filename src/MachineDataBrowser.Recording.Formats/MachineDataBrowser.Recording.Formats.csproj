@@ -6,4 +6,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\MachineDataBrowser.Core\MachineDataBrowser.Core.csproj" />
+    <ProjectReference Include="..\MachineDataBrowser.Recording\MachineDataBrowser.Recording.csproj" />
+    <ProjectReference Include="..\MachineDataBrowser.Recording.Csv\MachineDataBrowser.Recording.Csv.csproj" />
+    <ProjectReference Include="..\MachineDataBrowser.Recording.Json\MachineDataBrowser.Recording.Json.csproj" />
+    <ProjectReference Include="..\MachineDataBrowser.Recording.Sqlite\MachineDataBrowser.Recording.Sqlite.csproj" />
+  </ItemGroup>
 </Project>

@@ -3,7 +3,9 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
 
-namespace MachineDataBrowser.Core;
+using MachineDataBrowser.Core;
+
+namespace MachineDataBrowser.Recording.Sqlite;
 
 /// <summary>
 /// Records into a SQLite file: each start of a recording is a row in <c>recordings</c>, its items in <c>items</c> and
@@ -71,6 +73,20 @@ internal sealed class SqliteRecordingFile : ILiveRecordingFile
         _connection = connection;
         _recordingId = recordingId;
         _info = info;
+    }
+
+    public sealed class SqliteRecordingFileFactory : ILiveRecordingFileFactory
+    {
+        public async Task<ILiveRecordingFile> OpenAsync(string path, LiveRecordingInfo info, CancellationToken cancellationToken)
+        {
+            var directory = Path.GetDirectoryName(Path.GetFullPath(path));
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            return await SqliteRecordingFile.OpenAsync(path, info, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     public static async Task<SqliteRecordingFile> OpenAsync(string path, LiveRecordingInfo info, CancellationToken cancellationToken)

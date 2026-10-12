@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MachineDataBrowser.App.Services;
 using MachineDataBrowser.Core;
+using MachineDataBrowser.Recording.Formats;
 
 namespace MachineDataBrowser.App.ViewModels;
 
@@ -48,7 +49,7 @@ public sealed partial class MainWindowViewModel
     {
         // The endpoint is kept with recordings written to SQLite; never with a password in it.
         options = options with { Endpoint = options.Endpoint ?? Services.CliCommand.WithoutPassword(EndpointUrl) };
-        var vm = new RecordingViewModel(new Recording(_client, options, items));
+        var vm = new RecordingViewModel(new Recording(_client, options, items, liveFileFactory: RecordingFormatServices.LiveFileFactory));
         Recordings.Add(vm);
         SelectedRecording = vm;
         try
@@ -237,10 +238,10 @@ public sealed partial class MainWindowViewModel
     }
 
     [RelayCommand(CanExecute = nameof(HasRecording))]
-    private Task ExportRecordingCsvAsync() => ExportRecordingAsync("csv", (r, p) => r.ExportCsvAsync(p));
+    private Task ExportRecordingCsvAsync() => ExportRecordingAsync("csv", RecordingFormatServices.ExportCsvAsync);
 
     [RelayCommand(CanExecute = nameof(HasRecording))]
-    private Task ExportRecordingJsonAsync() => ExportRecordingAsync("json", (r, p) => r.ExportJsonAsync(p));
+    private Task ExportRecordingJsonAsync() => ExportRecordingAsync("json", RecordingFormatServices.ExportJsonAsync);
 
     private async Task ExportRecordingAsync(string extension, Func<Recording, string, Task> export)
     {

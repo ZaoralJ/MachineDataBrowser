@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using MachineDataBrowser.Core;
 using MachineDataBrowser.Core.Ua;
+using MachineDataBrowser.Recording.Formats;
 using Spectre.Console;
 
 namespace MachineDataBrowser.Cli;
@@ -374,7 +375,7 @@ internal static class Commands
             }
 
             var files = r.GetValue(mcpRecordings) ?? [];
-            foreach (var file in files.Where(f => !File.Exists(f) || !RecordingFiles.IsSqlite(f)))
+            foreach (var file in files.Where(f => !File.Exists(f) || !RecordingTargetFactory.IsSqlite(f)))
             {
                 throw new CliException($"--recording '{file}' is not an existing SQLite file (.db, .sqlite).");
             }
@@ -655,7 +656,7 @@ internal static class Commands
             return retention is null ? null : throw new CliException("--retention needs --record with a SQLite file (.db, .sqlite).");
         }
 
-        if (retention is not null && !RecordingFiles.IsSqlite(path))
+        if (retention is not null && !RecordingTargetFactory.IsSqlite(path))
         {
             throw new CliException("--retention works for SQLite files (.db, .sqlite) only; a CSV file is only appended to.");
         }
@@ -670,7 +671,7 @@ internal static class Commands
             FileRetention = retention,
         };
         var items = nodes.DistinctBy(n => n.Id).Select(n => new RecordedItem(n.Id, n.DisplayName ?? n.Name, client.ToPortableId(n.Id), n.ParentPath)).ToList();
-        var recording = new Recording(client, options, items);
+        var recording = new Recording(client, options, items, liveFileFactory: RecordingFormatServices.LiveFileFactory);
         recording.Faulted += (_, ex) => _ = stderr.WriteLineAsync($"mdbrowser: recording to {path}: {Describe(ex)}");
         await recording.StartAsync(cancellationToken).ConfigureAwait(false);
         return new RecordingRun(recording, path, stderr);

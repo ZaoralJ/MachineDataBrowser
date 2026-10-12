@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using MachineDataBrowser.Core;
+using MachineDataBrowser.Recording.Formats;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
@@ -62,7 +63,8 @@ internal sealed class RecordingControlTools(EndpointPool pool, string folder) : 
                 LiveFilePath = file,
                 Endpoint = target.Url,
                 StopAfter = TimeSpan.FromMinutes(minutes),
-            }, [.. resolved.DistinctBy(n => n.Id).Select(n => new RecordedItem(n.Id, n.DisplayName ?? n.Name, client.ToPortableId(n.Id), n.ParentPath))]);
+            }, [.. resolved.DistinctBy(n => n.Id).Select(n => new RecordedItem(n.Id, n.DisplayName ?? n.Name, client.ToPortableId(n.Id), n.ParentPath))],
+                liveFileFactory: RecordingFormatServices.LiveFileFactory);
             await recording.StartAsync(cancellationToken).ConfigureAwait(false);
 
             var id = $"r{Interlocked.Increment(ref _next)}";

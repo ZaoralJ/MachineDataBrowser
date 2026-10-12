@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using MachineDataBrowser.Core;
+using MachineDataBrowser.Recording.Formats;
 
 namespace MachineDataBrowser.App.ViewModels;
 
@@ -93,7 +94,7 @@ public sealed partial class NewRecordingViewModel(NewRecordingDraft draft) : Obs
         };
 
     /// <summary>Retention deletes from SQLite files only; a CSV file is only ever appended to.</summary>
-    public bool IsSqliteFile => LiveFilePath is { Length: > 0 } path && RecordingFiles.IsSqlite(path);
+    public bool IsSqliteFile => LiveFilePath is { Length: > 0 } path && RecordingTargetFactory.IsSqlite(path);
 
     public bool CanUseFileRetention => UseLiveFile && IsSqliteFile;
 

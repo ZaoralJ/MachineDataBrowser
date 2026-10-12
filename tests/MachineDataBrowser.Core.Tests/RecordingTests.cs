@@ -2,6 +2,7 @@ using Microsoft.Extensions.Time.Testing;
 using Opc.Ua;
 using Xunit;
 using MachineDataBrowser.Core.Ua;
+using MachineDataBrowser.Recording.Formats;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 using StatusCodes = MachineDataBrowser.Core.DeviceStatusCodes;
 
@@ -157,8 +158,8 @@ public sealed class RecordingTests(OpcPlcFixture plc) : IAsyncLifetime
 
         var csv = Path.Combine(_dir, "h.csv");
         var json = Path.Combine(_dir, "h.json");
-        await recording.ExportCsvAsync(csv, Ct);
-        await recording.ExportJsonAsync(json, Ct);
+        await RecordingFormatServices.ExportCsvAsync(recording, csv, Ct);
+        await RecordingFormatServices.ExportJsonAsync(recording, json, Ct);
 
         Assert.Contains("\"42\",Good", await File.ReadAllTextAsync(csv, Ct), StringComparison.Ordinal);
         var text = await File.ReadAllTextAsync(json, Ct);
@@ -177,7 +178,7 @@ public sealed class RecordingTests(OpcPlcFixture plc) : IAsyncLifetime
         await recording.StopAsync(Ct);
 
         var json = Path.Combine(_dir, "inf.json");
-        await recording.ExportJsonAsync(json, Ct);
+        await RecordingFormatServices.ExportJsonAsync(recording, json, Ct);
 
         using var doc = System.Text.Json.JsonDocument.Parse(await File.ReadAllTextAsync(json, Ct));
         var numerics = doc.RootElement.GetProperty("items")[0].GetProperty("samples").EnumerateArray()
@@ -207,7 +208,7 @@ public sealed class RecordingTests(OpcPlcFixture plc) : IAsyncLifetime
 
     private async Task<Recording> StartedAsync(RecordingOptions options)
     {
-        var recording = new Recording(_client, options, [Item(StaticNode)], _time);
+        var recording = new Recording(_client, options, [Item(StaticNode)], _time, RecordingFormatServices.LiveFileFactory);
         await recording.StartAsync(Ct);
         Assert.Equal(RecordingState.Recording, recording.State);
         await WaitUntil(() => recording.TotalSamples > 0);
