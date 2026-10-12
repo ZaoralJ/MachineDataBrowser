@@ -191,9 +191,9 @@ internal static class SessionWriter
         {
             attributes = await client.ReadAttributesAsync(node.Id, cancellationToken).ConfigureAwait(false);
         }
-        catch (Opc.Ua.ServiceResultException ex) when (Opc.Ua.StatusCode.IsBad(ex.StatusCode))
+        catch (DeviceClientException ex)
         {
-            throw new CliException($"'{node.Name}' is not on the device ({StatusText.Of(ex.Result.StatusCode)}); nothing was saved.");
+            throw new CliException($"'{node.Name}' is not on the device ({ex.StatusCode}); nothing was saved.");
         }
 
         if (attributes.Count == 0 || attributes.Any(a => a.Name == "NodeClass" && a.Value.StartsWith("Bad", StringComparison.Ordinal)))

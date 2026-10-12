@@ -1,6 +1,6 @@
-using Opc.Ua;
 using MachineDataBrowser.Core.Mqtt;
 using Xunit;
+using StatusCodes = MachineDataBrowser.Core.DeviceStatusCodes;
 
 namespace MachineDataBrowser.Core.Tests;
 
@@ -9,6 +9,15 @@ public sealed class SparkplugModelTests
 {
     private const string Data = "spBv1.0/G/DDATA/E/D";
     private const string Birth = "spBv1.0/G/DBIRTH/E/D";
+
+    [Fact]
+    public void Sparkplug_types_map_to_neutral_value_types()
+    {
+        Assert.Equal(DeviceDataType.SByte, SparkplugB.ToValueType(1));
+        Assert.Equal(DeviceDataType.UInt64, SparkplugB.ToValueType(8));
+        Assert.Equal(DeviceDataType.Boolean, SparkplugB.ToValueType(11));
+        Assert.Null(SparkplugB.ToValueType(16));
+    }
 
     [Fact]
     public void Placeholder_ids_follow_the_named_metric_after_the_birth()

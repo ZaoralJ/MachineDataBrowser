@@ -1,5 +1,4 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using Opc.Ua;
 using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.App.ViewModels;
@@ -177,8 +176,8 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
         RefreshAge(receivedAt);
         Value = update.Value;
         Status = StatusText.Of(update.Status);
-        IsBad = StatusCode.IsBad(update.Status);
-        IsUncertain = StatusCode.IsUncertain(update.Status);
+        IsBad = update.Status.IsBad;
+        IsUncertain = update.Status.IsUncertain;
         SourceTimestamp = update.SourceTimestamp == DateTime.MinValue
             ? string.Empty
             : Timestamps.Format(update.SourceTimestamp);

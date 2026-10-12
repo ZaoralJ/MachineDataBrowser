@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using MachineDataBrowser.Core;
 using MachineDataBrowser.Core.Ua;
-using Opc.Ua;
 using Spectre.Console;
 
 namespace MachineDataBrowser.Cli;
@@ -164,7 +163,7 @@ internal static class Commands
             {
                 var showIds = ShowIds(r, resolved);
                 await RowsAsync(r, WithId(showIds, ["name", "type", "value"]),
-                    resolved.Select((n, i) => WithId(showIds, [n.Name, values[i] is null ? "-" : ValueJson.TypeName(values[i]), values[i] is null ? "(read failed)" : ValueFormatter.Format(ValueFormatter.ToVariant(values[i]))], n.DisplayId))).ConfigureAwait(false);
+                    resolved.Select((n, i) => WithId(showIds, [n.Name, values[i] is null ? "-" : ValueJson.TypeName(values[i]), values[i] is null ? "(read failed)" : ValueFormatter.Format(values[i])], n.DisplayId))).ConfigureAwait(false);
             }
 
             return values.Any(v => v is null) ? 1 : 0;
@@ -263,7 +262,7 @@ internal static class Commands
                             var id = client.ParsePortableId(entry.NodeId);
                             items.Add((new Node(id, entry.DisplayName, client.ToDisplayId(id)), entry.RefreshMs ?? fallback));
                         }
-                        catch (Exception ex) when (ex is ServiceResultException or FormatException or ArgumentException)
+                        catch (Exception ex) when (ex is DeviceClientException or FormatException or ArgumentException)
                         {
                             await stderr.WriteLineAsync($"mdbrowser: skipped {entry.DisplayName}: {ex.Message}").ConfigureAwait(false);
                         }
@@ -626,7 +625,7 @@ internal static class Commands
                         var id = client.ParsePortableId(entry.NodeId);
                         items.Add((new Node(id, entry.DisplayName, client.ToDisplayId(id), entry.DisplayName, entry.Path), entry.RefreshMs ?? refreshMs));
                     }
-                    catch (Exception ex) when (ex is ServiceResultException or FormatException or ArgumentException)
+                    catch (Exception ex) when (ex is DeviceClientException or FormatException or ArgumentException)
                     {
                         model.Log($"Skipped {entry.DisplayName}: {ex.Message}");
                     }
@@ -740,7 +739,7 @@ internal static class Commands
         }
     }
 
-    private static string Text(object? value) => value is null ? "-" : ValueFormatter.Format(ValueFormatter.ToVariant(value));
+    private static string Text(object? value) => value is null ? "-" : ValueFormatter.Format(value);
 
     /// <summary>The row with an id column after the name (the first column) when ids are shown.</summary>
     private static IReadOnlyList<string> WithId(bool show, IReadOnlyList<string> row, string id = "id") =>
@@ -766,7 +765,7 @@ internal static class Commands
     private static string Describe(Exception ex) => ex switch
     {
         CliException => ex.Message,
-        ServiceResultException sre => $"{StatusText.Of(sre.Result.StatusCode)}: {sre.Message}",
+        DeviceClientException error => $"{StatusText.Of(error.StatusCode)}: {error.Message}",
         AggregateException { InnerExceptions.Count: 1 } a => Describe(a.InnerExceptions[0]),
         IOException or TimeoutException or InvalidOperationException or FormatException or NotSupportedException
             or System.Net.Sockets.SocketException => ex.Message,
@@ -817,14 +816,14 @@ internal static class Commands
             {
                 if (current[i] is { } value)
                 {
-                    writer.Seed(byId[ids[i]].DisplayId, new ValueUpdate(ids[i], ValueFormatter.Format(ValueFormatter.ToVariant(value)), StatusCodes.Good, DateTime.MinValue, DateTime.MinValue, Raw: value));
+                    writer.Seed(byId[ids[i]].DisplayId, new ValueUpdate(ids[i], ValueFormatter.Format(value), DeviceStatusCodes.Good, DateTime.MinValue, DateTime.MinValue, Raw: value));
                 }
             }
         }
 
         var lost = false;
 
-        void MarkAll(StatusCode status)
+        void MarkAll(DeviceStatusCode status)
         {
             var now = DateTime.UtcNow;
             foreach (var (id, node) in byId)
@@ -845,7 +844,7 @@ internal static class Commands
                     if (current[i] is { } value && !done.Task.IsCompleted)
                     {
                         var node = byId[ids[i]];
-                        writer.Post(node.Name, node.DisplayId, new ValueUpdate(ids[i], ValueFormatter.Format(ValueFormatter.ToVariant(value)), StatusCodes.Good, now, now, Raw: value));
+                        writer.Post(node.Name, node.DisplayId, new ValueUpdate(ids[i], ValueFormatter.Format(value), DeviceStatusCodes.Good, now, now, Raw: value));
                     }
                 }
             }
@@ -869,7 +868,7 @@ internal static class Commands
             {
                 case ConnectionState.Reconnecting when !lost:
                     lost = true;
-                    MarkAll(StatusCodes.BadNotConnected);
+                    MarkAll(DeviceStatusCodes.BadNotConnected);
                     break;
                 case ConnectionState.Connected when lost:
                     lost = false;
@@ -918,7 +917,7 @@ internal static class Commands
         {
             client.StateChanged -= OnStateChanged;
             done.TrySetResult();
-            await DeviceClient.StopMonitoringAsync(handles, CancellationToken.None).ConfigureAwait(false);
+            await client.StopMonitoringAsync(handles, CancellationToken.None).ConfigureAwait(false);
         }
     }
 

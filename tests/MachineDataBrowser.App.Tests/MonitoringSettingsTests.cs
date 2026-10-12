@@ -35,7 +35,7 @@ public sealed class MonitoringSettingsTests(OpcPlcFixture plc) : IDisposable
     [Fact]
     public void Refresh_is_marked_only_when_it_differs_from_the_default_or_has_a_queue_or_deadband()
     {
-        var item = new WatchItemViewModel(Opc.Ua.NodeId.Null, "x") { RefreshMs = 250, DefaultRefreshMs = 250 };
+        var item = new WatchItemViewModel(NodeId.Null, "x") { RefreshMs = 250, DefaultRefreshMs = 250 };
         Assert.Equal("250 ms", item.RefreshText);
 
         item.Monitoring = new MonitoringOptions { SamplingIntervalMs = 250 };

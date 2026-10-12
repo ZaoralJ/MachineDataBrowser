@@ -219,7 +219,7 @@ public sealed partial class MainWindow : IDialogService
     {
         var app = Assembly.GetExecutingAssembly();
         var version = app.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "dev";
-        var sdk = typeof(Opc.Ua.Client.Session).Assembly.GetName().Version;
+        var sdk = OpcUaSdkInfo.Version;
         await MessageDialog.ShowAsync(
             this,
             "About",

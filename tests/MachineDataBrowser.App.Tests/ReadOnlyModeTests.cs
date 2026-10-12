@@ -70,9 +70,9 @@ public sealed class ReadOnlyModeTests(CustomTypesServerFixture server) : IDispos
     public async Task Read_only_events_window_shows_alarms_but_does_not_acknowledge()
     {
         var alarm = new EventNotification(DateTime.UtcNow, 800, "Tank", "high", "TripAlarmType", [1, 2, 3],
-            new NodeId(1u, 2), "High", true, false, true);
+            NodeId.FromOpaque(new Opc.Ua.NodeId(1u, 2).ToString()), "High", true, false, true);
         var source = new FakeSource(alarm);
-        await using var events = new EventsViewModel(source, ObjectIds.Server, "Server", _ => { }) { IsReadOnly = true };
+        await using var events = new EventsViewModel(source, NodeId.FromOpaque(ObjectIds.Server.ToString()), "Server", _ => { }) { IsReadOnly = true };
         await events.StartAsync();
         events.Flush();
         events.SelectedAlarm = Assert.Single(events.Alarms);

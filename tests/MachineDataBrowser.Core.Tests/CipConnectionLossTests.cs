@@ -1,8 +1,8 @@
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Images;
-using Opc.Ua;
 using MachineDataBrowser.Core.Cip;
 using Xunit;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 
 namespace MachineDataBrowser.Core.Tests;
 
@@ -33,11 +33,11 @@ public sealed class CipConnectionLossTests
 
         var updates = new System.Collections.Concurrent.ConcurrentQueue<ValueUpdate>();
         await using var monitor = await client.MonitorAsync(new NodeId("Heartbeat", CipClient.TagNamespace), updates.Enqueue, 100, ct);
-        await Until(() => updates.Any(u => StatusCode.IsGood(u.Status)));
+        await Until(() => updates.Any(u => u.Status.IsGood));
 
         await container.StopAsync(ct);
         await Until(() => states.Contains(ConnectionState.Reconnecting), seconds: 30);
-        await Until(() => updates.Any(u => StatusCode.IsBad(u.Status)), seconds: 30);
+        await Until(() => updates.Any(u => u.Status.IsBad), seconds: 30);
 
         Assert.Null((await client.ReadValuesAsync([new NodeId("Heartbeat", CipClient.TagNamespace)], ct))[0]);
         await client.DisconnectAsync();

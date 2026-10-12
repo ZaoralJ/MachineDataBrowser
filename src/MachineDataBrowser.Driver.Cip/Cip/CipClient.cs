@@ -1,7 +1,8 @@
 using System.Globalization;
 using System.Text;
 using libplctag;
-using Opc.Ua;
+using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 
 namespace MachineDataBrowser.Core.Cip;
 
@@ -88,7 +89,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
             }
             catch (FormatException ex)
             {
-                throw new ServiceResultException(StatusCodes.BadTcpEndpointUrlInvalid, ex.Message);
+                throw new DeviceClientException(DeviceStatusCodes.BadTcpEndpointUrlInvalid, ex.Message);
             }
 
 
@@ -161,7 +162,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
             ];
         }
 
-        if (nodeId.NamespaceIndex == FolderNamespace && nodeId.TryGetValue(out string? program) && program.StartsWith(ProgramPrefix, StringComparison.OrdinalIgnoreCase))
+        if (nodeId.NamespaceIndex == FolderNamespace && nodeId.TryGetValue(out var program) && program.StartsWith(ProgramPrefix, StringComparison.OrdinalIgnoreCase))
         {
             return await ListScopeAsync(program, cancellationToken).ConfigureAwait(false);
         }
@@ -241,9 +242,9 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
             string value;
             try
             {
-                value = ValueFormatter.Format(ValueFormatter.ToVariant(await ReadValueAsync(item, cancellationToken).ConfigureAwait(false)));
+                value = ValueFormatter.Format(await ReadValueAsync(item, cancellationToken).ConfigureAwait(false));
             }
-            catch (ServiceResultException ex)
+            catch (DeviceClientException ex)
             {
                 value = ex.StatusCode.ToString();
             }
@@ -266,7 +267,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
                 var item = await ResolveAsync(id, cancellationToken).ConfigureAwait(false);
                 return item.IsVariable ? await ReadValueAsync(item, cancellationToken).ConfigureAwait(false) : null;
             }
-            catch (ServiceResultException)
+            catch (DeviceClientException)
             {
                 return null;
             }
@@ -285,7 +286,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         var item = await ResolveAsync(nodeId, cancellationToken).ConfigureAwait(false);
         if (!item.IsWritable)
         {
-            throw new ServiceResultException(StatusCodes.BadNotWritable, $"Writing {item.TypeName} values is not supported.");
+            throw new DeviceClientException(DeviceStatusCodes.BadNotWritable, $"Writing {item.TypeName} values is not supported.");
         }
 
         using var tag = CreateTag(endpoint, item);
@@ -304,7 +305,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         else
         {
             var isArray = item.Dimensions.Length > 0;
-            var value = ValueParser.Parse(text, LogixCodec.ToBuiltInType(item.Type.Atomic), isArray);
+            var value = ValueParser.Parse(text, LogixCodec.ToValueType(item.Type.Atomic), isArray);
             if (isArray && ((Array)value).Length != item.ElementCount)
             {
                 throw new FormatException($"{item.Path} has {item.ElementCount} elements; {((Array)value).Length} given.");
@@ -322,13 +323,13 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         catch (LibPlcTagException ex)
         {
             var status = ToStatus(ex);
-            if (status == StatusCodes.BadNotReadable)
+            if (status == DeviceStatusCodes.BadNotReadable)
             {
                 // CIP privilege violation: External Access read-only, a constant, or a value the program owns.
-                throw new ServiceResultException(StatusCodes.BadNotWritable, $"{tag.Name}: the controller doesn't allow writing it (read-only or owned by the program; {ex.Message}).");
+                throw new DeviceClientException(DeviceStatusCodes.BadNotWritable, $"{tag.Name}: the controller doesn't allow writing it (read-only or owned by the program; {ex.Message}).");
             }
 
-            throw new ServiceResultException(status, $"{tag.Name}: {ex.Message}");
+            throw new DeviceClientException(status, $"{tag.Name}: {ex.Message}");
         }
     }
 
@@ -355,15 +356,17 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
             {
                 item = await ResolveAsync(nodeId, cancellationToken).ConfigureAwait(false);
             }
-            catch (ServiceResultException ex)
+            catch (DeviceClientException ex)
             {
-                results.Add(new MonitorResult(nodeId, null, ex.Result));
+                results.Add(new MonitorResult(nodeId, null, new DeviceError(
+                    ex.StatusCode,
+                    ex.Message)));
                 continue;
             }
 
             if (!item.IsVariable)
             {
-                results.Add(new MonitorResult(nodeId, null, ServiceResult.Create(StatusCodes.BadAttributeIdInvalid, $"'{item.Path}' is a structure; watch its members.")));
+                results.Add(new MonitorResult(nodeId, null, new DeviceError(DeviceStatusCodes.BadAttributeIdInvalid, $"'{item.Path}' is a structure; watch its members.")));
                 continue;
             }
 
@@ -378,7 +381,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
             }
 
             var entry = group.Add(nodeId, item, CreateTag(endpoint, item), onUpdate);
-            results.Add(new MonitorResult(nodeId, new CipMonitorHandle(group, entry), ServiceResult.Good));
+            results.Add(new MonitorResult(nodeId, new CipMonitorHandle(group, entry), DeviceError.Good));
         }
 
         return results;
@@ -559,7 +562,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         }
         catch (FormatException ex)
         {
-            throw new ServiceResultException(StatusCodes.BadDecodingError, $"UDT {id}: {ex.Message}");
+            throw new DeviceClientException(DeviceStatusCodes.BadDecodingError, $"UDT {id}: {ex.Message}");
         }
 
         lock (_lock)
@@ -579,14 +582,14 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
     /// <summary>Walks a tag path from its scope listing through UDT templates.</summary>
     private async Task<CipItem> ResolveAsync(NodeId nodeId, CancellationToken cancellationToken)
     {
-        if (nodeId.NamespaceIndex != TagNamespace || !nodeId.TryGetValue(out string? text) || !TagPath.TryParse(text, out var path))
+        if (nodeId.NamespaceIndex != TagNamespace || !nodeId.TryGetValue(out var text) || !TagPath.TryParse(text, out var path))
         {
-            throw new ServiceResultException(StatusCodes.BadNodeIdUnknown, $"'{nodeId}' is not a Logix tag.");
+            throw new DeviceClientException(DeviceStatusCodes.BadNodeIdUnknown, $"'{nodeId}' is not a Logix tag.");
         }
 
         var symbols = await GetScopeAsync(path.Program ?? string.Empty, cancellationToken).ConfigureAwait(false);
         var symbol = symbols.FirstOrDefault(s => s.Name.Equals(path.Segments[0], StringComparison.OrdinalIgnoreCase))
-            ?? throw new ServiceResultException(StatusCodes.BadNodeIdUnknown, $"Tag '{path.Segments[0]}' not found.");
+            ?? throw new DeviceClientException(DeviceStatusCodes.BadNodeIdUnknown, $"Tag '{path.Segments[0]}' not found.");
 
         var current = await CreateItemAsync(path.BaseName, symbol.Name, path.Program, symbol.Type, symbol.Dimensions, cancellationToken).ConfigureAwait(false);
         var built = new StringBuilder(path.BaseName);
@@ -597,7 +600,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
             {
                 if (current.Dimensions.Length == 0)
                 {
-                    throw new ServiceResultException(StatusCodes.BadNodeIdUnknown, $"'{current.Path}' is not an array.");
+                    throw new DeviceClientException(DeviceStatusCodes.BadNodeIdUnknown, $"'{current.Path}' is not an array.");
                 }
 
                 current = current with { Path = built.ToString(), DisplayName = segment, Dimensions = [] };
@@ -610,7 +613,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
                     : null;
                 if (member is null)
                 {
-                    throw new ServiceResultException(StatusCodes.BadNodeIdUnknown, $"'{current.Path}' has no member '{name}'.");
+                    throw new DeviceClientException(DeviceStatusCodes.BadNodeIdUnknown, $"'{current.Path}' has no member '{name}'.");
                 }
 
                 current = await CreateItemAsync(built.ToString(), member.Name, path.Program, member.Type, member.IsArray ? [member.ElementCount] : [], cancellationToken).ConfigureAwait(false);
@@ -669,7 +672,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         return item.Decode(tag.GetBuffer());
     }
 
-    /// <summary>Reads a tag, reporting libplctag failures as <see cref="ServiceResultException"/> like the OPC UA client.</summary>
+    /// <summary>Reads a tag, reporting libplctag failures with a device-neutral status.</summary>
     private static async Task ReadTagAsync(Tag tag, CancellationToken cancellationToken)
     {
         try
@@ -679,7 +682,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         }
         catch (LibPlcTagException ex)
         {
-            throw new ServiceResultException(ToStatus(ex), $"{tag.Name}: {ex.Message}");
+            throw new DeviceClientException(ToStatus(ex), $"{tag.Name}: {ex.Message}");
         }
     }
 
@@ -706,16 +709,16 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         Timeout = endpoint.Timeout,
     };
 
-    internal static StatusCode ToStatus(LibPlcTagException ex) => ex.Message switch
+    internal static DeviceStatusCode ToStatus(LibPlcTagException ex) => ex.Message switch
     {
-        var m when m.Contains(nameof(Status.ErrorNotFound), StringComparison.Ordinal) => StatusCodes.BadNodeIdUnknown,
-        var m when m.Contains(nameof(Status.ErrorNotAllowed), StringComparison.Ordinal) => StatusCodes.BadNotReadable,
-        var m when m.Contains(nameof(Status.ErrorTimeout), StringComparison.Ordinal) => StatusCodes.BadTimeout,
+        var m when m.Contains(nameof(Status.ErrorNotFound), StringComparison.Ordinal) => DeviceStatusCodes.BadNodeIdUnknown,
+        var m when m.Contains(nameof(Status.ErrorNotAllowed), StringComparison.Ordinal) => DeviceStatusCodes.BadNotReadable,
+        var m when m.Contains(nameof(Status.ErrorTimeout), StringComparison.Ordinal) => DeviceStatusCodes.BadTimeout,
         var m when m.Contains(nameof(Status.ErrorBadConnection), StringComparison.Ordinal)
             || m.Contains(nameof(Status.ErrorBadGateway), StringComparison.Ordinal)
             || m.Contains(nameof(Status.ErrorOpen), StringComparison.Ordinal)
-            || m.Contains(nameof(Status.ErrorWinsock), StringComparison.Ordinal) => StatusCodes.BadCommunicationError,
-        _ => StatusCodes.Bad,
+            || m.Contains(nameof(Status.ErrorWinsock), StringComparison.Ordinal) => DeviceStatusCodes.BadCommunicationError,
+        _ => DeviceStatusCodes.Bad,
     };
 
     /// <summary>A resolved tag, member or element with its type.</summary>
@@ -904,30 +907,30 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
                         }
 
                         Interlocked.Increment(ref _reads);
-                        if (StatusCode.IsBad(status))
+                        if (status.IsBad)
                         {
                             Interlocked.Increment(ref _failures);
                             LastError = status.ToString();
                         }
                     }
 
-                    Owner.ReportLink(outcomes.Any(o => o.Status != StatusCodes.BadCommunicationError && o.Status != StatusCodes.BadTimeout));
+                    Owner.ReportLink(outcomes.Any(o => o.Status != DeviceStatusCodes.BadCommunicationError && o.Status != DeviceStatusCodes.BadTimeout));
                 }
             }
             while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false));
         }
 
         /// <summary>Reads one item and reports it when value or status changed. Returns whether it read and the status.</summary>
-        private static async Task<(bool Read, StatusCode Status)> PollAsync(PollEntry entry, CancellationToken cancellationToken)
+        private static async Task<(bool Read, DeviceStatusCode Status)> PollAsync(PollEntry entry, CancellationToken cancellationToken)
         {
             if (!await entry.Gate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
             {
-                return (false, StatusCodes.Good);
+                return (false, DeviceStatusCodes.Good);
             }
 
             try
             {
-                StatusCode status;
+                DeviceStatusCode status;
                 object? value = null;
                 byte[]? data = null;
                 try
@@ -936,7 +939,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
                     await entry.Tag.ReadAsync(cancellationToken).ConfigureAwait(false);
                     data = entry.Tag.GetBuffer();
                     value = entry.Item.Decode(data);
-                    status = StatusCodes.Good;
+                    status = DeviceStatusCodes.Good;
                 }
                 catch (LibPlcTagException ex)
                 {
@@ -946,7 +949,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
                 {
                     // Decoding or libplctag surprises must not stop the poll loop for every other tag.
                     System.Diagnostics.Trace.TraceError($"Polling {entry.Item.Path} failed: {ex}");
-                    status = StatusCodes.BadUnexpectedError;
+                    status = DeviceStatusCodes.BadUnexpectedError;
                 }
 
                 if (status == entry.LastStatus && (data is null || data.AsSpan().SequenceEqual(entry.LastData)))
@@ -957,20 +960,19 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
                 entry.LastStatus = status;
                 entry.LastData = data;
                 var now = DateTime.UtcNow;
-                var variant = ValueFormatter.ToVariant(value);
                 entry.OnUpdate(new ValueUpdate(
                     entry.NodeId,
-                    StatusCode.IsGood(status) ? ValueFormatter.Format(variant) : status.ToString(),
+                    status.IsGood ? ValueFormatter.Format(value) : status.ToString(),
                     status,
                     now,
                     now,
-                    ValueFormatter.ToNumeric(variant),
+                    ValueFormatter.ToNumeric(value),
                     value));
                 return (true, status);
             }
             catch (ObjectDisposedException)
             {
-                return (false, StatusCodes.Good);
+                return (false, DeviceStatusCodes.Good);
             }
             finally
             {
@@ -992,7 +994,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         /// <summary>Held while a read is in flight, so a tag is never disposed mid-read.</summary>
         public SemaphoreSlim Gate { get; } = new(1, 1);
 
-        public StatusCode? LastStatus { get; set; }
+        public DeviceStatusCode? LastStatus { get; set; }
 
         public byte[]? LastData { get; set; }
     }

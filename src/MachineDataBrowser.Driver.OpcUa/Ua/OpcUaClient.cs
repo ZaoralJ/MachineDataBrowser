@@ -67,7 +67,46 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
         ClientConfiguration.AddTrusted(certificate.RawData, certificate.Thumbprint);
     }
 
-    public BrowseItem Root { get; } = new(ObjectIds.RootFolder, "Root", "Root", NodeClass.Object);
+    public BrowseItem Root { get; } = new(UaNodeIdAdapter.ToDevice(ObjectIds.RootFolder), "Root", "Root", DeviceNodeKind.Object);
+
+    string IDeviceClient.ToPortableId(DeviceNodeId nodeId) =>
+        UaStatusAdapter.Translate(() => ToPortableId(UaNodeIdAdapter.ToUa(nodeId)));
+
+    DeviceNodeId IDeviceClient.ParsePortableId(string text) =>
+        UaStatusAdapter.Translate(() => UaNodeIdAdapter.ToDevice(ParsePortableId(text)));
+
+    string IDeviceClient.ToDisplayId(DeviceNodeId nodeId) =>
+        UaStatusAdapter.Translate(() => ToDisplayId(UaNodeIdAdapter.ToUa(nodeId)));
+
+    Task<IReadOnlyList<BrowseItem>> IDeviceClient.BrowseAsync(DeviceNodeId nodeId, CancellationToken cancellationToken) =>
+        UaStatusAdapter.TranslateAsync(() => BrowseAsync(UaNodeIdAdapter.ToUa(nodeId), cancellationToken));
+
+    Task<IReadOnlyList<BrowseItem>> IDeviceClient.BrowseQuickAsync(DeviceNodeId nodeId, CancellationToken cancellationToken) =>
+        UaStatusAdapter.TranslateAsync(() => BrowseQuickAsync(UaNodeIdAdapter.ToUa(nodeId), cancellationToken));
+
+    Task<IReadOnlyList<bool>?> IDeviceClient.ProbeHasChildrenAsync(IReadOnlyList<DeviceNodeId> nodeIds, CancellationToken cancellationToken) =>
+        UaStatusAdapter.TranslateAsync(() => ProbeHasChildrenAsync(nodeIds.Select(UaNodeIdAdapter.ToUa).ToList(), cancellationToken));
+
+    Task<IReadOnlyList<DeviceNodeId>> IDeviceClient.GetPathFromRootAsync(DeviceNodeId nodeId, int maxDepth, CancellationToken cancellationToken) =>
+        UaStatusAdapter.TranslateAsync<IReadOnlyList<DeviceNodeId>>(async () =>
+            (await GetPathFromRootAsync(UaNodeIdAdapter.ToUa(nodeId), maxDepth, cancellationToken).ConfigureAwait(false))
+                .Select(UaNodeIdAdapter.ToDevice).ToList());
+
+    Task<IReadOnlyList<AttributeValue>> IDeviceClient.ReadAttributesAsync(DeviceNodeId nodeId, CancellationToken cancellationToken) =>
+        UaStatusAdapter.TranslateAsync(() => ReadAttributesAsync(UaNodeIdAdapter.ToUa(nodeId), cancellationToken));
+
+    Task<IReadOnlyList<object?>> IDeviceClient.ReadValuesAsync(IReadOnlyList<DeviceNodeId> nodeIds, CancellationToken cancellationToken) =>
+        UaStatusAdapter.TranslateAsync(() => ReadValuesAsync(nodeIds.Select(UaNodeIdAdapter.ToUa).ToList(), cancellationToken));
+
+    Task IDeviceClient.WriteValueAsync(DeviceNodeId nodeId, string text, CancellationToken cancellationToken) =>
+        UaStatusAdapter.TranslateAsync(() => WriteValueAsync(UaNodeIdAdapter.ToUa(nodeId), text, cancellationToken));
+
+    Task<IReadOnlyList<MonitorResult>> IDeviceClient.MonitorManyAsync(
+        IReadOnlyList<DeviceNodeId> nodeIds,
+        Action<ValueUpdate> onUpdate,
+        double samplingIntervalMs,
+        CancellationToken cancellationToken) =>
+        UaStatusAdapter.TranslateAsync(() => MonitorManyAsync(nodeIds.Select(UaNodeIdAdapter.ToUa).ToList(), onUpdate, samplingIntervalMs, cancellationToken));
 
     /// <summary>
     /// Formats a NodeId with its namespace URI (<c>nsu=...</c>) instead of the index, which servers may
@@ -83,6 +122,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
     }
 
     /// <summary>The familiar <c>ns=1;s=...</c> form.</summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Part of the connected-client API.")]
     public string ToDisplayId(NodeId nodeId)
     {
         return nodeId.ToString();
@@ -180,6 +220,11 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
                 throw;
             }
         }
+        catch (ServiceResultException ex)
+        {
+            State = ConnectionState.Disconnected;
+            throw new DeviceClientException(UaStatusAdapter.ToDevice(ex.StatusCode), ex.Message, ex);
+        }
         catch
         {
             State = ConnectionState.Disconnected;
@@ -197,6 +242,10 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
         try
         {
             await CloseCoreAsync().ConfigureAwait(false);
+        }
+        catch (ServiceResultException ex)
+        {
+            throw new DeviceClientException(UaStatusAdapter.ToDevice(ex.StatusCode), ex.Message, ex);
         }
         finally
         {
@@ -254,10 +303,10 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
 
         return children
             .Select((c, i) => new BrowseItem(
-                c.NodeId,
+                UaNodeIdAdapter.ToDevice(c.NodeId),
                 c.Reference.DisplayName.Text ?? c.Reference.BrowseName.Name ?? c.Reference.NodeId.ToString(),
                     c.Reference.BrowseName.ToString(),
-                c.Reference.NodeClass,
+                UaNodeIdAdapter.ToDevice(c.Reference.NodeClass),
                 hasChildren?[i] ?? true))
             .ToList();
     }
@@ -466,17 +515,17 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             try
             {
                 update = new ValueUpdate(
-                    nodeId,
-                    ValueFormatter.Format(dv.WrappedValue),
-                    dv.StatusCode,
+                    UaNodeIdAdapter.ToDevice(nodeId),
+                    UaValueFormatter.Format(dv.WrappedValue),
+                    UaStatusAdapter.ToDevice(dv.StatusCode),
                     dv.SourceTimestamp.ToDateTime(),
                     dv.ServerTimestamp.ToDateTime(),
-                    ValueFormatter.ToNumeric(dv.WrappedValue),
+                    UaValueFormatter.ToNumeric(dv.WrappedValue),
                     dv.WrappedValue.AsBoxedObject());
             }
             catch (Exception ex) when (Errors.IsRecoverable(ex))
             {
-                update = new ValueUpdate(nodeId, $"<cannot display value: {ex.Message}>", StatusCodes.BadDecodingError, dv.SourceTimestamp.ToDateTime(), dv.ServerTimestamp.ToDateTime());
+                update = new ValueUpdate(UaNodeIdAdapter.ToDevice(nodeId), $"<cannot display value: {ex.Message}>", UaStatusAdapter.ToDevice(StatusCodes.BadDecodingError), dv.SourceTimestamp.ToDateTime(), dv.ServerTimestamp.ToDateTime());
             }
 
             try
@@ -499,11 +548,11 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             if (ServiceResult.IsBad(item.Status.Error))
             {
                 rejected.Add(item);
-                results.Add(new MonitorResult(item.StartNodeId, null, item.Status.Error ?? new ServiceResult(StatusCodes.Bad)));
+                results.Add(new MonitorResult(UaNodeIdAdapter.ToDevice(item.StartNodeId), null, UaStatusAdapter.ToDevice(item.Status.Error ?? new ServiceResult(StatusCodes.Bad))));
             }
             else
             {
-                results.Add(new MonitorResult(item.StartNodeId, new MonitorHandle(subscription, item), ServiceResult.Good));
+                results.Add(new MonitorResult(UaNodeIdAdapter.ToDevice(item.StartNodeId), new MonitorHandle(subscription, item), DeviceError.Good));
             }
         }
 
@@ -567,10 +616,10 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             throw new InvalidOperationException("Cannot determine the data type of the value.");
         }
 
-        var value = ValueParser.Parse(text, type, isArray);
+        var value = UaValueParser.Parse(text, type, isArray);
         var toWrite = new List<WriteValue>
         {
-            new WriteValue { NodeId = nodeId, AttributeId = Attributes.Value, Value = new DataValue(ValueFormatter.ToVariant(value)) },
+            new WriteValue { NodeId = nodeId, AttributeId = Attributes.Value, Value = new DataValue(UaValueFormatter.ToVariant(value)) },
         };
         var response = await session.WriteAsync(null, toWrite, cancellationToken).ConfigureAwait(false);
         if (response.Results.Count > 0 && StatusCode.IsBad(response.Results[0]))
@@ -635,7 +684,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
         var owned = monitors.OfType<MonitorHandle>().ToList();
         var nodeIds = owned.Select(h => h.Item.StartNodeId).ToList();
         var results = await MonitorManyAsync(nodeIds, onUpdate, refreshMs, cancellationToken).ConfigureAwait(false);
-        await StopMonitoringAsync(owned.Cast<IAsyncDisposable>(), cancellationToken).ConfigureAwait(false);
+        await StopMonitorsAsync(owned.Cast<IAsyncDisposable>(), cancellationToken).ConfigureAwait(false);
         await DeleteEmptySubscriptionsAsync(cancellationToken).ConfigureAwait(false);
         return results;
     }
@@ -817,7 +866,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             _ => rank.ToString(System.Globalization.CultureInfo.InvariantCulture),
         },
         Attributes.AccessLevel or Attributes.UserAccessLevel when value is byte access => FormatAccessLevel(access),
-        _ => ValueFormatter.Format(ValueFormatter.ToVariant(value)),
+        _ => UaValueFormatter.Format(UaValueFormatter.ToVariant(value)),
     };
 
     private static string FormatAccessLevel(byte access)
@@ -830,13 +879,14 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
         return parts.Count == 0 ? "None" : string.Join(", ", parts);
     }
 
-    internal static bool IsOwnHandle(IAsyncDisposable handle) => handle is MonitorHandle;
-
     /// <summary>
     /// Stops many monitored items with one DeleteMonitoredItems round trip per subscription.
-    /// Handles of other clients are ignored; use <see cref="DeviceClient.StopMonitoringAsync"/> for mixed lists.
+    /// Handles of other clients are ignored.
     /// </summary>
-    public static async Task StopMonitoringAsync(IEnumerable<IAsyncDisposable> handles, CancellationToken cancellationToken = default)
+    public Task StopMonitoringAsync(IEnumerable<IAsyncDisposable> monitors, CancellationToken cancellationToken = default) =>
+        StopMonitorsAsync(monitors, cancellationToken);
+
+    private static async Task StopMonitorsAsync(IEnumerable<IAsyncDisposable> handles, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(handles);
         foreach (var group in handles.OfType<MonitorHandle>().GroupBy(h => h.Subscription))
@@ -863,6 +913,6 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
 
         public MonitoredItem Item => item;
 
-        public async ValueTask DisposeAsync() => await StopMonitoringAsync([this]).ConfigureAwait(false);
+        public async ValueTask DisposeAsync() => await StopMonitorsAsync([this]).ConfigureAwait(false);
     }
 }

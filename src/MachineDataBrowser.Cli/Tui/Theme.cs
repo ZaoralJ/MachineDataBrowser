@@ -200,8 +200,8 @@ internal static class Theme
     }
 
     /// <summary>Good green, Uncertain yellow, Bad red.</summary>
-    public static Color Status(Opc.Ua.StatusCode code) =>
-        Opc.Ua.StatusCode.IsGood(code) ? Green : Opc.Ua.StatusCode.IsUncertain(code) ? Yellow : Red;
+    public static Color Status(DeviceStatusCode code) =>
+        code.IsGood ? Green : code.IsUncertain ? Yellow : Red;
 
     /// <summary>The trend's colour by height: green at the bottom, yellow, orange, red at the top.</summary>
     public static Color Gradient(double fromTop) => fromTop switch

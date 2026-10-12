@@ -1,6 +1,6 @@
 using System.Globalization;
 using Avalonia.Threading;
-using Opc.Ua;
+using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.App.Services;
 
@@ -35,7 +35,7 @@ public static class AppErrors
         AggregateException { InnerExceptions.Count: 1 } a => Describe(a.InnerExceptions[0]),
         AggregateException a => string.Join("; ", a.InnerExceptions.Select(Describe).Distinct()),
         System.Reflection.TargetInvocationException { InnerException: { } inner } => Describe(inner),
-        ServiceResultException sre => $"{Core.StatusText.Of(sre.Result.StatusCode)}: {sre.Message}",
+        DeviceClientException error => $"{error.StatusCode}: {error.Message}",
         IOException or TimeoutException or InvalidOperationException or UnauthorizedAccessException
             or System.Net.Sockets.SocketException => ex.Message,
         _ => $"{ex.GetType().Name}: {ex.Message}",

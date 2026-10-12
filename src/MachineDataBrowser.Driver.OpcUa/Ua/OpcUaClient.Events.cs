@@ -5,6 +5,12 @@ namespace MachineDataBrowser.Core.Ua;
 
 public sealed partial class OpcUaClient : IEventSource
 {
+    Task<IAsyncDisposable> IEventSource.SubscribeEventsAsync(DeviceNodeId notifier, Action<EventNotification> onEvent, CancellationToken cancellationToken) =>
+        UaStatusAdapter.TranslateAsync(() => SubscribeEventsAsync(notifier.IsNull ? ObjectIds.Server : UaNodeIdAdapter.ToUa(notifier), onEvent, cancellationToken));
+
+    Task IEventSource.AcknowledgeAsync(DeviceNodeId conditionId, byte[] eventId, string comment, CancellationToken cancellationToken) =>
+        UaStatusAdapter.TranslateAsync(() => AcknowledgeAsync(UaNodeIdAdapter.ToUa(conditionId), eventId, comment, cancellationToken));
+
     // Order matters: notifications carry the selected fields by index.
     private static readonly (NodeId Type, string[] Path)[] EventFields =
     [
@@ -145,7 +151,7 @@ public sealed partial class OpcUaClient : IEventSource
             fields[4].AsBoxedObject() is LocalizedText message ? message.Text ?? string.Empty : string.Empty,
             typeName,
             fields[0].AsBoxedObject() is ByteString eventId ? eventId.Memory.ToArray() : null,
-            fields[ConditionIdField].AsBoxedObject() is NodeId conditionId && !conditionId.IsNull ? conditionId : null,
+            fields[ConditionIdField].AsBoxedObject() is NodeId conditionId && !conditionId.IsNull ? UaNodeIdAdapter.ToDevice(conditionId) : null,
             fields[6].AsBoxedObject() as string,
             fields[8].AsBoxedObject() is bool active ? active : null,
             fields[9].AsBoxedObject() is bool acked ? acked : null,

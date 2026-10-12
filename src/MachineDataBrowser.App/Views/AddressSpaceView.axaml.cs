@@ -243,7 +243,7 @@ public sealed partial class AddressSpaceView : UserControl
             return;
         }
 
-        if (node.NodeClass == Opc.Ua.NodeClass.Method)
+        if (node.NodeClass == DeviceNodeKind.Method)
         {
             vm.CallMethodCommand.Execute(node);
         }

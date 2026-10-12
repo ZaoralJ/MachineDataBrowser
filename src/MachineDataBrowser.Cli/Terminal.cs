@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using MachineDataBrowser.Core;
-using Opc.Ua;
 using Spectre.Console;
 using Spectre.Console.Rendering;
 
@@ -61,10 +60,10 @@ internal static class Terminal
         console.Write(tree);
     }
 
-    public static string StatusMarkup(StatusCode status)
+    public static string StatusMarkup(DeviceStatusCode status)
     {
         var text = Markup.Escape(Output.Status(status));
-        return StatusCode.IsGood(status) ? $"[green]{text}[/]" : StatusCode.IsUncertain(status) ? $"[yellow]{text}[/]" : $"[red]{text}[/]";
+        return status.IsGood ? $"[green]{text}[/]" : status.IsUncertain ? $"[yellow]{text}[/]" : $"[red]{text}[/]";
     }
 
     private static string Icon(string nodeClass) => nodeClass switch
@@ -121,7 +120,7 @@ internal sealed class LiveWatch : IUpdateSink
     /// </summary>
     public void Post(string name, string id, ValueUpdate update) =>
         _latest.AddOrUpdate(id, new Row(update, 1, false, DateTime.Now, false), (_, previous) =>
-            previous.SkipRepeat && previous.Update.Value == update.Value && StatusCode.IsGood(update.Status)
+            previous.SkipRepeat && previous.Update.Value == update.Value && update.Status.IsGood
                 ? new Row(update, previous.Count, false, DateTime.Now, false)
                 : new Row(update, previous.Count + 1, false, DateTime.Now, false));
 

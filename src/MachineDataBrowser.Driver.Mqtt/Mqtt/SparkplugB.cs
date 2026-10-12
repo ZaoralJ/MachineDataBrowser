@@ -23,19 +23,19 @@ public static class SparkplugB
         _ => $"Unknown({type})",
     };
 
-    /// <summary>The type user input for a metric of Sparkplug <paramref name="dataType"/> is parsed as; null when not writable.</summary>
-    public static Opc.Ua.BuiltInType? ToBuiltInType(uint dataType) => dataType switch
+    /// <summary>The neutral type used to parse a metric of Sparkplug <paramref name="dataType"/>; null when not writable.</summary>
+    public static DeviceDataType? ToValueType(uint dataType) => dataType switch
     {
-        1 => Opc.Ua.BuiltInType.SByte, 2 => Opc.Ua.BuiltInType.Int16, 3 => Opc.Ua.BuiltInType.Int32, 4 => Opc.Ua.BuiltInType.Int64,
-        5 => Opc.Ua.BuiltInType.Byte, 6 => Opc.Ua.BuiltInType.UInt16, 7 => Opc.Ua.BuiltInType.UInt32, 8 => Opc.Ua.BuiltInType.UInt64,
-        9 => Opc.Ua.BuiltInType.Float, 10 => Opc.Ua.BuiltInType.Double, 11 => Opc.Ua.BuiltInType.Boolean,
-        12 or 14 or 15 => Opc.Ua.BuiltInType.String, 13 => Opc.Ua.BuiltInType.DateTime,
+        1 => DeviceDataType.SByte, 2 => DeviceDataType.Int16, 3 => DeviceDataType.Int32, 4 => DeviceDataType.Int64,
+        5 => DeviceDataType.Byte, 6 => DeviceDataType.UInt16, 7 => DeviceDataType.UInt32, 8 => DeviceDataType.UInt64,
+        9 => DeviceDataType.Float, 10 => DeviceDataType.Double, 11 => DeviceDataType.Boolean,
+        12 or 14 or 15 => DeviceDataType.String, 13 => DeviceDataType.DateTime,
         _ => null,
     };
 
     /// <summary>
     /// Encodes a command payload (NCMD/DCMD) with one metric. <paramref name="name"/> or <paramref name="alias"/> (or
-    /// both) identify it; <paramref name="value"/> must match <paramref name="dataType"/> (see <see cref="ToBuiltInType"/>).
+    /// both) identify it; <paramref name="value"/> must match <paramref name="dataType"/> (see <see cref="ToValueType"/>).
     /// </summary>
     public static byte[] EncodeCommand(string? name, ulong? alias, uint dataType, object value, DateTime timestampUtc)
     {

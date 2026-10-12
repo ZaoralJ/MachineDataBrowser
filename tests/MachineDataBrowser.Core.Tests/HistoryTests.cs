@@ -1,13 +1,14 @@
 using Opc.Ua;
 using MachineDataBrowser.Core.Ua;
 using Xunit;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 
 namespace MachineDataBrowser.Core.Tests;
 
 /// <summary>HistoryRead against the History folder of <c>simulators/opcua-custom</c> (two hours prefilled, 10 s apart).</summary>
 public sealed class HistoryTests(CustomTypesServerFixture server) : IAsyncLifetime
 {
-    private readonly OpcUaClient _client = new();
+    private readonly IDeviceClient _client = new OpcUaClient();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -18,7 +19,7 @@ public sealed class HistoryTests(CustomTypesServerFixture server) : IAsyncLifeti
 
     private async Task<NodeId> TemperatureAsync()
     {
-        var node = ObjectIds.ObjectsFolder;
+        var node = NodeId.FromOpaque(ObjectIds.ObjectsFolder.ToString());
         foreach (var name in new[] { "Custom", "History", "Temperature" })
         {
             node = (await _client.BrowseAsync(node, Ct)).Single(c => c.DisplayName == name).NodeId;
@@ -33,13 +34,14 @@ public sealed class HistoryTests(CustomTypesServerFixture server) : IAsyncLifeti
         var temperature = await TemperatureAsync();
         var now = DateTime.UtcNow;
 
-        var hour = await _client.ReadHistoryAsync(temperature, now.AddHours(-1), now, 10_000, Ct);
+        var source = (IHistorySource)_client;
+        var hour = await source.ReadHistoryAsync(temperature, now.AddHours(-1), now, 10_000, Ct);
         Assert.False(hour.Truncated);
         Assert.InRange(hour.Values.Count, 355, 450); // 360 prefilled (10 s apart) plus the live ones (1 s apart)
         Assert.All(hour.Values, v => Assert.NotNull(v.Numeric));
         Assert.Equal(hour.Values.OrderBy(v => v.SourceTimestamp).Select(v => v.SourceTimestamp), hour.Values.Select(v => v.SourceTimestamp));
 
-        var capped = await _client.ReadHistoryAsync(temperature, now.AddHours(-2), now, 500, Ct);
+        var capped = await source.ReadHistoryAsync(temperature, now.AddHours(-2), now, 500, Ct);
         Assert.True(capped.Truncated); // 720+ stored values, the oldest 500 returned
         Assert.Equal(500, capped.Values.Count);
     }
@@ -50,18 +52,19 @@ public sealed class HistoryTests(CustomTypesServerFixture server) : IAsyncLifeti
         // The simulator (asyncua) returns a full page and no continuation point; small pages force paging by time.
         var temperature = await TemperatureAsync();
         var now = DateTime.UtcNow;
-        var all = await _client.ReadHistoryAsync(temperature, now.AddHours(-1), now, 10_000, Ct);
+        var source = (IHistorySource)_client;
+        var all = await source.ReadHistoryAsync(temperature, now.AddHours(-1), now, 10_000, Ct);
         var pageSize = OpcUaClient.HistoryPageSize;
         try
         {
             OpcUaClient.HistoryPageSize = 100;
-            var paged = await _client.ReadHistoryAsync(temperature, now.AddHours(-1), now, 10_000, Ct);
+            var paged = await source.ReadHistoryAsync(temperature, now.AddHours(-1), now, 10_000, Ct);
             Assert.True(paged.Values.Count > 300, $"{paged.Values.Count} values");
             Assert.Equal(all.Values.Count, paged.Values.Count);
             Assert.Equal(all.Values.Select(v => v.SourceTimestamp), paged.Values.Select(v => v.SourceTimestamp));
             Assert.False(paged.Truncated);
 
-            var capped = await _client.ReadHistoryAsync(temperature, now.AddHours(-1), now, 150, Ct);
+            var capped = await source.ReadHistoryAsync(temperature, now.AddHours(-1), now, 150, Ct);
             Assert.Equal(150, capped.Values.Count);
             Assert.True(capped.Truncated);
         }
@@ -77,10 +80,10 @@ public sealed class HistoryTests(CustomTypesServerFixture server) : IAsyncLifeti
         // Servers differ: asyncua answers with no values, others with BadHistoryOperationUnsupported.
         try
         {
-            var result = await _client.ReadHistoryAsync(VariableIds.Server_ServerStatus_CurrentTime, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, 100, Ct);
+            var result = await ((IHistorySource)_client).ReadHistoryAsync(NodeId.FromOpaque(VariableIds.Server_ServerStatus_CurrentTime.ToString()), DateTime.UtcNow.AddHours(-1), DateTime.UtcNow, 100, Ct);
             Assert.Empty(result.Values);
         }
-        catch (ServiceResultException)
+        catch (DeviceClientException)
         {
         }
     }

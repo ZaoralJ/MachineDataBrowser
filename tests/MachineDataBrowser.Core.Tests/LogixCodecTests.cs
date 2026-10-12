@@ -1,9 +1,10 @@
 using System.Buffers.Binary;
 using System.Text;
 using MachineDataBrowser.Core.Cip;
-using Opc.Ua;
 using Xunit;
 using MachineDataBrowser.Core.Ua;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
+using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
 
 namespace MachineDataBrowser.Core.Tests;
 
@@ -68,6 +69,15 @@ public sealed class LogixCodecTests
         Assert.Equal(new int[] { 7 }, LogixCodec.DecodeAtomic(LogixAtomic.Dint, BitConverter.GetBytes(7), 1, forceArray: true));
     }
 
+    [Fact]
+    public void Atomic_types_map_to_neutral_value_types()
+    {
+        Assert.Equal(DeviceDataType.Boolean, LogixCodec.ToValueType(LogixAtomic.Bool));
+        Assert.Equal(DeviceDataType.Int32, LogixCodec.ToValueType(LogixAtomic.Dint));
+        Assert.Equal(DeviceDataType.UInt64, LogixCodec.ToValueType(LogixAtomic.Lword));
+        Assert.Equal(DeviceDataType.Double, LogixCodec.ToValueType(LogixAtomic.Lreal));
+    }
+
     [Theory]
     [InlineData("Counter", null, new[] { "Counter" })]
     [InlineData("Program:Main.Motor[2].Speed", "Program:Main", new[] { "Motor", "[2]", ".Speed" })]
@@ -97,8 +107,9 @@ public sealed class LogixCodecTests
         var path = await client.GetPathFromRootAsync(tag, cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(["@Root", "@Programs", "@Program:Main", "Program:Main.Motor", "Program:Main.Motor.Speed"], path.Select(client.ToPortableId));
         Assert.True(DeviceClient.IsEip("eip://10.0.0.5/1,0"));
-        Assert.IsType<CipClient>(DeviceClient.Create("eip://10.0.0.5"));
-        Assert.IsType<OpcUaClient>(DeviceClient.Create("opc.tcp://localhost:4840"));
+        var factory = new MachineDataBrowser.Drivers.DeviceClientFactory();
+        Assert.IsType<CipClient>(factory.Create("eip://10.0.0.5"));
+        Assert.IsType<OpcUaClient>(factory.Create("opc.tcp://localhost:4840"));
     }
 
     [Fact]
@@ -125,8 +136,8 @@ public sealed class LogixCodecTests
     public async Task Connect_rejects_bad_url()
     {
         await using var client = new CipClient();
-        var ex = await Assert.ThrowsAsync<ServiceResultException>(() => client.ConnectAsync(new ConnectOptions { EndpointUrl = "eip://" }, TestContext.Current.CancellationToken));
-        Assert.Equal(StatusCodes.BadTcpEndpointUrlInvalid, ex.StatusCode);
+        var ex = await Assert.ThrowsAsync<DeviceClientException>(() => client.ConnectAsync(new ConnectOptions { EndpointUrl = "eip://" }, TestContext.Current.CancellationToken));
+        Assert.Equal(DeviceStatusCodes.BadTcpEndpointUrlInvalid, ex.StatusCode);
         Assert.Equal(ConnectionState.Disconnected, client.State);
     }
 

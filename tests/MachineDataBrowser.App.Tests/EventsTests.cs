@@ -48,13 +48,13 @@ public sealed class EventsTests(OpcPlcFixture plc)
 
     private static EventNotification Alarm(int id, ushort severity, bool active, bool acked, bool retain = true, byte eventId = 7) =>
         new(DateTime.UtcNow, severity, "Tank", $"alarm {id}", "TripAlarmType", [eventId, 0, 0],
-            new NodeId((uint)id, 2), $"Alarm{id}", active, acked, retain);
+            NodeId.FromOpaque(new Opc.Ua.NodeId((uint)id, 2).ToString()), $"Alarm{id}", active, acked, retain);
 
     [AvaloniaFact]
     public async Task Events_are_listed_newest_first_alarms_track_state_and_can_be_acknowledged()
     {
         var source = new FakeEventSource();
-        await using var vm = new EventsViewModel(source, ObjectIds.Server, "Server", _ => { });
+        await using var vm = new EventsViewModel(source, NodeId.FromOpaque(ObjectIds.Server.ToString()), "Server", _ => { });
         await vm.StartAsync();
         Assert.True(vm.IsSubscribed);
 
