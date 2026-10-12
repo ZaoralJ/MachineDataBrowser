@@ -21,10 +21,10 @@ flowchart LR
         VM --> Services
     end
 
-    subgraph Core["MachineDataBrowser.Core (protocol-neutral, no UI)"]
+    subgraph Core["MachineDataBrowser.Core (protocol-neutral, no UI or protocol SDKs)"]
         IDC{{"IDeviceClient"}}
         Rec["Recording<br/>bounded history · live CSV · export"]
-        Fmt["ValueFormatter · ValueJson · NodeExport"]
+        Fmt["ValueFormatter · NodeTree"]
         Rec --> IDC
     end
 
@@ -51,8 +51,8 @@ flowchart LR
 
 | Project | Role |
 |---|---|
-| `src/MachineDataBrowser.Core` | Protocol-neutral device contracts, recordings, value formatting/JSON/C# export. No UI dependencies. |
-| `src/MachineDataBrowser.Driver.OpcUa` | OPC UA client and SDK adapter. References Core. |
+| `src/MachineDataBrowser.Core` | Protocol-neutral device contracts, recordings, value formatting, and shared node tree. No UI or protocol SDK dependencies. |
+| `src/MachineDataBrowser.Driver.OpcUa` | OPC UA client, SDK adapter, and UA-aware value JSON/C# export. References Core. |
 | `src/MachineDataBrowser.Driver.Cip` | EtherNet/IP (Logix) client. References Core. |
 | `src/MachineDataBrowser.Driver.Mqtt` | MQTT client, topic model and Sparkplug B support. References Core. |
 | `src/MachineDataBrowser.Drivers` | Composition project selecting a driver from an endpoint URL; referenced by app and CLI. |
@@ -72,7 +72,8 @@ The client implementations share a protocol-neutral tree, value, and monitoring 
 `DeviceNodeKind`, `DeviceStatusCode` and `DeviceError` describe identity, browse kinds and failures without SDK types.
 `DeviceDataType`, `ValueParser` and `ValueFormatter` likewise avoid OPC UA `BuiltInType` and `Variant`. Conversion to
 and from OPC UA SDK types is isolated in the OPC UA driver; CIP and Sparkplug map their native identities, statuses and value
-types directly to the neutral types. The UA adapter retains namespace-URI-based portable IDs, so existing session,
+types directly to the neutral types. UA-aware value serialization and export also live in the OPC UA driver. The UA
+adapter retains namespace-URI-based portable IDs, so existing session,
 bookmark and recording identifiers remain compatible. `DeviceClientFactory.Create(url)` picks the client from the URL
 scheme; Core defines the client contract and never constructs a
 driver. Session files need no protocol field.
