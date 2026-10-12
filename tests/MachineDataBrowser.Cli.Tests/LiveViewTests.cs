@@ -60,11 +60,11 @@ public sealed class LiveViewTests(CustomTypesServerFixture server)
     public async Task Live_view_keeps_rows_still_watched_when_the_watch_list_changes()
     {
         var console = new TestConsole().Width(140).Interactive();
-        var a = new Node(new Opc.Ua.NodeId("A", 2), "Alpha", "ns=2;s=A");
-        var b = new Node(new Opc.Ua.NodeId("B", 2), "Beta", "ns=2;s=B");
-        var c = new Node(new Opc.Ua.NodeId("C", 2), "Gamma", "ns=2;s=C");
+        var a = new Node(new NodeId("A", 2), "Alpha", "ns=2;s=A");
+        var b = new Node(new NodeId("B", 2), "Beta", "ns=2;s=B");
+        var c = new Node(new NodeId("C", 2), "Gamma", "ns=2;s=C");
         static MachineDataBrowser.Core.ValueUpdate Value(Node node, string value) =>
-            new(node.Id, value, Opc.Ua.StatusCodes.Good, DateTime.UtcNow, DateTime.UtcNow);
+            new(node.Id, value, StatusCodes.Good, DateTime.UtcNow, DateTime.UtcNow);
 
         await using (var live = new LiveWatch(console, [a, b]))
         {

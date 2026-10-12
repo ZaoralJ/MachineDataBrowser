@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
-using Opc.Ua;
 using MachineDataBrowser.Core.Mqtt;
 using Xunit;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
+using StatusCodes = MachineDataBrowser.Core.DeviceStatusCodes;
+using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
 
 namespace MachineDataBrowser.Core.Tests;
 
@@ -318,7 +320,7 @@ public sealed class MqttClientTests(MqttSimulatorFixture broker) : IAsyncLifetim
         var ws = MqttEndpoint.Parse("wss://broker/mqtt");
         Assert.Equal((443, true, true, "wss://broker:443/mqtt"), (ws.Port, ws.Tls, ws.WebSocket, ws.WebSocketUri));
         Assert.True(DeviceClient.IsMqtt(" MQTT://x"));
-        Assert.IsType<MqttDeviceClient>(DeviceClient.Create("mqtt://x"));
+        Assert.IsType<MqttDeviceClient>(new MachineDataBrowser.Drivers.DeviceClientFactory().Create("mqtt://x"));
     }
 
     private static async Task Until(Func<Task<bool>> condition, int seconds = 15)

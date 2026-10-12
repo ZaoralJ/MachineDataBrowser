@@ -7,13 +7,13 @@ using Opc.Ua.Encoders;
 namespace MachineDataBrowser.Core;
 
 /// <summary>A browsed subtree with the current value of each variable.</summary>
-public sealed class NodeTree(NodeId nodeId, string displayName, NodeClass nodeClass)
+public sealed class NodeTree(DeviceNodeId nodeId, string displayName, DeviceNodeKind nodeClass)
 {
-    public NodeId NodeId { get; } = nodeId;
+    public DeviceNodeId NodeId { get; } = nodeId;
 
     public string DisplayName { get; } = displayName;
 
-    public NodeClass NodeClass { get; } = nodeClass;
+    public DeviceNodeKind NodeClass { get; } = nodeClass;
 
     public object? Value { get; set; }
 
@@ -29,7 +29,7 @@ public static class NodeExport
     /// </summary>
     public static JsonNode? ToJson(NodeTree node)
     {
-        if (node.NodeClass == NodeClass.Variable && node.Children.Count == 0)
+        if (node.NodeClass == DeviceNodeKind.Variable && node.Children.Count == 0)
         {
             return ValueJson.ToJson(node.Value);
         }
@@ -60,7 +60,7 @@ public static class NodeExport
         var containers = selections.SelectMany(s => s.Ancestors).Select(a => a.NodeId).Where(picked.Contains).ToHashSet();
 
         var roots = new List<(IReadOnlyList<NodeTree> Ancestors, NodeTree Root)>();
-        var rootsById = new Dictionary<NodeId, NodeTree>();
+        var rootsById = new Dictionary<DeviceNodeId, NodeTree>();
         foreach (var (ancestors, tree) in selections)
         {
             if (!ancestors.Any(a => picked.Contains(a.NodeId)) && !rootsById.ContainsKey(tree.NodeId))
@@ -95,7 +95,7 @@ public static class NodeExport
         // ServerStatus/BuildInfo give one ServerStatus with a BuildInfo property), so process shallow groups first.
         var result = new List<NodeTree>();
         var placed = new List<(NodeTree Tree, IReadOnlyList<NodeTree> Ancestors)>();
-        foreach (var group in roots.GroupBy(r => r.Ancestors.Count > 0 ? r.Ancestors[^1].NodeId : NodeId.Null)
+        foreach (var group in roots.GroupBy(r => r.Ancestors.Count > 0 ? r.Ancestors[^1].NodeId : DeviceNodeId.Null)
                      .OrderBy(g => g.First().Ancestors.Count))
         {
             var items = group.ToList();
@@ -138,7 +138,7 @@ public static class NodeExport
 
         return result;
 
-        static int IndexOf(IReadOnlyList<NodeTree> path, NodeId id)
+        static int IndexOf(IReadOnlyList<NodeTree> path, DeviceNodeId id)
         {
             for (var i = 0; i < path.Count; i++)
             {
@@ -171,8 +171,8 @@ public static class NodeExport
 
     /// <summary>C# classes mirroring the subtree: one class per object/structured variable, one property per child.</summary>
     /// <param name="asRecord">Emit <c>sealed record</c> types with <c>init</c> accessors instead of mutable classes.</param>
-    /// <param name="formatId">Id text for the <c>summary</c> comments; defaults to <see cref="NodeId.ToString()"/>.</param>
-    public static string ToCSharp(NodeTree node, bool asRecord = false, Func<NodeId, string>? formatId = null)
+    /// <param name="formatId">Id text for the <c>summary</c> comments; defaults to <see cref="DeviceNodeId.ToString()"/>.</param>
+    public static string ToCSharp(NodeTree node, bool asRecord = false, Func<DeviceNodeId, string>? formatId = null)
     {
         ArgumentNullException.ThrowIfNull(node);
         formatId ??= id => id.ToString();
@@ -182,7 +182,7 @@ public static class NodeExport
         return sb.ToString().TrimEnd() + Environment.NewLine;
     }
 
-    private static void WriteClass(StringBuilder sb, NodeTree node, string className, HashSet<string> emitted, bool asRecord, Func<NodeId, string> formatId)
+    private static void WriteClass(StringBuilder sb, NodeTree node, string className, HashSet<string> emitted, bool asRecord, Func<DeviceNodeId, string> formatId)
     {
         var nested = new List<(NodeTree Node, string ClassName)>();
         var body = new StringBuilder();
@@ -191,7 +191,7 @@ public static class NodeExport
         {
             var property = UniqueClassName(Identifier(child.DisplayName), names);
             string type;
-            if (child.NodeClass == NodeClass.Variable && child.Children.Count == 0)
+            if (child.NodeClass == DeviceNodeKind.Variable && child.Children.Count == 0)
             {
                 type = ClrType(child.Value);
             }
@@ -219,7 +219,7 @@ public static class NodeExport
         }
     }
 
-    private static bool IsLeaf(NodeTree node) => node.NodeClass == NodeClass.Variable && node.Children.Count == 0;
+    private static bool IsLeaf(NodeTree node) => node.NodeClass == DeviceNodeKind.Variable && node.Children.Count == 0;
 
     /// <summary>A node that would become a class/record without any properties (folders, methods-only objects, ...).</summary>
     private static bool IsEmptyType(NodeTree node) => !IsLeaf(node) && node.Children.All(IsEmptyType);

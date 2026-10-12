@@ -1,4 +1,3 @@
-using Opc.Ua;
 using MachineDataBrowser.Core;
 using CommunityToolkit.Mvvm.Input;
 
@@ -26,8 +25,8 @@ public sealed partial class MainWindowViewModel
         }
 
         var target = node ?? (SelectedNode is { IsVariable: false, IsPlaceholder: false } selected && selected.Depth > 0 ? selected : null);
-        var (notifier, name) = target is null || target.NodeId == ObjectIds.RootFolder || target.NodeId == ObjectIds.ObjectsFolder
-            ? (ObjectIds.Server, "Server")
+        var (notifier, name) = target is null
+            ? (DeviceNodeId.Null, "Server")
             : (target.NodeId, target.DisplayName);
 
         var events = new EventsViewModel(source, notifier, name, ReportError) { IsReadOnly = IsReadOnly };

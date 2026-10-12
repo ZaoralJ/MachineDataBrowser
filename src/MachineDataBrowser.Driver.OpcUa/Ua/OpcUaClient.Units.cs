@@ -5,6 +5,9 @@ namespace MachineDataBrowser.Core.Ua;
 
 public sealed partial class OpcUaClient : IEngineeringUnitsSource
 {
+    Task<IReadOnlyList<string?>> IEngineeringUnitsSource.ReadUnitsAsync(IReadOnlyList<DeviceNodeId> nodeIds, CancellationToken cancellationToken) =>
+        UaStatusAdapter.TranslateAsync(() => ReadUnitsAsync(nodeIds.Select(UaNodeIdAdapter.ToUa).ToList(), cancellationToken));
+
     /// <summary>One Browse (HasProperty) and one Read for all variables, however many.</summary>
     public async Task<IReadOnlyList<string?>> ReadUnitsAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken cancellationToken = default)
     {

@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using MachineDataBrowser.Core;
-using Opc.Ua;
 
 namespace MachineDataBrowser.Cli.Tui;
 
@@ -52,7 +51,7 @@ internal sealed class WatchRow(Node node, int refreshMs)
             _last = update;
             _receivedAt = DateTime.Now;
             _notifications++;
-            if (update.Numeric is { } number && double.IsFinite(number) && StatusCode.IsGood(update.Status))
+            if (update.Numeric is { } number && double.IsFinite(number) && update.Status.IsGood)
             {
                 _history.Enqueue(number);
                 if (_history.Count > MaxHistory)
@@ -93,7 +92,7 @@ internal sealed class WatchRow(Node node, int refreshMs)
         {
             if (_last is not { } last)
             {
-                return new RowSnapshot("…", "waiting", StatusCodes.Good, string.Empty, 0, null, Stale: false, Waiting: true);
+                return new RowSnapshot("…", "waiting", DeviceStatusCodes.Good, string.Empty, 0, null, Stale: false, Waiting: true);
             }
 
             var time = Output.Time(last) is { } stamp ? stamp.ToLocalTime() : _receivedAt;
@@ -104,7 +103,7 @@ internal sealed class WatchRow(Node node, int refreshMs)
     }
 }
 
-internal sealed record RowSnapshot(string Value, string Status, StatusCode Code, string Time, int Updates, double? Numeric, bool Stale, bool Waiting);
+internal sealed record RowSnapshot(string Value, string Status, DeviceStatusCode Code, string Time, int Updates, double? Numeric, bool Stale, bool Waiting);
 
 internal sealed record WriteOutcome(string Name, string Before, string After, string? Error);
 
@@ -425,7 +424,7 @@ internal sealed class BrowserModel : IAsyncDisposable
     public async Task<string> ReadValueTextAsync(NodeId id, CancellationToken cancellationToken = default)
     {
         var values = await Client.ReadValuesAsync([id], cancellationToken).ConfigureAwait(false);
-        return values[0] is { } value ? ValueFormatter.Format(ValueFormatter.ToVariant(value)) : "-";
+        return values[0] is { } value ? ValueFormatter.Format(value) : "-";
     }
 
     /// <summary>Writes a value and reads it back, so a write the device accepted but didn't apply shows.</summary>
@@ -444,7 +443,7 @@ internal sealed class BrowserModel : IAsyncDisposable
         }
         catch (Exception ex) when (ex is not OperationCanceledException && Errors.IsRecoverable(ex))
         {
-            error = ex is ServiceResultException sre ? $"{StatusText.Of(sre.StatusCode)}: {sre.Message}" : ex.Message;
+            error = ex is DeviceClientException deviceError ? $"{StatusText.Of(deviceError.StatusCode)}: {deviceError.Message}" : ex.Message;
         }
 
         // MQTT values come back through the broker a moment later.
@@ -521,7 +520,7 @@ internal sealed class BrowserModel : IAsyncDisposable
             return;
         }
 
-        _eventSubscription = await source.SubscribeEventsAsync(ObjectIds.Server, e =>
+        _eventSubscription = await source.SubscribeEventsAsync(DeviceNodeId.Null, e =>
         {
             lock (_eventLock)
             {

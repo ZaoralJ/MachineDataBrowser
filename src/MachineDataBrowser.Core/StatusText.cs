@@ -1,14 +1,11 @@
-using Opc.Ua;
-
 namespace MachineDataBrowser.Core;
 
 /// <summary>A status code as people read it ("Good", "BadNotWritable").</summary>
 public static class StatusText
 {
     /// <summary>
-    /// Codes built from a number (MQTT, Logix, exceptions created from a raw code) carry no name, so it is looked up;
-    /// the hex code is the last resort.
+    /// The neutral code's symbolic name is the preferred display, with its stored code as a fallback.
     /// </summary>
-    public static string Of(StatusCode status) =>
-        status.SymbolicId ?? status.ToString();
+    public static string Of(DeviceStatusCode status) =>
+        string.IsNullOrEmpty(status.Name) ? status.ToString() : status.Name;
 }

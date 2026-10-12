@@ -1,6 +1,5 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.Input;
-using Opc.Ua;
 using MachineDataBrowser.App.Services;
 using MachineDataBrowser.Core;
 
@@ -63,7 +62,7 @@ public sealed partial class MainWindowViewModel
                         notes.Add($"{name}: first {MaxHistoryValues:N0} values only");
                     }
                 }
-                catch (ServiceResultException ex)
+                catch (DeviceClientException ex)
                 {
                     notes.Add($"{name}: {AppErrors.Describe(ex)}");
                 }

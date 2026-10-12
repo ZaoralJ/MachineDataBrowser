@@ -2,15 +2,18 @@ using Microsoft.Data.Sqlite;
 using Opc.Ua;
 using MachineDataBrowser.Core.Ua;
 using Xunit;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
+using StatusCode = MachineDataBrowser.Core.DeviceStatusCode;
+using StatusCodes = MachineDataBrowser.Core.DeviceStatusCodes;
 
 namespace MachineDataBrowser.Core.Tests;
 
 public sealed class SqliteRecordingTests(OpcPlcFixture plc) : IAsyncLifetime
 {
-    private static readonly NodeId ProductName = VariableIds.Server_ServerStatus_BuildInfo_ProductName;
-    private static readonly NodeId CurrentTime = VariableIds.Server_ServerStatus_CurrentTime;
+    private static readonly NodeId ProductName = NodeId.FromOpaque(VariableIds.Server_ServerStatus_BuildInfo_ProductName.ToString());
+    private static readonly NodeId CurrentTime = NodeId.FromOpaque(VariableIds.Server_ServerStatus_CurrentTime.ToString());
 
-    private readonly OpcUaClient _client = new();
+    private readonly IDeviceClient _client = new OpcUaClient();
     private readonly string _dir = Directory.CreateTempSubdirectory("sqlite-recordings").FullName;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -80,7 +83,7 @@ public sealed class SqliteRecordingTests(OpcPlcFixture plc) : IAsyncLifetime
         Assert.All(samples, s => Assert.Equal("Objects/Server", s.Path));
         Assert.Equal((42.5, "42.5", (string?)null), (samples[0].Num, samples[0].Text, samples[0].Json));
         Assert.Equal("[1,2,3]", samples[1].Json);
-        Assert.Equal(("BadCommunicationError", (long)StatusCodes.BadCommunicationError), (samples[2].Status, samples[2].Code));
+        Assert.Equal(("BadCommunicationError", (long)StatusCodes.BadCommunicationError.Code), (samples[2].Status, samples[2].Code));
 
         Assert.Equal(["ok"], await QueryAsync(file, "PRAGMA integrity_check", r => r.GetString(0)));
     }

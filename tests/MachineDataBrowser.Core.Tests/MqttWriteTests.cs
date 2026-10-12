@@ -1,7 +1,7 @@
 using System.Text;
-using Opc.Ua;
 using MachineDataBrowser.Core.Mqtt;
 using Xunit;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 
 namespace MachineDataBrowser.Core.Tests;
 

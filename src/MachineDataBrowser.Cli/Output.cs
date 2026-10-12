@@ -4,7 +4,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
 using MachineDataBrowser.Core;
-using Opc.Ua;
 
 namespace MachineDataBrowser.Cli;
 
@@ -93,7 +92,7 @@ internal static class Output
 {
     public static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
 
-    public static string Status(StatusCode status) =>
+    public static string Status(DeviceStatusCode status) =>
         StatusText.Of(status);
 
     /// <summary>When the value changed: its source timestamp, else the server's (OPC UA servers may omit the source one).</summary>

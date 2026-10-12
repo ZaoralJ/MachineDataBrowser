@@ -2,7 +2,6 @@ using System.ComponentModel;
 using MachineDataBrowser.Core;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
-using Opc.Ua;
 
 namespace MachineDataBrowser.Cli.Mcp;
 
@@ -49,9 +48,9 @@ internal sealed partial class MachineDataTools
         {
             throw new McpException(ex.Message);
         }
-        catch (ServiceResultException ex)
+        catch (DeviceClientException ex)
         {
-            throw new McpException($"{StatusText.Of(ex.Result.StatusCode)}: {ex.Message}");
+            throw new McpException($"{ex.StatusCode}: {ex.Message}");
         }
     }
 }

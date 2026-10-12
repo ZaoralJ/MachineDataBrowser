@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Buffers.Binary;
 using System.Text;
-using Opc.Ua;
 
 namespace MachineDataBrowser.Core.Cip;
 
@@ -268,20 +267,20 @@ public static class LogixCodec
         }
     }
 
-    /// <summary>The OPC UA type user input for <paramref name="atomic"/> is parsed as.</summary>
-    public static BuiltInType ToBuiltInType(LogixAtomic atomic) => atomic switch
+    /// <summary>The neutral scalar type used to parse user input for <paramref name="atomic"/>.</summary>
+    public static DeviceDataType ToValueType(LogixAtomic atomic) => atomic switch
     {
-        LogixAtomic.Bool => BuiltInType.Boolean,
-        LogixAtomic.Sint => BuiltInType.SByte,
-        LogixAtomic.Usint or LogixAtomic.Byte => BuiltInType.Byte,
-        LogixAtomic.Int => BuiltInType.Int16,
-        LogixAtomic.Uint or LogixAtomic.Word => BuiltInType.UInt16,
-        LogixAtomic.Dint => BuiltInType.Int32,
-        LogixAtomic.Udint or LogixAtomic.Dword => BuiltInType.UInt32,
-        LogixAtomic.Lint => BuiltInType.Int64,
-        LogixAtomic.Ulint or LogixAtomic.Lword => BuiltInType.UInt64,
-        LogixAtomic.Real => BuiltInType.Float,
-        LogixAtomic.Lreal => BuiltInType.Double,
+        LogixAtomic.Bool => DeviceDataType.Boolean,
+        LogixAtomic.Sint => DeviceDataType.SByte,
+        LogixAtomic.Usint or LogixAtomic.Byte => DeviceDataType.Byte,
+        LogixAtomic.Int => DeviceDataType.Int16,
+        LogixAtomic.Uint or LogixAtomic.Word => DeviceDataType.UInt16,
+        LogixAtomic.Dint => DeviceDataType.Int32,
+        LogixAtomic.Udint or LogixAtomic.Dword => DeviceDataType.UInt32,
+        LogixAtomic.Lint => DeviceDataType.Int64,
+        LogixAtomic.Ulint or LogixAtomic.Lword => DeviceDataType.UInt64,
+        LogixAtomic.Real => DeviceDataType.Float,
+        LogixAtomic.Lreal => DeviceDataType.Double,
         _ => throw new NotSupportedException($"Type 0x{(byte)atomic:X2} is not atomic."),
     };
 

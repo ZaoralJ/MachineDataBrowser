@@ -1,14 +1,18 @@
 using Opc.Ua;
 using Xunit;
 using MachineDataBrowser.Core.Ua;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
+using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
 
 namespace MachineDataBrowser.Core.Tests;
 
 public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
 {
-    private readonly OpcUaClient _client = new();
+    private readonly IDeviceClient _client = new OpcUaClient();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    private static NodeId UaId(Opc.Ua.NodeId nodeId) => NodeId.FromOpaque(nodeId.ToString());
 
     public async ValueTask InitializeAsync() =>
         await _client.ConnectAsync(new ConnectOptions { EndpointUrl = plc.EndpointUrl, AutoAcceptUntrustedCertificates = true }, Ct);
@@ -22,20 +26,20 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
     [Fact]
     public async Task Browse_objects_folder_contains_server_and_plc_nodes()
     {
-        var children = await _client.BrowseAsync(ObjectIds.ObjectsFolder, Ct);
+        var children = await _client.BrowseAsync(UaId(ObjectIds.ObjectsFolder), Ct);
 
-        Assert.Contains(children, c => c.NodeId == ObjectIds.Server);
+        Assert.Contains(children, c => c.NodeId == UaId(ObjectIds.Server));
         Assert.Contains(children, c => c.DisplayName == "OpcPlc");
     }
 
     [Fact]
     public async Task Browse_reports_has_children_for_folders_but_not_leaf_variables()
     {
-        var objects = await _client.BrowseAsync(ObjectIds.ObjectsFolder, Ct);
+        var objects = await _client.BrowseAsync(UaId(ObjectIds.ObjectsFolder), Ct);
         var plc = Assert.Single(objects, c => c.DisplayName == "OpcPlc");
         Assert.True(plc.HasChildren);
 
-        var status = await _client.BrowseAsync(VariableIds.Server_ServerStatus, Ct);
+        var status = await _client.BrowseAsync(UaId(VariableIds.Server_ServerStatus), Ct);
         Assert.True(Assert.Single(status, c => c.DisplayName == "BuildInfo").HasChildren);
         Assert.False(Assert.Single(status, c => c.DisplayName == "CurrentTime").HasChildren);
     }
@@ -43,7 +47,7 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
     [Fact]
     public async Task Collect_variables_respects_depth_and_limit()
     {
-        var objects = await _client.BrowseAsync(ObjectIds.ObjectsFolder, Ct);
+        var objects = await _client.BrowseAsync(UaId(ObjectIds.ObjectsFolder), Ct);
         var plcNode = Assert.Single(objects, c => c.DisplayName == "OpcPlc").NodeId;
 
         var shallow = await _client.CollectVariablesAsync(plcNode, maxDepth: 1, maxCount: 1000, Ct);
@@ -62,7 +66,7 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
     [Fact]
     public async Task Read_tree_exports_json_and_csharp()
     {
-        var tree = await _client.ReadTreeAsync(VariableIds.Server_ServerStatus, "ServerStatus", NodeClass.Variable, 3, 100, Ct);
+        var tree = await _client.ReadTreeAsync(UaId(VariableIds.Server_ServerStatus), "ServerStatus", NodeClass.Variable, 3, 100, Ct);
 
         var json = Assert.IsType<System.Text.Json.Nodes.JsonObject>(NodeExport.ToJson(tree));
         Assert.True(json.ContainsKey("CurrentTime"));
@@ -83,12 +87,12 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
     [Fact]
     public void Csharp_export_omits_types_without_properties()
     {
-        var root = new NodeTree(new NodeId(1), "Device", NodeClass.Object);
-        root.Children.Add(new NodeTree(new NodeId(2), "MethodSet", NodeClass.Object));
-        var alarms = new NodeTree(new NodeId(3), "Alarms", NodeClass.Object);
-        alarms.Children.Add(new NodeTree(new NodeId(4), "Empty", NodeClass.Object));
+        var root = new NodeTree(new NodeId("1"), "Device", NodeClass.Object);
+        root.Children.Add(new NodeTree(new NodeId("2"), "MethodSet", NodeClass.Object));
+        var alarms = new NodeTree(new NodeId("3"), "Alarms", NodeClass.Object);
+        alarms.Children.Add(new NodeTree(new NodeId("4"), "Empty", NodeClass.Object));
         root.Children.Add(alarms);
-        root.Children.Add(new NodeTree(new NodeId(5), "Speed", NodeClass.Variable) { Value = 1.5f });
+        root.Children.Add(new NodeTree(new NodeId("5"), "Speed", NodeClass.Variable) { Value = 1.5f });
 
         var code = NodeExport.ToCSharp(root);
 
@@ -101,12 +105,12 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
     [Fact]
     public void Cherry_picked_properties_are_grouped_under_their_parent_object()
     {
-        var root = new NodeTree(new NodeId(1), "Objects", NodeClass.Object);
-        var motor = new NodeTree(new NodeId(2), "Motor", NodeClass.Object);
-        var pump = new NodeTree(new NodeId(3), "Pump", NodeClass.Object);
-        var speed = new NodeTree(new NodeId(4), "Speed", NodeClass.Variable) { Value = 1.5f };
-        var running = new NodeTree(new NodeId(5), "Running", NodeClass.Variable) { Value = true };
-        var flow = new NodeTree(new NodeId(6), "Flow", NodeClass.Variable) { Value = 2.0 };
+        var root = new NodeTree(new NodeId("1"), "Objects", NodeClass.Object);
+        var motor = new NodeTree(new NodeId("2"), "Motor", NodeClass.Object);
+        var pump = new NodeTree(new NodeId("3"), "Pump", NodeClass.Object);
+        var speed = new NodeTree(new NodeId("4"), "Speed", NodeClass.Variable) { Value = 1.5f };
+        var running = new NodeTree(new NodeId("5"), "Running", NodeClass.Variable) { Value = true };
+        var flow = new NodeTree(new NodeId("6"), "Flow", NodeClass.Variable) { Value = 2.0 };
 
         var trees = NodeExport.ComposeSelection([([root, motor], speed), ([root, motor], running), ([root, pump], flow)]);
 
@@ -121,12 +125,12 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
     [Fact]
     public void Picked_object_with_picked_descendants_keeps_only_those()
     {
-        var root = new NodeTree(new NodeId(1), "Objects", NodeClass.Object);
-        var motor = new NodeTree(new NodeId(2), "Motor", NodeClass.Object);
-        var status = new NodeTree(new NodeId(3), "Status", NodeClass.Object);
-        var speed = new NodeTree(new NodeId(4), "Speed", NodeClass.Variable) { Value = 1.5f };
-        var fault = new NodeTree(new NodeId(5), "Fault", NodeClass.Variable) { Value = false };
-        motor.Children.Add(new NodeTree(new NodeId(9), "Unpicked", NodeClass.Variable) { Value = 1 });
+        var root = new NodeTree(new NodeId("1"), "Objects", NodeClass.Object);
+        var motor = new NodeTree(new NodeId("2"), "Motor", NodeClass.Object);
+        var status = new NodeTree(new NodeId("3"), "Status", NodeClass.Object);
+        var speed = new NodeTree(new NodeId("4"), "Speed", NodeClass.Variable) { Value = 1.5f };
+        var fault = new NodeTree(new NodeId("5"), "Fault", NodeClass.Variable) { Value = false };
+        motor.Children.Add(new NodeTree(new NodeId("9"), "Unpicked", NodeClass.Variable) { Value = 1 });
 
         var trees = NodeExport.ComposeSelection([([root], motor), ([root, motor], speed), ([root, motor, status], fault)]);
 
@@ -139,12 +143,12 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
     [Fact]
     public void Picks_in_a_nested_object_become_a_property_of_the_outer_group()
     {
-        var server = new NodeTree(new NodeId(1), "Server", NodeClass.Object);
-        var status = new NodeTree(new NodeId(2), "ServerStatus", NodeClass.Variable);
-        var buildInfo = new NodeTree(new NodeId(3), "BuildInfo", NodeClass.Variable);
-        var state = new NodeTree(new NodeId(4), "State", NodeClass.Variable) { Value = 0 };
-        var manufacturer = new NodeTree(new NodeId(5), "ManufacturerName", NodeClass.Variable) { Value = "m" };
-        var product = new NodeTree(new NodeId(6), "ProductName", NodeClass.Variable) { Value = "p" };
+        var server = new NodeTree(new NodeId("1"), "Server", NodeClass.Object);
+        var status = new NodeTree(new NodeId("2"), "ServerStatus", NodeClass.Variable);
+        var buildInfo = new NodeTree(new NodeId("3"), "BuildInfo", NodeClass.Variable);
+        var state = new NodeTree(new NodeId("4"), "State", NodeClass.Variable) { Value = 0 };
+        var manufacturer = new NodeTree(new NodeId("5"), "ManufacturerName", NodeClass.Variable) { Value = "m" };
+        var product = new NodeTree(new NodeId("6"), "ProductName", NodeClass.Variable) { Value = "p" };
 
         var trees = NodeExport.ComposeSelection([([server, status], state), ([server, status, buildInfo], manufacturer), ([server, status, buildInfo], product)]);
 
@@ -159,9 +163,9 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
     [Fact]
     public void Single_picked_object_is_exported_on_its_own()
     {
-        var root = new NodeTree(new NodeId(1), "Objects", NodeClass.Object);
-        var motor = new NodeTree(new NodeId(2), "Motor", NodeClass.Object);
-        motor.Children.Add(new NodeTree(new NodeId(3), "Speed", NodeClass.Variable) { Value = 1.5f });
+        var root = new NodeTree(new NodeId("1"), "Objects", NodeClass.Object);
+        var motor = new NodeTree(new NodeId("2"), "Motor", NodeClass.Object);
+        motor.Children.Add(new NodeTree(new NodeId("3"), "Speed", NodeClass.Variable) { Value = 1.5f });
 
         Assert.Same(motor, Assert.Single(NodeExport.ComposeSelection([([root], motor)])));
     }
@@ -170,14 +174,14 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
     public async Task Monitor_many_reports_rejected_items_without_failing_the_batch()
     {
         var results = await _client.MonitorManyAsync(
-            [VariableIds.Server_ServerStatus_CurrentTime, new NodeId("does-not-exist", 3)],
+            [UaId(VariableIds.Server_ServerStatus_CurrentTime), new NodeId("does-not-exist", 3)],
             _ => { },
             250,
             Ct);
 
         Assert.NotNull(results[0].Handle);
         Assert.Null(results[1].Handle);
-        Assert.True(ServiceResult.IsBad(results[1].Error));
+        Assert.True(results[1].Error.StatusCode.IsBad);
         await results[0].Handle!.DisposeAsync();
     }
 
@@ -190,13 +194,13 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
 
         Assert.StartsWith("nsu=", portable, StringComparison.Ordinal);
         Assert.Equal(nodeId, _client.ParsePortableId(portable));
-        Assert.Equal("i=2258", _client.ToPortableId(VariableIds.Server_ServerStatus_CurrentTime));
+        Assert.Equal("i=2258", _client.ToPortableId(UaId(VariableIds.Server_ServerStatus_CurrentTime)));
     }
 
     [Fact]
     public async Task Read_attributes_of_server_status_variable()
     {
-        var attributes = await _client.ReadAttributesAsync(VariableIds.Server_ServerStatus_CurrentTime, Ct);
+        var attributes = await _client.ReadAttributesAsync(UaId(VariableIds.Server_ServerStatus_CurrentTime), Ct);
 
         Assert.Contains(attributes, a => a.Name == "NodeClass" && a.Value == "Variable");
         Assert.Contains(attributes, a => a.Name == "DataType" && a.Value.StartsWith("UtcTime", StringComparison.Ordinal));
@@ -206,7 +210,7 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
     [Fact]
     public async Task Server_status_structure_is_decoded()
     {
-        var attributes = await _client.ReadAttributesAsync(VariableIds.Server_ServerStatus, Ct);
+        var attributes = await _client.ReadAttributesAsync(UaId(VariableIds.Server_ServerStatus), Ct);
 
         var value = Assert.Single(attributes, a => a.Name == "Value").Value;
         Assert.DoesNotContain("undecoded", value, StringComparison.Ordinal);
@@ -218,7 +222,7 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
         var updates = new List<ValueUpdate>();
         var got3 = new TaskCompletionSource();
 
-        await using (await _client.MonitorAsync(VariableIds.Server_ServerStatus_CurrentTime, u =>
+        await using (await _client.MonitorAsync(UaId(VariableIds.Server_ServerStatus_CurrentTime), u =>
         {
             lock (updates)
             {
@@ -235,7 +239,7 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
 
         lock (updates)
         {
-            Assert.All(updates, u => Assert.True(StatusCode.IsGood(u.Status)));
+            Assert.All(updates, u => Assert.True(u.Status.IsGood));
             Assert.True(updates.Select(u => u.Value).Distinct().Count() > 1);
         }
     }
@@ -244,7 +248,7 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
     public async Task Search_finds_nodes_by_name_from_the_objects_folder()
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
-        var result = await _client.SearchAsync(new BrowseItem(ObjectIds.ObjectsFolder, "Objects", "Objects", NodeClass.Object), "StepUp", maxDepth: 6, cancellationToken: Ct);
+        var result = await _client.SearchAsync(new BrowseItem(UaId(ObjectIds.ObjectsFolder), "Objects", "Objects", NodeClass.Object), "StepUp", maxDepth: 6, cancellationToken: Ct);
         Assert.Contains(result.Hits, h => h.Item.DisplayName == "StepUp" && h.PathText.EndsWith("OpcPlc › Telemetry › Basic › StepUp", StringComparison.Ordinal));
         TestContext.Current.TestOutputHelper!.WriteLine($"{result.NodesVisited} nodes in {watch.ElapsedMilliseconds} ms");
     }

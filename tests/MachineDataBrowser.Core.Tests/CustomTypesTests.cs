@@ -2,13 +2,15 @@ using Opc.Ua;
 using Opc.Ua.Encoders;
 using MachineDataBrowser.Core.Ua;
 using Xunit;
+using NodeId = MachineDataBrowser.Core.DeviceNodeId;
+using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
 
 namespace MachineDataBrowser.Core.Tests;
 
 /// <summary>OpcUaClient against the custom-types server in <c>simulators/opcua-custom</c>.</summary>
 public sealed class CustomTypesTests(CustomTypesServerFixture server) : IAsyncLifetime
 {
-    private readonly OpcUaClient _client = new();
+    private readonly IDeviceClient _client = new OpcUaClient();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -19,7 +21,7 @@ public sealed class CustomTypesTests(CustomTypesServerFixture server) : IAsyncLi
 
     private async Task<BrowseItem> FindAsync(params string[] path)
     {
-        var current = new BrowseItem(ObjectIds.ObjectsFolder, "Objects", "Objects", NodeClass.Object);
+        var current = new BrowseItem(NodeId.FromOpaque(ObjectIds.ObjectsFolder.ToString()), "Objects", "Objects", NodeClass.Object);
         foreach (var name in path)
         {
             var children = await _client.BrowseAsync(current.NodeId, Ct);
@@ -33,8 +35,8 @@ public sealed class CustomTypesTests(CustomTypesServerFixture server) : IAsyncLi
     public async Task Events_from_an_object_without_events_report_the_server_status()
     {
         var custom = await FindAsync("Custom");
-        var ex = await Assert.ThrowsAsync<ServiceResultException>(async () => await _client.SubscribeEventsAsync(custom.NodeId, _ => { }, Ct));
-        Assert.True(StatusCode.IsBad(ex.StatusCode));
+        var ex = await Assert.ThrowsAsync<DeviceClientException>(async () => await ((IEventSource)_client).SubscribeEventsAsync(custom.NodeId, _ => { }, Ct));
+        Assert.True(ex.StatusCode.IsBad);
     }
 
     private async Task<object?> ReadAsync(params string[] path) =>
@@ -48,7 +50,7 @@ public sealed class CustomTypesTests(CustomTypesServerFixture server) : IAsyncLi
         Assert.True(value.TryGetValue(out IEncodeable? body));
         Assert.NotNull(body);
         Assert.Equal("MachineStatus", Assert.IsType<Structure>(body).XmlName.Name);
-        var text = ValueFormatter.Format(new Variant(value));
+        var text = UaValueFormatter.Format(new Variant(value));
         Assert.StartsWith("{", text, StringComparison.Ordinal); // decoded fields: {State|Speed|{X|Y|Z}|…}
         Assert.DoesNotContain("undecoded", text, StringComparison.Ordinal);
     }
@@ -101,7 +103,7 @@ public sealed class CustomTypesTests(CustomTypesServerFixture server) : IAsyncLi
     {
         var matrix = await ReadAsync("Custom", "DataTypes", "Arrays", "Matrix3x4");
         Assert.NotNull(matrix);
-        Assert.Contains("3", ValueFormatter.Format(ValueFormatter.ToVariant(matrix)), StringComparison.Ordinal);
+        Assert.Contains("3", UaValueFormatter.Format(UaValueFormatter.ToVariant(matrix)), StringComparison.Ordinal);
     }
 
     [Fact]

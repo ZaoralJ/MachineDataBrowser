@@ -5,6 +5,9 @@ namespace MachineDataBrowser.Core.Ua;
 
 public sealed partial class OpcUaClient : IHistorySource
 {
+    Task<HistoryResult> IHistorySource.ReadHistoryAsync(DeviceNodeId nodeId, DateTime startTime, DateTime endTime, int maxValues, CancellationToken cancellationToken) =>
+        UaStatusAdapter.TranslateAsync(() => ReadHistoryAsync(UaNodeIdAdapter.ToUa(nodeId), startTime, endTime, maxValues, cancellationToken));
+
     /// <summary>Values asked for per HistoryRead call; adjustable for tests that exercise paging.</summary>
     internal static uint HistoryPageSize { get; set; } = 1000;
 
@@ -51,12 +54,12 @@ public sealed partial class OpcUaClient : IHistorySource
 
                     var decoded = await DecodeStructuresAsync(dv, cancellationToken).ConfigureAwait(false);
                     values.Add(new ValueUpdate(
-                        nodeId,
-                        ValueFormatter.Format(decoded.WrappedValue),
-                        dv.StatusCode,
+                        UaNodeIdAdapter.ToDevice(nodeId),
+                        UaValueFormatter.Format(decoded.WrappedValue),
+                        UaStatusAdapter.ToDevice(dv.StatusCode),
                         dv.SourceTimestamp.ToDateTime(),
                         dv.ServerTimestamp.ToDateTime(),
-                        ValueFormatter.ToNumeric(decoded.WrappedValue),
+                        UaValueFormatter.ToNumeric(decoded.WrappedValue),
                         decoded.WrappedValue.AsBoxedObject()));
                 }
             }

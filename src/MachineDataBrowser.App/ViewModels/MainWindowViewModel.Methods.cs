@@ -1,5 +1,4 @@
 using CommunityToolkit.Mvvm.Input;
-using Opc.Ua;
 using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.App.ViewModels;

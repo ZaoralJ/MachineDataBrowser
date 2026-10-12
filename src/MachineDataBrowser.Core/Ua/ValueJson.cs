@@ -23,8 +23,10 @@ public static class ValueJson
         Array a => $"{TypeName(a.Length > 0 ? a.GetValue(0) : null)}[]",
         ExtensionObject eo when eo.TryGetValue(out IEncodeable? e) => EncodeableTypeName(e),
         ExtensionObject => "ExtensionObject",
-        Uuid => "Guid",
-        _ => ValueFormatter.ToVariant(value).TypeInfo.BuiltInType.ToString(),
+        Uuid or Guid => "Guid",
+        DateTimeUtc => "DateTime",
+        float => "Float",
+        _ => value.GetType().Name,
     };
 
     private static JsonNode? Convert(object? value, int depth)

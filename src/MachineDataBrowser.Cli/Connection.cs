@@ -1,5 +1,5 @@
 using MachineDataBrowser.Core;
-using Opc.Ua;
+using MachineDataBrowser.Drivers;
 
 namespace MachineDataBrowser.Cli;
 
@@ -20,6 +20,8 @@ internal sealed record Node(NodeId Id, string Name, string DisplayId, string? Di
 
 internal static class Connection
 {
+    private static readonly DeviceClientFactory ClientFactory = new();
+
     /// <summary>MQTT topics appear as messages arrive, so path lookups wait this long for them.</summary>
     private static readonly TimeSpan DynamicLookupTimeout = TimeSpan.FromSeconds(5);
 
@@ -29,19 +31,19 @@ internal static class Connection
 
     private static readonly TimeSpan ConnectRetryDelay = TimeSpan.FromSeconds(2);
 
-    private static readonly HashSet<uint> UnreachableStatusCodes =
+    private static readonly HashSet<string> UnreachableStatusCodes =
     [
-        StatusCodes.BadCommunicationError.Code,
-        StatusCodes.BadNotConnected.Code,
-        StatusCodes.BadTimeout.Code,
-        StatusCodes.BadRequestTimeout.Code,
-        StatusCodes.BadConnectionClosed.Code,
-        StatusCodes.BadConnectionRejected.Code,
-        StatusCodes.BadServerNotConnected.Code,
-        StatusCodes.BadServerHalted.Code,
-        StatusCodes.BadSecureChannelClosed.Code,
-        StatusCodes.BadNoCommunication.Code,
-        StatusCodes.BadTcpInternalError.Code,
+        "BadCommunicationError",
+        "BadNotConnected",
+        "BadTimeout",
+        "BadRequestTimeout",
+        "BadConnectionClosed",
+        "BadConnectionRejected",
+        "BadServerNotConnected",
+        "BadServerHalted",
+        "BadSecureChannelClosed",
+        "BadNoCommunication",
+        "BadTcpInternalError",
     ];
 
     /// <summary>
@@ -67,14 +69,14 @@ internal static class Connection
     {
         AggregateException { InnerExceptions.Count: 1 } a => IsUnreachable(a.InnerExceptions[0]),
         System.Net.Sockets.SocketException or TimeoutException or IOException => true,
-        ServiceResultException s => UnreachableStatusCodes.Contains(s.StatusCode.Code)
+        DeviceClientException s => UnreachableStatusCodes.Contains(s.StatusCode.Name)
             || (ex.InnerException is { } inner && IsUnreachable(inner)),
         _ => ex.InnerException is { } inner && IsUnreachable(inner),
     };
 
     public static async Task<IDeviceClient> ConnectAsync(ConnectionArgs args, CancellationToken cancellationToken)
     {
-        var client = DeviceClient.Create(args.Url);
+        var client = ClientFactory.Create(args.Url);
         try
         {
             await client.ConnectAsync(
@@ -145,7 +147,7 @@ internal static class Connection
             {
                 id = client.ParsePortableId(text);
             }
-            catch (Exception ex) when (ex is ServiceResultException or FormatException or ArgumentException)
+            catch (Exception ex) when (ex is DeviceClientException or FormatException or ArgumentException)
             {
                 throw new CliException($"'{text}' is not a node id. Use an id like ns=3;s=Name, or a path like /Objects/Name.");
             }

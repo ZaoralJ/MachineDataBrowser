@@ -5,6 +5,12 @@ namespace MachineDataBrowser.Core.Ua;
 
 public sealed partial class OpcUaClient : IMethodCaller
 {
+    Task<MethodSignature> IMethodCaller.GetMethodSignatureAsync(DeviceNodeId methodId, CancellationToken cancellationToken) =>
+        UaStatusAdapter.TranslateAsync(() => GetMethodSignatureAsync(UaNodeIdAdapter.ToUa(methodId), cancellationToken));
+
+    Task<IReadOnlyList<string>> IMethodCaller.CallMethodAsync(DeviceNodeId objectId, DeviceNodeId methodId, IReadOnlyList<string> inputs, CancellationToken cancellationToken) =>
+        UaStatusAdapter.TranslateAsync(() => CallMethodAsync(UaNodeIdAdapter.ToUa(objectId), UaNodeIdAdapter.ToUa(methodId), inputs, cancellationToken));
+
     public async Task<MethodSignature> GetMethodSignatureAsync(NodeId methodId, CancellationToken cancellationToken = default)
     {
         var session = RequireSession();
@@ -29,7 +35,7 @@ public sealed partial class OpcUaClient : IMethodCaller
             var argument = signature.Inputs[i];
             try
             {
-                arguments.Add(ValueFormatter.ToVariant(ValueParser.Parse(inputs[i], argument.BuiltInType, argument.IsArray)));
+                arguments.Add(UaValueFormatter.ToVariant(UaValueParser.Parse(inputs[i], argument.ValueType, argument.IsArray)));
             }
             catch (FormatException ex)
             {
@@ -61,7 +67,7 @@ public sealed partial class OpcUaClient : IMethodCaller
         var outputs = new List<string>(result.OutputArguments.Count);
         foreach (var output in result.OutputArguments.ToList())
         {
-            outputs.Add(ValueFormatter.Format(ValueFormatter.ToVariant(
+            outputs.Add(UaValueFormatter.Format(UaValueFormatter.ToVariant(
                 await DecodeStructuresAsync(output.AsBoxedObject(), cancellationToken).ConfigureAwait(false))));
         }
 
@@ -77,7 +83,7 @@ public sealed partial class OpcUaClient : IMethodCaller
             return []; // no such property: the method has no arguments of this kind
         }
 
-        var propertyId = property.NodeId;
+        var propertyId = UaNodeIdAdapter.ToUa(property.NodeId);
         var read = await session.ReadAsync(null, 0, TimestampsToReturn.Neither,
             new List<ReadValueId> { new ReadValueId { NodeId = propertyId, AttributeId = Attributes.Value } }, cancellationToken).ConfigureAwait(false);
         var rawArguments = read.Results[0].WrappedValue.AsBoxedObject() switch
@@ -104,7 +110,7 @@ public sealed partial class OpcUaClient : IMethodCaller
             arguments.Add(new MethodArgument(
                 argument.Name ?? string.Empty,
                 (string.IsNullOrEmpty(typeName) ? argument.DataType.ToString() : typeName) + (isArray ? "[]" : string.Empty),
-                builtIn,
+                UaValueParser.ToDeviceDataType(builtIn),
                 isArray,
                 argument.Description.Text ?? string.Empty));
         }

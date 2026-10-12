@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MachineDataBrowser.Core\MachineDataBrowser.Core.csproj" />
+    <ProjectReference Include="..\MachineDataBrowser.Drivers\MachineDataBrowser.Drivers.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="MachineDataBrowser.Cli.Tests" />

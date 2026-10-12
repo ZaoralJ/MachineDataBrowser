@@ -1,7 +1,6 @@
 using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
-using Opc.Ua;
 using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.App.Converters;

@@ -1,5 +1,4 @@
 using CommunityToolkit.Mvvm.Input;
-using Opc.Ua;
 using MachineDataBrowser.App.Services;
 using MachineDataBrowser.Core;
 
@@ -69,7 +68,7 @@ public sealed partial class MainWindowViewModel
             var failures = new List<string>();
             for (var i = 0; i < items.Count; i++)
             {
-                if (ServiceResult.IsGood(results[i]))
+                if (results[i].StatusCode.IsGood)
                 {
                     items[i].Monitoring = options;
                 }

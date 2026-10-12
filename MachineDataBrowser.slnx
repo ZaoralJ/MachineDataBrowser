@@ -3,6 +3,10 @@
     <Project Path="src/MachineDataBrowser.App/MachineDataBrowser.App.csproj" />
     <Project Path="src/MachineDataBrowser.Cli/MachineDataBrowser.Cli.csproj" />
     <Project Path="src/MachineDataBrowser.Core/MachineDataBrowser.Core.csproj" />
+    <Project Path="src/MachineDataBrowser.Driver.OpcUa/MachineDataBrowser.Driver.OpcUa.csproj" />
+    <Project Path="src/MachineDataBrowser.Driver.Mqtt/MachineDataBrowser.Driver.Mqtt.csproj" />
+    <Project Path="src/MachineDataBrowser.Driver.Cip/MachineDataBrowser.Driver.Cip.csproj" />
+    <Project Path="src/MachineDataBrowser.Drivers/MachineDataBrowser.Drivers.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MachineDataBrowser.Cli.Tests/MachineDataBrowser.Cli.Tests.csproj" />
