@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.2](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.27.1...v0.27.2) (2026-10-12)
+
+
+### Fixes
+
+* **core:** combine OPC UA SDK 2 migration ([#136](https://github.com/ZaoralJ/MachineDataBrowser/issues/136)) ([610826b](https://github.com/ZaoralJ/MachineDataBrowser/commit/610826b4268678d330275a03cf711fee5bcdd0cb))
+
 ## [0.27.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.27.0...v0.27.1) (2026-10-08)
 
 
