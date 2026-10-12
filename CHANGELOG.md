@@ -1,5 +1,82 @@
 # Changelog
 
+## [0.29.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.28.0...v0.29.0) (2026-10-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **app:** group by path as a toolbar icon, drop Problems only ([#46](https://github.com/ZaoralJ/MachineDataBrowser/issues/46))
+* **app:** the OPC UA client identity is now MachineDataBrowser, so a new application certificate is created and servers that trusted the old one must trust it once.
+
+### Features
+
+* **app:** add application icon and macOS app bundle assets ([#8](https://github.com/ZaoralJ/MachineDataBrowser/issues/8)) ([8522693](https://github.com/ZaoralJ/MachineDataBrowser/commit/852269357b03b4e8bc4f5c8f888501137aa07d1e))
+* **app:** address space search, MQTT defaults and watch fixes ([#21](https://github.com/ZaoralJ/MachineDataBrowser/issues/21)) ([e0be5bc](https://github.com/ZaoralJ/MachineDataBrowser/commit/e0be5bc14bb7ccaf4349f935e9ef9f64591d613f))
+* **app:** bookmarks in the address space ([#36](https://github.com/ZaoralJ/MachineDataBrowser/issues/36)) ([33c0d06](https://github.com/ZaoralJ/MachineDataBrowser/commit/33c0d06907551ccb4b3c033d5be79ce7d5c07695))
+* **app:** cherry-pick export, refreshed UI and connection bar fixes ([#11](https://github.com/ZaoralJ/MachineDataBrowser/issues/11)) ([268edd0](https://github.com/ZaoralJ/MachineDataBrowser/commit/268edd0d3153c41a37bdb92ed72719e39bd62784))
+* **app:** clearer New Recording form, and add to an existing SQLite file ([#95](https://github.com/ZaoralJ/MachineDataBrowser/issues/95)) ([70119b0](https://github.com/ZaoralJ/MachineDataBrowser/commit/70119b08a68dc9d6d67fcf0de301f8c426f3a19b))
+* **app:** colour themes with light and dark ([#31](https://github.com/ZaoralJ/MachineDataBrowser/issues/31)) ([5f48498](https://github.com/ZaoralJ/MachineDataBrowser/commit/5f4849890ba6ebcf3cf1948d969be6767d98234d))
+* **app:** copy address space node as JSON, C# class or C# record ([#5](https://github.com/ZaoralJ/MachineDataBrowser/issues/5)) ([8f518a0](https://github.com/ZaoralJ/MachineDataBrowser/commit/8f518a0c8daf6a124b268a5b4697d82b77b3618e))
+* **app:** copy an mdbrowser command for the selection ([#75](https://github.com/ZaoralJ/MachineDataBrowser/issues/75)) ([1a47a6f](https://github.com/ZaoralJ/MachineDataBrowser/commit/1a47a6fe12896abc174d64e1337d5da1cd83db8d))
+* **app:** group by path as a toolbar icon, drop Problems only ([#46](https://github.com/ZaoralJ/MachineDataBrowser/issues/46)) ([4cdb20d](https://github.com/ZaoralJ/MachineDataBrowser/commit/4cdb20d7dfd07e3e1f6fcd626f12e79075a69f7f))
+* **app:** group the watch list by path ([#44](https://github.com/ZaoralJ/MachineDataBrowser/issues/44)) ([559ae12](https://github.com/ZaoralJ/MachineDataBrowser/commit/559ae12a7168e337aa9d3fc1714d1ef795959328))
+* **app:** read-only sessions ([#34](https://github.com/ZaoralJ/MachineDataBrowser/issues/34)) ([dad55bc](https://github.com/ZaoralJ/MachineDataBrowser/commit/dad55bc2cfd3c33dc56fedd7d46857a69238309c))
+* **app:** refresh time follows the monitoring sampling interval ([#103](https://github.com/ZaoralJ/MachineDataBrowser/issues/103)) ([76b52e0](https://github.com/ZaoralJ/MachineDataBrowser/commit/76b52e073cb80508c8fece4da35c75ba5396cbc5))
+* **app:** several connections in one window (tabs) ([#37](https://github.com/ZaoralJ/MachineDataBrowser/issues/37)) ([dda8bdd](https://github.com/ZaoralJ/MachineDataBrowser/commit/dda8bdd243a6cf46fb341e5814bb80757f7f821e))
+* **app:** start independent app instances ([#23](https://github.com/ZaoralJ/MachineDataBrowser/issues/23)) ([2d9373a](https://github.com/ZaoralJ/MachineDataBrowser/commit/2d9373a72a39a46da8638da20aa82df12bc94136))
+* **app:** value display formats, scaling and units in Watch ([#35](https://github.com/ZaoralJ/MachineDataBrowser/issues/35)) ([5c7d6b8](https://github.com/ZaoralJ/MachineDataBrowser/commit/5c7d6b898624e8d9315f767197db65314a195458))
+* **app:** watch, recording and usability improvements ([#17](https://github.com/ZaoralJ/MachineDataBrowser/issues/17)) ([6602b4c](https://github.com/ZaoralJ/MachineDataBrowser/commit/6602b4cbfb2c170af55f7420cd80be7d4a9ce17c))
+* **cli:** live table starts with current values and 0 updates ([#72](https://github.com/ZaoralJ/MachineDataBrowser/issues/72)) ([0864771](https://github.com/ZaoralJ/MachineDataBrowser/commit/0864771e5b8ea09fe20eaaea911dd051b4dce319))
+* **cli:** MCP context tools: attributes, history, alarms, events, diagnostics ([#87](https://github.com/ZaoralJ/MachineDataBrowser/issues/87)) ([f5a9e16](https://github.com/ZaoralJ/MachineDataBrowser/commit/f5a9e16484c60a56cac4233ce1ef1eca0a60c2b9))
+* **cli:** MCP tools for SQLite recordings ([#84](https://github.com/ZaoralJ/MachineDataBrowser/issues/84)) ([1e2f837](https://github.com/ZaoralJ/MachineDataBrowser/commit/1e2f837a4c3bdb5d3151cbc6c2b8b63ff24a772f))
+* **cli:** MCP wait_for, background recordings and endpoint patterns ([#88](https://github.com/ZaoralJ/MachineDataBrowser/issues/88)) ([32760e5](https://github.com/ZaoralJ/MachineDataBrowser/commit/32760e5a584f20ac2db619c1d5e53780fbd2bb11))
+* **cli:** MCP write and call_method behind --allow-writes, confirmed by the user ([#90](https://github.com/ZaoralJ/MachineDataBrowser/issues/90)) ([8007fab](https://github.com/ZaoralJ/MachineDataBrowser/commit/8007fabb779ab400d64ea9343c0d04c471845f1d))
+* **cli:** mdbrowser command line for OPC UA, EtherNet/IP and MQTT ([#62](https://github.com/ZaoralJ/MachineDataBrowser/issues/62)) ([071c7d9](https://github.com/ZaoralJ/MachineDataBrowser/commit/071c7d929300e34230365a93e4ce66d12ded5b9b))
+* **cli:** mdbrowser mcp, a read-only MCP server for AI agents ([#64](https://github.com/ZaoralJ/MachineDataBrowser/issues/64)) ([321a811](https://github.com/ZaoralJ/MachineDataBrowser/commit/321a8111ba9c61c57687ff8dd222a1bc28803ee2))
+* **cli:** mdbrowser tui, a full-screen terminal browser for every protocol ([#114](https://github.com/ZaoralJ/MachineDataBrowser/issues/114)) ([c0a286a](https://github.com/ZaoralJ/MachineDataBrowser/commit/c0a286a666e28b242e9440b563d71957bf83e1af))
+* **cli:** mdbrowser write ([#66](https://github.com/ZaoralJ/MachineDataBrowser/issues/66)) ([e16bf6a](https://github.com/ZaoralJ/MachineDataBrowser/commit/e16bf6a0b61db68fe84ed5368817ee269fd845c6))
+* **cli:** remember mdbrowser tui pane sizes per endpoint, 0 resets the layout ([#122](https://github.com/ZaoralJ/MachineDataBrowser/issues/122)) ([24ef0c7](https://github.com/ZaoralJ/MachineDataBrowser/commit/24ef0c78bd79f85d68910412f7cf7cfa6cef236c))
+* **cli:** resize mdbrowser tui panes by dragging their borders ([#120](https://github.com/ZaoralJ/MachineDataBrowser/issues/120)) ([beff9db](https://github.com/ZaoralJ/MachineDataBrowser/commit/beff9db7e042dab7f061de8d0b89570cad85a4e0))
+* **cli:** save sessions with monitor --save and session create/add ([#77](https://github.com/ZaoralJ/MachineDataBrowser/issues/77)) ([6208908](https://github.com/ZaoralJ/MachineDataBrowser/commit/6208908491319169128ccca65eb0f76ab9a48263))
+* **cli:** show node ids with --ids, and always when names repeat ([#104](https://github.com/ZaoralJ/MachineDataBrowser/issues/104)) ([9de0ea9](https://github.com/ZaoralJ/MachineDataBrowser/commit/9de0ea9dc30113926553cf350cbbb8f9bcb9825c))
+* **cli:** tui resize with Alt+arrows, click to focus a pane, hidden panes remembered per endpoint ([#124](https://github.com/ZaoralJ/MachineDataBrowser/issues/124)) ([3bb0686](https://github.com/ZaoralJ/MachineDataBrowser/commit/3bb06868e9bd2eb0de3291df17b230e76613ed4d))
+* **core:** connection diagnostics for MQTT and EtherNet/IP ([#100](https://github.com/ZaoralJ/MachineDataBrowser/issues/100)) ([2f62bd7](https://github.com/ZaoralJ/MachineDataBrowser/commit/2f62bd7110b62eaad1d0bb300e19f38297cf8fdd))
+* **core:** EtherNet/IP (Logix) client behind a protocol-neutral device client ([#10](https://github.com/ZaoralJ/MachineDataBrowser/issues/10)) ([bb8ce90](https://github.com/ZaoralJ/MachineDataBrowser/commit/bb8ce9030205a21d84ac53eef04724e02f8446eb))
+* local Logix and OPC UA simulators with integration tests ([#15](https://github.com/ZaoralJ/MachineDataBrowser/issues/15)) ([0b90d44](https://github.com/ZaoralJ/MachineDataBrowser/commit/0b90d44767ec39fa93f7eefdc58cbee9fd8d4e12))
+* MQTT support (Sparkplug B, CloudEvents, UNS) and machine data viewer polish ([#19](https://github.com/ZaoralJ/MachineDataBrowser/issues/19)) ([7bea4ff](https://github.com/ZaoralJ/MachineDataBrowser/commit/7bea4ffc20c0472e442c3315625e350b592f5c27))
+* **mqtt:** pause and resume discovery, optionally automatically after connecting ([#101](https://github.com/ZaoralJ/MachineDataBrowser/issues/101)) ([c4d6ebb](https://github.com/ZaoralJ/MachineDataBrowser/commit/c4d6ebbf52ec18f6b64a29372138df7168ffea53))
+* OPC UA events, history, methods, certificate trust, diagnostics and watch tools ([#29](https://github.com/ZaoralJ/MachineDataBrowser/issues/29)) ([3a2ccd4](https://github.com/ZaoralJ/MachineDataBrowser/commit/3a2ccd4d8ee11cf022397922e8b674aa29460b27))
+* record to SQLite files ([#81](https://github.com/ZaoralJ/MachineDataBrowser/issues/81)) ([510f0d0](https://github.com/ZaoralJ/MachineDataBrowser/commit/510f0d0b21d4b8ad9ea522ee14e05f59afac8363))
+* reload session files changed elsewhere (app, run, tui) and add session remove ([#127](https://github.com/ZaoralJ/MachineDataBrowser/issues/127)) ([13d59e9](https://github.com/ZaoralJ/MachineDataBrowser/commit/13d59e935189d5dbfb6f6c0142b7592b1d16e42d))
+* retention for SQLite recording files ([#83](https://github.com/ZaoralJ/MachineDataBrowser/issues/83)) ([803cdb3](https://github.com/ZaoralJ/MachineDataBrowser/commit/803cdb3740a3527453b3d731531b10006e42b2a5))
+* **simulators:** PauseSimulation tag pauses and continues every simulation ([#110](https://github.com/ZaoralJ/MachineDataBrowser/issues/110)) ([4fe336c](https://github.com/ZaoralJ/MachineDataBrowser/commit/4fe336cad66488e15f287ab80d3593e76511eca7))
+* write values over OPC UA, CIP and MQTT ([#25](https://github.com/ZaoralJ/MachineDataBrowser/issues/25)) ([0d7c947](https://github.com/ZaoralJ/MachineDataBrowser/commit/0d7c94732678b45517eabc060abc2c7326538ea6))
+
+
+### Fixes
+
+* **app:** pane drags no longer flood the error bar ([#47](https://github.com/ZaoralJ/MachineDataBrowser/issues/47)) ([b3095e6](https://github.com/ZaoralJ/MachineDataBrowser/commit/b3095e6a2dc197ad3e0cc9033cc6eff7cd05a9ce))
+* **app:** pane toolbars give text boxes room (6 px above and below) ([e2601c8](https://github.com/ZaoralJ/MachineDataBrowser/commit/e2601c8d8ad999799945b28aff724b7a8f5ff4a5))
+* **app:** session files saved before 0.8 open again ([#41](https://github.com/ZaoralJ/MachineDataBrowser/issues/41)) ([5c1a847](https://github.com/ZaoralJ/MachineDataBrowser/commit/5c1a8479c219509e92af6135006b3ac941b2595c))
+* **app:** themed text boxes and drop-downs; toggle matches their height ([7651cc0](https://github.com/ZaoralJ/MachineDataBrowser/commit/7651cc0d0ed286a000d1d354d1cf0cfe943fdb6e))
+* clear MCP errors for rejected event subscriptions and wrong arguments ([#106](https://github.com/ZaoralJ/MachineDataBrowser/issues/106)) ([19d1bbc](https://github.com/ZaoralJ/MachineDataBrowser/commit/19d1bbcf763845238e042a2d4564a11ceab7464e))
+* **cli:** keep monitoring through disconnects and reload values on reconnect ([#129](https://github.com/ZaoralJ/MachineDataBrowser/issues/129)) ([a5be0a1](https://github.com/ZaoralJ/MachineDataBrowser/commit/a5be0a17d9d83f53a43ad3a78cc36c64fffa70fe))
+* **cli:** live table shows when a value really changed ([#112](https://github.com/ZaoralJ/MachineDataBrowser/issues/112)) ([090b482](https://github.com/ZaoralJ/MachineDataBrowser/commit/090b482dcc2f7c79e68830d3e52c182254ba5491))
+* **cli:** set the terminal tab title in mdbrowser tui ([#118](https://github.com/ZaoralJ/MachineDataBrowser/issues/118)) ([b30b9f5](https://github.com/ZaoralJ/MachineDataBrowser/commit/b30b9f50988d5820aa5a31320312b006f7d1ef69))
+* **core:** combine OPC UA SDK 2 migration ([#136](https://github.com/ZaoralJ/MachineDataBrowser/issues/136)) ([f18d590](https://github.com/ZaoralJ/MachineDataBrowser/commit/f18d590c8f5d526f0ff2088a27dfbce0ea01f51b))
+* **core:** history from servers without continuation points (asyncua) stopped after the first page of 1000; it now pages on by time, skips the value repeated at the page boundary, and stops if a page adds nothing. Also affects the app's Show history. ([8007fab](https://github.com/ZaoralJ/MachineDataBrowser/commit/8007fabb779ab400d64ea9343c0d04c471845f1d))
+* **core:** history from servers without continuation points (asyncua) stopped after the first page of 1000; it now pages on by time, skips the value repeated at the page boundary, and stops if a page adds nothing. Also affects the app's Show history. ([32760e5](https://github.com/ZaoralJ/MachineDataBrowser/commit/32760e5a584f20ac2db619c1d5e53780fbd2bb11))
+* **core:** history from servers without continuation points (asyncua) stopped after the first page of 1000; it now pages on by time, skips the value repeated at the page boundary, and stops if a page adds nothing. Also affects the app's Show history. ([f5a9e16](https://github.com/ZaoralJ/MachineDataBrowser/commit/f5a9e16484c60a56cac4233ce1ef1eca0a60c2b9))
+* **core:** let users trust OPC UA server certificates that fail the key policy ([#98](https://github.com/ZaoralJ/MachineDataBrowser/issues/98)) ([f2e07fd](https://github.com/ZaoralJ/MachineDataBrowser/commit/f2e07fdb4696b6d566a8a147442b67eced0756d0))
+* **core:** MQTT over TLS accepts valid Let's Encrypt certificates ([#79](https://github.com/ZaoralJ/MachineDataBrowser/issues/79)) ([1121c17](https://github.com/ZaoralJ/MachineDataBrowser/commit/1121c173195a5f97e3f65abfda21c69fd8699f10))
+* **docs:** restore Material documentation builds ([#108](https://github.com/ZaoralJ/MachineDataBrowser/issues/108)) ([b5cdd25](https://github.com/ZaoralJ/MachineDataBrowser/commit/b5cdd25e96816db2992e3590692dbf950cfe7ac8))
+
+
+### Performance
+
+* **app:** keep the UI responsive while browsing ([#27](https://github.com/ZaoralJ/MachineDataBrowser/issues/27)) ([8caa21d](https://github.com/ZaoralJ/MachineDataBrowser/commit/8caa21d948dac968e652d11359d761269c124409))
+* **core:** load OPC UA structure types on first use instead of at connect ([#116](https://github.com/ZaoralJ/MachineDataBrowser/issues/116)) ([176c7f2](https://github.com/ZaoralJ/MachineDataBrowser/commit/176c7f2d6182dc5a4f8cdb4c84cb4dce61efd662))
+
 ## [0.28.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.27.1...v0.28.0) (2026-10-12)
 
 
