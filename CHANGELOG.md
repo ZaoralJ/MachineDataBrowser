@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.28.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.27.1...v0.28.0) (2026-10-12)
+
+
+### Fixes
+
+* **core:** combine OPC UA SDK 2 migration ([#136](https://github.com/ZaoralJ/MachineDataBrowser/issues/136)) ([f18d590](https://github.com/ZaoralJ/MachineDataBrowser/commit/f18d590c8f5d526f0ff2088a27dfbce0ea01f51b))
+
+### Refactoring
+
+* **core:** separate protocol drivers into projects ([#138](https://github.com/ZaoralJ/MachineDataBrowser/issues/138)) ([ad0e20e](https://github.com/ZaoralJ/MachineDataBrowser/commit/ad0e20ef306b812eaf648aa920d512a9b643857e))
+
 ## [0.27.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.27.0...v0.27.1) (2026-10-08)
 
 
