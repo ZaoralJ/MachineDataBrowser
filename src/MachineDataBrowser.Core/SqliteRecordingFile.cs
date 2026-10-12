@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
 
@@ -200,7 +201,22 @@ internal sealed class SqliteRecordingFile : ILiveRecordingFile
         : (time.Kind == DateTimeKind.Local ? time.ToUniversalTime() : time).ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
 
     /// <summary>Arrays and structures as JSON; scalars are already in value_num / value_text.</summary>
-    private static string? Structured(object? raw) => ValueJson.ToJson(raw) is JsonArray or JsonObject ? ValueJson.ToJson(raw)!.ToJsonString() : null;
+    private static string? Structured(object? raw)
+    {
+        try
+        {
+            var json = JsonSerializer.SerializeToNode(raw);
+            return json is JsonArray or JsonObject ? json.ToJsonString() : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
+    }
 
     private async Task<long> ItemIdAsync(RecordedItem item, SqliteTransaction transaction, CancellationToken cancellationToken)
     {
