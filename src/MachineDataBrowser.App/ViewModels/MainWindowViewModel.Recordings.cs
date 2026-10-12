@@ -3,7 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MachineDataBrowser.App.Services;
 using MachineDataBrowser.Core;
-using MachineDataBrowser.Recording.Formats;
+using MachineDataBrowser.Recordings.Formats;
 
 namespace MachineDataBrowser.App.ViewModels;
 
@@ -238,10 +238,10 @@ public sealed partial class MainWindowViewModel
     }
 
     [RelayCommand(CanExecute = nameof(HasRecording))]
-    private Task ExportRecordingCsvAsync() => ExportRecordingAsync("csv", RecordingFormatServices.ExportCsvAsync);
+    private Task ExportRecordingCsvAsync() => ExportRecordingAsync("csv", (r, p) => RecordingFormatServices.ExportCsvAsync(r, p));
 
     [RelayCommand(CanExecute = nameof(HasRecording))]
-    private Task ExportRecordingJsonAsync() => ExportRecordingAsync("json", RecordingFormatServices.ExportJsonAsync);
+    private Task ExportRecordingJsonAsync() => ExportRecordingAsync("json", (r, p) => RecordingFormatServices.ExportJsonAsync(r, p));
 
     private async Task ExportRecordingAsync(string extension, Func<Recording, string, Task> export)
     {

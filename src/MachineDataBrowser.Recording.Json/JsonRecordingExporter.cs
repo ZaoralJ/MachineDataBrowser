@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Recording.Json;
+namespace MachineDataBrowser.Recordings.Json;
 
 public static class JsonRecordingExporter
 {

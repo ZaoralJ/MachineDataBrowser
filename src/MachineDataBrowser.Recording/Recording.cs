@@ -38,6 +38,11 @@ public sealed class Recording : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(items);
+        if (options.LiveFilePath is not null && liveFileFactory is null)
+        {
+            throw new ArgumentException("A live recording target factory is required when a live file is configured.", nameof(liveFileFactory));
+        }
+
         if (items.Count == 0)
         {
             throw new ArgumentException("A recording needs at least one item.", nameof(items));
@@ -231,6 +236,11 @@ public sealed class Recording : IAsyncDisposable
     public async Task UpdateOptionsAsync(RecordingOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
+        if (options.LiveFilePath is not null && _liveFileFactory is null)
+        {
+            throw new ArgumentException("A live recording target factory is required when a live file is configured.", nameof(options));
+        }
+
         await _lifecycle.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {

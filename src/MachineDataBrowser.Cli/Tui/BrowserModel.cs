@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using MachineDataBrowser.Core;
-using MachineDataBrowser.Recording.Formats;
+using MachineDataBrowser.Recordings.Formats;
 
 namespace MachineDataBrowser.Cli.Tui;
 

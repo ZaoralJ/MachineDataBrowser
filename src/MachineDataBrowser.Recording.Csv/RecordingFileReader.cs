@@ -2,7 +2,7 @@ using System.Text;
 using System.Globalization;
 using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Recording.Csv;
+namespace MachineDataBrowser.Recordings.Csv;
 
 /// <summary>
 /// Reads the CSV written by <see cref="CsvRecordingExporter"/> (export or live file). Call <see cref="ReadNewAsync"/> repeatedly

@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using MachineDataBrowser.Core;
-using MachineDataBrowser.Recording.Formats;
+using MachineDataBrowser.Recordings.Formats;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 

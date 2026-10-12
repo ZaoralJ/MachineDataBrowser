@@ -2,7 +2,7 @@ using Microsoft.Extensions.Time.Testing;
 using Opc.Ua;
 using Xunit;
 using MachineDataBrowser.Core.Ua;
-using MachineDataBrowser.Recording.Formats;
+using MachineDataBrowser.Recordings.Formats;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 using StatusCodes = MachineDataBrowser.Core.DeviceStatusCodes;
 

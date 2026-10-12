@@ -23,9 +23,21 @@ flowchart LR
 
     subgraph Core["MachineDataBrowser.Core (protocol-neutral, no UI or protocol SDKs)"]
         IDC{{"IDeviceClient"}}
-        Rec["Recording<br/>bounded history · live CSV · export"]
+        Rec["Recording contracts<br/>options · samples · target interfaces"]
         Fmt["ValueFormatter · NodeTree"]
         Rec --> IDC
+    end
+
+    subgraph Recording["Recording implementations"]
+        Engine["MachineDataBrowser.Recording<br/>capture · bounded history"]
+        Csv["MachineDataBrowser.Recording.Csv<br/>CSV read · write · export"]
+        Json["MachineDataBrowser.Recording.Json<br/>JSON export"]
+        Sqlite["MachineDataBrowser.Recording.Sqlite<br/>SQLite read · write · query"]
+        Formats["MachineDataBrowser.Recording.Formats<br/>target composition"]
+        Formats --> Engine
+        Formats --> Csv
+        Formats --> Json
+        Formats --> Sqlite
     end
 
     subgraph Drivers["Protocol drivers"]
@@ -42,6 +54,9 @@ flowchart LR
     Mqtt -. implements .-> IDC
     VM --> IDC
     VM --> Rec
+    VM --> Engine
+    VM --> Formats
+    Engine --> Rec
     VM --> Fmt
 
     Ua -- "opc.tcp:// (OPC Foundation UA-.NETStandard)" --> S1[(OPC UA server)]
@@ -51,7 +66,12 @@ flowchart LR
 
 | Project | Role |
 |---|---|
-| `src/MachineDataBrowser.Core` | Protocol-neutral device contracts, recordings, value formatting, and shared node tree. No UI or protocol SDK dependencies. |
+| `src/MachineDataBrowser.Core` | Protocol-neutral device and recording contracts, value formatting, and shared node tree. No UI, protocol SDK, or recording-format dependencies. |
+| `src/MachineDataBrowser.Recording` | Format-independent recording lifecycle, monitoring and bounded in-memory history. Depends on Core abstractions. |
+| `src/MachineDataBrowser.Recording.Csv` | CSV live writer, export and incremental reader. Depends on Core abstractions. |
+| `src/MachineDataBrowser.Recording.Json` | JSON recording export. Depends on Core abstractions. |
+| `src/MachineDataBrowser.Recording.Sqlite` | SQLite live writer, incremental reader and read-only query API. Depends on Core abstractions and Microsoft.Data.Sqlite. |
+| `src/MachineDataBrowser.Recording.Formats` | Composes recording targets by file extension and exposes common readers and exports to clients. |
 | `src/MachineDataBrowser.Driver.OpcUa` | OPC UA client, SDK adapter, and UA-aware value JSON/C# export. References Core. |
 | `src/MachineDataBrowser.Driver.Cip` | EtherNet/IP (Logix) client. References Core. |
 | `src/MachineDataBrowser.Driver.Mqtt` | MQTT client, topic model and Sparkplug B support. References Core. |
@@ -288,20 +308,22 @@ flowchart TB
 - The app and the TUI reload the session, asking first when that would lose unsaved changes or a recording. `run`
   swaps its watch list in place, keeping its connection when the endpoint options didn't change.
 
-## Recordings (`Core/Recording.cs`)
+## Recordings (`Core/RecordingContracts.cs`, `Recording/Recording.cs`)
 
 - A recording monitors its own items through the client, independently of the Watch list.
 - History is bounded per item: max points and max age.
 - It can pause, resume, reset, start on a schedule and stop automatically. All timing uses `TimeProvider` and is
   tested with `FakeTimeProvider`.
-- Optional live file: every sample, independent of the in-memory limits. `RecordingFiles` picks the format by
-  extension: CSV, or SQLite (`.db`, `.sqlite`, `.sqlite3`; `SqliteRecordingFile`, Microsoft.Data.Sqlite) with tables
-  `recordings`, `items`, `samples` and the view `sample_view`. Samples are queued and written in batches by one task:
-  one flush (CSV) or one transaction (SQLite, WAL mode) per batch.
+- Core contains recording options, samples, snapshots and target interfaces. The format-independent recording engine
+  is in `MachineDataBrowser.Recording`; it depends on Core rather than concrete storage formats.
+- Optional live file: every sample, independent of the in-memory limits. The format composition selects CSV or SQLite
+  (`.db`, `.sqlite`, `.sqlite3`). CSV writing/export/reading, JSON export and SQLite writing/reading/querying live in
+  their respective projects. Samples are queued and written in batches by one task: one flush (CSV) or one transaction
+  (SQLite, WAL mode) per batch.
 - `AddItemsAsync` adds items while the recording runs. `UpdateOptionsAsync` changes the refresh time, limits,
   schedule and live file in place.
-- Export to CSV and JSON. `RecordingFileReader.Open` returns a reader for either format that returns what was added
-  since the last call, so the viewer can follow a file that is still being written.
+- CSV and JSON exporters consume a recording snapshot. The format composition's reader factory returns a reader for
+  either CSV or SQLite and returns what was added since the last call, so the viewer can follow a growing file.
 
 ## App (`MachineDataBrowser.App`)
 

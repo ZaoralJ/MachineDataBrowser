@@ -1,9 +1,9 @@
 using MachineDataBrowser.Core;
-using MachineDataBrowser.Recording.Csv;
-using MachineDataBrowser.Recording.Json;
-using MachineDataBrowser.Recording.Sqlite;
+using MachineDataBrowser.Recordings.Csv;
+using MachineDataBrowser.Recordings.Json;
+using MachineDataBrowser.Recordings.Sqlite;
 
-namespace MachineDataBrowser.Recording.Formats;
+namespace MachineDataBrowser.Recordings.Formats;
 
 public sealed class RecordingTargetFactory : ILiveRecordingFileFactory
 {
@@ -31,9 +31,9 @@ public static class RecordingFormatServices
             ? new SqliteRecordingFileReader(path)
             : new RecordingFileReader(path);
 
-    public static Task ExportCsvAsync(Recording recording, string path, CancellationToken cancellationToken = default) =>
+    public static Task ExportCsvAsync(MachineDataBrowser.Core.Recording recording, string path, CancellationToken cancellationToken = default) =>
         CsvRecordingExporter.ExportAsync(recording.CreateSnapshot(), path, cancellationToken);
 
-    public static Task ExportJsonAsync(Recording recording, string path, CancellationToken cancellationToken = default) =>
+    public static Task ExportJsonAsync(MachineDataBrowser.Core.Recording recording, string path, CancellationToken cancellationToken = default) =>
         JsonRecordingExporter.ExportAsync(recording.CreateSnapshot(), path, cancellationToken);
 }

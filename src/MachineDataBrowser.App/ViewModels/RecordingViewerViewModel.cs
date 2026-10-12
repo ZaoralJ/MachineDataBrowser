@@ -3,7 +3,7 @@ using System.Globalization;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MachineDataBrowser.Core;
-using MachineDataBrowser.Recording.Formats;
+using MachineDataBrowser.Recordings.Formats;
 
 using MachineDataBrowser.App.Services;
 

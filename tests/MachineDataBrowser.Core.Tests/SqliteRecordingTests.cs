@@ -1,9 +1,9 @@
 using Microsoft.Data.Sqlite;
 using Opc.Ua;
 using MachineDataBrowser.Core.Ua;
-using MachineDataBrowser.Recording.Csv;
-using MachineDataBrowser.Recording.Formats;
-using MachineDataBrowser.Recording.Sqlite;
+using MachineDataBrowser.Recordings.Csv;
+using MachineDataBrowser.Recordings.Formats;
+using MachineDataBrowser.Recordings.Sqlite;
 using Xunit;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 using StatusCode = MachineDataBrowser.Core.DeviceStatusCode;

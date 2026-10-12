@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using MachineDataBrowser.Core;
 using MachineDataBrowser.Core.Ua;
-using MachineDataBrowser.Recording.Formats;
+using MachineDataBrowser.Recordings.Formats;
 using Spectre.Console;
 
 namespace MachineDataBrowser.Cli;
