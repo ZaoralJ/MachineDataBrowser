@@ -358,8 +358,13 @@ internal static class Commands
         var mcpAllowRecording = new Option<string?>("--allow-recording") { Description = "Folder the agent may record into (start_recording); its files are also readable" };
         var mcpAllowWrites = new Option<bool>("--allow-writes") { Description = "Offer write and call_method on configured endpoints; every change is confirmed by the user" };
         var mcpSkipConfirmation = new Option<bool>("--skip-write-confirmation") { Description = "With --allow-writes: don't ask through MCP elicitation (for clients without it; they still approve tool calls)" };
+        var mcpSnapshotsDir = new Option<string?>("--snapshots-dir") { Description = "Folder with saved snapshots (default the app's snapshot folder)" };
+        var mcpAllowSnapshots = new Option<bool>("--allow-snapshots") { Description = "Offer take_snapshot: the agent may save snapshots of values into the snapshot folder" };
+        var mcpWriteNode = new Option<string[]>("--write-node") { Description = "With --allow-writes: only variables (and methods) whose path or id matches may be changed, e.g. '/Objects/Line1/Setpoints/*'; repeatable" };
+        var mcpWriteLimit = new Option<string[]>("--write-limit") { Description = "With --allow-writes: numbers written to matching variables must be in range, e.g. '/Objects/Line1/Speed=0..1500'; repeatable" };
+        var mcpAuditLog = new Option<string?>("--audit-log") { Description = "With --allow-writes: file every change is logged to as JSON lines (default logs/mcp-audit.jsonl in the data folder)" };
         var mcp = new Command("mcp", "Run an MCP server on stdin/stdout: read-only tools for AI agents (machines: browse, search, read, sample; recordings: list, items, samples)");
-        foreach (var option in new Option[] { mcpEndpoints, mcpSessions, mcpRecordings, mcpRecordingDirs, mcpAllow, mcpAllowAny, mcpAllowRecording, mcpAllowWrites, mcpSkipConfirmation, user, password, secure, trustAll })
+        foreach (var option in new Option[] { mcpEndpoints, mcpSessions, mcpRecordings, mcpRecordingDirs, mcpAllow, mcpAllowAny, mcpAllowRecording, mcpAllowWrites, mcpSkipConfirmation, mcpSnapshotsDir, mcpAllowSnapshots, mcpWriteNode, mcpWriteLimit, mcpAuditLog, user, password, secure, trustAll })
         {
             mcp.Options.Add(option);
         }
@@ -418,8 +423,30 @@ internal static class Commands
                 throw new CliException("--allow-writes needs a configured machine (--endpoint or --session); named endpoints are never written to.");
             }
 
+            var writeRules = (r.GetValue(mcpWriteNode) ?? []).Length + (r.GetValue(mcpWriteLimit) ?? []).Length;
+            if (!r.GetValue(mcpAllowWrites) && (writeRules > 0 || r.GetValue(mcpAuditLog) is not null))
+            {
+                throw new CliException("--write-node, --write-limit and --audit-log only make sense with --allow-writes.");
+            }
+
+            if (r.GetValue(mcpAllowSnapshots) && allowed.Count == 0 && patterns.Length == 0 && !allowAny)
+            {
+                throw new CliException("--allow-snapshots needs a machine to read from: --endpoint, --session, --allow or --allow-any.");
+            }
+
+            var policy = new Mcp.WritePolicy(r.GetValue(mcpWriteNode), r.GetValue(mcpWriteLimit));
+            var auditPath = r.GetValue(mcpAllowWrites)
+                ? Path.GetFullPath(r.GetValue(mcpAuditLog) ?? Path.Combine(ClientPaths.DataRoot, "logs", "mcp-audit.jsonl"))
+                : null;
+            var snapshotFolder = r.GetValue(mcpSnapshotsDir) is { } dir ? Path.GetFullPath(dir) : SnapshotStore.DefaultFolder;
             return await Mcp.McpServerHost.RunAsync(
-                new Mcp.McpServerHost.Setup(pool, recordings, r.GetValue(mcpSessions) ?? [], recordInto, r.GetValue(mcpAllowWrites), r.GetValue(mcpSkipConfirmation)),
+                new Mcp.McpServerHost.Setup(pool, recordings, r.GetValue(mcpSessions) ?? [], recordInto, r.GetValue(mcpAllowWrites), r.GetValue(mcpSkipConfirmation))
+                {
+                    Snapshots = new SnapshotStore(snapshotFolder, (ex, what) => stderr.WriteLine($"mdbrowser: {what}: {ex.Message}")),
+                    AllowSnapshots = r.GetValue(mcpAllowSnapshots),
+                    WritePolicy = policy,
+                    Audit = new Mcp.AuditLog(auditPath),
+                },
                 ct).ConfigureAwait(false);
         }));
 

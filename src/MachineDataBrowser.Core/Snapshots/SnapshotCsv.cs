@@ -1,14 +1,14 @@
 using System.Text;
 
-namespace MachineDataBrowser.App.Services;
+namespace MachineDataBrowser.Core;
 
 /// <summary>
-/// Snapshots as CSV (Name, NodeId, Value, Status), for documenting a machine's parameters in a spreadsheet and loading
+/// Snapshots as CSV (Name, NodeId, Value, Status, Path), for documenting a machine's parameters in a spreadsheet and loading
 /// edited values back. Reading accepts a comma or semicolon (Excel in many locales) as separator.
 /// </summary>
 public static class SnapshotCsv
 {
-    private static readonly string[] Header = ["Name", "NodeId", "Value", "Status"];
+    private static readonly string[] Header = ["Name", "NodeId", "Value", "Status", "Path"];
 
     public static void Write(Snapshot snapshot, TextWriter writer)
     {
@@ -17,7 +17,7 @@ public static class SnapshotCsv
         writer.WriteLine(string.Join(',', Header));
         foreach (var item in snapshot.Items)
         {
-            writer.WriteLine(string.Join(',', new[] { item.Name, item.NodeId, item.Value, item.Status }.Select(Escape)));
+            writer.WriteLine(string.Join(',', new[] { item.Name, item.NodeId, item.Value, item.Status, item.Path ?? string.Empty }.Select(Escape)));
         }
     }
 
@@ -34,7 +34,7 @@ public static class SnapshotCsv
         var separator = headerLine.Count(c => c == ';') > headerLine.Count(c => c == ',') ? ';' : ',';
         var header = Split(headerLine, separator).Select(h => h.Trim()).ToList();
         int Column(string title) => header.FindIndex(h => string.Equals(h, title, StringComparison.OrdinalIgnoreCase));
-        var (nameAt, idAt, valueAt, statusAt) = (Column("Name"), Column("NodeId"), Column("Value"), Column("Status"));
+        var (nameAt, idAt, valueAt, statusAt, pathAt) = (Column("Name"), Column("NodeId"), Column("Value"), Column("Status"), Column("Path"));
         if (idAt < 0 || valueAt < 0)
         {
             throw new InvalidDataException("A snapshot CSV needs NodeId and Value columns.");
@@ -59,7 +59,9 @@ public static class SnapshotCsv
             }
 
             var status = Cell(statusAt);
-            items.Add(SnapshotItem.Of(nameAt >= 0 && Cell(nameAt).Length > 0 ? Cell(nameAt) : id, id, Cell(valueAt), status.Length > 0 ? status : "Good"));
+            var path = Cell(pathAt).Trim();
+            items.Add(SnapshotItem.Of(nameAt >= 0 && Cell(nameAt).Length > 0 ? Cell(nameAt) : id, id, Cell(valueAt), status.Length > 0 ? status : "Good")
+                with { Path = path.Length > 0 ? path : null });
         }
 
         return new Snapshot { Name = name, TakenAt = DateTimeOffset.Now, Items = items, Partial = true };

@@ -165,5 +165,4 @@ public sealed class SettingsStore(string? path = null)
 [JsonSerializable(typeof(LayoutNode))]
 [JsonSerializable(typeof(WatchSnapshot))]
 [JsonSerializable(typeof(List<WatchSnapshot>))]
-[JsonSerializable(typeof(Snapshot))]
 internal sealed partial class AppJsonContext : JsonSerializerContext;

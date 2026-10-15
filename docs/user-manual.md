@@ -246,10 +246,10 @@ machine.
   - **Changed only** hides equal values. ⌘C copies the rows as a table.
   - **Snapshot ▸ Rename Before…** gives the *Before* snapshot a meaningful name, e.g. *Line 1 – product A*; Enter
     renames, Esc cancels.
-  - **Snapshot ▸ Export Before…** saves the *Before* snapshot as JSON, or as CSV (Name, NodeId, Value, Status) for a
-    spreadsheet; **Snapshot ▸ Import…** adds such a file and selects it as *Before*. Importing the same JSON file again
-    replaces it; a CSV is named after the file and added each time. **Snapshot ▸ Delete Before** removes the *Before*
-    one.
+  - **Snapshot ▸ Export Before…** saves the *Before* snapshot as JSON, or as CSV (Name, NodeId, Value, Status, Path)
+    for a spreadsheet; **Snapshot ▸ Import…** adds such a file and selects it as *Before*. Importing the same JSON file
+    again replaces it; a CSV is named after the file and added each time. **Snapshot ▸ Delete Before** removes the
+    *Before* one.
   - An imported CSV needs NodeId and Value columns; Name and Status are optional (no Status means Good). Comma or
     semicolon separators both work; quote values that contain them. Edit values in a spreadsheet and import the file
     to write a parameter set to the machine.
@@ -259,7 +259,8 @@ machine.
     status wasn't Good are skipped.
   - A bar lists what will change (now → snapshot value) and warns when the snapshot was taken on another endpoint;
     nothing is written until you click **Write**. Failures are listed per row below the table.
-- Snapshots are JSON files in the `snapshots` folder of the settings folder (Help ▸ Show Settings Folder).
+- Snapshots are JSON files in the `snapshots` folder of the settings folder (Help ▸ Show Settings Folder). AI agents
+  see the same snapshots through [`mdbrowser mcp`](mcp.md#snapshots).
 
 ![Snapshot compared with live watch values](images/snapshot-compare.png)
 

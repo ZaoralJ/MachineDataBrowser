@@ -1,46 +1,11 @@
 using System.Collections.ObjectModel;
-using System.Globalization;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MachineDataBrowser.App.Services;
+using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.App.ViewModels;
-
-public enum SnapshotChange
-{
-    Same,
-    Changed,
-    Added,
-    Removed,
-}
-
-/// <summary>One item in a comparison: its value before (baseline) and after (live or a later snapshot).</summary>
-public sealed record SnapshotDiffRow(
-    string Name,
-    string NodeId,
-    string Before,
-    string BeforeStatus,
-    string After,
-    string AfterStatus,
-    SnapshotChange Change,
-    double? Delta)
-{
-    public string ChangeText => Change switch
-    {
-        SnapshotChange.Changed when Delta is { } d => d.ToString("+0.###;-0.###;0", CultureInfo.InvariantCulture),
-        SnapshotChange.Changed => "changed",
-        SnapshotChange.Added => "only after",
-        SnapshotChange.Removed => "only before",
-        _ => string.Empty,
-    };
-
-    public bool IsChanged => Change != SnapshotChange.Same;
-
-    /// <summary>A value worth writing back: it differs now, and the snapshot holds a usable (Good) value.</summary>
-    public bool CanRestore => Change == SnapshotChange.Changed && BeforeStatus.StartsWith("Good", StringComparison.Ordinal)
-        && Before != After;
-}
 
 /// <summary>The connection a comparison reads missing values from and writes snapshot values back to.</summary>
 public interface ISnapshotDevice
@@ -282,29 +247,7 @@ public sealed partial class SnapshotCompareViewModel : ObservableObject, IDispos
         }
     }
 
-    public static IReadOnlyList<SnapshotDiffRow> Diff(Snapshot before, Snapshot after)
-    {
-        var later = after.Items.GroupBy(i => i.NodeId).ToDictionary(g => g.Key, g => g.First());
-        var rows = new List<SnapshotDiffRow>();
-        foreach (var item in before.Items)
-        {
-            if (later.Remove(item.NodeId, out var now))
-            {
-                var same = item.Value == now.Value && item.Status == now.Status;
-                rows.Add(new SnapshotDiffRow(item.Name, item.NodeId, item.Value, item.Status, now.Value, now.Status,
-                    same ? SnapshotChange.Same : SnapshotChange.Changed,
-                    !same && item.Numeric is { } a && now.Numeric is { } b ? b - a : null));
-            }
-            else
-            {
-                rows.Add(new SnapshotDiffRow(item.Name, item.NodeId, item.Value, item.Status, string.Empty, string.Empty, SnapshotChange.Removed, null));
-            }
-        }
-
-        rows.AddRange(after.Items.Where(i => !before.Partial && later.ContainsKey(i.NodeId))
-            .Select(i => new SnapshotDiffRow(i.Name, i.NodeId, string.Empty, string.Empty, i.Value, i.Status, SnapshotChange.Added, null)));
-        return rows;
-    }
+    public static IReadOnlyList<SnapshotDiffRow> Diff(Snapshot before, Snapshot after) => SnapshotDiff.Compare(before, after);
 
     private bool CanDelete() => Baseline is not null;
 
