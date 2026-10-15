@@ -1,7 +1,6 @@
-using MachineDataBrowser.App.Services;
 using Xunit;
 
-namespace MachineDataBrowser.App.Tests;
+namespace MachineDataBrowser.Core.Tests;
 
 public sealed class SnapshotCsvTests : IDisposable
 {

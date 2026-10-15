@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using MachineDataBrowser.App.ViewModels;
+using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.App.Views;
 

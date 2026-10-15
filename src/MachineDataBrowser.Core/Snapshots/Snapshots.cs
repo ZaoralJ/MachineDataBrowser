@@ -1,7 +1,8 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
-namespace MachineDataBrowser.App.Services;
+namespace MachineDataBrowser.Core;
 
 /// <summary>The watch values at one moment, saved to compare later (e.g. before and after a machine change).</summary>
 public sealed record Snapshot
@@ -36,11 +37,16 @@ public sealed record SnapshotItem(string Name, string NodeId, string Value, stri
 }
 
 /// <summary>
-/// Snapshots as JSON files in a folder (the data folder's <c>snapshots</c>), newest first. Without a folder they are
-/// kept in memory only (tests, or no settings store).
+/// Snapshots as JSON files in a folder (the data folder's <c>snapshots</c>, shared by the app and <c>mdbrowser mcp</c>),
+/// newest first. Without a folder they are kept in memory only (tests, or no settings store).
 /// </summary>
-public sealed class SnapshotStore(string? folder)
+/// <param name="folder">The folder; null keeps snapshots in memory.</param>
+/// <param name="log">Told about files that can't be read; they are skipped.</param>
+public sealed class SnapshotStore(string? folder, Action<Exception, string>? log = null)
 {
+    /// <summary>The snapshot folder in the data folder, as the app uses it.</summary>
+    public static string DefaultFolder => System.IO.Path.Combine(ClientPaths.DataRoot, "snapshots");
+
     private readonly List<Snapshot> _memory = [];
 
     public string? Folder { get; } = folder;
@@ -63,14 +69,14 @@ public sealed class SnapshotStore(string? folder)
             try
             {
                 using var stream = File.OpenRead(file);
-                if (JsonSerializer.Deserialize(stream, AppJsonContext.Default.Snapshot) is { } snapshot)
+                if (JsonSerializer.Deserialize(stream, SnapshotJsonContext.Default.Snapshot) is { } snapshot)
                 {
                     snapshots.Add(snapshot with { Path = file });
                 }
             }
             catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
             {
-                AppErrors.Log(ex, $"reading snapshot {file}");
+                log?.Invoke(ex, $"reading snapshot {file}");
             }
         }
 
@@ -134,7 +140,7 @@ public sealed class SnapshotStore(string? folder)
         try
         {
             using var stream = File.OpenRead(path);
-            snapshot = JsonSerializer.Deserialize(stream, AppJsonContext.Default.Snapshot);
+            snapshot = JsonSerializer.Deserialize(stream, SnapshotJsonContext.Default.Snapshot);
         }
         catch (JsonException ex)
         {
@@ -156,7 +162,7 @@ public sealed class SnapshotStore(string? folder)
         var temp = path + ".tmp";
         using (var stream = File.Create(temp))
         {
-            JsonSerializer.Serialize(stream, snapshot, AppJsonContext.Default.Snapshot);
+            JsonSerializer.Serialize(stream, snapshot, SnapshotJsonContext.Default.Snapshot);
         }
 
         File.Move(temp, path, overwrite: true);
@@ -197,3 +203,8 @@ public sealed class SnapshotStore(string? folder)
         }
     }
 }
+
+/// <summary>The snapshot file format; the same options the app has always written them with.</summary>
+[JsonSourceGenerationOptions(WriteIndented = true, UseStringEnumConverter = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+[JsonSerializable(typeof(Snapshot))]
+internal sealed partial class SnapshotJsonContext : JsonSerializerContext;

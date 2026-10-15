@@ -2,6 +2,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using MachineDataBrowser.App.Services;
 using MachineDataBrowser.App.ViewModels;
+using MachineDataBrowser.Core;
 using MachineDataBrowser.Core.Tests;
 using Xunit;
 

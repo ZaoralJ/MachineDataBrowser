@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace MachineDataBrowser.App.Services;
+namespace MachineDataBrowser.Core;
 
 /// <summary>
 /// Snapshots as CSV (Name, NodeId, Value, Status), for documenting a machine's parameters in a spreadsheet and loading
