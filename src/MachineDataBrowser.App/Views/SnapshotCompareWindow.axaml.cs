@@ -15,9 +15,39 @@ public sealed partial class SnapshotCompareWindow : Window
             if (DataContext is SnapshotCompareViewModel vm)
             {
                 vm.RowsRefreshed += (_, _) => Reselect(vm);
+                vm.PropertyChanged += (_, e) =>
+                {
+                    if (e.PropertyName == nameof(SnapshotCompareViewModel.IsRenaming) && vm.IsRenaming)
+                    {
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            RenameBox.Focus();
+                            RenameBox.SelectAll();
+                        });
+                    }
+                };
             }
         };
         Closed += (_, _) => (DataContext as SnapshotCompareViewModel)?.Dispose();
+    }
+
+    private void OnRenameKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (DataContext is not SnapshotCompareViewModel vm)
+        {
+            return;
+        }
+
+        if (e.Key == Avalonia.Input.Key.Enter && vm.ApplyRenameCommand.CanExecute(null))
+        {
+            vm.ApplyRenameCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (e.Key == Avalonia.Input.Key.Escape)
+        {
+            vm.CancelRenameCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)

@@ -127,6 +127,29 @@ public sealed class SnapshotStore(string? folder)
         File.Move(temp, path, overwrite: true);
     }
 
+    /// <summary>
+    /// Gives a snapshot a meaningful name (e.g. "Line 1 – product A"); the file keeps its path, which comes from the
+    /// time the snapshot was taken.
+    /// </summary>
+    public Snapshot Rename(Snapshot snapshot, string name)
+    {
+        var renamed = snapshot with { Name = name.Trim() };
+        if (Folder is null)
+        {
+            _memory.RemoveAll(s => s.TakenAt == snapshot.TakenAt);
+            _memory.Add(renamed);
+            return renamed;
+        }
+
+        return snapshot.Path is { } path ? WriteAt(renamed, path) : Save(renamed);
+    }
+
+    private static Snapshot WriteAt(Snapshot snapshot, string path)
+    {
+        WriteFile(snapshot, path);
+        return snapshot with { Path = path };
+    }
+
     public void Delete(Snapshot snapshot)
     {
         if (Folder is null)

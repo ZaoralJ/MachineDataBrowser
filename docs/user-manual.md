@@ -236,6 +236,8 @@ machine.
   - Items are matched by NodeId. *Change* shows the difference for numbers, *changed* for other values, and
     *only before* / *only after* for items in one side only. A status change counts as a change.
   - **Changed only** hides equal values. ⌘C copies the rows as a table.
+  - **Snapshot ▸ Rename Before…** gives the *Before* snapshot a meaningful name, e.g. *Line 1 – product A*; Enter
+    renames, Esc cancels.
   - **Snapshot ▸ Export Before…** saves the *Before* snapshot as a JSON file, to share it or keep it with the
     machine's documentation; **Snapshot ▸ Import…** adds such a file and selects it as *Before* (importing the same
     file again replaces it). **Snapshot ▸ Delete Before** removes the *Before* one.
