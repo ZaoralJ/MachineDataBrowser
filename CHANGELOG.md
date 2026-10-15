@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.27.2...v0.28.0) (2026-10-15)
+
+
+### Features
+
+* **app:** minimize panes with cmd+1-4 and restore them in place ([#148](https://github.com/ZaoralJ/MachineDataBrowser/issues/148)) ([79098a6](https://github.com/ZaoralJ/MachineDataBrowser/commit/79098a661b77839d7ae3d3ae4d3b0cff732ee6e9))
+
 ## [0.27.2](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.27.1...v0.27.2) (2026-10-12)
 
 
