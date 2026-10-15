@@ -205,6 +205,24 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     [RelayCommand]
+    private void TogglePane(string? id)
+    {
+        if (Layout is null || id is null || !DockFactory.HomeDocks.ContainsKey(id))
+        {
+            return;
+        }
+
+        try
+        {
+            DockFactory.TogglePane(Layout, id);
+        }
+        catch (InvalidOperationException ex)
+        {
+            ReportError(ex);
+        }
+    }
+
+    [RelayCommand]
     private void FloatPane(string? id)
     {
         if (Layout is not null && id is not null && DockFactory.HomeDocks.ContainsKey(id))
