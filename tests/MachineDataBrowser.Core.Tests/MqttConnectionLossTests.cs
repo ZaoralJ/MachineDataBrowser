@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Images;
-using MachineDataBrowser.Core.Mqtt;
+using MachineDataBrowser.Driver.Mqtt;
 using Xunit;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 

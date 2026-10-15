@@ -3,7 +3,8 @@ using System.Globalization;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MachineDataBrowser.Core;
-using MachineDataBrowser.Recordings.Formats;
+using MachineDataBrowser.Recording;
+using MachineDataBrowser.Recording.Formats;
 
 using MachineDataBrowser.App.Services;
 
@@ -52,7 +53,7 @@ public sealed partial class RecordingViewerViewModel : ObservableObject, IDispos
         _timer.Start();
     }
 
-    public static RecordingViewerViewModel ForRecording(Recording recording, string? item = null)
+    public static RecordingViewerViewModel ForRecording(RecordingSession recording, string? item = null)
     {
         long last = 0;
         var viewer = new RecordingViewerViewModel(

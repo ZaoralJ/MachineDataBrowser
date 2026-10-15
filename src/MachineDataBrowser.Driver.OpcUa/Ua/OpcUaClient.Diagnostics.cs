@@ -1,7 +1,8 @@
 using Opc.Ua;
 using Opc.Ua.Client;
+using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Core.Ua;
+namespace MachineDataBrowser.Driver.OpcUa;
 
 public sealed partial class OpcUaClient : IConnectionDiagnosticsSource
 {

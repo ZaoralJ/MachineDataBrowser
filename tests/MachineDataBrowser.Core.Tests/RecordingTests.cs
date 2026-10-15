@@ -1,8 +1,9 @@
 using Microsoft.Extensions.Time.Testing;
 using Opc.Ua;
 using Xunit;
-using MachineDataBrowser.Core.Ua;
-using MachineDataBrowser.Recordings.Formats;
+using MachineDataBrowser.Driver.OpcUa;
+using MachineDataBrowser.Recording;
+using MachineDataBrowser.Recording.Formats;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 using StatusCodes = MachineDataBrowser.Core.DeviceStatusCodes;
 
@@ -92,7 +93,7 @@ public sealed class RecordingTests(OpcPlcFixture plc) : IAsyncLifetime
     [Fact]
     public async Task Scheduled_start_and_auto_stop_follow_the_clock()
     {
-        await using var recording = new Recording(
+        await using var recording = new RecordingSession(
             _client,
             new RecordingOptions
             {
@@ -190,7 +191,7 @@ public sealed class RecordingTests(OpcPlcFixture plc) : IAsyncLifetime
     public async Task Records_real_changing_values_until_stopped_and_keeps_history_afterwards()
     {
         var node = new NodeId("StepUp", 3);
-        await using var recording = new Recording(
+        await using var recording = new RecordingSession(
             _client,
             new RecordingOptions { Name = "live-server", SamplingIntervalMs = 100 },
             [new RecordedItem(node, "StepUp", _client.ToPortableId(node))]);
@@ -206,9 +207,9 @@ public sealed class RecordingTests(OpcPlcFixture plc) : IAsyncLifetime
         Assert.All(recording.GetHistory(node), s => Assert.NotNull(s.Numeric));
     }
 
-    private async Task<Recording> StartedAsync(RecordingOptions options)
+    private async Task<RecordingSession> StartedAsync(RecordingOptions options)
     {
-        var recording = new Recording(_client, options, [Item(StaticNode)], _time, RecordingFormatServices.LiveFileFactory);
+        var recording = new RecordingSession(_client, options, [Item(StaticNode)], _time, RecordingFormatServices.LiveFileFactory);
         await recording.StartAsync(Ct);
         Assert.Equal(RecordingState.Recording, recording.State);
         await WaitUntil(() => recording.TotalSamples > 0);

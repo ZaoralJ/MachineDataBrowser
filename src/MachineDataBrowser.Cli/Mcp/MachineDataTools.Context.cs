@@ -2,7 +2,8 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using MachineDataBrowser.Core;
-using MachineDataBrowser.Recordings.Sqlite;
+using MachineDataBrowser.Driver.OpcUa;
+using MachineDataBrowser.Recording.Sqlite;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 

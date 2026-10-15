@@ -3,8 +3,9 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using MachineDataBrowser.Core;
-using MachineDataBrowser.Core.Ua;
-using MachineDataBrowser.Recordings.Formats;
+using MachineDataBrowser.Recording;
+using MachineDataBrowser.Driver.OpcUa;
+using MachineDataBrowser.Recording.Formats;
 using Spectre.Console;
 
 namespace MachineDataBrowser.Cli;
@@ -671,7 +672,7 @@ internal static class Commands
             FileRetention = retention,
         };
         var items = nodes.DistinctBy(n => n.Id).Select(n => new RecordedItem(n.Id, n.DisplayName ?? n.Name, client.ToPortableId(n.Id), n.ParentPath)).ToList();
-        var recording = new Recording(client, options, items, liveFileFactory: RecordingFormatServices.LiveFileFactory);
+        var recording = new RecordingSession(client, options, items, liveFileFactory: RecordingFormatServices.LiveFileFactory);
         recording.Faulted += (_, ex) => _ = stderr.WriteLineAsync($"mdbrowser: recording to {path}: {Describe(ex)}");
         await recording.StartAsync(cancellationToken).ConfigureAwait(false);
         return new RecordingRun(recording, path, stderr);
@@ -687,7 +688,7 @@ internal static class Commands
     }
 
     /// <summary>A recording that runs alongside a command; disposing stops it, closes the file and reports what was recorded.</summary>
-    private sealed class RecordingRun(Recording recording, string path, TextWriter stderr) : IAsyncDisposable
+    private sealed class RecordingRun(RecordingSession recording, string path, TextWriter stderr) : IAsyncDisposable
     {
         public async ValueTask DisposeAsync()
         {

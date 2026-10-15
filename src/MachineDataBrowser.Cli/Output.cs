@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
 using MachineDataBrowser.Core;
+using MachineDataBrowser.Driver.OpcUa;
 
 namespace MachineDataBrowser.Cli;
 

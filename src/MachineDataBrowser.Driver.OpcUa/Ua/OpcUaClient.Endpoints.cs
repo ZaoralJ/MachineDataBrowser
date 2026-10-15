@@ -1,6 +1,7 @@
 using Opc.Ua;
+using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Core.Ua;
+namespace MachineDataBrowser.Driver.OpcUa;
 
 /// <summary>One endpoint a server offers (GetEndpoints).</summary>
 public sealed record EndpointInfo(

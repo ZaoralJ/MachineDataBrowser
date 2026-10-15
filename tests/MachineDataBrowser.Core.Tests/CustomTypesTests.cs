@@ -1,6 +1,6 @@
 using Opc.Ua;
 using Opc.Ua.Encoders;
-using MachineDataBrowser.Core.Ua;
+using MachineDataBrowser.Driver.OpcUa;
 using Xunit;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;

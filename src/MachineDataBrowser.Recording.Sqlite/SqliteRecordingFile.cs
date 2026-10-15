@@ -5,7 +5,7 @@ using Microsoft.Data.Sqlite;
 
 using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Recordings.Sqlite;
+namespace MachineDataBrowser.Recording.Sqlite;
 
 /// <summary>
 /// Records into a SQLite file: each start of a recording is a row in <c>recordings</c>, its items in <c>items</c> and

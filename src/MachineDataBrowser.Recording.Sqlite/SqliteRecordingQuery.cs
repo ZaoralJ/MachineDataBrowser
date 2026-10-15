@@ -2,7 +2,7 @@ using System.Globalization;
 using Microsoft.Data.Sqlite;
 using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Recordings.Sqlite;
+namespace MachineDataBrowser.Recording.Sqlite;
 
 public sealed record RecordingSummary(long Id, string Name, string? Endpoint, double? RefreshMs, string StartedUtc, string? StoppedUtc, long Items, long Samples, string? FirstSampleUtc, string? LastSampleUtc);
 

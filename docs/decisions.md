@@ -140,7 +140,7 @@ No .NET installation required on the target Mac.
   when recording starts and at most once a minute; recordings and items left empty are removed (not the running one).
   New files use `auto_vacuum = INCREMENTAL`, so freed pages go back to the disk gradually instead of a blocking VACUUM.
 - MCP reads recordings (`list_recordings`, `recording_items`, `recording_samples`, via `SqliteRecordingQuery` in
-  `MachineDataBrowser.Recordings.Sqlite`)
+  `MachineDataBrowser.Recording.Sqlite`)
   from files allowed with `--recording` / `--recordings-dir` only, read-only. No free-form SQL tool: `ATTACH` would let a
   query read any SQLite file on the disk. Samples come raw (≤ 1000) or aggregated per time bucket for long ranges.
 

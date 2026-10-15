@@ -5,7 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MachineDataBrowser.App.Services;
 using MachineDataBrowser.Core;
-using MachineDataBrowser.Core.Ua;
+using MachineDataBrowser.Driver.OpcUa;
 using MachineDataBrowser.Drivers;
 
 namespace MachineDataBrowser.App.ViewModels;

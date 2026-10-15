@@ -1,8 +1,9 @@
 using System.Globalization;
 using System.Buffers.Binary;
 using System.Text;
+using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Core.Cip;
+namespace MachineDataBrowser.Driver.Cip;
 
 /// <summary>Logix atomic data type codes (low byte of the CIP symbol type). Names follow Logix (INT, UINT …).</summary>
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1720:Identifier contains type name", Justification = "Logix type names.")]

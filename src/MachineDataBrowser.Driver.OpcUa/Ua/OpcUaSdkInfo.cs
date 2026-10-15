@@ -1,4 +1,6 @@
-namespace MachineDataBrowser.Core;
+using MachineDataBrowser.Core;
+
+namespace MachineDataBrowser.Driver.OpcUa;
 
 /// <summary>OPC UA SDK metadata for the application's About dialog.</summary>
 public static class OpcUaSdkInfo

@@ -1,4 +1,4 @@
-using MachineDataBrowser.Core.Cip;
+using MachineDataBrowser.Driver.Cip;
 using Xunit;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 

@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 using Opc.Ua;
-using MachineDataBrowser.Core.Ua;
+using MachineDataBrowser.Driver.OpcUa;
 using Xunit;
 
 namespace MachineDataBrowser.Core.Tests;

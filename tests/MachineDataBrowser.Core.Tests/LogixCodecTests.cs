@@ -1,8 +1,8 @@
 using System.Buffers.Binary;
 using System.Text;
-using MachineDataBrowser.Core.Cip;
+using MachineDataBrowser.Driver.Cip;
 using Xunit;
-using MachineDataBrowser.Core.Ua;
+using MachineDataBrowser.Driver.OpcUa;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
 

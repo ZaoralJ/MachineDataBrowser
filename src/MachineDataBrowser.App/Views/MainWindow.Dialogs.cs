@@ -4,6 +4,7 @@ using Avalonia.Platform.Storage;
 using MachineDataBrowser.App.Services;
 using MachineDataBrowser.App.ViewModels;
 using MachineDataBrowser.Core;
+using MachineDataBrowser.Driver.OpcUa;
 
 namespace MachineDataBrowser.App.Views;
 

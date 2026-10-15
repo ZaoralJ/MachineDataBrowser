@@ -4,8 +4,9 @@ using System.Reflection;
 using System.Text.Json.Nodes;
 using Opc.Ua;
 using Opc.Ua.Encoders;
+using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Core;
+namespace MachineDataBrowser.Driver.OpcUa;
 
 /// <summary>Converts OPC UA values to JSON keeping their type: numbers stay numbers, booleans booleans, arrays arrays, structures objects.</summary>
 public static class ValueJson

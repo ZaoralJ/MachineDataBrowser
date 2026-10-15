@@ -1,9 +1,10 @@
 using Microsoft.Data.Sqlite;
 using Opc.Ua;
-using MachineDataBrowser.Core.Ua;
-using MachineDataBrowser.Recordings.Csv;
-using MachineDataBrowser.Recordings.Formats;
-using MachineDataBrowser.Recordings.Sqlite;
+using MachineDataBrowser.Driver.OpcUa;
+using MachineDataBrowser.Recording;
+using MachineDataBrowser.Recording.Csv;
+using MachineDataBrowser.Recording.Formats;
+using MachineDataBrowser.Recording.Sqlite;
 using Xunit;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 using StatusCode = MachineDataBrowser.Core.DeviceStatusCode;
@@ -36,9 +37,9 @@ public sealed class SqliteRecordingTests(OpcPlcFixture plc) : IAsyncLifetime
     private static ValueUpdate Update(NodeId id, string text, double? numeric = null, object? raw = null, StatusCode? status = null) =>
         new(id, text, status ?? StatusCodes.Good, new DateTime(2026, 10, 3, 12, 0, 0, DateTimeKind.Utc), DateTime.UtcNow, numeric, raw);
 
-    private async Task<Recording> RecordAsync(string file, string name, params RecordedItem[] items)
+    private async Task<RecordingSession> RecordAsync(string file, string name, params RecordedItem[] items)
     {
-        var recording = new Recording(_client, new RecordingOptions { Name = name, LiveFilePath = file, Endpoint = "opc.tcp://plc:4840", SamplingIntervalMs = 500 }, items,
+        var recording = new RecordingSession(_client, new RecordingOptions { Name = name, LiveFilePath = file, Endpoint = "opc.tcp://plc:4840", SamplingIntervalMs = 500 }, items,
             liveFileFactory: RecordingFormatServices.LiveFileFactory);
         await recording.StartAsync(Ct);
         return recording;
@@ -143,7 +144,7 @@ public sealed class SqliteRecordingTests(OpcPlcFixture plc) : IAsyncLifetime
         var time = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(new DateTimeOffset(2026, 10, 1, 8, 0, 0, TimeSpan.Zero));
         var item = Item(ProductName, "Product");
 
-        await using (var old = new Recording(_client, new RecordingOptions { Name = "Old", LiveFilePath = file }, [item], time, RecordingFormatServices.LiveFileFactory))
+        await using (var old = new RecordingSession(_client, new RecordingOptions { Name = "Old", LiveFilePath = file }, [item], time, RecordingFormatServices.LiveFileFactory))
         {
             await old.StartAsync(Ct);
             old.Append(Update(ProductName, "old"));
@@ -151,7 +152,7 @@ public sealed class SqliteRecordingTests(OpcPlcFixture plc) : IAsyncLifetime
         }
 
         var options = new RecordingOptions { Name = "Current", LiveFilePath = file, FileRetention = TimeSpan.FromHours(1) };
-        await using (var current = new Recording(_client, options, [item], time, RecordingFormatServices.LiveFileFactory))
+        await using (var current = new RecordingSession(_client, options, [item], time, RecordingFormatServices.LiveFileFactory))
         {
             await current.StartAsync(Ct);
             current.Append(Update(ProductName, "early"));

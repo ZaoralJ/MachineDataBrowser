@@ -2,8 +2,8 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MachineDataBrowser.Core;
-using MachineDataBrowser.Recordings.Formats;
-using MachineDataBrowser.Recordings.Sqlite;
+using MachineDataBrowser.Recording.Formats;
+using MachineDataBrowser.Recording.Sqlite;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 

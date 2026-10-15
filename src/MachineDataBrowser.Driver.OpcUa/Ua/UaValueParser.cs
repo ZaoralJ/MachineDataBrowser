@@ -1,6 +1,7 @@
 using Opc.Ua;
+using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Core.Ua;
+namespace MachineDataBrowser.Driver.OpcUa;
 
 internal static class UaValueParser
 {
