@@ -20,23 +20,41 @@
       <DockPanel>
         <Button DockPanel.Dock="Right" Content="Delete snapshot" Command="{Binding DeleteCommand}" Margin="8,0,0,0"
                 ToolTip.Tip="Delete the selected baseline snapshot" />
+        <Button DockPanel.Dock="Right" Content="Write back…" Command="{Binding RestoreCommand}" Margin="8,0,0,0"
+                IsVisible="{Binding CanRestoreAny}"
+                ToolTip.Tip="Write the snapshot values of the selected rows (or all changed rows) back to the device" />
         <CheckBox DockPanel.Dock="Right" Content="Changed only" IsChecked="{Binding ChangedOnly}" Margin="8,0,0,0" />
         <StackPanel Orientation="Horizontal" Spacing="8">
           <TextBlock Text="Before" VerticalAlignment="Center" />
-          <ComboBox ItemsSource="{Binding Snapshots}" SelectedItem="{Binding Baseline}" MinWidth="240"
+          <ComboBox ItemsSource="{Binding Snapshots}" SelectedItem="{Binding Baseline}" MinWidth="210"
                     AutomationProperties.Name="Baseline snapshot" />
           <TextBlock Text="After" VerticalAlignment="Center" Margin="8,0,0,0" />
-          <ComboBox ItemsSource="{Binding Targets}" SelectedItem="{Binding Target}" MinWidth="240"
+          <ComboBox ItemsSource="{Binding Targets}" SelectedItem="{Binding Target}" MinWidth="210"
                     AutomationProperties.Name="Compare with" />
         </StackPanel>
       </DockPanel>
     </Border>
     <Border DockPanel.Dock="Bottom" Padding="10,4"
             Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-      <TextBlock FontSize="12" Text="{Binding Summary}" TextTrimming="CharacterEllipsis" />
+      <StackPanel>
+        <TextBlock FontSize="12" Text="{Binding Summary}" TextTrimming="CharacterEllipsis" />
+        <TextBlock FontSize="12" Text="{Binding WriteResult}" TextWrapping="Wrap"
+                   IsVisible="{Binding WriteResult, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      </StackPanel>
+    </Border>
+    <Border DockPanel.Dock="Bottom" Padding="10,8" IsVisible="{Binding IsConfirming}"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+          <Button Content="Cancel" Command="{Binding CancelRestoreCommand}" IsCancel="True" />
+          <Button Content="Write" Command="{Binding ConfirmRestoreCommand}" Classes="accent" />
+        </StackPanel>
+        <TextBlock Text="{Binding PendingWrite}" TextWrapping="Wrap" AutomationProperties.Name="Write confirmation" />
+      </DockPanel>
     </Border>
     <Grid>
-      <DataGrid ItemsSource="{Binding Rows}" SelectionMode="Extended" AutomationProperties.Name="Differences">
+      <DataGrid x:Name="Differences" ItemsSource="{Binding Rows}" SelectionMode="Extended" AutomationProperties.Name="Differences"
+                SelectionChanged="OnSelectionChanged">
         <DataGrid.Columns>
           <DataGridTemplateColumn Header="Name" views:GridCopy.Member="Name" Width="200" SortMemberPath="Name">
             <DataTemplate DataType="vm:SnapshotDiffRow">

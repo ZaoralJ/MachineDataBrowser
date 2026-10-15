@@ -233,6 +233,12 @@ machine.
   - Items are matched by NodeId. *Change* shows the difference for numbers, *changed* for other values, and
     *only before* / *only after* for items in one side only. A status change counts as a change.
   - **Changed only** hides equal values. ⌘C copies the rows as a table. **Delete snapshot** removes the *Before* one.
+- **Write back…** writes the snapshot's values back to the device, e.g. to restore a parameter set after
+  trying something. It works against the live watch values only, and is off in read-only sessions.
+  - It writes the selected rows, or every row shown when none is selected; rows that are unchanged or whose snapshot
+    status wasn't Good are skipped.
+  - A bar lists what will change (now → snapshot value) and warns when the snapshot was taken on another endpoint;
+    nothing is written until you click **Write**. Failures are listed per row below the table.
 - Snapshots are JSON files in the `snapshots` folder of the settings folder (Help ▸ Show Settings Folder).
 
 ![Snapshot compared with live watch values](images/snapshot-compare.png)
