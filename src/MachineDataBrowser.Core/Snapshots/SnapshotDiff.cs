@@ -54,7 +54,9 @@ public static class SnapshotDiff
         {
             if (later.Remove(item.NodeId, out var now))
             {
-                var same = item.Value == now.Value && item.Status == now.Status;
+                // Equal numbers count as the same even when written differently (1.50 vs 1.5): values come from a watch row
+                // (the driver's formatting) or a one-off read.
+                var same = (item.Value == now.Value || item.Numeric is { } x && now.Numeric is { } y && x.Equals(y)) && item.Status == now.Status;
                 rows.Add(new SnapshotDiffRow(item.Name, item.NodeId, item.Value, item.Status, now.Value, now.Status,
                     same ? SnapshotChange.Same : SnapshotChange.Changed,
                     !same && item.Numeric is { } a && now.Numeric is { } b ? b - a : null));

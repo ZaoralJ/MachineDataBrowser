@@ -1,5 +1,6 @@
 using System.Reflection;
 using ModelContextProtocol.Protocol;
+using MachineDataBrowser.Core;
 using ModelContextProtocol.Server;
 
 namespace MachineDataBrowser.Cli.Mcp;
@@ -49,9 +50,15 @@ internal static class McpServerHost
         """;
 
     public const string WriteInstructions = """
-        write and call_method change machines: use them only when the user asked for that change. Each change is put to
-        the user for confirmation first; if they decline, nothing happens. Read the value (or the method's arguments)
-        before, and report what changed. Endpoints named under allow patterns and read-only sessions can't be changed.
+        write, restore_snapshot and call_method change machines: use them only when the user asked for that change. Each
+        change is put to the user for confirmation first; if they decline, nothing happens. Read the value (or the
+        method's arguments, or compare_snapshot) before, and report what changed. Endpoints named under allow patterns
+        and read-only sessions can't be changed. Every change is recorded in an audit log.
+        """;
+
+    public const string SnapshotInstructions = """
+        Snapshots are saved machine values (from the app, or take_snapshot when offered). list_snapshots shows them;
+        compare_snapshot compares one with the machine now or with another snapshot: what changed since then.
         """;
 
     /// <summary>What the server offers, from the <c>mcp</c> command's options.</summary>
@@ -61,11 +68,22 @@ internal static class McpServerHost
         IReadOnlyList<string> SessionFiles,
         string? RecordingFolder = null,
         bool AllowWrites = false,
-        bool SkipWriteConfirmation = false);
+        bool SkipWriteConfirmation = false)
+    {
+        /// <summary>Where snapshots are read (and with <see cref="AllowSnapshots"/> saved); the app's folder by default.</summary>
+        public SnapshotStore Snapshots { get; init; } = new(Core.SnapshotStore.DefaultFolder);
+
+        public bool AllowSnapshots { get; init; }
+
+        public WritePolicy WritePolicy { get; init; } = new();
+
+        public AuditLog Audit { get; init; } = new(null);
+    }
 
     public static async Task<int> RunAsync(Setup setup, CancellationToken cancellationToken)
     {
         var (pool, recordings, sessionFiles, recordingFolder, allowWrites, skipWriteConfirmation) = setup;
+        var writes = allowWrites && pool.Endpoints.Count > 0;
         var options = new McpServerOptions
         {
             ServerInfo = new Implementation
@@ -81,7 +99,9 @@ internal static class McpServerHost
                 pool.Patterns.Count > 0 ? PatternInstructions : null,
                 recordings.IsEmpty ? null : RecordingInstructions,
                 pool.HasMachines && recordingFolder is not null ? RecordingControlInstructions : null,
-                allowWrites && pool.Endpoints.Count > 0 ? WriteInstructions : null,
+                pool.HasMachines ? SnapshotInstructions : null,
+                writes ? WriteInstructions : null,
+                writes && setup.WritePolicy.IsRestricted ? $"Write rules: {setup.WritePolicy.Describe()}." : null,
             }.OfType<string>()),
             ToolCollection = [],
             ResourceCollection = [],
@@ -106,6 +126,11 @@ internal static class McpServerHost
         if (pool.HasMachines)
         {
             AddTools(options, new MachineDataTools(pool));
+            AddTools(options, new SnapshotTools(pool, setup.Snapshots));
+            if (setup.AllowSnapshots)
+            {
+                AddTools(options, new SnapshotTakeTools(pool, setup.Snapshots));
+            }
         }
 
         if (!recordings.IsEmpty)
@@ -114,9 +139,9 @@ internal static class McpServerHost
         }
 
         // Changes only with --allow-writes, and only to configured endpoints (named ones stay read-only).
-        if (allowWrites && pool.Endpoints.Count > 0)
+        if (writes)
         {
-            AddTools(options, new WriteTools(pool, skipWriteConfirmation));
+            AddTools(options, new WriteTools(pool, skipWriteConfirmation, setup.WritePolicy, setup.Audit, setup.Snapshots));
         }
 
         // Background recordings stop (and close their files) when the server exits.

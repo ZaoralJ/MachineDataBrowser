@@ -14,7 +14,7 @@ public sealed class SnapshotCsvTests : IDisposable
         TakenAt = DateTimeOffset.Now,
         Items =
         [
-            SnapshotItem.Of("Settings/Speed", "nsu=urn:test;s=Speed", "1500", "Good"),
+            SnapshotItem.Of("Settings/Speed", "nsu=urn:test;s=Speed", "1500", "Good") with { Path = "/Objects/Line1/Settings/Speed" },
             SnapshotItem.Of("Settings/Recipe", "nsu=urn:test;s=Recipe", "Product A, \"special\"\nline 2", "Good"),
             SnapshotItem.Of("Settings/Broken", "nsu=urn:test;s=Broken", string.Empty, "Bad (read failed)"),
         ],

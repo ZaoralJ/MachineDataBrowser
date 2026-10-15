@@ -22,7 +22,9 @@ recordings or both: the agent only gets the tools for what is configured.
 | `--allow-any` | connect to any endpoint it names, without credentials (lab use) |
 | `--recording file.db`, `--recordings-dir folder` | read these recordings |
 | `--allow-recording folder` | start background recordings into that folder (and read them) |
-| `--allow-writes` | write values and call methods on `--endpoint` / `--session` machines, each change confirmed by you |
+| `--allow-writes` | write values, restore snapshots and call methods on `--endpoint` / `--session` machines, each change confirmed by you |
+| `--allow-snapshots` | save snapshots of values (`take_snapshot`) into the snapshot folder |
+| `--snapshots-dir folder` | read (and save) snapshots there instead of the app's snapshot folder |
 
 === "VS Code / GitHub Copilot"
 
@@ -85,8 +87,8 @@ Logins: `--user` with the password in `MDBROWSER_PASSWORD` (set it in the agent'
 | `list_endpoints` | the configured machines, their protocol and connection state |
 | `browse` | the address space below a node, a few levels at a time: path, class (Object/Variable/Method), id |
 | `search` | nodes whose name or id matches (`Temp*`, `Motor?` or plain text), with their paths |
-| `read` | current values with data type; `recursive` expands a folder or structure to every variable below it |
-| `sample` | watches values for 1–300 s and summarises each: samples, changes, first/last value, min/max/mean, statuses |
+| `read` | current values with data type and engineering unit (when the server has one); `recursive` expands a folder or structure to every variable below it |
+| `sample` | watches values for 1–300 s and summarises each: samples, changes, first/last value, min/max/mean, statuses; with `correlate`, also the order of changes and which values change shortly after which |
 | `attributes` | all attributes of a node (data type, description, access level, …) and its engineering unit |
 | `history` | what an OPC UA server stored over a time range, raw or per `bucketSeconds` (count, min, max, average, not Good) |
 | `alarms` | the server's current alarms, most severe first: source, name, severity, active, acknowledged, message |
@@ -101,7 +103,24 @@ Nodes are the same paths and ids as on the command line (`/Objects/Line1/Speed`,
 (numbers, booleans, arrays, structures as objects).
 
 `sample` exists because an agent can't watch a live stream; a summary answers questions like *is it moving*, *how much
-does it fluctuate*, *did it go bad*.
+does it fluctuate*, *did it go bad*. With `correlate` it also lists the changes in time order and pairs where one value
+changed within `withinMs` (default 1000) after most of another's changes, with the median lag: *the pressure drops
+200 ms after the valve opens*. These are candidates for cause and effect, not proof; lags are only as exact as the
+refresh time.
+
+### Snapshots
+
+Snapshots are the values saved with **Watch ▸ Take Snapshot** in the app (also folder snapshots and imported parameter
+sets), in the app's snapshot folder, so the agent sees the same ones.
+
+| Tool | Gives the agent |
+|---|---|
+| `list_snapshots` | the saved snapshots, newest first: name, time, endpoint, items, partial (folder, selection, imported) |
+| `compare_snapshot` | a snapshot against the machine now (its items are read) or another snapshot: before, after, change, statuses, and how many items `restore_snapshot` would write |
+| `take_snapshot` | with `--allow-snapshots`: reads variables (folders expand, ≤ 500) once and saves them as a named snapshot, shown in the app too |
+| `restore_snapshot` | with `--allow-writes`: see [Changes](#changes-allow-writes) |
+
+Snapshots are named by their full name or a unique start of it (`Recipe` for *Recipe A*).
 
 ### Recordings
 
@@ -141,6 +160,7 @@ Besides tools, the server offers **resources** an agent (or you, in clients that
 | Tool | |
 |---|---|
 | `write` | writes a value (text converted to the variable's type) and returns it before and after |
+| `restore_snapshot` | writes a snapshot's values back (≤ 200 items): only items that differ now and were Good in the snapshot; returns before, written and after (read back) per item |
 | `call_method` | calls an OPC UA method on its object with the given inputs and returns the outputs |
 
 - **You confirm every change.** The server asks through MCP *elicitation*: your agent shows a dialog like *"Write 42.5 to
@@ -149,13 +169,25 @@ Besides tools, the server offers **resources** an agent (or you, in clients that
   client's own tool approval only.
 - **Only configured machines:** endpoints named under `--allow` patterns are never changed, and sessions marked
   *Read-Only* in the app are refused.
+- **Write rules** limit what the agent may change even when you'd confirm it, for a server that runs unattended:
+  - `--write-node '/Objects/Line1/Setpoints/*'` (repeatable): only variables, and methods, whose path or id matches may
+    be changed. Patterns of paths match only nodes the agent names by path.
+  - `--write-limit '/Objects/Line1/Speed=0..1500'` (repeatable; `=..100` or `=0..` for one bound): numbers written
+    to matching variables must be in range; anything else is refused, including text.
+  - Refused changes never reach you or the machine; the agent's instructions list the rules.
+- **Audit log:** every change the agent asks for (written, declined, refused or failed) is a JSON line in
+  `logs/mcp-audit.jsonl` in the data folder, or `--audit-log file`: time, tool, endpoint, node, id, value, before,
+  after and the reason.
+- **Restoring a snapshot** asks once, listing the changes (*SByte: 5 → -8; …*) and warning when the snapshot was taken
+  on another endpoint; write rules apply to each item (by its path from the root, saved with the snapshot).
 - The tools are marked *destructive*, so clients show them as such.
 
 ## Limits and safety
 
 - **Only listed machines.** A tool call naming any other endpoint is refused; with one machine configured the agent
   doesn't need to name it.
-- **Read-only.** All tools are marked read-only for the agent, and nothing in them writes.
+- **Read-only.** All tools are marked read-only for the agent, and nothing in them writes. `take_snapshot`
+  (`--allow-snapshots`) only saves a file into the snapshot folder.
 - **Bounded results:** `browse` returns at most 500 items, `read` 200 values, `sample` 100 items for at most 300 s,
   `history` 1000 raw values in total (20 000 per item for buckets), `events` 500; results say when they were truncated.
 - **Events and alarms are only read:** nothing is acknowledged.
@@ -182,3 +214,6 @@ Besides tools, the server offers **resources** an agent (or you, in clients that
 - *"Record the press for an hour, then tell me how often the pressure went above 4 bar."*
 - *"In last night's recording, when was the speed below 1000, and for how long?"*
 - *"Compare the average temperature per hour between Monday and Tuesday."*
+- *"What changed on line 1 since the snapshot from Monday morning?"*
+- *"Watch the valve and the pressures for a minute: which reacts to which, and how fast?"*
+- *"Take a snapshot of the recipe folder before I retool, and put it back afterwards."*

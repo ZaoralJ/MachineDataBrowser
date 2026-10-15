@@ -17,7 +17,7 @@ public sealed partial class MainWindowViewModel
         Name = name,
         TakenAt = DateTimeOffset.Now,
         EndpointUrl = EndpointUrl.Trim(),
-        Items = [.. (items ?? WatchItems).Select(w => SnapshotItem.Of(w.DisplayName, w.PortableId, w.Value, w.Status))],
+        Items = [.. (items ?? WatchItems).Select(w => SnapshotItem.Of(w.DisplayName, w.PortableId, w.Value, w.Status) with { Path = w.Path.Length > 0 ? $"/{w.Path}/{w.DisplayName}" : null })],
     };
 
     /// <summary>Saves the current values of the watch list, to compare with later.</summary>
@@ -68,13 +68,14 @@ public sealed partial class MainWindowViewModel
             var max = MaxRecursiveItems;
             (items, limited) = await Task.Run(async () =>
             {
-                var found = new List<(NodeId NodeId, string Name)>();
+                var found = new List<(NodeId NodeId, string Name, string Path)>();
                 foreach (var folder in folders)
                 {
                     // With several folders, their names keep equal paths below them apart.
                     var prefix = folders.Count > 1 ? folder.DisplayName : string.Empty;
                     var collected = await client.CollectVariablesWithPathsAsync(folder.NodeId, MaxRecursiveDepth, max - found.Count, descendIntoVariables: false);
-                    found.AddRange(collected.Select(v => (v.Item.NodeId, JoinPath(JoinPath(prefix, v.Path), v.Item.DisplayName))));
+                    found.AddRange(collected.Select(v => (v.Item.NodeId, JoinPath(JoinPath(prefix, v.Path), v.Item.DisplayName),
+                        $"/{JoinPath(JoinPath(folder.Path, v.Path), v.Item.DisplayName)}")));
                     if (found.Count >= max)
                     {
                         break;
@@ -82,7 +83,7 @@ public sealed partial class MainWindowViewModel
                 }
 
                 var values = found.Count == 0 ? [] : await client.ReadValuesAsync([.. found.Select(f => f.NodeId)]);
-                return (found.Select((f, i) => ReadItem(f.Name, client.ToPortableId(f.NodeId), values[i])).ToList(), found.Count >= max);
+                return (found.Select((f, i) => SnapshotReader.FromValue(f.Name, client.ToPortableId(f.NodeId), values[i], f.Path)).ToList(), found.Count >= max);
             });
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
@@ -114,10 +115,6 @@ public sealed partial class MainWindowViewModel
             StatusMessage += $" Limited to the first {items.Count} variables (Settings ▸ maximum items).";
         }
     }
-
-    /// <summary>A value read once from the device; a failed read (null) is kept as Bad, so it is never written back.</summary>
-    private static SnapshotItem ReadItem(string name, string portableId, object? value) =>
-        value is null ? SnapshotItem.Of(name, portableId, string.Empty, "Bad (read failed)") : SnapshotItem.Of(name, portableId, ValueFormatter.Format(value), "Good");
 
     private static string DefaultSnapshotName(DateTimeOffset at) =>
         $"Snapshot {at.ToLocalTime().ToString("d MMM HH:mm:ss", CultureInfo.InvariantCulture)}";
@@ -165,10 +162,7 @@ public sealed partial class MainWindowViewModel
                 return [];
             }
 
-            var client = owner._client;
-            var ids = items.Select(i => client.ParsePortableId(i.NodeId)).ToList();
-            var values = await client.ReadValuesAsync(ids);
-            return [.. items.Select((item, i) => ReadItem(item.Name, item.NodeId, values[i]))];
+            return (await SnapshotReader.ReadAsync(owner._client, items)).Items;
         }
 
         public async Task<IReadOnlyList<string>> WriteAsync(IReadOnlyList<SnapshotDiffRow> rows)

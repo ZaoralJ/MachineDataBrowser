@@ -25,6 +25,7 @@ flowchart LR
         IDC{{"IDeviceClient"}}
         Rec["Recording contracts<br/>options · samples · target interfaces"]
         Fmt["ValueFormatter · NodeTree"]
+        Snap["Snapshots<br/>store · CSV · diff · read"]
         Rec --> IDC
     end
 
@@ -58,6 +59,7 @@ flowchart LR
     VM --> Formats
     Engine --> Rec
     VM --> Fmt
+    VM --> Snap
 
     Ua -- "opc.tcp:// (OPC Foundation UA-.NETStandard)" --> S1[(OPC UA server)]
     Cip -- "eip:// (libplctag)" --> S2[(Logix controller)]
@@ -66,7 +68,7 @@ flowchart LR
 
 | Project | Role |
 |---|---|
-| `src/MachineDataBrowser.Core` | Protocol-neutral device and recording contracts, value formatting, and shared node tree. No UI, protocol SDK, or recording-format dependencies. |
+| `src/MachineDataBrowser.Core` | Protocol-neutral device and recording contracts, value formatting, shared node tree, and snapshots (`Snapshots/`: the JSON store in the data folder, CSV, the diff and one-off device reads), shared by the app's *Compare with Snapshot* and the MCP snapshot tools. No UI, protocol SDK, or recording-format dependencies. |
 | `src/MachineDataBrowser.Recording` | Format-independent recording lifecycle, monitoring and bounded in-memory history. Depends on Core abstractions. |
 | `src/MachineDataBrowser.Recording.Csv` | CSV live writer, export and incremental reader. Depends on Core abstractions. |
 | `src/MachineDataBrowser.Recording.Json` | JSON recording export. Depends on Core abstractions. |

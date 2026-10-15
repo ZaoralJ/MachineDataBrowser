@@ -31,6 +31,12 @@ public sealed record Snapshot
 /// <summary>One watched value in a <see cref="Snapshot"/>; items are matched by their portable <see cref="NodeId"/>.</summary>
 public sealed record SnapshotItem(string Name, string NodeId, string Value, string Status, double? Numeric)
 {
+    /// <summary>
+    /// Full path from the root (<c>/Objects/Line1/Speed</c>) when known; optional, so older files still open. MCP write
+    /// rules match it, since <see cref="Name"/> may be relative to a folder.
+    /// </summary>
+    public string? Path { get; init; }
+
     /// <summary>An item with <see cref="Numeric"/> parsed from the value, for the comparison's difference column.</summary>
     public static SnapshotItem Of(string name, string nodeId, string value, string status) =>
         new(name, nodeId, value, status, double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ? number : null);
