@@ -129,6 +129,8 @@
                       ToolTip.Tip="Includes subfolders (up to the limit set in Settings)">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconFolderMonitor}" /></MenuItem.Icon>
             </MenuItem>
+            <MenuItem Header="Take snapshot of folder…" Command="{Binding TakeFolderSnapshotCommand}"
+                      ToolTip.Tip="Read every variable below once and save the values as a snapshot, without adding them to Watch" />
             <Separator />
             <MenuItem Header="Expand all below" Command="{Binding ExpandAllCommand}">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconExpandAll}" /></MenuItem.Icon>

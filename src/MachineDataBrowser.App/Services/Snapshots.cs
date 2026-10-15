@@ -28,7 +28,12 @@ public sealed record Snapshot
 }
 
 /// <summary>One watched value in a <see cref="Snapshot"/>; items are matched by their portable <see cref="NodeId"/>.</summary>
-public sealed record SnapshotItem(string Name, string NodeId, string Value, string Status, double? Numeric);
+public sealed record SnapshotItem(string Name, string NodeId, string Value, string Status, double? Numeric)
+{
+    /// <summary>An item with <see cref="Numeric"/> parsed from the value, for the comparison's difference column.</summary>
+    public static SnapshotItem Of(string name, string nodeId, string value, string status) =>
+        new(name, nodeId, value, status, double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ? number : null);
+}
 
 /// <summary>
 /// Snapshots as JSON files in a folder (the data folder's <c>snapshots</c>), newest first. Without a folder they are
@@ -87,16 +92,44 @@ public sealed class SnapshotStore(string? folder)
         return snapshot with { Path = path };
     }
 
-    /// <summary>Writes a snapshot to a file of the user's choice, e.g. to share a parameter set.</summary>
-    public static void Export(Snapshot snapshot, string path) => WriteFile(snapshot, path);
+    /// <summary>
+    /// Writes a snapshot to a file of the user's choice, e.g. to share a parameter set: CSV for a <c>.csv</c> path (a
+    /// spreadsheet), JSON otherwise.
+    /// </summary>
+    public static void Export(Snapshot snapshot, string path)
+    {
+        if (IsCsv(path))
+        {
+            using var writer = new StreamWriter(path, append: false, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+            SnapshotCsv.Write(snapshot, writer);
+        }
+        else
+        {
+            WriteFile(snapshot, path);
+        }
+    }
 
     /// <summary>
-    /// Reads a snapshot file (exported here or elsewhere) and adds it to the store. Importing the same file again
-    /// replaces the earlier copy, since snapshots are stored by the time they were taken.
+    /// Reads a snapshot file (exported here or elsewhere) and adds it to the store. Importing the same JSON file again
+    /// replaces the earlier copy, since snapshots are stored by the time they were taken; a CSV has no time, so each
+    /// import adds a snapshot named after the file.
     /// </summary>
     /// <exception cref="InvalidDataException">The file is not a snapshot.</exception>
     public Snapshot Import(string path)
     {
+        if (IsCsv(path))
+        {
+            using var reader = new StreamReader(path, detectEncodingFromByteOrderMarks: true);
+            try
+            {
+                return Save(SnapshotCsv.Read(reader, System.IO.Path.GetFileNameWithoutExtension(path)));
+            }
+            catch (InvalidDataException ex)
+            {
+                throw new InvalidDataException($"{System.IO.Path.GetFileName(path)}: {ex.Message}", ex);
+            }
+        }
+
         Snapshot? snapshot;
         try
         {
@@ -115,6 +148,8 @@ public sealed class SnapshotStore(string? folder)
 
         return Save(snapshot);
     }
+
+    private static bool IsCsv(string path) => System.IO.Path.GetExtension(path).Equals(".csv", StringComparison.OrdinalIgnoreCase);
 
     private static void WriteFile(Snapshot snapshot, string path)
     {

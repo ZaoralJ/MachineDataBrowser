@@ -31,6 +31,12 @@ public sealed partial class MainWindow : IDialogService
         MimeTypes = ["application/vnd.sqlite3"],
     };
 
+    private static readonly FilePickerFileType SnapshotFilesType = new("Snapshots (JSON, CSV)")
+    {
+        Patterns = ["*.json", "*.csv"],
+        AppleUniformTypeIdentifiers = ["public.json", "public.comma-separated-values-text"],
+    };
+
     private static readonly FilePickerFileType SnapshotFileType = new("Snapshot (JSON)")
     {
         Patterns = ["*.json"],
@@ -230,7 +236,7 @@ public sealed partial class MainWindow : IDialogService
             Title = "Export snapshot",
             SuggestedFileName = suggestedName,
             DefaultExtension = "json",
-            FileTypeChoices = [SnapshotFileType],
+            FileTypeChoices = [SnapshotFileType, CsvFileType],
             ShowOverwritePrompt = true,
         });
         return file?.TryGetLocalPath();
@@ -242,7 +248,7 @@ public sealed partial class MainWindow : IDialogService
         {
             Title = "Import snapshot",
             AllowMultiple = false,
-            FileTypeFilter = [SnapshotFileType, FilePickerFileTypes.All],
+            FileTypeFilter = [SnapshotFilesType, SnapshotFileType, CsvFileType, FilePickerFileTypes.All],
         });
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }
