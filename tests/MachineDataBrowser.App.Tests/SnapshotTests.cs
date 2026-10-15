@@ -212,4 +212,27 @@ public sealed class SnapshotTests : IDisposable
         Assert.Equal("Product B", compare.Baseline!.Name);
         window.Close();
     }
+
+    [AvaloniaFact]
+    public async Task Take_snapshot_as_asks_for_a_name_first()
+    {
+        var dialogs = new TestDialogs();
+        await using var vm = new MainWindowViewModel(new SettingsStore(Path.Combine(_dir, "settings.json"))) { Dialogs = dialogs };
+        Assert.False(vm.TakeNamedSnapshotCommand.CanExecute(null));
+        vm.WatchItems.AddRange([Item(1, "Speed", "1500"), Item(2, "Mode", "AUTO")]);
+        Assert.True(vm.TakeNamedSnapshotCommand.CanExecute(null));
+
+        // Cancelled: nothing saved; the suggestion is the usual date-time name.
+        await vm.TakeNamedSnapshotCommand.ExecuteAsync(null);
+        Assert.StartsWith("Snapshot ", dialogs.SnapshotNameAsked!.Value.Suggested, StringComparison.Ordinal);
+        Assert.Equal(2, dialogs.SnapshotNameAsked.Value.Items);
+        Assert.False(Directory.Exists(Path.Combine(_dir, "snapshots")));
+
+        dialogs.SnapshotNameAnswer = " Line 1 – product A ";
+        await vm.TakeNamedSnapshotCommand.ExecuteAsync(null);
+        var snapshot = Assert.Single(new SnapshotStore(Path.Combine(_dir, "snapshots")).List());
+        Assert.Equal("Line 1 – product A", snapshot.Name);
+        Assert.Equal(2, snapshot.Items.Count);
+        Assert.False(snapshot.Partial);
+    }
 }

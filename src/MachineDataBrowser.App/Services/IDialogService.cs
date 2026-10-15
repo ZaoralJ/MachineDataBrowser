@@ -33,6 +33,9 @@ public interface IDialogService
     /// <summary>Asks for a value to write to <paramref name="target"/>; null when cancelled.</summary>
     Task<string?> AskWriteValueAsync(string target, string currentValue);
 
+    /// <summary>Asks for the name of a new snapshot of <paramref name="itemCount"/> items; null when cancelled.</summary>
+    Task<string?> AskSnapshotNameAsync(string suggestedName, int itemCount);
+
     /// <summary>Shows a server certificate the app does not trust and asks whether to trust it.</summary>
     Task<CertificateTrustChoice> AskTrustCertificateAsync(MachineDataBrowser.Core.ServerCertificate certificate, string endpointUrl);
 

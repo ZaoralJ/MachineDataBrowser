@@ -24,16 +24,33 @@ public sealed partial class MainWindowViewModel
     [RelayCommand(CanExecute = nameof(HasWatchItems))]
     private void TakeSnapshot() => SaveSnapshot(null);
 
+    /// <summary>Like <see cref="TakeSnapshot"/>, but asks for a name first (e.g. a parameter set's), so it needn't be renamed later.</summary>
+    [RelayCommand(CanExecute = nameof(HasWatchItems))]
+    private async Task TakeNamedSnapshotAsync()
+    {
+        if (Dialogs is null
+            || await Dialogs.AskSnapshotNameAsync(DefaultSnapshotName(DateTimeOffset.Now), WatchItems.Count) is not { } name
+            || string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        SaveSnapshot(null, name.Trim());
+    }
+
     private bool HasSelectedWatchRows() => SelectedWatchItems.Count > 0;
 
     /// <summary>Only the selected rows: a parameter set out of a large watch list.</summary>
     [RelayCommand(CanExecute = nameof(HasSelectedWatchRows))]
     private void TakeSelectionSnapshot() => SaveSnapshot([.. SelectedWatchItems]);
 
-    private void SaveSnapshot(IReadOnlyList<WatchItemViewModel>? items)
+    private static string DefaultSnapshotName(DateTimeOffset at) =>
+        $"Snapshot {at.ToLocalTime().ToString("d MMM HH:mm:ss", CultureInfo.InvariantCulture)}";
+
+    private void SaveSnapshot(IReadOnlyList<WatchItemViewModel>? items, string? name = null)
     {
         var now = DateTimeOffset.Now;
-        var name = $"Snapshot {now.ToLocalTime().ToString("d MMM HH:mm:ss", CultureInfo.InvariantCulture)}";
+        name ??= DefaultSnapshotName(now);
         try
         {
             var snapshot = Snapshots.Save(CurrentSnapshot(name, items) with { TakenAt = now, Partial = items is not null });

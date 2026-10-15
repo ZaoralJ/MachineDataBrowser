@@ -161,6 +161,7 @@ public sealed partial class MainWindow
                 new NativeMenuItemSeparator(),
                 Item("Show Recorded _Values", vm.ViewItemRecordingCommand, new KeyGesture(Key.Y, cmd)),
                 Item("Take _Snapshot", vm.TakeSnapshotCommand, new KeyGesture(Key.T, cmd | KeyModifiers.Alt)),
+                Item("Take Snapshot _As…", vm.TakeNamedSnapshotCommand, new KeyGesture(Key.T, cmd | KeyModifiers.Shift)),
                 Item("Take Snapshot of Se_lected Rows", vm.TakeSelectionSnapshotCommand, new KeyGesture(Key.T, cmd | KeyModifiers.Alt | KeyModifiers.Shift)),
                 Item("Compare with S_napshot…", vm.CompareSnapshotCommand, new KeyGesture(Key.Y, cmd | KeyModifiers.Alt)),
                 Item("_Remove Selected", vm.RemoveFromWatchCommand, new KeyGesture(Key.Back, cmd)),

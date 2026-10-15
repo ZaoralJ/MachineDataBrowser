@@ -227,7 +227,8 @@ and sort order are saved with the session.
 A snapshot saves the current values of the whole watch list, to compare later, e.g. before and after a change on the
 machine.
 
-- **Watch ▸ Take Snapshot** (⌥⌘T) saves it, named with the date and time.
+- **Watch ▸ Take Snapshot** (⌥⌘T) saves it, named with the date and time. **Take Snapshot As…** (⇧⌘T) asks for a
+  name first, e.g. *Line 1 – product A*.
 - **Watch ▸ Take Snapshot of Selected Rows** (⇧⌥⌘T, also in the Watch context menu) saves only the selected rows, e.g.
   a parameter set out of a large watch list. Comparing it leaves other watch rows out instead of listing them as
   *only after*; the list shows it as *selection*.
