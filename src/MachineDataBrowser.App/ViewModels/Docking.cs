@@ -293,6 +293,21 @@ public sealed class DockFactory(MainWindowViewModel main) : Factory
         FloatDockable(tool);
     }
 
+    /// <summary>
+    /// ⌘1–4, like 1–4 in the TUI: a pane in front minimizes; a minimized, floating or background tab comes back.
+    /// A tab behind another one is brought forward rather than minimized, since it wasn't visible.
+    /// </summary>
+    public void TogglePane(IRootDock root, string id)
+    {
+        if (FindAnywhere(root, id) is { } tool && IsDockedInMain(root, tool) && tool.Owner is IDock owner && owner.ActiveDockable == tool)
+        {
+            PinDockable(tool);
+            return;
+        }
+
+        ShowPane(root, id);
+    }
+
     public void DockAllPanes(IRootDock root)
     {
         foreach (var id in ToolIds)

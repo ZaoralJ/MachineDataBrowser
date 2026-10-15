@@ -237,6 +237,33 @@ public sealed class LayoutTests : IDisposable
         restoredWindow.Close();
     }
 
+    [AvaloniaFact]
+    public async Task Cmd_number_toggles_a_pane_like_the_tui()
+    {
+        await using var vm = new MainWindowViewModel(settingsStore: null, new LayoutStore(Path.Combine(_dir, "toggle.json")));
+        var window = new MainWindow { DataContext = vm };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        var root = vm.Layout!;
+        var watch = Tool(root, "Watch");
+        var recordings = Tool(root, "Recordings");
+
+        vm.TogglePaneCommand.Execute("Watch");
+        Assert.True(vm.DockFactory.IsDockablePinned(watch, root));
+
+        vm.TogglePaneCommand.Execute("Watch");
+        Assert.False(vm.DockFactory.IsDockablePinned(watch, root));
+        Assert.Equal("WatchDock", ToolDocks(root).Single(d => d.VisibleDockables!.Contains(watch)).Id);
+
+        vm.TogglePaneCommand.Execute("Recordings");
+        Assert.False(vm.DockFactory.IsDockablePinned(recordings, root));
+        Assert.Same(recordings, ((IDock)recordings.Owner!).ActiveDockable);
+
+        vm.TogglePaneCommand.Execute("Recordings");
+        Assert.True(vm.DockFactory.IsDockablePinned(recordings, root));
+        window.Close();
+    }
+
     private static IDockable Tool(IRootDock root, string id) => ToolDocks(root).SelectMany(d => d.VisibleDockables!).Single(t => t.Id == id);
 
     private static IEnumerable<IToolDock> ToolDocks(IDockable dockable) => dockable switch
