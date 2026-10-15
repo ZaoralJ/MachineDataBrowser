@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.29.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.28.0...v0.29.0) (2026-10-15)
+
+
+### Features
+
+* **app:** name and rename snapshots ([#154](https://github.com/ZaoralJ/MachineDataBrowser/issues/154)) ([824c45c](https://github.com/ZaoralJ/MachineDataBrowser/commit/824c45c325b1d89d742c2134c8cf2e1bde8f7f42))
+* **app:** snapshot a folder from the address space, CSV snapshot export and import ([#155](https://github.com/ZaoralJ/MachineDataBrowser/issues/155)) ([d34f8de](https://github.com/ZaoralJ/MachineDataBrowser/commit/d34f8deb5276eca19c8b5e9937e49edd80325edd))
+* **app:** snapshot selected watch rows, export and import snapshots ([#152](https://github.com/ZaoralJ/MachineDataBrowser/issues/152)) ([24aa769](https://github.com/ZaoralJ/MachineDataBrowser/commit/24aa7693fa0c04b85300598f456c4d206f314f79))
+* **app:** write snapshot values back to the device from Compare with Snapshot ([#151](https://github.com/ZaoralJ/MachineDataBrowser/issues/151)) ([0468117](https://github.com/ZaoralJ/MachineDataBrowser/commit/046811797bb5235126bdd50f0e4dc13006dadf5a))
+* **mcp:** snapshot tools, write rules and audit log, units in read, correlation in sample ([#156](https://github.com/ZaoralJ/MachineDataBrowser/issues/156)) ([089dc76](https://github.com/ZaoralJ/MachineDataBrowser/commit/089dc76afac1fef75ca5f0b5d627f81295de535d))
+
 ## [0.28.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.27.2...v0.28.0) (2026-10-15)
 
 
