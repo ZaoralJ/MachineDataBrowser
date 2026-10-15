@@ -33,6 +33,9 @@ flowchart LR
 - **Panes:** drag a pane by its tab to another place in the window; the drop indicators show where it lands. Dragging
   never floats a pane: **View ▸ Panes ▸ Pop Out** (⌥⌘1–4) does. **Dock All Floating Panes** (⌥⌘D) and **Reset
   Layout** (⌥⌘0) bring them back.
+- **Minimize a pane:** the pin button in its header moves it to a tab on the window edge (Address Space left,
+  Attributes right, Watch and Recordings bottom); hover or click the tab to slide it out. Pin it again, or choose it
+  in View ▸ Panes (⌘1–4), to put it back where it was. Minimized panes stay minimized after a restart.
 - **Zoom:** ⌘+ / ⌘− / ⌘0.
 - **Theme:** View ▸ Theme, or Settings.
   - *Follow System*, *Light* or *Dark* (⌥⌘7/8/9) picks the appearance.

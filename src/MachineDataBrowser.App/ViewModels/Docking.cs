@@ -19,6 +19,9 @@ public abstract class PaneTool : Tool
     }
 
     public MainWindowViewModel Main { get; }
+
+    /// <summary>Id of the tab group the pane was minimized from; it goes back there when restored.</summary>
+    public string? RestoreGroup { get; set; }
 }
 
 public sealed class AddressSpaceTool(MainWindowViewModel main) : PaneTool(main, "AddressSpace", "Address Space");
@@ -53,22 +56,104 @@ public sealed class DockFactory(MainWindowViewModel main) : Factory
     public IRootDock CreateLayout(LayoutNode saved)
     {
         var used = new HashSet<string>();
-        var content = Build(saved, used);
+        var pinnedPanes = saved.Pinned ?? [];
+        var groups = pinnedPanes.Select(p => p.Group).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        var content = Build(saved, used, groups);
+        var root = Root(content);
+        foreach (var pinned in pinnedPanes)
+        {
+            if (!used.Add(pinned.Tool))
+            {
+                throw new InvalidDataException($"Duplicate tool '{pinned.Tool}'.");
+            }
+
+            var tool = CreateTool(pinned.Tool);
+            tool.RestoreGroup = pinned.Group;
+            PinnedList(root, pinned.Edge).Add(tool);
+        }
+
         if (!used.SetEquals(ToolIds))
         {
             throw new InvalidDataException("Saved layout does not contain every tool exactly once.");
         }
 
-        return Root(content);
+        return root;
     }
 
-    private IDockable Build(LayoutNode node, HashSet<string> used)
+    private IList<IDockable> PinnedList(IRootDock root, Alignment edge) => edge switch
+    {
+        Alignment.Right => root.RightPinnedDockables ??= CreateList<IDockable>(),
+        Alignment.Top => root.TopPinnedDockables ??= CreateList<IDockable>(),
+        Alignment.Bottom => root.BottomPinnedDockables ??= CreateList<IDockable>(),
+        _ => root.LeftPinnedDockables ??= CreateList<IDockable>(),
+    };
+
+    /// <summary>
+    /// The edge a group minimizes to. Dock puts panes of an unaligned group on the left edge and, on restore,
+    /// only returns them to a group aligned with that edge, so panes came back next to Address Space.
+    /// </summary>
+    private static readonly Dictionary<string, Alignment> GroupEdges = new()
+    {
+        ["LeftDock"] = Alignment.Left,
+        ["AttributesDock"] = Alignment.Right,
+        ["WatchDock"] = Alignment.Bottom,
+    };
+
+    private static Alignment EdgeOf(string? groupId, Alignment? saved) =>
+        saved ?? (groupId is not null && GroupEdges.TryGetValue(groupId, out var edge) ? edge : Alignment.Unset);
+
+    /// <summary>
+    /// Pinning toggles minimize/restore. Dock picks the restore group by edge alignment and can land a pane in
+    /// another group (or a new split), so the pane is moved back to the group it was minimized from.
+    /// </summary>
+    public override void PinDockable(IDockable dockable)
+    {
+        if (dockable is not PaneTool tool || FindRoot(dockable, _ => true) is not { } root)
+        {
+            base.PinDockable(dockable);
+            return;
+        }
+
+        if (IsDockablePinned(tool, root))
+        {
+            var target = RestoreTarget(root, tool);
+            base.PinDockable(tool);
+            tool.RestoreGroup = null;
+            if (target is not null && tool.Owner != target && tool.Owner is IDock { VisibleDockables: { } current } && current.Contains(tool))
+            {
+                RemoveDockable(tool, true);
+                AddDockable(target, tool);
+                SetActiveDockable(tool);
+            }
+
+            return;
+        }
+
+        if (tool.Owner is IToolDock owner && owner.VisibleDockables?.Contains(tool) == true)
+        {
+            if (string.IsNullOrEmpty(owner.Id))
+            {
+                owner.Id = Guid.NewGuid().ToString("N");
+            }
+
+            tool.RestoreGroup = owner.Id;
+        }
+
+        base.PinDockable(tool);
+    }
+
+    private static IToolDock? RestoreTarget(IRootDock root, PaneTool tool) =>
+        (FindInMain(root, d => d is IToolDock && tool.RestoreGroup is not null && d.Id == tool.RestoreGroup)
+            ?? FindInMain(root, d => d is IToolDock && d.Id == HomeDocks[tool.Id])
+            ?? FindInMain(root, d => d is IToolDock)) as IToolDock;
+
+    private IDockable Build(LayoutNode node, HashSet<string> used, HashSet<string> pinnedGroups)
     {
         switch (node.Kind)
         {
             case "tools":
                 var tools = node.Tools.Select(id => used.Add(id) ? CreateTool(id) : throw new InvalidDataException($"Duplicate tool '{id}'.")).ToList();
-                if (tools.Count == 0)
+                if (tools.Count == 0 && (node.Id is null || !pinnedGroups.Contains(node.Id)))
                 {
                     throw new InvalidDataException("Empty tool group.");
                 }
@@ -77,11 +162,12 @@ public sealed class DockFactory(MainWindowViewModel main) : Factory
                 {
                     Id = node.Id ?? Guid.NewGuid().ToString("N"),
                     Proportion = node.Proportion ?? double.NaN,
+                    Alignment = EdgeOf(node.Id, node.Alignment),
                     VisibleDockables = CreateList<IDockable>([.. tools]),
-                    ActiveDockable = tools.FirstOrDefault(t => t.Id == node.ActiveTool) ?? tools[0],
+                    ActiveDockable = tools.FirstOrDefault(t => t.Id == node.ActiveTool) ?? tools.FirstOrDefault(),
                 };
             case "split":
-                var children = node.Children.Select(c => Build(c, used)).ToList();
+                var children = node.Children.Select(c => Build(c, used, pinnedGroups)).ToList();
                 NormalizeProportions(children);
                 return new ProportionalDock
                 {
@@ -282,6 +368,7 @@ public sealed class DockFactory(MainWindowViewModel main) : Factory
                 {
                     Id = "AttributesDock",
                     Proportion = 0.45,
+                    Alignment = Alignment.Right,
                     VisibleDockables = CreateList<IDockable>(attributes),
                     ActiveDockable = attributes,
                 },
@@ -290,6 +377,7 @@ public sealed class DockFactory(MainWindowViewModel main) : Factory
                 {
                     Id = "WatchDock",
                     Proportion = 0.55,
+                    Alignment = Alignment.Bottom,
                     VisibleDockables = CreateList<IDockable>(watch, recordings),
                     ActiveDockable = watch,
                 }),

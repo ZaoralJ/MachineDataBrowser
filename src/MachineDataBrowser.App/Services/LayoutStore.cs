@@ -22,6 +22,22 @@ public sealed record LayoutNode
     public IReadOnlyList<string> Tools { get; init; } = [];
 
     public IReadOnlyList<LayoutNode> Children { get; init; } = [];
+
+    /// <summary>Edge a tab group minimizes to; missing in older files.</summary>
+    public Alignment? Alignment { get; init; }
+
+    /// <summary>Minimized panes; only on the top node, missing in older files.</summary>
+    public IReadOnlyList<PinnedPane>? Pinned { get; init; }
+}
+
+public sealed record PinnedPane
+{
+    public required string Tool { get; init; }
+
+    public Alignment Edge { get; init; }
+
+    /// <summary>Tab group the pane returns to when restored.</summary>
+    public string? Group { get; init; }
 }
 
 /// <summary>
@@ -43,7 +59,8 @@ public sealed class LayoutStore(string? path = null)
 
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
         var temp = $"{_path}.{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(Capture(content), AppJsonContext.Default.LayoutNode));
+        var node = Capture(content) with { Pinned = CapturePinned(layout) };
+        File.WriteAllText(temp, JsonSerializer.Serialize(node, AppJsonContext.Default.LayoutNode));
         File.Move(temp, _path, overwrite: true);
     }
 
@@ -81,6 +98,7 @@ public sealed class LayoutStore(string? path = null)
             Id = tools.Id,
             Proportion = Finite(tools.Proportion),
             ActiveTool = tools.ActiveDockable?.Id,
+            Alignment = tools.Alignment == Alignment.Unset ? null : tools.Alignment,
             Tools = [.. (tools.VisibleDockables ?? []).OfType<PaneTool>().Select(t => t.Id)],
         },
         IProportionalDock split => new LayoutNode
@@ -94,6 +112,17 @@ public sealed class LayoutStore(string? path = null)
         IProportionalDockSplitter => new LayoutNode { Kind = "splitter" },
         _ => new LayoutNode { Kind = "unknown" },
     };
+
+    private static List<PinnedPane> CapturePinned(IRootDock root) =>
+    [
+        .. Pinned(root.LeftPinnedDockables, Alignment.Left),
+        .. Pinned(root.RightPinnedDockables, Alignment.Right),
+        .. Pinned(root.TopPinnedDockables, Alignment.Top),
+        .. Pinned(root.BottomPinnedDockables, Alignment.Bottom),
+    ];
+
+    private static IEnumerable<PinnedPane> Pinned(IList<IDockable>? dockables, Alignment edge) =>
+        (dockables ?? []).OfType<PaneTool>().Select(t => new PinnedPane { Tool = t.Id, Edge = edge, Group = t.RestoreGroup });
 
     private static double? Finite(double value) => double.IsFinite(value) ? value : null;
 }

@@ -192,6 +192,53 @@ public sealed class LayoutTests : IDisposable
         }
     }
 
+    [AvaloniaFact]
+    public async Task Minimized_panes_return_to_their_group_also_after_restart()
+    {
+        var path = Path.Combine(_dir, "pinned.json");
+        await using (var vm = new MainWindowViewModel(settingsStore: null, new LayoutStore(path)))
+        {
+            var window = new MainWindow { DataContext = vm };
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var root = vm.Layout!;
+
+            foreach (var (id, group) in new[] { ("Attributes", "AttributesDock"), ("Recordings", "WatchDock"), ("AddressSpace", "LeftDock") })
+            {
+                var tool = Tool(root, id);
+                vm.DockFactory.PinDockable(tool);
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(vm.DockFactory.IsDockablePinned(tool, root), id);
+
+                vm.DockFactory.PinDockable(tool);
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(vm.DockFactory.IsDockablePinned(tool, root), id);
+                Assert.Equal(group, ToolDocks(root).Single(d => d.VisibleDockables!.Contains(tool)).Id);
+            }
+
+            vm.DockFactory.PinDockable(Tool(root, "Attributes"));
+            Assert.Contains(root.RightPinnedDockables!, t => t.Id == "Attributes");
+            vm.SaveLayout();
+            window.Close();
+        }
+
+        await using var restored = new MainWindowViewModel(settingsStore: null, new LayoutStore(path));
+        var restoredWindow = new MainWindow { DataContext = restored };
+        restoredWindow.Show();
+        Dispatcher.UIThread.RunJobs();
+        var restoredRoot = restored.Layout!;
+        var attributes = Assert.Single(restoredRoot.RightPinnedDockables!);
+        Assert.Equal("Attributes", attributes.Id);
+
+        restored.ShowPaneCommand.Execute("Attributes");
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("AttributesDock", ToolDocks(restoredRoot).Single(d => d.VisibleDockables!.Contains(attributes)).Id);
+        Assert.Equal(Alignment.Bottom, ToolDocks(restoredRoot).Single(d => d.Id == "WatchDock").Alignment);
+        restoredWindow.Close();
+    }
+
+    private static IDockable Tool(IRootDock root, string id) => ToolDocks(root).SelectMany(d => d.VisibleDockables!).Single(t => t.Id == id);
+
     private static IEnumerable<IToolDock> ToolDocks(IDockable dockable) => dockable switch
     {
         IToolDock tools => [tools],
