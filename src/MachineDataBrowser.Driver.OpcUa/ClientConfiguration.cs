@@ -1,8 +1,9 @@
 using Opc.Ua;
 using Opc.Ua.Configuration;
 using Opc.Ua.Security.Certificates;
+using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Core.Ua;
+namespace MachineDataBrowser.Driver.OpcUa;
 
 internal static class ClientConfiguration
 {

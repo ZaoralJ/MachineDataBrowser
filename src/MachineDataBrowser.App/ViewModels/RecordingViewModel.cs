@@ -1,6 +1,7 @@
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MachineDataBrowser.Core;
+using MachineDataBrowser.Recording;
 
 namespace MachineDataBrowser.App.ViewModels;
 
@@ -8,7 +9,7 @@ public sealed partial class RecordingViewModel : ObservableObject, IAsyncDisposa
 {
     private readonly DispatcherTimer _timer;
 
-    public RecordingViewModel(Recording recording)
+    public RecordingViewModel(RecordingSession recording)
     {
         Recording = recording;
         recording.StateChanged += (_, _) => Dispatcher.UIThread.Post(Refresh);
@@ -17,7 +18,7 @@ public sealed partial class RecordingViewModel : ObservableObject, IAsyncDisposa
         _timer.Start();
     }
 
-    public Recording Recording { get; }
+    public RecordingSession Recording { get; }
 
     public string Name => Recording.Options.Name;
 

@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Recordings.Csv;
+namespace MachineDataBrowser.Recording.Csv;
 
 public sealed class CsvRecordingFileFactory : ILiveRecordingFileFactory
 {

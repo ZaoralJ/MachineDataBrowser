@@ -1,6 +1,6 @@
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Images;
-using MachineDataBrowser.Core.Cip;
+using MachineDataBrowser.Driver.Cip;
 using Xunit;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 

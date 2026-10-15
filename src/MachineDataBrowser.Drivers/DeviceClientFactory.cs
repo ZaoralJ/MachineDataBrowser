@@ -1,7 +1,7 @@
 using MachineDataBrowser.Core;
-using MachineDataBrowser.Core.Cip;
-using MachineDataBrowser.Core.Mqtt;
-using MachineDataBrowser.Core.Ua;
+using MachineDataBrowser.Driver.Cip;
+using MachineDataBrowser.Driver.Mqtt;
+using MachineDataBrowser.Driver.OpcUa;
 
 namespace MachineDataBrowser.Drivers;
 

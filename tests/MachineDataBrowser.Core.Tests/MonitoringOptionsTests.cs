@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using Opc.Ua;
-using MachineDataBrowser.Core.Ua;
+using MachineDataBrowser.Driver.OpcUa;
 using Xunit;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 

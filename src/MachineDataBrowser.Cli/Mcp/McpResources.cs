@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Text.Json;
 using MachineDataBrowser.Core;
-using MachineDataBrowser.Recordings.Sqlite;
+using MachineDataBrowser.Recording.Sqlite;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 

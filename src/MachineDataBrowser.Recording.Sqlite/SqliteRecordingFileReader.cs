@@ -2,7 +2,7 @@ using System.Globalization;
 using Microsoft.Data.Sqlite;
 using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Recordings.Sqlite;
+namespace MachineDataBrowser.Recording.Sqlite;
 
 /// <summary>
 /// Reads the samples of a SQLite recording file in steps (by row id), so the viewer can follow a file that is still

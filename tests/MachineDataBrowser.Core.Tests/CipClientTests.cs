@@ -1,7 +1,8 @@
-using MachineDataBrowser.Core.Cip;
+using MachineDataBrowser.Driver.Cip;
 using Xunit;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
+using MachineDataBrowser.Driver.OpcUa;
 
 namespace MachineDataBrowser.Core.Tests;
 

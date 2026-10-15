@@ -1,12 +1,13 @@
 using System.Threading.Channels;
+using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Core;
+namespace MachineDataBrowser.Recording;
 
 /// <summary>
 /// A named capture of value history for a set of nodes on one <see cref="IDeviceClient"/> connection.
 /// History is kept in bounded in-memory buffers (per item) and can optionally be streamed to a recording target.
 /// </summary>
-public sealed class Recording : IAsyncDisposable
+public sealed class RecordingSession : IAsyncDisposable
 {
     /// <summary>Most samples written to the live file in one go (one SQLite transaction).</summary>
     private const int LiveBatchSize = 1000;
@@ -28,7 +29,7 @@ public sealed class Recording : IAsyncDisposable
     private long _totalSamples;
     private long _sequence;
 
-    public Recording(
+    public RecordingSession(
         IDeviceClient client,
         RecordingOptions options,
         IReadOnlyList<RecordedItem> items,

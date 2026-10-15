@@ -5,7 +5,7 @@ using MachineDataBrowser.App.ViewModels;
 using MachineDataBrowser.App.Views;
 using MachineDataBrowser.Core;
 using MachineDataBrowser.Core.Tests;
-using MachineDataBrowser.Core.Ua;
+using MachineDataBrowser.Driver.OpcUa;
 using Xunit;
 
 namespace MachineDataBrowser.App.Tests;

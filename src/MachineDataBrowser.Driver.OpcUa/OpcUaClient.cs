@@ -3,8 +3,10 @@ using Opc.Ua.Client;
 using Opc.Ua.Client.ComplexTypes;
 using Opc.Ua.Configuration;
 using Opc.Ua.Security.Certificates;
+using MachineDataBrowser.Core;
+using ConnectionState = MachineDataBrowser.Core.ConnectionState;
 
-namespace MachineDataBrowser.Core.Ua;
+namespace MachineDataBrowser.Driver.OpcUa;
 
 /// <summary>
 /// One OPC UA session: connect, browse, read attributes and monitor values.

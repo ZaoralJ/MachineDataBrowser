@@ -3,8 +3,9 @@ using System.Text;
 using System.Text.Json.Nodes;
 using Opc.Ua;
 using Opc.Ua.Encoders;
+using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Core;
+namespace MachineDataBrowser.Driver.OpcUa;
 
 /// <summary>Turns a <see cref="NodeTree"/> into a JSON document or a C# class skeleton.</summary>
 public static class NodeExport

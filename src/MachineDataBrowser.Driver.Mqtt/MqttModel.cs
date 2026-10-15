@@ -4,8 +4,9 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
+using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Core.Mqtt;
+namespace MachineDataBrowser.Driver.Mqtt;
 
 /// <summary>
 /// Everything the MQTT client has seen, as a browsable model: the raw topic tree (payloads decoded as number,

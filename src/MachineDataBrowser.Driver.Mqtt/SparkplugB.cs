@@ -1,4 +1,6 @@
-namespace MachineDataBrowser.Core.Mqtt;
+using MachineDataBrowser.Core;
+
+namespace MachineDataBrowser.Driver.Mqtt;
 
 /// <summary>
 /// Minimal protobuf reader for the Sparkplug B payload (org.eclipse.tahu.protobuf.Payload). Only the fields the

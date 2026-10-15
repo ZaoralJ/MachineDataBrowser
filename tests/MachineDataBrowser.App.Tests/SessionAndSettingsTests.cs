@@ -8,7 +8,7 @@ using MachineDataBrowser.App.Services;
 using MachineDataBrowser.App.ViewModels;
 using MachineDataBrowser.App.Views;
 using MachineDataBrowser.Core.Tests;
-using MachineDataBrowser.Recordings.Formats;
+using MachineDataBrowser.Recording.Formats;
 using Xunit;
 
 namespace MachineDataBrowser.App.Tests;

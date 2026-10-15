@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using MachineDataBrowser.Core.Mqtt;
+using MachineDataBrowser.Driver.Mqtt;
 using Xunit;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 using StatusCodes = MachineDataBrowser.Core.DeviceStatusCodes;

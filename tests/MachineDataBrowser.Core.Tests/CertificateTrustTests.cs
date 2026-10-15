@@ -1,4 +1,4 @@
-using MachineDataBrowser.Core.Ua;
+using MachineDataBrowser.Driver.OpcUa;
 using Xunit;
 
 namespace MachineDataBrowser.Core.Tests;

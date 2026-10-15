@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using MachineDataBrowser.Core;
+using MachineDataBrowser.Driver.OpcUa;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 

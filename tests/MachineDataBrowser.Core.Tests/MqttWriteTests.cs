@@ -1,5 +1,5 @@
 using System.Text;
-using MachineDataBrowser.Core.Mqtt;
+using MachineDataBrowser.Driver.Mqtt;
 using Xunit;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
 

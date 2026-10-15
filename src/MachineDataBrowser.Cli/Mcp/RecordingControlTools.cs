@@ -2,7 +2,8 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using MachineDataBrowser.Core;
-using MachineDataBrowser.Recordings.Formats;
+using MachineDataBrowser.Recording;
+using MachineDataBrowser.Recording.Formats;
 using ModelContextProtocol;
 using ModelContextProtocol.Server;
 
@@ -55,7 +56,7 @@ internal sealed class RecordingControlTools(EndpointPool pool, string folder) : 
             }
 
             var minutes = Math.Clamp(durationMinutes, 1, MaxMinutes);
-            var recording = new Recording(client, new RecordingOptions
+            var recording = new RecordingSession(client, new RecordingOptions
             {
                 Name = name.Trim(),
                 SamplingIntervalMs = Math.Max(0, refreshMs),
@@ -171,5 +172,5 @@ internal sealed class RecordingControlTools(EndpointPool pool, string folder) : 
         }
     }
 
-    private sealed record Active(Recording Recording, string File, string Endpoint);
+    private sealed record Active(RecordingSession Recording, string File, string Endpoint);
 }

@@ -2,8 +2,9 @@ using System.Collections.Concurrent;
 using Opc.Ua;
 using Opc.Ua.Client;
 using Opc.Ua.Client.ComplexTypes;
+using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Core.Ua;
+namespace MachineDataBrowser.Driver.OpcUa;
 
 public sealed partial class OpcUaClient
 {

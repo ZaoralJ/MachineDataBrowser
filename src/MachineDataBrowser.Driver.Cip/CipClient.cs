@@ -3,8 +3,9 @@ using System.Text;
 using libplctag;
 using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
+using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Core.Cip;
+namespace MachineDataBrowser.Driver.Cip;
 
 /// <summary>
 /// EtherNet/IP (CIP) client for Logix controllers (ControlLogix, CompactLogix) built on libplctag.

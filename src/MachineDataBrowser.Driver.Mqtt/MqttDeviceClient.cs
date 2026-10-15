@@ -3,8 +3,9 @@ using MQTTnet;
 using MQTTnet.Protocol;
 using NodeClass = MachineDataBrowser.Core.DeviceNodeKind;
 using NodeId = MachineDataBrowser.Core.DeviceNodeId;
+using MachineDataBrowser.Core;
 
-namespace MachineDataBrowser.Core.Mqtt;
+namespace MachineDataBrowser.Driver.Mqtt;
 
 /// <summary>
 /// MQTT client (MQTT 3.1.1 / 5, TCP or WebSocket, optional TLS) behind <see cref="IDeviceClient"/>.

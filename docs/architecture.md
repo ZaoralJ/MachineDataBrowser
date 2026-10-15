@@ -83,6 +83,9 @@ flowchart LR
 | `tests/MachineDataBrowser.Cli.Tests` | The CLI's commands end to end against opc-plc and the simulators, plain and terminal output; the TUI's model against every protocol and its screen headlessly (ANSI driver, virtual time). |
 | `simulators/` | Test servers for development and tests: Logix, opc-plc, OPC UA custom types, MQTT. See [simulators.md](simulators.md). |
 
+Every project's root namespace is its project name (e.g. `MachineDataBrowser.Driver.OpcUa`); the recording engine's
+class is `RecordingSession` so that it does not clash with the `MachineDataBrowser.Recording` namespace.
+
 The target is .NET 10. Package versions are pinned in `Directory.Packages.props`. Warnings are errors and the
 recommended .NET analyzers are on.
 
@@ -139,11 +142,11 @@ classDiagram
     IDeviceClient <|.. MqttDeviceClient
     IDynamicAddressSpace <|.. MqttDeviceClient
     IPausableDiscovery <|.. MqttDeviceClient
-    class Recording {
+    class RecordingSession {
         MonitorManyAsync(items)
         bounded buffers · live CSV
     }
-    Recording --> IDeviceClient
+    RecordingSession --> IDeviceClient
 ```
 
 | | OPC UA (`opc.tcp://`) | EtherNet/IP (`eip://host[:port]/1,0`) | MQTT (`mqtt://host[:port][/filter]`) |
@@ -169,7 +172,7 @@ sequenceDiagram
     participant D as Device / broker
     participant C as IDeviceClient
     participant W as Watch (MainWindowViewModel)
-    participant R as Recording
+    participant R as RecordingSession
     participant UI as UI thread (200 ms flush)
 
     D->>C: notification / poll result / MQTT message
@@ -308,7 +311,7 @@ flowchart TB
 - The app and the TUI reload the session, asking first when that would lose unsaved changes or a recording. `run`
   swaps its watch list in place, keeping its connection when the endpoint options didn't change.
 
-## Recordings (`Core/RecordingContracts.cs`, `Recording/Recording.cs`)
+## Recordings (`Core/RecordingContracts.cs`, `Recording/RecordingSession.cs`)
 
 - A recording monitors its own items through the client, independently of the Watch list.
 - History is bounded per item: max points and max age.

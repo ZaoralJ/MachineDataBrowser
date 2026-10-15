@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using MachineDataBrowser.Core;
-using MachineDataBrowser.Recordings.Formats;
+using MachineDataBrowser.Recording;
+using MachineDataBrowser.Recording.Formats;
 
 namespace MachineDataBrowser.App.ViewModels;
 
@@ -10,7 +11,7 @@ public sealed partial class NewRecordingViewModel(NewRecordingDraft draft) : Obs
     private RecordingState _editingState;
 
     /// <summary>Edits the settings of an existing recording (same form, applied instead of started).</summary>
-    public static NewRecordingViewModel ForEdit(Recording recording, DateTimeOffset now)
+    public static NewRecordingViewModel ForEdit(RecordingSession recording, DateTimeOffset now)
     {
         var o = recording.Options;
         var vm = new NewRecordingViewModel(new NewRecordingDraft(o.Name, recording.Items.Count, (int)o.SamplingIntervalMs))

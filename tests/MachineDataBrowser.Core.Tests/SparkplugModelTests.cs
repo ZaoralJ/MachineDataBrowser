@@ -1,4 +1,4 @@
-using MachineDataBrowser.Core.Mqtt;
+using MachineDataBrowser.Driver.Mqtt;
 using Xunit;
 using StatusCodes = MachineDataBrowser.Core.DeviceStatusCodes;
 
