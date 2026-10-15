@@ -317,7 +317,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsDisconnected), nameof(StateText), nameof(SupportsEvents), nameof(SupportsHistory), nameof(SupportsMethods), nameof(SupportsMonitoringSettings), nameof(SupportsDiscoveryPause), nameof(IsDiscoveryPaused), nameof(DiscoveryToolTip))]
-    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand), nameof(WriteAttributeValueCommand), nameof(WriteWatchValueCommand), nameof(ShowEventsCommand), nameof(ShowHistoryCommand), nameof(ShowWatchHistoryCommand), nameof(CallMethodCommand), nameof(EditMonitoringCommand), nameof(ToggleBookmarkCommand), nameof(ToggleDiscoveryCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand), nameof(AddToWatchCommand), nameof(MonitorFolderCommand), nameof(TakeFolderSnapshotCommand), nameof(ExpandAllCommand), nameof(NewRecordingCommand), nameof(RecordAllCommand), nameof(SearchCommand), nameof(WriteAttributeValueCommand), nameof(WriteWatchValueCommand), nameof(ShowEventsCommand), nameof(ShowHistoryCommand), nameof(ShowWatchHistoryCommand), nameof(CallMethodCommand), nameof(EditMonitoringCommand), nameof(ToggleBookmarkCommand), nameof(ToggleDiscoveryCommand))]
     [NotifyCanExecuteChangedFor(nameof(CopyCliBrowseCommand), nameof(CopyCliReadCommand), nameof(CopyCliMonitorCommand), nameof(CopyWatchCliMonitorCommand), nameof(CopyWatchCliReadCommand))]
     public partial ConnectionState State { get; private set; }
 
@@ -332,7 +332,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     public partial string? ErrorMessage { get; private set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(AddToWatchCommand), nameof(CopyNodeIdCommand), nameof(MonitorFolderCommand), nameof(CopyNodeJsonCommand), nameof(CopyNodeClassCommand), nameof(CopyNodeRecordCommand), nameof(WriteAttributeValueCommand), nameof(CallMethodCommand), nameof(ToggleBookmarkCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddToWatchCommand), nameof(CopyNodeIdCommand), nameof(MonitorFolderCommand), nameof(TakeFolderSnapshotCommand), nameof(CopyNodeJsonCommand), nameof(CopyNodeClassCommand), nameof(CopyNodeRecordCommand), nameof(WriteAttributeValueCommand), nameof(CallMethodCommand), nameof(ToggleBookmarkCommand))]
     public partial NodeViewModel? SelectedNode { get; set; }
 
     [ObservableProperty]
@@ -796,6 +796,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         AddToWatchCommand.NotifyCanExecuteChanged();
         MonitorSelectedWithRefreshCommand.NotifyCanExecuteChanged();
         MonitorFolderCommand.NotifyCanExecuteChanged();
+        TakeFolderSnapshotCommand.NotifyCanExecuteChanged();
         CopyNodeIdCommand.NotifyCanExecuteChanged();
         CopyNodeJsonCommand.NotifyCanExecuteChanged();
         CopyNodeClassCommand.NotifyCanExecuteChanged();

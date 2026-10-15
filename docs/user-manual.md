@@ -232,16 +232,27 @@ machine.
 - **Watch ▸ Take Snapshot of Selected Rows** (⇧⌥⌘T, also in the Watch context menu) saves only the selected rows, e.g.
   a parameter set out of a large watch list. Comparing it leaves other watch rows out instead of listing them as
   *only after*; the list shows it as *selection*.
+- **Watch ▸ Take Snapshot of Folder…** (⇧⌥⌘F, or right-click a folder or structure in the address space) reads every
+  variable below the selected node once and saves the values under a name you choose, without adding them to Watch;
+  e.g. a machine's settings on a date. Items are named by their path below the folder (`Drive/Speed`); subfolders
+  count, up to the *Monitor folder* limit in Settings. A value that can't be read is saved as *Bad* and never written
+  back.
 - **Watch ▸ Compare with Snapshot…** (⌥⌘Y) shows *Before* (a snapshot) next to *After*: the live watch values,
   updated every second, or another snapshot.
   - Items are matched by NodeId. *Change* shows the difference for numbers, *changed* for other values, and
     *only before* / *only after* for items in one side only. A status change counts as a change.
+  - Items of a folder, selection or imported snapshot that aren't in the watch list are read from the device every
+    second, so they compare (and write back) without watch rows.
   - **Changed only** hides equal values. ⌘C copies the rows as a table.
   - **Snapshot ▸ Rename Before…** gives the *Before* snapshot a meaningful name, e.g. *Line 1 – product A*; Enter
     renames, Esc cancels.
-  - **Snapshot ▸ Export Before…** saves the *Before* snapshot as a JSON file, to share it or keep it with the
-    machine's documentation; **Snapshot ▸ Import…** adds such a file and selects it as *Before* (importing the same
-    file again replaces it). **Snapshot ▸ Delete Before** removes the *Before* one.
+  - **Snapshot ▸ Export Before…** saves the *Before* snapshot as JSON, or as CSV (Name, NodeId, Value, Status) for a
+    spreadsheet; **Snapshot ▸ Import…** adds such a file and selects it as *Before*. Importing the same JSON file again
+    replaces it; a CSV is named after the file and added each time. **Snapshot ▸ Delete Before** removes the *Before*
+    one.
+  - An imported CSV needs NodeId and Value columns; Name and Status are optional (no Status means Good). Comma or
+    semicolon separators both work; quote values that contain them. Edit values in a spreadsheet and import the file
+    to write a parameter set to the machine.
 - **Write back…** writes the snapshot's values back to the device, e.g. to restore a parameter set after
   trying something. It works against the live watch values only, and is off in read-only sessions.
   - It writes the selected rows, or every row shown when none is selected; rows that are unchanged or whose snapshot

@@ -42,8 +42,8 @@ public sealed record SnapshotDiffRow(
         && Before != After;
 }
 
-/// <summary>Writes snapshot values back to the device; the result lists the rows that failed, with the reason.</summary>
-public interface ISnapshotWriter
+/// <summary>The connection a comparison reads missing values from and writes snapshot values back to.</summary>
+public interface ISnapshotDevice
 {
     /// <summary>False in read-only sessions and while disconnected.</summary>
     bool CanWrite { get; }
@@ -51,7 +51,11 @@ public interface ISnapshotWriter
     /// <summary>The endpoint the values would go to, to warn when a snapshot was taken elsewhere.</summary>
     string EndpointUrl { get; }
 
+    /// <summary>Writes the rows' snapshot values; the result lists the rows that failed, with the reason.</summary>
     Task<IReadOnlyList<string>> WriteAsync(IReadOnlyList<SnapshotDiffRow> rows);
+
+    /// <summary>Reads the current values of snapshot items from the device (empty while disconnected).</summary>
+    Task<IReadOnlyList<SnapshotItem>> ReadAsync(IReadOnlyList<SnapshotItem> items);
 }
 
 /// <summary>Compares a saved snapshot with the live watch list or another snapshot.</summary>
@@ -61,17 +65,20 @@ public sealed partial class SnapshotCompareViewModel : ObservableObject, IDispos
 
     private readonly SnapshotStore _store;
     private readonly Func<Snapshot> _live;
-    private readonly ISnapshotWriter? _writer;
+    private readonly ISnapshotDevice? _writer;
+    private Dictionary<string, SnapshotItem> _device = new(StringComparer.Ordinal);
+    private Task? _reading;
+    private Snapshot? _readingFor;
     private readonly IDialogService? _dialogs;
     private readonly DispatcherTimer _timer;
     private IReadOnlyList<SnapshotDiffRow> _pending = [];
 
-    public SnapshotCompareViewModel(SnapshotStore store, Func<Snapshot> live, Snapshot? select = null, ISnapshotWriter? writer = null,
+    public SnapshotCompareViewModel(SnapshotStore store, Func<Snapshot> live, Snapshot? select = null, ISnapshotDevice? device = null,
         IDialogService? dialogs = null)
     {
         _store = store;
         _live = live;
-        _writer = writer;
+        _writer = device;
         _dialogs = dialogs;
         Reload(select);
         _timer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) =>
@@ -79,6 +86,7 @@ public sealed partial class SnapshotCompareViewModel : ObservableObject, IDispos
             if (IsLive)
             {
                 Compare();
+                _ = ReadMissingAsync();
             }
         });
         _timer.Start();
@@ -139,9 +147,18 @@ public sealed partial class SnapshotCompareViewModel : ObservableObject, IDispos
 
     public bool IsLive => Target is string;
 
-    partial void OnBaselineChanged(Snapshot? value) => Compare();
+    partial void OnBaselineChanged(Snapshot? value)
+    {
+        _device.Clear();
+        Compare();
+        _ = ReadMissingAsync();
+    }
 
-    partial void OnTargetChanged(object? value) => Compare();
+    partial void OnTargetChanged(object? value)
+    {
+        Compare();
+        _ = ReadMissingAsync();
+    }
 
     partial void OnChangedOnlyChanged(bool value) => Compare();
 
@@ -173,7 +190,7 @@ public sealed partial class SnapshotCompareViewModel : ObservableObject, IDispos
             return;
         }
 
-        var after = Target as Snapshot ?? _live();
+        var after = Target as Snapshot ?? WithDeviceValues(before, _live());
         var all = Diff(before, after);
         IsRefreshing = true;
         try
@@ -193,6 +210,76 @@ public sealed partial class SnapshotCompareViewModel : ObservableObject, IDispos
             + (added > 0 ? $", {added} only after" : string.Empty)
             + (removed > 0 ? $", {removed} only before" : string.Empty);
         RestoreCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Live values of a partial snapshot's items that aren't in the watch list (e.g. a folder snapshot), as last read
+    /// from the device; full snapshots keep comparing with the watch list only, so removed rows show as "only before".
+    /// </summary>
+    private Snapshot WithDeviceValues(Snapshot before, Snapshot live)
+    {
+        if (!before.Partial || _device.Count == 0)
+        {
+            return live;
+        }
+
+        var watched = live.Items.Select(i => i.NodeId).ToHashSet(StringComparer.Ordinal);
+        return live with { Items = [.. live.Items, .. _device.Values.Where(i => !watched.Contains(i.NodeId))] };
+    }
+
+    /// <summary>
+    /// Reads the partial baseline's items that aren't watched; runs once a second while comparing live. A read that is
+    /// already running is awaited instead of starting another.
+    /// </summary>
+    public async Task ReadMissingAsync()
+    {
+        if (_reading is { IsCompleted: false } running)
+        {
+            await running;
+            if (ReferenceEquals(_readingFor, Baseline))
+            {
+                return;
+            }
+        }
+
+        if (_reading is { IsCompleted: false } started)
+        {
+            await started;
+            return;
+        }
+
+        _readingFor = Baseline;
+        _reading = ReadMissingCoreAsync();
+        await _reading;
+    }
+
+    private async Task ReadMissingCoreAsync()
+    {
+        if (_writer is null || !IsLive || Baseline is not { Partial: true } before)
+        {
+            return;
+        }
+
+        var watched = _live().Items.Select(i => i.NodeId).ToHashSet(StringComparer.Ordinal);
+        var missing = before.Items.Where(i => !watched.Contains(i.NodeId)).ToList();
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var read = await _writer.ReadAsync(missing);
+            if (ReferenceEquals(before, Baseline))
+            {
+                _device = read.GroupBy(i => i.NodeId).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+                Compare();
+            }
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            AppErrors.Log(ex, "reading snapshot values from the device");
+        }
     }
 
     public static IReadOnlyList<SnapshotDiffRow> Diff(Snapshot before, Snapshot after)
