@@ -48,5 +48,47 @@ public sealed partial class MainWindowViewModel
 
     /// <summary>Opens the comparison of the newest snapshot with the live watch values.</summary>
     [RelayCommand]
-    private void CompareSnapshot() => Dialogs?.ShowSnapshotCompare(new SnapshotCompareViewModel(Snapshots, () => CurrentSnapshot("Now")));
+    private void CompareSnapshot() => Dialogs?.ShowSnapshotCompare(new SnapshotCompareViewModel(Snapshots, () => CurrentSnapshot("Now"), writer: new SnapshotWriter(this)));
+
+    /// <summary>Writes snapshot values to the watch rows they were taken from, matched by portable id.</summary>
+    private sealed class SnapshotWriter(MainWindowViewModel owner) : ISnapshotWriter
+    {
+        public bool CanWrite => owner.IsConnected && !owner.IsReadOnly;
+
+        public string EndpointUrl => owner.EndpointUrl;
+
+        public async Task<IReadOnlyList<string>> WriteAsync(IReadOnlyList<SnapshotDiffRow> rows)
+        {
+            // Checked again here: the session may have turned read-only while the question was shown.
+            if (!CanWrite)
+            {
+                return [.. rows.Select(r => $"{r.Name}: read-only or disconnected")];
+            }
+
+            var items = owner.WatchItems.GroupBy(w => w.PortableId).ToDictionary(g => g.Key, g => g.First());
+            var failures = new List<string>();
+            foreach (var row in rows)
+            {
+                if (!items.TryGetValue(row.NodeId, out var item))
+                {
+                    failures.Add($"{row.Name}: no longer in the watch list");
+                    continue;
+                }
+
+                try
+                {
+                    await owner._client.WriteValueAsync(item.NodeId, row.Before);
+                }
+                catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+                {
+                    failures.Add($"{row.Name}: {ex.Message}");
+                }
+            }
+
+            owner.StatusMessage = failures.Count == 0
+                ? $"Wrote {rows.Count} snapshot value(s)"
+                : $"Wrote {rows.Count - failures.Count} of {rows.Count} snapshot value(s); {failures.Count} failed";
+            return failures;
+        }
+    }
 }

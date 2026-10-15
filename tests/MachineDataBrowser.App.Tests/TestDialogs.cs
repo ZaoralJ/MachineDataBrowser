@@ -41,7 +41,9 @@ public class TestDialogs : IDialogService
 
     public int RecordingsAsked { get; private set; }
 
-    public Task<string?> AskWriteValueAsync(string target, string currentValue) => Task.FromResult<string?>(null);
+    public string? WriteAnswer { get; set; }
+
+    public Task<string?> AskWriteValueAsync(string target, string currentValue) => Task.FromResult(WriteAnswer);
 
     public CertificateTrustChoice TrustAnswer { get; set; } = CertificateTrustChoice.Cancel;
 
