@@ -133,21 +133,41 @@ public sealed partial class MainWindow : IDialogService
         static string FormatThumbprint(string hex) => string.Join(':', hex.Chunk(2).Select(c => new string(c)));
     }
 
-    public async Task<string?> AskWriteValueAsync(string target, string currentValue)
+    public Task<string?> AskWriteValueAsync(string target, string currentValue) =>
+        AskTextAsync("Write value", $"New value for {target}",
+            "Converted to the variable's data type. Arrays: comma-separated, e.g. [1, 2, 3].", currentValue, "Write", monospace: true);
+
+    public Task<string?> AskSnapshotNameAsync(string suggestedName, int itemCount) =>
+        AskTextAsync("Take snapshot", "Snapshot name",
+            $"Saves the current values of {itemCount} watch item(s), e.g. as a parameter set to write back later.", suggestedName, "Take Snapshot",
+            monospace: false, requireText: true);
+
+    private async Task<string?> AskTextAsync(string title, string heading, string hint, string value, string okText, bool monospace, bool requireText = false)
     {
-        var input = new TextBox { Text = currentValue, MinWidth = 320, AcceptsReturn = false, FontFamily = new Avalonia.Media.FontFamily("Menlo, Consolas, monospace") };
+        var input = new TextBox { Text = value, MinWidth = 320, AcceptsReturn = false };
+        if (monospace)
+        {
+            input.FontFamily = new Avalonia.Media.FontFamily("Menlo, Consolas, monospace");
+        }
+
         var dialog = new Window
         {
-            Title = "Write value",
+            Title = title,
             Width = 420,
             SizeToContent = SizeToContent.Height,
             CanResize = false,
             ShowInTaskbar = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
         };
-        var ok = new Button { Content = "Write", IsDefault = true, MinWidth = 80 };
+        var ok = new Button { Content = okText, IsDefault = true, MinWidth = 80 };
         ok.Classes.Add("accent");
         var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 80 };
+        if (requireText)
+        {
+            ok.IsEnabled = !string.IsNullOrWhiteSpace(value);
+            input.TextChanged += (_, _) => ok.IsEnabled = !string.IsNullOrWhiteSpace(input.Text);
+        }
+
         ok.Click += (_, _) => dialog.Close(input.Text ?? string.Empty);
         cancel.Click += (_, _) => dialog.Close(null);
         dialog.Content = new StackPanel
@@ -156,8 +176,8 @@ public sealed partial class MainWindow : IDialogService
             Spacing = 12,
             Children =
             {
-                new TextBlock { Text = $"New value for {target}", FontWeight = Avalonia.Media.FontWeight.SemiBold, TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-                new TextBlock { Text = "Converted to the variable's data type. Arrays: comma-separated, e.g. [1, 2, 3].", TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 },
+                new TextBlock { Text = heading, FontWeight = Avalonia.Media.FontWeight.SemiBold, TextWrapping = Avalonia.Media.TextWrapping.Wrap },
+                new TextBlock { Text = hint, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12 },
                 input,
                 new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Spacing = 8, Children = { cancel, ok } },
             },

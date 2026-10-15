@@ -101,6 +101,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         WatchItems.CollectionChanged += (_, _) =>
         {
             TakeSnapshotCommand.NotifyCanExecuteChanged();
+            TakeNamedSnapshotCommand.NotifyCanExecuteChanged();
             CopyWatchCliMonitorCommand.NotifyCanExecuteChanged();
             CopyWatchCliReadCommand.NotifyCanExecuteChanged();
         };

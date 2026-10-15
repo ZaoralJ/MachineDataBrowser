@@ -92,8 +92,16 @@ public sealed partial class SnapshotCompareViewModel : ObservableObject, IDispos
     public BulkObservableCollection<SnapshotDiffRow> Rows { get; } = [];
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(DeleteCommand), nameof(ExportCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteCommand), nameof(ExportCommand), nameof(StartRenameCommand))]
     public partial Snapshot? Baseline { get; set; }
+
+    /// <summary>The name being typed while renaming <see cref="Baseline"/>; null when not renaming.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsRenaming))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyRenameCommand))]
+    public partial string? NewName { get; set; }
+
+    public bool IsRenaming => NewName is not null;
 
     [ObservableProperty]
     public partial object? Target { get; set; }
@@ -212,6 +220,39 @@ public sealed partial class SnapshotCompareViewModel : ObservableObject, IDispos
     }
 
     private bool CanDelete() => Baseline is not null;
+
+    [RelayCommand(CanExecute = nameof(CanDelete))]
+    private void StartRename() => NewName = Baseline?.Name;
+
+    private bool CanApplyRename() => !string.IsNullOrWhiteSpace(NewName);
+
+    [RelayCommand(CanExecute = nameof(CanApplyRename))]
+    private void ApplyRename()
+    {
+        if (Baseline is not { } snapshot || string.IsNullOrWhiteSpace(NewName))
+        {
+            return;
+        }
+
+        try
+        {
+            var renamed = _store.Rename(snapshot, NewName);
+            var target = (Target as Snapshot)?.TakenAt;
+            NewName = null;
+            Reload(renamed);
+            if (target is { } taken && Snapshots.FirstOrDefault(s => s.TakenAt == taken) is { } after)
+            {
+                Target = Targets.OfType<Snapshot>().First(s => s.TakenAt == after.TakenAt);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            WriteResult = $"Rename failed: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void CancelRename() => NewName = null;
 
     private bool CanExport() => Baseline is not null && _dialogs is not null;
 

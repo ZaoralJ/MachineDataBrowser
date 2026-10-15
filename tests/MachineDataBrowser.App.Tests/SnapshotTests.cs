@@ -162,4 +162,77 @@ public sealed class SnapshotTests : IDisposable
         Assert.StartsWith("Import failed", compare.WriteResult, StringComparison.Ordinal);
         Assert.Single(compare.Snapshots);
     }
+
+    [AvaloniaFact]
+    public async Task Snapshots_are_renamed_in_place_and_keep_the_comparison()
+    {
+        var dialogs = new TestDialogs();
+        await using var vm = new MainWindowViewModel(new SettingsStore(Path.Combine(_dir, "settings.json"))) { Dialogs = dialogs };
+        vm.WatchItems.AddRange([Item(1, "Speed", "1500")]);
+        vm.TakeSnapshotCommand.Execute(null);
+        await Task.Delay(20, TestContext.Current.CancellationToken);
+        vm.TakeSnapshotCommand.Execute(null);
+        vm.CompareSnapshotCommand.Execute(null);
+        using var compare = dialogs.Compare!;
+        compare.Baseline = compare.Snapshots[1];
+        compare.Target = compare.Snapshots[0];
+        var file = compare.Baseline.Path!;
+
+        Assert.False(compare.IsRenaming);
+        compare.StartRenameCommand.Execute(null);
+        Assert.Equal(compare.Baseline.Name, compare.NewName);
+        compare.NewName = "  ";
+        Assert.False(compare.ApplyRenameCommand.CanExecute(null));
+        compare.NewName = "  Line 1 – product A ";
+        compare.ApplyRenameCommand.Execute(null);
+
+        Assert.False(compare.IsRenaming);
+        Assert.Equal("Line 1 – product A", compare.Baseline!.Name);
+        Assert.Equal(file, compare.Baseline.Path);
+        Assert.Same(compare.Snapshots[0], compare.Target);
+        Assert.Equal(2, Directory.GetFiles(Path.Combine(_dir, "snapshots"), "*.json").Length);
+        Assert.Contains(new SnapshotStore(Path.Combine(_dir, "snapshots")).List(), s => s.Name == "Line 1 – product A");
+
+        // In the window: Enter renames, Esc cancels.
+        var window = new SnapshotCompareWindow { DataContext = compare };
+        window.Show();
+        compare.StartRenameCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        compare.NewName = "Product B";
+        window.KeyPress(Avalonia.Input.Key.Enter, Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PhysicalKey.Enter, null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("Product B", compare.Baseline!.Name);
+
+        compare.StartRenameCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        compare.NewName = "discarded";
+        window.KeyPress(Avalonia.Input.Key.Escape, Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PhysicalKey.Escape, null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(compare.IsRenaming);
+        Assert.Equal("Product B", compare.Baseline!.Name);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Take_snapshot_as_asks_for_a_name_first()
+    {
+        var dialogs = new TestDialogs();
+        await using var vm = new MainWindowViewModel(new SettingsStore(Path.Combine(_dir, "settings.json"))) { Dialogs = dialogs };
+        Assert.False(vm.TakeNamedSnapshotCommand.CanExecute(null));
+        vm.WatchItems.AddRange([Item(1, "Speed", "1500"), Item(2, "Mode", "AUTO")]);
+        Assert.True(vm.TakeNamedSnapshotCommand.CanExecute(null));
+
+        // Cancelled: nothing saved; the suggestion is the usual date-time name.
+        await vm.TakeNamedSnapshotCommand.ExecuteAsync(null);
+        Assert.StartsWith("Snapshot ", dialogs.SnapshotNameAsked!.Value.Suggested, StringComparison.Ordinal);
+        Assert.Equal(2, dialogs.SnapshotNameAsked.Value.Items);
+        Assert.False(Directory.Exists(Path.Combine(_dir, "snapshots")));
+
+        dialogs.SnapshotNameAnswer = " Line 1 – product A ";
+        await vm.TakeNamedSnapshotCommand.ExecuteAsync(null);
+        var snapshot = Assert.Single(new SnapshotStore(Path.Combine(_dir, "snapshots")).List());
+        Assert.Equal("Line 1 – product A", snapshot.Name);
+        Assert.Equal(2, snapshot.Items.Count);
+        Assert.False(snapshot.Partial);
+    }
 }

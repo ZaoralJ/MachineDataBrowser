@@ -45,6 +45,16 @@ public class TestDialogs : IDialogService
 
     public Task<string?> AskWriteValueAsync(string target, string currentValue) => Task.FromResult(WriteAnswer);
 
+    public string? SnapshotNameAnswer { get; set; }
+
+    public (string Suggested, int Items)? SnapshotNameAsked { get; private set; }
+
+    public Task<string?> AskSnapshotNameAsync(string suggestedName, int itemCount)
+    {
+        SnapshotNameAsked = (suggestedName, itemCount);
+        return Task.FromResult(SnapshotNameAnswer);
+    }
+
     public CertificateTrustChoice TrustAnswer { get; set; } = CertificateTrustChoice.Cancel;
 
     public ServerCertificate? TrustAsked { get; private set; }

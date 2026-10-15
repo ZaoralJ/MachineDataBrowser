@@ -21,6 +21,8 @@
         <DropDownButton DockPanel.Dock="Right" Content="Snapshot" Margin="8,0,0,0" AutomationProperties.Name="Snapshot actions">
           <DropDownButton.Flyout>
             <MenuFlyout>
+              <MenuItem Header="Rename Before…" Command="{Binding StartRenameCommand}"
+                        ToolTip.Tip="Give the Before snapshot a meaningful name, e.g. Line 1 – product A" />
               <MenuItem Header="Export Before…" Command="{Binding ExportCommand}"
                         ToolTip.Tip="Save the Before snapshot as a JSON file, e.g. to share a parameter set" />
               <MenuItem Header="Import…" Command="{Binding ImportCommand}"
@@ -43,6 +45,18 @@
           <ComboBox ItemsSource="{Binding Targets}" SelectedItem="{Binding Target}" MinWidth="210"
                     AutomationProperties.Name="Compare with" />
         </StackPanel>
+      </DockPanel>
+    </Border>
+    <Border DockPanel.Dock="Top" Padding="10,6" IsVisible="{Binding IsRenaming}"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Left" Text="Name" VerticalAlignment="Center" Margin="0,0,8,0" />
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0">
+          <Button Content="Cancel" Command="{Binding CancelRenameCommand}" />
+          <Button Content="Rename" Command="{Binding ApplyRenameCommand}" Classes="accent" />
+        </StackPanel>
+        <TextBox x:Name="RenameBox" Text="{Binding NewName}" AutomationProperties.Name="Snapshot name"
+                 KeyDown="OnRenameKeyDown" />
       </DockPanel>
     </Border>
     <Border DockPanel.Dock="Bottom" Padding="10,4"
