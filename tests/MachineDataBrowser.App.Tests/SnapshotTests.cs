@@ -93,4 +93,73 @@ public sealed class SnapshotTests : IDisposable
         Assert.Single(second.Snapshots);
         Assert.Single(Directory.GetFiles(Path.Combine(_dir, "snapshots"), "*.json"));
     }
+
+    [AvaloniaFact]
+    public async Task A_snapshot_of_selected_rows_leaves_the_other_rows_out_of_the_comparison()
+    {
+        var dialogs = new TestDialogs();
+        await using var vm = new MainWindowViewModel(new SettingsStore(Path.Combine(_dir, "settings.json"))) { Dialogs = dialogs };
+        var speed = Item(1, "Speed", "1500");
+        var mode = Item(2, "Mode", "AUTO");
+        vm.WatchItems.AddRange([speed, mode, Item(3, "Temperature", "20.5")]);
+        Assert.False(vm.TakeSelectionSnapshotCommand.CanExecute(null));
+
+        vm.SelectedWatchItems.Add(speed);
+        vm.SelectedWatchItems.Add(mode);
+        Assert.True(vm.TakeSelectionSnapshotCommand.CanExecute(null));
+        vm.TakeSelectionSnapshotCommand.Execute(null);
+
+        Set(speed, "1400");
+        vm.CompareSnapshotCommand.Execute(null);
+        using var compare = dialogs.Compare!;
+        var snapshot = Assert.Single(compare.Snapshots);
+        Assert.True(snapshot.Partial);
+        Assert.Equal(["Mode", "Speed"], snapshot.Items.Select(i => i.Name).Order());
+        Assert.EndsWith("2 item(s), selection", snapshot.ToString(), StringComparison.Ordinal);
+
+        // Temperature is in the watch list but not in the snapshot: it is not "only after".
+        compare.ChangedOnly = false;
+        Assert.Equal(["Mode", "Speed"], compare.Rows.Select(r => r.Name).Order());
+        Assert.Contains("1 changed, 1 same", compare.Summary, StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
+    public async Task Snapshots_are_exported_and_imported_as_json_files()
+    {
+        var dialogs = new TestDialogs();
+        await using var vm = new MainWindowViewModel(new SettingsStore(Path.Combine(_dir, "settings.json"))) { Dialogs = dialogs };
+        vm.WatchItems.AddRange([Item(1, "Speed", "1500"), Item(2, "Mode", "AUTO")]);
+        vm.TakeSnapshotCommand.Execute(null);
+        vm.CompareSnapshotCommand.Execute(null);
+        using var compare = dialogs.Compare!;
+        var original = compare.Baseline!;
+
+        var exported = Path.Combine(_dir, "line1-recipe.json");
+        dialogs.SnapshotExportAnswer = exported;
+        await compare.ExportCommand.ExecuteAsync(null);
+        Assert.True(File.Exists(exported));
+        Assert.StartsWith("Exported", compare.WriteResult, StringComparison.Ordinal);
+
+        // Importing it elsewhere (a fresh store) brings back the same items and selects it.
+        compare.DeleteCommand.Execute(null);
+        Assert.Empty(compare.Snapshots);
+        dialogs.SnapshotImportAnswer = exported;
+        await compare.ImportCommand.ExecuteAsync(null);
+        var imported = Assert.Single(compare.Snapshots);
+        Assert.Same(imported, compare.Baseline);
+        Assert.Equal(original.Name, imported.Name);
+        Assert.Equal(original.Items, imported.Items);
+
+        // Importing the same file again replaces it instead of adding a copy.
+        await compare.ImportCommand.ExecuteAsync(null);
+        Assert.Single(compare.Snapshots);
+
+        // Anything else is refused with a message.
+        var notSnapshot = Path.Combine(_dir, "settings-copy.json");
+        await File.WriteAllTextAsync(notSnapshot, """{"theme":"dark"}""", TestContext.Current.CancellationToken);
+        dialogs.SnapshotImportAnswer = notSnapshot;
+        await compare.ImportCommand.ExecuteAsync(null);
+        Assert.StartsWith("Import failed", compare.WriteResult, StringComparison.Ordinal);
+        Assert.Single(compare.Snapshots);
+    }
 }

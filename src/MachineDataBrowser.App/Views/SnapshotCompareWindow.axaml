@@ -18,8 +18,19 @@
   <DockPanel>
     <Border DockPanel.Dock="Top" Classes="pane-toolbar" Padding="10,6">
       <DockPanel>
-        <Button DockPanel.Dock="Right" Content="Delete snapshot" Command="{Binding DeleteCommand}" Margin="8,0,0,0"
-                ToolTip.Tip="Delete the selected baseline snapshot" />
+        <DropDownButton DockPanel.Dock="Right" Content="Snapshot" Margin="8,0,0,0" AutomationProperties.Name="Snapshot actions">
+          <DropDownButton.Flyout>
+            <MenuFlyout>
+              <MenuItem Header="Export Before…" Command="{Binding ExportCommand}"
+                        ToolTip.Tip="Save the Before snapshot as a JSON file, e.g. to share a parameter set" />
+              <MenuItem Header="Import…" Command="{Binding ImportCommand}"
+                        ToolTip.Tip="Add a snapshot file and compare with it" />
+              <Separator />
+              <MenuItem Header="Delete Before" Command="{Binding DeleteCommand}"
+                        ToolTip.Tip="Delete the selected baseline snapshot" />
+            </MenuFlyout>
+          </DropDownButton.Flyout>
+        </DropDownButton>
         <Button DockPanel.Dock="Right" Content="Write back…" Command="{Binding RestoreCommand}" Margin="8,0,0,0"
                 IsVisible="{Binding CanRestoreAny}"
                 ToolTip.Tip="Write the snapshot values of the selected rows (or all changed rows) back to the device" />

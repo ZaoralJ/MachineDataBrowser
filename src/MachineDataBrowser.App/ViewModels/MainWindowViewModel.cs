@@ -96,6 +96,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             EditMonitoringCommand.NotifyCanExecuteChanged();
             EditDisplayCommand.NotifyCanExecuteChanged();
             ShowWatchHistoryCommand.NotifyCanExecuteChanged();
+            TakeSelectionSnapshotCommand.NotifyCanExecuteChanged();
         };
         WatchItems.CollectionChanged += (_, _) =>
         {

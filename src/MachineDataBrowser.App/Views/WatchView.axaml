@@ -134,6 +134,8 @@
             </MenuItem>
             <Separator />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Write value…{0}'}" Command="{Binding WriteWatchValueCommand}" />
+            <MenuItem Header="Take snapshot of selected rows" Command="{Binding TakeSelectionSnapshotCommand}"
+                      ToolTip.Tip="Save the values of the selected rows only, e.g. as a parameter set to write back later" />
             <Separator />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy value{0}'}" Command="{Binding CopyWatchValueCommand}" />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Copy NodeId{0}'}" Command="{Binding CopyWatchNodeIdCommand}" />
