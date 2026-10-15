@@ -45,6 +45,12 @@ public interface IDialogService
     /// <summary>Opens the snapshot comparison.</summary>
     void ShowSnapshotCompare(ViewModels.SnapshotCompareViewModel compare);
 
+    /// <summary>Asks where to export a snapshot (JSON); null when cancelled.</summary>
+    Task<string?> PickSnapshotExportTargetAsync(string suggestedName);
+
+    /// <summary>Asks for a snapshot file to import; null when cancelled.</summary>
+    Task<string?> PickSnapshotFileAsync();
+
     /// <summary>Opens the live connection diagnostics.</summary>
     void ShowDiagnostics(ViewModels.DiagnosticsViewModel diagnostics);
 

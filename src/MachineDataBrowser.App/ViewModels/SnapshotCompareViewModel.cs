@@ -62,14 +62,17 @@ public sealed partial class SnapshotCompareViewModel : ObservableObject, IDispos
     private readonly SnapshotStore _store;
     private readonly Func<Snapshot> _live;
     private readonly ISnapshotWriter? _writer;
+    private readonly IDialogService? _dialogs;
     private readonly DispatcherTimer _timer;
     private IReadOnlyList<SnapshotDiffRow> _pending = [];
 
-    public SnapshotCompareViewModel(SnapshotStore store, Func<Snapshot> live, Snapshot? select = null, ISnapshotWriter? writer = null)
+    public SnapshotCompareViewModel(SnapshotStore store, Func<Snapshot> live, Snapshot? select = null, ISnapshotWriter? writer = null,
+        IDialogService? dialogs = null)
     {
         _store = store;
         _live = live;
         _writer = writer;
+        _dialogs = dialogs;
         Reload(select);
         _timer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) =>
         {
@@ -89,7 +92,7 @@ public sealed partial class SnapshotCompareViewModel : ObservableObject, IDispos
     public BulkObservableCollection<SnapshotDiffRow> Rows { get; } = [];
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(DeleteCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteCommand), nameof(ExportCommand))]
     public partial Snapshot? Baseline { get; set; }
 
     [ObservableProperty]
@@ -203,12 +206,59 @@ public sealed partial class SnapshotCompareViewModel : ObservableObject, IDispos
             }
         }
 
-        rows.AddRange(after.Items.Where(i => later.ContainsKey(i.NodeId))
+        rows.AddRange(after.Items.Where(i => !before.Partial && later.ContainsKey(i.NodeId))
             .Select(i => new SnapshotDiffRow(i.Name, i.NodeId, string.Empty, string.Empty, i.Value, i.Status, SnapshotChange.Added, null)));
         return rows;
     }
 
     private bool CanDelete() => Baseline is not null;
+
+    private bool CanExport() => Baseline is not null && _dialogs is not null;
+
+    /// <summary>Saves the <i>Before</i> snapshot as a JSON file, to share it or keep it with a machine's documentation.</summary>
+    [RelayCommand(CanExecute = nameof(CanExport))]
+    private async Task ExportAsync()
+    {
+        if (Baseline is not { } snapshot || _dialogs is null
+            || await _dialogs.PickSnapshotExportTargetAsync(FileName(snapshot.Name) + ".json") is not { } path)
+        {
+            return;
+        }
+
+        try
+        {
+            SnapshotStore.Export(snapshot, path);
+            WriteResult = $"Exported {snapshot.Name} to {Path.GetFileName(path)}.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            WriteResult = $"Export failed: {ex.Message}";
+        }
+    }
+
+    /// <summary>Adds a snapshot file (exported here, or by a colleague) and selects it as <i>Before</i>.</summary>
+    [RelayCommand]
+    private async Task ImportAsync()
+    {
+        if (_dialogs is null || await _dialogs.PickSnapshotFileAsync() is not { } path)
+        {
+            return;
+        }
+
+        try
+        {
+            var snapshot = _store.Import(path);
+            Reload(snapshot);
+            WriteResult = $"Imported {snapshot.Name} ({snapshot.Items.Count} item(s)).";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            WriteResult = $"Import failed: {ex.Message}";
+        }
+    }
+
+    private static string FileName(string name) =>
+        string.Concat(name.Select(c => Path.GetInvalidFileNameChars().Contains(c) || c == ':' ? '-' : c));
 
     /// <summary>Rows to write back: the selection (or every shown row) that changed and had a Good value before.</summary>
     public IReadOnlyList<SnapshotDiffRow> RestoreCandidates()

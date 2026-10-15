@@ -31,6 +31,13 @@ public sealed partial class MainWindow : IDialogService
         MimeTypes = ["application/vnd.sqlite3"],
     };
 
+    private static readonly FilePickerFileType SnapshotFileType = new("Snapshot (JSON)")
+    {
+        Patterns = ["*.json"],
+        AppleUniformTypeIdentifiers = ["public.json"],
+        MimeTypes = ["application/json"],
+    };
+
     internal static FilePickerFileType CsvFileTypeForRecording => CsvFileType;
 
     internal static readonly FilePickerFileType RecordingFileType = new("Recordings (CSV, SQLite)")
@@ -195,6 +202,30 @@ public sealed partial class MainWindow : IDialogService
 
     public void ShowSnapshotCompare(SnapshotCompareViewModel compare) =>
         new SnapshotCompareWindow { DataContext = compare }.Show(this);
+
+    public async Task<string?> PickSnapshotExportTargetAsync(string suggestedName)
+    {
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Export snapshot",
+            SuggestedFileName = suggestedName,
+            DefaultExtension = "json",
+            FileTypeChoices = [SnapshotFileType],
+            ShowOverwritePrompt = true,
+        });
+        return file?.TryGetLocalPath();
+    }
+
+    public async Task<string?> PickSnapshotFileAsync()
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Import snapshot",
+            AllowMultiple = false,
+            FileTypeFilter = [SnapshotFileType, FilePickerFileTypes.All],
+        });
+        return files.Count > 0 ? files[0].TryGetLocalPath() : null;
+    }
 
     public Task<MonitoringOptions?> EditMonitoringAsync(MonitoringOptions current, string target, int? refreshMs) =>
         new MonitoringSettingsWindow { DataContext = new MonitoringSettingsViewModel(current, target, refreshMs) }.ShowDialog<MonitoringOptions?>(this);

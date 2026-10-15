@@ -11,24 +11,32 @@ public sealed partial class MainWindowViewModel
     private SnapshotStore Snapshots => _snapshots ??= new SnapshotStore(_settingsStore is null ? null : Path.Combine(_settingsStore.Folder, "snapshots"));
 
     /// <summary>The watch values right now, as a snapshot (not saved).</summary>
-    private Snapshot CurrentSnapshot(string name) => new()
+    private Snapshot CurrentSnapshot(string name, IEnumerable<WatchItemViewModel>? items = null) => new()
     {
         Name = name,
         TakenAt = DateTimeOffset.Now,
         EndpointUrl = EndpointUrl.Trim(),
-        Items = [.. WatchItems.Select(w => new SnapshotItem(w.DisplayName, w.PortableId, w.Value, w.Status,
+        Items = [.. (items ?? WatchItems).Select(w => new SnapshotItem(w.DisplayName, w.PortableId, w.Value, w.Status,
             double.TryParse(w.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ? number : null))],
     };
 
     /// <summary>Saves the current values of the watch list, to compare with later.</summary>
     [RelayCommand(CanExecute = nameof(HasWatchItems))]
-    private void TakeSnapshot()
+    private void TakeSnapshot() => SaveSnapshot(null);
+
+    private bool HasSelectedWatchRows() => SelectedWatchItems.Count > 0;
+
+    /// <summary>Only the selected rows: a parameter set out of a large watch list.</summary>
+    [RelayCommand(CanExecute = nameof(HasSelectedWatchRows))]
+    private void TakeSelectionSnapshot() => SaveSnapshot([.. SelectedWatchItems]);
+
+    private void SaveSnapshot(IReadOnlyList<WatchItemViewModel>? items)
     {
         var now = DateTimeOffset.Now;
         var name = $"Snapshot {now.ToLocalTime().ToString("d MMM HH:mm:ss", CultureInfo.InvariantCulture)}";
         try
         {
-            var snapshot = Snapshots.Save(CurrentSnapshot(name) with { TakenAt = now });
+            var snapshot = Snapshots.Save(CurrentSnapshot(name, items) with { TakenAt = now, Partial = items is not null });
             StatusMessage = $"{name}: {snapshot.Items.Count} value(s) saved. Watch ▸ Compare with Snapshot shows what changed.";
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
@@ -48,7 +56,7 @@ public sealed partial class MainWindowViewModel
 
     /// <summary>Opens the comparison of the newest snapshot with the live watch values.</summary>
     [RelayCommand]
-    private void CompareSnapshot() => Dialogs?.ShowSnapshotCompare(new SnapshotCompareViewModel(Snapshots, () => CurrentSnapshot("Now"), writer: new SnapshotWriter(this)));
+    private void CompareSnapshot() => Dialogs?.ShowSnapshotCompare(new SnapshotCompareViewModel(Snapshots, () => CurrentSnapshot("Now"), writer: new SnapshotWriter(this), dialogs: Dialogs));
 
     /// <summary>Writes snapshot values to the watch rows they were taken from, matched by portable id.</summary>
     private sealed class SnapshotWriter(MainWindowViewModel owner) : ISnapshotWriter

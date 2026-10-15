@@ -67,6 +67,14 @@ public class TestDialogs : IDialogService
 
     public void ShowSnapshotCompare(SnapshotCompareViewModel compare) => Compare = compare;
 
+    public string? SnapshotExportAnswer { get; set; }
+
+    public Task<string?> PickSnapshotExportTargetAsync(string suggestedName) => Task.FromResult(SnapshotExportAnswer);
+
+    public string? SnapshotImportAnswer { get; set; }
+
+    public Task<string?> PickSnapshotFileAsync() => Task.FromResult(SnapshotImportAnswer);
+
     public DiagnosticsViewModel? Diagnostics { get; private set; }
 
     public void ShowDiagnostics(DiagnosticsViewModel diagnostics) => Diagnostics = diagnostics;

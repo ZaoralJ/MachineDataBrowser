@@ -228,11 +228,17 @@ A snapshot saves the current values of the whole watch list, to compare later, e
 machine.
 
 - **Watch ▸ Take Snapshot** (⌥⌘T) saves it, named with the date and time.
+- **Watch ▸ Take Snapshot of Selected Rows** (⇧⌥⌘T, also in the Watch context menu) saves only the selected rows, e.g.
+  a parameter set out of a large watch list. Comparing it leaves other watch rows out instead of listing them as
+  *only after*; the list shows it as *selection*.
 - **Watch ▸ Compare with Snapshot…** (⌥⌘Y) shows *Before* (a snapshot) next to *After*: the live watch values,
   updated every second, or another snapshot.
   - Items are matched by NodeId. *Change* shows the difference for numbers, *changed* for other values, and
     *only before* / *only after* for items in one side only. A status change counts as a change.
-  - **Changed only** hides equal values. ⌘C copies the rows as a table. **Delete snapshot** removes the *Before* one.
+  - **Changed only** hides equal values. ⌘C copies the rows as a table.
+  - **Snapshot ▸ Export Before…** saves the *Before* snapshot as a JSON file, to share it or keep it with the
+    machine's documentation; **Snapshot ▸ Import…** adds such a file and selects it as *Before* (importing the same
+    file again replaces it). **Snapshot ▸ Delete Before** removes the *Before* one.
 - **Write back…** writes the snapshot's values back to the device, e.g. to restore a parameter set after
   trying something. It works against the live watch values only, and is off in read-only sessions.
   - It writes the selected rows, or every row shown when none is selected; rows that are unchanged or whose snapshot
