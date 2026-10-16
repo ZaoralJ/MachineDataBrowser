@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.29.0...v0.29.1) (2026-10-16)
+
+
+### Fixes
+
+* **cip:** display Logix arrays with their element types ([#158](https://github.com/ZaoralJ/MachineDataBrowser/issues/158)) ([0e61a89](https://github.com/ZaoralJ/MachineDataBrowser/commit/0e61a89c4b4c64fc8b71803d5a90523fdfe03279))
+
 ## [0.29.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.28.0...v0.29.0) (2026-10-15)
 
 
