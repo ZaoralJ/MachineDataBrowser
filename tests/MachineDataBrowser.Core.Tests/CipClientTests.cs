@@ -24,6 +24,13 @@ public sealed class CipClientTests(LogixSimulatorFixture plc) : IAsyncLifetime
 
     private async Task<object?> ReadAsync(string path) => (await _client.ReadValuesAsync([Tag(path)], Ct))[0];
 
+    private async Task<T[]> ReadArrayAsync<T>(string path, string typeName)
+    {
+        var value = Assert.IsType<DeviceArray>(await ReadAsync(path));
+        Assert.Equal(typeName, value.ElementType);
+        return Assert.IsType<T[]>(value.Values);
+    }
+
     [Fact]
     public void Connect_sets_state_connected() =>
         Assert.Equal(ConnectionState.Connected, _client.State);
@@ -84,9 +91,9 @@ public sealed class CipClientTests(LogixSimulatorFixture plc) : IAsyncLifetime
     public async Task Multi_dimensional_arrays_read_whole_and_by_index()
     {
         // Atomic arrays are single variables; UDT arrays enumerate every index.
-        Assert.Equal(20, Assert.IsType<int[]>(await ReadAsync("Matrix")).Length);
+        Assert.Equal(20, (await ReadArrayAsync<int>("Matrix", "DINT")).Length);
         Assert.Equal(23, await ReadAsync("Matrix[2,3]"));
-        Assert.Equal(24, Assert.IsType<float[]>(await ReadAsync("Cube")).Length);
+        Assert.Equal(24, (await ReadArrayAsync<float>("Cube", "REAL")).Length);
         Assert.IsType<float>(await ReadAsync("Cube[1,2,3]"));
 
         var grid = await _client.BrowseAsync(Tag("Grid"), Ct);
@@ -104,7 +111,12 @@ public sealed class CipClientTests(LogixSimulatorFixture plc) : IAsyncLifetime
         Assert.Equal(0x0123456789ABCDEFUL, await ReadAsync("TestLword"));
         Assert.Equal(0xDEADBEEFU, await ReadAsync("TestDword"));
         Assert.Equal(uint.MaxValue, await ReadAsync("Types.UD"));
-        Assert.Equal(new ushort[] { 65535, 65534, 65533, 65532, 65531, 65530, 65529, 65528 }, await ReadAsync("Arrays.Uints"));
+        Assert.Equal(new ushort[] { 65535, 65534, 65533, 65532, 65531, 65530, 65529, 65528 }, await ReadArrayAsync<ushort>("Arrays.Uints", "UINT"));
+        Assert.Equal(Enumerable.Range(-8, 16).Select(i => (sbyte)i), await ReadArrayAsync<sbyte>("Arrays.Sints", "SINT"));
+        Assert.Equal(Enumerable.Range(240, 16).Select(i => (byte)i), await ReadArrayAsync<byte>("Arrays.Usints", "USINT"));
+        Assert.Equal(Enumerable.Range(0, 8).Select(i => (byte)i), await ReadArrayAsync<byte>("Arrays.Bytes", "BYTE"));
+        Assert.Equal(Enumerable.Range(0, 6).Select(i => i % 2 == 0), await ReadArrayAsync<bool>("Arrays.Bools", "BOOL"));
+        Assert.Equal(64, (await ReadArrayAsync<bool>("TestBoolArray", "BOOL")).Length);
     }
 
     [Fact]
@@ -132,7 +144,7 @@ public sealed class CipClientTests(LogixSimulatorFixture plc) : IAsyncLifetime
     [Fact]
     public async Task Large_arrays_read_whole_and_browse_capped()
     {
-        var big = Assert.IsType<int[]>(await ReadAsync("BigDintArray"));
+        var big = await ReadArrayAsync<int>("BigDintArray", "DINT");
         Assert.Equal(5000, big.Length);
         Assert.Equal(4998, big[4998]);
 

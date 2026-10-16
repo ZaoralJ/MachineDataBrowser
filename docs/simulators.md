@@ -54,7 +54,7 @@ instance addressing, Forward Open (small and large), Unconnected Send and the Id
 | Atomics | `TestBool` … `TestLreal`, unsigned `TestUsint`/`TestUint`/`TestUdint`/`TestUlint`, bit strings `TestByte`/`TestWord`/`TestDword`/`TestLword` |
 | Strings | `TestString` (STRING, 82), `TestString20` (STRING20), `TestString40` (STRING_40), `TestStringArray`, `TestString20Array` |
 | Arrays | 1-D arrays of each type, `Matrix` DINT[4,5], `Cube` REAL[2,3,4], `Grid` SINGLE_T[3,3], `BigDintArray` DINT[5000], `BigRealArray` REAL[1500], `BigStructArray` SINGLE_T[1200] (more than the browser's 1000-element cap) |
-| BOOL | packed BOOL members (`Flags.B0`…`B11` around a DINT, `BoolsOnly`), `TestBoolArray` BOOL[64] and BOOL[n] UDT members (stored and described as DWORDs) |
+| BOOL | packed BOOL members (`Flags.B0`…`B11` around a DINT, `BoolsOnly`), `TestBoolArray` BOOL[64] and BOOL[n] UDT members (stored as DWORD words; the template reports the logical BOOL count and the client unpacks bits) |
 | UDTs | `Motor1`, `Motors` MOTOR_T[4], `Stations` STATION_T[6] (nested ROBOT_T, CONVEYOR_T, MOTOR_T[3], BOOL[32]), `Line`, `Plant` (5 levels, arrays of UDTs at several levels), `Types`/`Arrays` (every type), `Recipes` RECIPE_T[3] (1 kB each, fragmented reads) |
 | Changing values | `HighSpeed.Axes[0..3]`, `HighSpeed.Cycle`, `HighSpeed.Vision`, `Stations[*].Robot`, `Program:Motion.*` at 10 / 20 / 50 ms; `Fast` 100 ms, `Medium` 1 s, `Slow` 10 s, `Heartbeat` 1 s and slow process values |
 | Programs | `MainProgram`, `Motion`, `DATALOG`, `Packaging`, `Safety`, `Empty`, `Line01`…`Line20` |
@@ -82,7 +82,8 @@ update replaces it. While `PauseSimulation` is set, the written value stays unti
 | `CIP_SIM_SEED` | random | seed for the random values |
 
 Known simplifications: writes of whole structures are accepted as raw bytes, BOOL arrays are addressed by DWORD
-index (`Bits[1]` is the second 32-bit word, as pycomm3 expects) and reads of `n` BOOLs return `ceil(n/32)` DWORDs,
+index (`Bits[1]` is the second 32-bit word, as pycomm3 expects) and their wire reads return `ceil(n/32)` DWORDs
+(the browser uses the template's logical element count to unpack those words),
 there are no aliases, AOIs, produced/consumed tags or External Access settings (every tag is writable).
 
 ## opc-plc (`simulators/opcua`)

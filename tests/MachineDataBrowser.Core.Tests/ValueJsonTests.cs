@@ -32,6 +32,8 @@ public sealed class ValueJsonTests
         Assert.Equal("PLC", (string?)obj["ProductName"]);
         Assert.False(obj.ContainsKey("TypeId"));
 
+        Assert.Equal("SByte[]", ValueJson.TypeName(new sbyte[] { -1, 1 }));
+        Assert.Equal("[-1,1]", ValueJson.ToJson(new sbyte[] { -1, 1 })!.ToJsonString());
         Assert.Equal("Int32[]", ValueJson.TypeName(new[] { 1 }));
         Assert.Equal("Boolean", ValueJson.TypeName(true));
         Assert.Equal("BuildInfo", ValueJson.TypeName(new ExtensionObject(info)));
@@ -47,5 +49,19 @@ public sealed class ValueJsonTests
         Assert.Equal("\"2026-09-27T10:00:00.0000000Z\"", ValueJson.ToJson(timestamp)!.ToJsonString());
         Assert.Equal("ByteString", ValueJson.TypeName(bytes));
         Assert.Equal("ByteString[3] 010203", UaValueFormatter.Format(Variant.From(bytes)));
+    }
+
+    [Fact]
+    public void Typed_byte_arrays_remain_numeric_and_distinct_from_byte_strings()
+    {
+        var usints = new DeviceArray("USINT", new byte[] { 240, 241 });
+        Assert.Equal("USINT[]", ValueJson.TypeName(usints));
+        Assert.Equal("[240,241]", ValueJson.ToJson(usints)!.ToJsonString());
+        Assert.Equal("[240, 241]", ValueFormatter.Format(usints));
+
+        var bytes = new byte[] { 1, 2 };
+        Assert.Equal("ByteString", ValueJson.TypeName(bytes));
+        Assert.Equal("\"AQI=\"", ValueJson.ToJson(bytes)!.ToJsonString());
+        Assert.Equal("ByteString[2] 0102", ValueFormatter.Format(bytes));
     }
 }

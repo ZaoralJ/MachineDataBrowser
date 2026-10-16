@@ -42,8 +42,9 @@ public sealed class CipWriteTests(LogixSimulatorFixture plc) : IAsyncLifetime
 
     [Fact]
     public async Task Writes_whole_atomic_arrays() =>
-        Assert.Equal(Enumerable.Range(0, 16).Select(i => (short)(i * 3)).ToArray(),
-            await WriteAndReadAsync("Arrays.Ints", "[" + string.Join(", ", Enumerable.Range(0, 16).Select(i => i * 3)) + "]"));
+        Assert.Equal(Enumerable.Range(0, 16).Select(i => (short)(i * 3)),
+            Assert.IsType<short[]>(Assert.IsType<DeviceArray>(await WriteAndReadAsync(
+                "Arrays.Ints", "[" + string.Join(", ", Enumerable.Range(0, 16).Select(i => i * 3)) + "]")).Values));
 
     [Fact]
     public async Task Writes_to_animated_values_are_accepted_and_overwritten_like_on_a_PLC()

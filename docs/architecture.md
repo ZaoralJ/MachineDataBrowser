@@ -95,9 +95,11 @@ recommended .NET analyzers are on.
 
 The client implementations share a protocol-neutral tree, value, and monitoring contract. `DeviceNodeId`,
 `DeviceNodeKind`, `DeviceStatusCode` and `DeviceError` describe identity, browse kinds and failures without SDK types.
-`DeviceDataType`, `ValueParser` and `ValueFormatter` likewise avoid OPC UA `BuiltInType` and `Variant`. Conversion to
-and from OPC UA SDK types is isolated in the OPC UA driver; CIP and Sparkplug map their native identities, statuses and value
-types directly to the neutral types. UA-aware value serialization and export also live in the OPC UA driver. The UA
+`DeviceDataType`, `DeviceArray`, `ValueParser` and `ValueFormatter` likewise avoid OPC UA `BuiltInType` and `Variant`.
+`DeviceArray` preserves a protocol's array element type when the CLR representation alone is ambiguous (e.g. Logix
+`USINT[]` and OPC UA `ByteString` both use bytes). Conversion to and from OPC UA SDK types is isolated in the OPC UA
+driver; CIP and Sparkplug map their native identities, statuses and value types directly to the neutral types. UA-aware
+value serialization and export also live in the OPC UA driver. The UA
 adapter retains namespace-URI-based portable IDs, so existing session,
 bookmark and recording identifiers remain compatible. `DeviceClientFactory.Create(url)` picks the client from the URL
 scheme; Core defines the client contract and never constructs a

@@ -70,6 +70,14 @@ public sealed class LogixCodecTests
     }
 
     [Fact]
+    public void Packed_bool_arrays_expand_each_bit_in_little_endian_word_order()
+    {
+        var words = new byte[] { 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 };
+        Assert.Equal(Enumerable.Range(0, 64).Select(i => i % 2 == 0),
+            Assert.IsType<bool[]>(LogixCodec.DecodeAtomic(LogixAtomic.Bool, words, 64, forceArray: true)));
+    }
+
+    [Fact]
     public void Atomic_types_map_to_neutral_value_types()
     {
         Assert.Equal(DeviceDataType.Boolean, LogixCodec.ToValueType(LogixAtomic.Bool));

@@ -65,7 +65,7 @@ def build_types():
         ("R", REAL), ("LR", LREAL), ("BY", BYTE), ("W", WORD), ("DW", DWORD), ("LW", LWORD),
         ("Str", string), ("Str20", string20)])
     udt("ARRAYS_T", [
-        ("Bools", BOOL, 64), ("Sints", SINT, 16), ("Ints", INT, 16), ("Dints", DINT, 16), ("Lints", LINT, 4),
+        ("Bools", BOOL, 6), ("Sints", SINT, 16), ("Ints", INT, 16), ("Dints", DINT, 16), ("Lints", LINT, 4),
         ("Usints", USINT, 16), ("Uints", UINT, 8), ("Udints", UDINT, 8), ("Ulints", ULINT, 4),
         ("Reals", REAL, 16), ("Lreals", LREAL, 4), ("Bytes", BYTE, 8), ("Words", WORD, 8),
         ("Dwords", DWORD, 4), ("Lwords", LWORD, 2), ("Strings", string, 4), ("Motors", motor, 2)])
@@ -366,7 +366,7 @@ def seed(ctl):
     s("Types.US", 255); s("Types.UI", 65535); s("Types.UD", 4294967295); s("Types.UL", 2 ** 64 - 1)
     s("Types.R", 3.14159); s("Types.LR", 2.718281828459045); s("Types.BY", 0x7F); s("Types.W", 0x1234)
     s("Types.DW", 0x89ABCDEF); s("Types.LW", 0xFEDCBA9876543210); s("Types.Str", "Hello CIP"); s("Types.Str20", "short")
-    s("Arrays.Bools", [i % 2 == 0 for i in range(64)]); s("Arrays.Sints", list(range(-8, 8)))
+    s("Arrays.Bools", [i % 2 == 0 for i in range(6)]); s("Arrays.Sints", list(range(-8, 8)))
     s("Arrays.Ints", [i * 100 for i in range(16)]); s("Arrays.Dints", [i * 100000 for i in range(16)])
     s("Arrays.Lints", [1, 2 ** 40, -(2 ** 40), 2 ** 62]); s("Arrays.Usints", list(range(240, 256)))
     s("Arrays.Uints", [65535 - i for i in range(8)]); s("Arrays.Udints", [4294967295 - i for i in range(8)])
