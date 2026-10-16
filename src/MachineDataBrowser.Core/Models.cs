@@ -269,6 +269,16 @@ public sealed record BrowseItem(DeviceNodeId NodeId, string DisplayName, string 
 
 public sealed record AttributeValue(string Name, string Value);
 
+/// <summary>A device-reported numeric engineering range for a variable, when its protocol exposes one.</summary>
+public sealed record EngineeringRange(double Low, double High);
+
+/// <summary>Optional richer metadata used to check a write before asking the user to confirm it.</summary>
+public interface IEngineeringRangeSource
+{
+    /// <summary>The range of each variable; null where no valid EURange is exposed.</summary>
+    Task<IReadOnlyList<EngineeringRange?>> ReadRangesAsync(IReadOnlyList<DeviceNodeId> nodeIds, CancellationToken cancellationToken = default);
+}
+
 public sealed record ValueUpdate(DeviceNodeId NodeId, string Value, DeviceStatusCode Status, DateTime SourceTimestamp, DateTime ServerTimestamp, double? Numeric = null, object? Raw = null);
 
 public enum ConnectionState

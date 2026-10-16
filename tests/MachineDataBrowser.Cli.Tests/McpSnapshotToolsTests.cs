@@ -15,6 +15,8 @@ public sealed class McpSnapshotToolsTests(CustomTypesServerFixture custom) : IDi
 {
     private const string SByte = "/Objects/Custom/DataTypes/SByte";
     private const string Float = "/Objects/Custom/DataTypes/Float";
+    private const string LimitedInt32 = "/Objects/Custom/DataTypes/LimitedInt32";
+    private const string ReadOnlyTemperature = "/Objects/Custom/History/Temperature";
     private readonly string _dir = Directory.CreateTempSubdirectory("mdbrowser-mcp-snapshots").FullName;
     private readonly List<McpClient> _clients = [];
 
@@ -180,5 +182,76 @@ public sealed class McpSnapshotToolsTests(CustomTypesServerFixture custom) : IDi
         {
             await OkAsync(client, "write", new() { ["node"] = SByte, ["value"] = sbyteBefore.ToString(System.Globalization.CultureInfo.InvariantCulture) });
         }
+    }
+
+    [Fact]
+    public async Task Write_preflight_refuses_bad_type_read_only_access_and_eurange_before_confirmation()
+    {
+        var client = await StartAsync("--allow-writes", "--audit-log", Audit);
+        var initial = await OkAsync(client, "read", new() { ["nodes"] = new[] { SByte, LimitedInt32 } });
+        var sbyteBefore = (long)initial["values"]![0]!["value"]!;
+        var limitedBefore = (long)initial["values"]![1]!["value"]!;
+        try
+        {
+            var (error, text) = await CallAsync(client, "write", new() { ["node"] = SByte, ["value"] = "not an integer" });
+            Assert.True(error);
+            Assert.Contains("not a valid SByte", text, StringComparison.Ordinal);
+
+            (error, text) = await CallAsync(client, "write", new() { ["node"] = ReadOnlyTemperature, ["value"] = "12" });
+            Assert.True(error);
+            Assert.Contains("not writable", text, StringComparison.OrdinalIgnoreCase);
+
+            var attrs = await OkAsync(client, "attributes", new() { ["node"] = LimitedInt32 });
+            Assert.Contains(attrs["attributes"]!.AsObject(), a => a.Key == "DataType");
+            (error, text) = await CallAsync(client, "write", new() { ["node"] = LimitedInt32, ["value"] = "11" });
+            Assert.True(error);
+            Assert.Contains("EURange 0..10", text, StringComparison.Ordinal);
+            Assert.Empty(Questions);   // all three failures happen before asking the user
+
+            await OkAsync(client, "write", new() { ["node"] = LimitedInt32, ["value"] = "8" });
+            Assert.Single(Questions);
+            Assert.Equal(8, (long)(await OkAsync(client, "read", new() { ["nodes"] = new[] { LimitedInt32 } }))["values"]![0]!["value"]!);
+
+            var audit = (await File.ReadAllLinesAsync(Audit, TestContext.Current.CancellationToken)).Select(l => JsonNode.Parse(l)!).ToList();
+            Assert.Equal(["refused", "refused", "refused", "written"], audit.Select(a => (string?)a["outcome"]));
+            Assert.Contains("EURange", (string?)audit[2]["detail"], StringComparison.Ordinal);
+        }
+        finally
+        {
+            await OkAsync(client, "write", new() { ["node"] = SByte, ["value"] = sbyteBefore.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+            await OkAsync(client, "write", new() { ["node"] = LimitedInt32, ["value"] = limitedBefore.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+        }
+    }
+
+    [Fact]
+    public async Task Restore_snapshot_refuses_everything_before_confirmation_if_one_item_is_read_only_or_out_of_range()
+    {
+        var client = await StartAsync("--allow-writes", "--allow-snapshots", "--audit-log", Audit);
+        var values = await OkAsync(client, "read", new() { ["nodes"] = new[] { SByte, LimitedInt32, ReadOnlyTemperature } });
+        var beforeSByte = (long)values["values"]![0]!["value"]!;
+        var beforeLimited = (long)values["values"]![1]!["value"]!;
+        var temp = (double)values["values"]![2]!["value"]!;
+        await OkAsync(client, "take_snapshot", new() { ["name"] = "Unsafe recipe", ["nodes"] = new[] { SByte, LimitedInt32, ReadOnlyTemperature } });
+        var store = new MachineDataBrowser.Core.SnapshotStore(Snapshots);
+        var saved = store.List().Single();
+        store.Save(saved with
+        {
+            Items =
+            [
+                saved.Items.Single(i => i.Name == "SByte") with { Value = "0", Numeric = 0 },
+                saved.Items.Single(i => i.Name == "LimitedInt32") with { Value = "50", Numeric = 50 },
+                saved.Items.Single(i => i.Name == "Temperature") with { Value = (temp + 1).ToString(System.Globalization.CultureInfo.InvariantCulture), Numeric = temp + 1 },
+            ],
+        });
+
+        var (error, text) = await CallAsync(client, "restore_snapshot", new() { ["snapshot"] = "Unsafe recipe" });
+        Assert.True(error);
+        Assert.Contains("Nothing was written", text, StringComparison.Ordinal);
+        Assert.Contains("EURange", text, StringComparison.Ordinal);
+        Assert.Contains("not writable", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(Questions);
+        var unchanged = await OkAsync(client, "read", new() { ["nodes"] = new[] { SByte, LimitedInt32 } });
+        Assert.Equal(beforeSByte, (long)unchanged["values"]![0]!["value"]!);
+        Assert.Equal(beforeLimited, (long)unchanged["values"]![1]!["value"]!);
     }
 }
