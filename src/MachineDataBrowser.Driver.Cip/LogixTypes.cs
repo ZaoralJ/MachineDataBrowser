@@ -178,6 +178,20 @@ public static class LogixCodec
             return null;
         }
 
+        // BOOL arrays in UDTs are stored as packed 32-bit words, not one byte per element. The member template
+        // supplies the logical BOOL count; when the data is shorter than that count, expand the packed bits.
+        if (atomic == LogixAtomic.Bool && count > data.Length && data.Length >= ((count + 31) / 32 * sizeof(uint)))
+        {
+            var unpacked = new bool[count];
+            for (var i = 0; i < count; i++)
+            {
+                var word = BinaryPrimitives.ReadUInt32LittleEndian(data[((i / 32) * sizeof(uint))..]);
+                unpacked[i] = (word & (1u << (i % 32))) != 0;
+            }
+
+            return unpacked;
+        }
+
         count = Math.Min(count, data.Length / size);
         if (count == 1 && !forceArray)
         {

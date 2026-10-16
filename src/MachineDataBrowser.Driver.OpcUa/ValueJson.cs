@@ -18,9 +18,11 @@ public static class ValueJson
     public static string TypeName(object? value) => value switch
     {
         null => "Null",
+        DeviceArray a => $"{a.ElementType}[]",
         Matrix m => $"{TypeName(m.Elements.Length > 0 ? m.Elements.GetValue(0) : null)}[{string.Join(',', m.Dimensions)}]",
         IConvertableToMatrix m => MatrixTypeName(m.ToMatrix(BuiltInType.Null)),
-        byte[] or ByteString => "ByteString",
+        ByteString => "ByteString",
+        Array a when a.GetType().GetElementType() == typeof(byte) => "ByteString",
         Array a => $"{TypeName(a.Length > 0 ? a.GetValue(0) : null)}[]",
         ExtensionObject eo when eo.TryGetValue(out IEncodeable? e) => EncodeableTypeName(e),
         ExtensionObject => "ExtensionObject",
@@ -52,7 +54,8 @@ public static class ValueJson
             DateTimeUtc dt => Convert(dt.ToDateTime(), depth),
             Uuid g => JsonValue.Create(((Guid)g).ToString()),
             Guid g => JsonValue.Create(g.ToString()),
-            byte[] bytes => JsonValue.Create(System.Convert.ToBase64String(bytes)),
+            DeviceArray array => new JsonArray([.. array.Values.Cast<object?>().Select(item => Convert(item, depth + 1))]),
+            Array bytes when bytes.GetType().GetElementType() == typeof(byte) => JsonValue.Create(System.Convert.ToBase64String((byte[])bytes)),
             ByteString bytes => bytes.IsNull ? null : JsonValue.Create(bytes.ToBase64()),
             LocalizedText lt => JsonValue.Create(lt.Text),
             QualifiedName qn => JsonValue.Create(qn.ToString()),

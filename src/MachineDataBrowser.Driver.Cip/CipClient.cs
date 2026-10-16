@@ -748,9 +748,18 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
             IsVariable ? NodeClass.Variable : NodeClass.Object,
             HasChildren: !IsVariable);
 
-        public object? Decode(byte[] data) => Template is { } template
-            ? LogixCodec.DecodeString(template, data)
-            : LogixCodec.DecodeAtomic(Type.Atomic, data, ElementCount, forceArray: Dimensions.Length > 0);
+        public object? Decode(byte[] data)
+        {
+            if (Template is { } template)
+            {
+                return LogixCodec.DecodeString(template, data);
+            }
+
+            var value = LogixCodec.DecodeAtomic(Type.Atomic, data, ElementCount, forceArray: Dimensions.Length > 0);
+            return Dimensions.Length > 0 && value is Array array
+                ? new DeviceArray(LogixType.AtomicName(Type.Atomic), array)
+                : value;
+        }
     }
 
     private sealed record CipEndpoint(string Gateway, string Path, TimeSpan Timeout)

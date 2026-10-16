@@ -20,7 +20,9 @@ public static class ValueFormatter
     {
         null => "null",
         string s => s,
-        byte[] bytes => $"ByteString[{bytes.Length}] {Convert.ToHexString(bytes.AsSpan(0, Math.Min(bytes.Length, 32)))}{(bytes.Length > 32 ? "…" : string.Empty)}",
+        DeviceArray deviceArray => FormatArray(deviceArray.Values),
+        Array bytes when bytes.GetType().GetElementType() == typeof(byte) =>
+            $"ByteString[{bytes.Length}] {Convert.ToHexString(((byte[])bytes).AsSpan(0, Math.Min(bytes.Length, 32)))}{(bytes.Length > 32 ? "…" : string.Empty)}",
         DateTime dt => dt.ToString("O", CultureInfo.InvariantCulture),
         Array array => FormatArray(array),
         IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),

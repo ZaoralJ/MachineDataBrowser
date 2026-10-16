@@ -76,7 +76,8 @@ class Member:
     @property
     def type_code(self):
         if self.bool_array:
-            return DWORD.code | (1 << DIM_SHIFT)
+            # Preserve the logical BOOL array shape in the template. Values still travel as packed DWORD words.
+            return BOOL.code | (1 << DIM_SHIFT)
         code = self.type.code if isinstance(self.type, Atomic) else STRUCT_FLAG | self.type.id
         return code | (1 << DIM_SHIFT) if self.count else code
 
@@ -85,7 +86,7 @@ class Member:
         if self.bit is not None:
             return self.bit
         if self.bool_array:
-            return (self.count + 31) // 32  # BOOL[n] members are DWORD arrays in the template
+            return self.count
         return self.count
 
 
@@ -181,7 +182,8 @@ class Tag:
         if self.raw_type is not None:
             return self.raw_type
         if self.bool_array:
-            return DWORD.code | (1 << DIM_SHIFT)
+            # The tag list exposes the logical BOOL array; reads still return the packed DWORD words.
+            return BOOL.code | (len(self.dims) << DIM_SHIFT)
         code = self.type.code if isinstance(self.type, Atomic) else STRUCT_FLAG | self.type.id
         code |= len(self.dims) << DIM_SHIFT
         return code | (SYSTEM_FLAG if self.system else 0)
