@@ -31,6 +31,7 @@ public sealed class MainWindowTests(OpcPlcFixture plc)
         var server = await ExpandAndFind(objects, "Server");
         var status = await ExpandAndFind(server, "ServerStatus");
         var currentTime = await ExpandAndFind(status, "CurrentTime");
+        await currentTime.EnsureChildrenLoadedAsync(); // Quick-browse/probe may still leave the Loading… placeholder.
         Assert.Empty(currentTime.Children);
         Assert.NotEmpty(status.Children.Single(c => c.DisplayName == "BuildInfo").Children);
 
