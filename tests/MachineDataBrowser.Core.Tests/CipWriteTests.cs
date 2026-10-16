@@ -24,6 +24,8 @@ public sealed class CipWriteTests(LogixSimulatorFixture plc) : IAsyncLifetime
         return (await _client.ReadValuesAsync([Tag(path)], Ct))[0];
     }
 
+    private async Task<object?> ReadAsync(string path) => (await _client.ReadValuesAsync([Tag(path)], Ct))[0];
+
     [Fact]
     public async Task Writes_atomic_scalars() =>
         Assert.Equal(1234, await WriteAndReadAsync("Recipe_Active", "1234"));
@@ -45,6 +47,22 @@ public sealed class CipWriteTests(LogixSimulatorFixture plc) : IAsyncLifetime
         Assert.Equal(Enumerable.Range(0, 16).Select(i => (short)(i * 3)),
             Assert.IsType<short[]>(Assert.IsType<DeviceArray>(await WriteAndReadAsync(
                 "Arrays.Ints", "[" + string.Join(", ", Enumerable.Range(0, 16).Select(i => i * 3)) + "]")).Values));
+
+    [Fact]
+    public async Task Writes_packed_bool_arrays_as_logical_values()
+    {
+        var original = Assert.IsType<bool[]>(Assert.IsType<DeviceArray>(await ReadAsync("Arrays.Bools")).Values);
+        try
+        {
+            var written = await WriteAndReadAsync("Arrays.Bools", "false,true,false,true,false,true");
+            Assert.Equal(new[] { false, true, false, true, false, true },
+                Assert.IsType<bool[]>(Assert.IsType<DeviceArray>(written).Values));
+        }
+        finally
+        {
+            await _client.WriteValueAsync(Tag("Arrays.Bools"), string.Join(',', original.Select(v => v ? "true" : "false")), Ct);
+        }
+    }
 
     [Fact]
     public async Task Writes_to_animated_values_are_accepted_and_overwritten_like_on_a_PLC()
