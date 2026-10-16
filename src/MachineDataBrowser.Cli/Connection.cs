@@ -138,7 +138,7 @@ internal static class Connection
     /// A node from the command line: <c>/Objects/Line1/Speed</c> is a path of display names from the root, anything
     /// else an id as the app shows or saves it (<c>nsu=…;s=…</c>, <c>ns=3;s=StepUp</c>, a Logix tag, an MQTT id).
     /// </summary>
-    public static async Task<Node> ResolveAsync(IDeviceClient client, string text, CancellationToken cancellationToken)
+    public static async Task<Node> ResolveAsync(IDeviceClient client, string text, CancellationToken cancellationToken, bool allowUncachedMqttTopic = false)
     {
         if (!text.StartsWith('/'))
         {
@@ -155,17 +155,32 @@ internal static class Connection
             return new Node(id, text, client.ToDisplayId(id));
         }
 
+        var parts = text.Split('/', StringSplitOptions.RemoveEmptyEntries);
         var item = client.Root;
         var parents = new List<string>();
-        foreach (var name in text.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var name in parts)
         {
             if (item != client.Root)
             {
                 parents.Add(item.DisplayName);
             }
 
-            item = await FindChildAsync(client, item, name, cancellationToken).ConfigureAwait(false)
-                ?? throw new CliException($"'{name}' not found under '{item.DisplayName}' (path {text}).");
+            var child = await FindChildAsync(client, item, name, cancellationToken).ConfigureAwait(false);
+            if (child is null)
+            {
+                // The app's MQTT tree is a live cache of messages it has seen. A non-retained topic can still be
+                // watched by a fresh CLI connection, even though it cannot browse that past message yet.
+                if (allowUncachedMqttTopic && client is IDynamicAddressSpace && parts.Length > 1 && parts[0] == "Topics")
+                {
+                    var topic = string.Join('/', parts.Skip(1));
+                    var id = client.ParsePortableId("t:" + topic);
+                    return new Node(id, parts[^1], client.ToDisplayId(id), parts[^1], string.Join('/', parts[..^1]));
+                }
+
+                throw new CliException($"'{name}' not found under '{item.DisplayName}' (path {text}).");
+            }
+
+            item = child;
         }
 
         return new Node(item.NodeId, item.DisplayName, client.ToDisplayId(item.NodeId), item.DisplayName, string.Join('/', parents));

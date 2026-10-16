@@ -50,9 +50,14 @@ A node is either a **path** of display names from the root, starting with `/`, o
 
 - `/Objects/OpcPlc/Telemetry/Basic/StepUp`, `/Controller Tags/Motor.Speed`, `/Topics/plant/line1/status`,
   `"/Sparkplug B/Plant1/Edge1/Press1/Temperature"` (quote paths with spaces);
-- `ns=3;s=StepUp` or the portable `nsu=http://…;s=StepUp` (OPC UA), a tag name (Logix), an MQTT id as the app shows it.
+- `ns=3;s=StepUp` or the portable `nsu=http://…;s=StepUp` (OPC UA), a tag name (Logix), an MQTT id as the app shows
+  it, e.g. `t:plant/line1/status/speed` or `t:plant/line1/status#/speed` for a JSON field.
 
 `browse` prints full paths, so its output can be passed to `read` and `monitor` as it is.
+The app's MQTT tree is a live cache of messages it has received; a non-retained topic can still be visible there after a
+fresh CLI connection cannot browse it. `monitor` accepts an uncached `/Topics/...` path as a literal MQTT topic and
+subscribes for future messages. The app's **Copy mdbrowser command** uses the MQTT id (including JSON pointers) so it
+doesn't lose that distinction.
 
 ### Whole folders (`--recursive`)
 

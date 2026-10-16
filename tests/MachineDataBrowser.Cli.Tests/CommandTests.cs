@@ -144,6 +144,16 @@ public sealed class CommandTests(OpcPlcFixture plc, MqttSimulatorFixture broker)
     }
 
     [Fact]
+    public async Task Mqtt_monitor_accepts_a_copied_topic_path_not_yet_seen_by_this_client()
+    {
+        const string path = "/Topics/group/kla/finalpack/advent-calendar/123456";
+        var (exit, _, error) = await RunAsync("monitor", broker.EndpointUrl, path, "-R", "-d", "250ms", "-f", "json");
+
+        Assert.Equal(0, exit);
+        Assert.DoesNotContain("not found", error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task A_terminal_gets_a_table_and_a_tree_but_json_stays_plain()
     {
         var console = new TestConsole().Width(140);

@@ -107,7 +107,8 @@ connection by itself. Watch items and recordings continue after that.
   - To cherry-pick properties, select several nodes first.
   - Right-click ▸ **Copy mdbrowser command** ▸ *browse*, *read* or *monitor* copies a [command line](cli.md) for the
     selection, with this endpoint and its options (never the password). Folders read or monitor everything below
-    them (`-R`).
+    them (`-R`). MQTT commands use portable topic ids, including JSON field pointers, so a topic can be monitored even
+    if a fresh CLI connection has not seen a non-retained message yet.
 
 ### Bookmarks
 
@@ -218,7 +219,7 @@ and sort order are saved with the session.
   - ⌥⌘C copies the value, ⌥⌘N the NodeId; ⌥⌘J copies the values as JSON; ⇧⌘C copies the rows as JSON.
   - File ▸ Export Watch List as CSV (⌘E).
   - Right-click ▸ **Copy mdbrowser command** ▸ *monitor* or *read* copies a [command line](cli.md) for the selected
-    rows (all rows when none is selected), with their refresh time when they share one.
+    rows (all rows when none is selected), with their refresh time when they share one. MQTT rows use portable topic ids.
 
 <img src="images/display-format.png" alt="Display format dialog" width="49%"> <img src="images/monitoring-settings.png" alt="Monitoring settings dialog" width="49%">
 

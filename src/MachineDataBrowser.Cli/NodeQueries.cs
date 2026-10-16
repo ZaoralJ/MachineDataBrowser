@@ -5,12 +5,16 @@ namespace MachineDataBrowser.Cli;
 /// <summary>Finding nodes from command-line or tool arguments; shared by the commands and the MCP server.</summary>
 internal static class NodeQueries
 {
-    public static async Task<List<Node>> ResolveAllAsync(IDeviceClient client, IEnumerable<string> texts, CancellationToken cancellationToken)
+    public static async Task<List<Node>> ResolveAllAsync(
+        IDeviceClient client,
+        IEnumerable<string> texts,
+        CancellationToken cancellationToken,
+        bool allowUncachedMqttTopics = false)
     {
         var result = new List<Node>();
         foreach (var text in texts)
         {
-            result.Add(await Cli.Connection.ResolveAsync(client, text, cancellationToken).ConfigureAwait(false));
+            result.Add(await Cli.Connection.ResolveAsync(client, text, cancellationToken, allowUncachedMqttTopics).ConfigureAwait(false));
         }
 
         return result;
@@ -27,14 +31,21 @@ internal static class NodeQueries
     /// the node given, so equal names in different folders stay apart. A variable given directly is kept as it is, except
     /// an MQTT topic with JSON fields.
     /// </summary>
-    public static async Task<List<Node>> ExpandAsync(IDeviceClient client, IEnumerable<string> texts, int depth, int maxItems, Func<string, Task> warn, CancellationToken cancellationToken)
+    public static async Task<List<Node>> ExpandAsync(
+        IDeviceClient client,
+        IEnumerable<string> texts,
+        int depth,
+        int maxItems,
+        Func<string, Task> warn,
+        CancellationToken cancellationToken,
+        bool allowUncachedMqttTopics = false)
     {
         var result = new List<Node>();
         var seen = new HashSet<NodeId>();
 
         // MQTT: a JSON topic's fields are what you want to watch. OPC UA: a variable's children are properties (EURange …).
         var descendIntoVariables = client is IDynamicAddressSpace;
-        foreach (var root in await ResolveAllAsync(client, texts, cancellationToken).ConfigureAwait(false))
+        foreach (var root in await ResolveAllAsync(client, texts, cancellationToken, allowUncachedMqttTopics).ConfigureAwait(false))
         {
             if (result.Count >= maxItems)
             {
@@ -48,7 +59,8 @@ internal static class NodeQueries
             var found = isVariable && !descendIntoVariables
                 ? []
                 : await client.CollectVariablesWithPathsAsync(root.Id, depth, maxItems - result.Count, descendIntoVariables, cancellationToken).ConfigureAwait(false);
-            if (isVariable && found.Count == 0)
+            var uncachedMqttTopic = allowUncachedMqttTopics && client is IDynamicAddressSpace && root.DisplayId.StartsWith("t:", StringComparison.Ordinal);
+            if ((isVariable || uncachedMqttTopic) && found.Count == 0)
             {
                 if (seen.Add(root.Id))
                 {

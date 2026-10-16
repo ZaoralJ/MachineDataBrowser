@@ -127,9 +127,9 @@ internal static class Commands
         var recursiveDepth = new Option<int>("--depth") { Description = "With --recursive: levels below each node", DefaultValueFactory = _ => NodeQueries.DefaultRecursiveDepth };
         var maxItems = new Option<int>("--max-items") { Description = "With --recursive: at most this many variables", DefaultValueFactory = _ => NodeQueries.DefaultMaxItems };
 
-        Task<List<Node>> NodesAsync(IDeviceClient client, ParseResult r, CancellationToken ct) => r.GetValue(recursive)
-            ? NodeQueries.ExpandAsync(client, r.GetValue(nodes)!, Math.Max(1, r.GetValue(recursiveDepth)), Math.Max(1, r.GetValue(maxItems)), stderr.WriteLineAsync, ct)
-            : NodeQueries.ResolveAllAsync(client, r.GetValue(nodes)!, ct);
+        Task<List<Node>> NodesAsync(IDeviceClient client, ParseResult r, CancellationToken ct, bool allowUncachedMqttTopics = false) => r.GetValue(recursive)
+            ? NodeQueries.ExpandAsync(client, r.GetValue(nodes)!, Math.Max(1, r.GetValue(recursiveDepth)), Math.Max(1, r.GetValue(maxItems)), stderr.WriteLineAsync, ct, allowUncachedMqttTopics)
+            : NodeQueries.ResolveAllAsync(client, r.GetValue(nodes)!, ct, allowUncachedMqttTopics);
 
         void AddRecursiveOptions(Command command)
         {
@@ -192,7 +192,7 @@ internal static class Commands
         {
             var target = Connection(r);
             await using var client = await Cli.Connection.ConnectUntilReachableAsync(target, ct).ConfigureAwait(false);
-            var resolved = await NodesAsync(client, r, ct).ConfigureAwait(false);
+            var resolved = await NodesAsync(client, r, ct, allowUncachedMqttTopics: true).ConfigureAwait(false);
             var interval = r.GetValue(refresh) ?? (DeviceClient.IsMqtt(target.Url) ? 0 : 250);
             if (r.GetValue(save) is { } sessionFile)
             {
