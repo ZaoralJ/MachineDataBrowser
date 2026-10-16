@@ -312,8 +312,15 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
                 throw new FormatException($"{item.Path} has {item.ElementCount} elements; {((Array)value).Length} given.");
             }
 
-            var data = LogixCodec.EncodeAtomic(item.Type.Atomic, value);
-            data.AsSpan(0, Math.Min(data.Length, buffer.Length)).CopyTo(buffer);
+            if (item.Type.Atomic == LogixAtomic.Bool && isArray)
+            {
+                LogixCodec.EncodePackedBoolArray((bool[])value, buffer);
+            }
+            else
+            {
+                var data = LogixCodec.EncodeAtomic(item.Type.Atomic, value);
+                data.AsSpan(0, Math.Min(data.Length, buffer.Length)).CopyTo(buffer);
+            }
         }
 
         tag.SetBuffer(buffer);
@@ -697,7 +704,9 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         tag.IsInitialized ? Task.CompletedTask : Task.Run(tag.Initialize, cancellationToken);
 
     private static Tag CreateTag(CipEndpoint endpoint, CipItem item) =>
-        CreateTag(endpoint, item.Path, item.Template is null && item.Dimensions.Length > 0 ? item.ElementCount : null);
+        CreateTag(endpoint, item.Path, item.Template is null && item.Dimensions.Length > 0
+            ? item.Type.Atomic == LogixAtomic.Bool ? (item.ElementCount + 31) / 32 : item.ElementCount
+            : null);
 
     private static Tag CreateTag(CipEndpoint endpoint, string name, int? elementCount) => new()
     {
@@ -727,8 +736,8 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
     {
         public bool IsVariable => Template is null || (Template.IsString && Dimensions.Length == 0);
 
-        /// <summary>Atomics, atomic arrays (except packed BOOL arrays) and STRINGs can be written.</summary>
-        public bool IsWritable => IsVariable && !(Template is null && Type.Atomic == LogixAtomic.Bool && Dimensions.Length > 0);
+        /// <summary>Atomic values and arrays (including packed BOOL arrays) and STRINGs can be written.</summary>
+        public bool IsWritable => IsVariable;
 
         public int ElementCount => Dimensions.Aggregate(1, (a, d) => a * d);
 

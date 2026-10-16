@@ -82,8 +82,8 @@ update replaces it. While `PauseSimulation` is set, the written value stays unti
 | `CIP_SIM_SEED` | random | seed for the random values |
 
 Known simplifications: writes of whole structures are accepted as raw bytes, BOOL arrays are addressed by DWORD
-index (`Bits[1]` is the second 32-bit word, as pycomm3 expects) and their wire reads return `ceil(n/32)` DWORDs
-(the browser uses the template's logical element count to unpack those words),
+index (`Bits[1]` is the second 32-bit word, as pycomm3 expects) and their wire reads/writes use `ceil(n/32)` DWORDs
+(the browser uses the template's logical element count to unpack and update the BOOL bits while preserving padding),
 there are no aliases, AOIs, produced/consumed tags or External Access settings (every tag is writable).
 
 ## opc-plc (`simulators/opcua`)

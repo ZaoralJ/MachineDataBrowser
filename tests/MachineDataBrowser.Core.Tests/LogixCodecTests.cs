@@ -78,6 +78,14 @@ public sealed class LogixCodecTests
     }
 
     [Fact]
+    public void Writing_packed_bool_arrays_preserves_unused_bits_in_the_last_word()
+    {
+        var word = new byte[] { 0xFF, 0xFF, 0xFF, 0xFF };
+        LogixCodec.EncodePackedBoolArray([true, false, true], word);
+        Assert.Equal([0xFD, 0xFF, 0xFF, 0xFF], word);
+    }
+
+    [Fact]
     public void Atomic_types_map_to_neutral_value_types()
     {
         Assert.Equal(DeviceDataType.Boolean, LogixCodec.ToValueType(LogixAtomic.Bool));

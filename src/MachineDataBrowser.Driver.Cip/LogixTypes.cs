@@ -207,6 +207,29 @@ public static class LogixCodec
         return array;
     }
 
+    /// <summary>
+    /// Updates only the logical BOOL bits in Logix's packed DWORD words. Bits after the array's declared length share
+    /// its last word and may belong to adjacent controller storage, so keep them as read.
+    /// </summary>
+    public static void EncodePackedBoolArray(IReadOnlyList<bool> values, Span<byte> packedWords)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        var requiredBytes = ((values.Count + 31) / 32) * sizeof(uint);
+        if (packedWords.Length < requiredBytes)
+        {
+            throw new FormatException($"Packed BOOL array buffer has {packedWords.Length} bytes; {requiredBytes} required.");
+        }
+
+        for (var i = 0; i < values.Count; i++)
+        {
+            var byteIndex = i / 8;
+            var mask = (byte)(1 << (i % 8));
+            packedWords[byteIndex] = values[i]
+                ? (byte)(packedWords[byteIndex] | mask)
+                : (byte)(packedWords[byteIndex] & ~mask);
+        }
+    }
+
     /// <summary>Text of a STRING-like structure.</summary>
     public static string DecodeString(LogixTemplate template, ReadOnlySpan<byte> data)
     {
