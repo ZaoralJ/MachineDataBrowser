@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.2](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.29.1...v0.29.2) (2026-10-16)
+
+
+### Fixes
+
+* **cip:** write packed BOOL arrays ([#160](https://github.com/ZaoralJ/MachineDataBrowser/issues/160)) ([9c34ae8](https://github.com/ZaoralJ/MachineDataBrowser/commit/9c34ae8e1be391e98cfaa071846d9003fd783094))
+
 ## [0.29.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.29.0...v0.29.1) (2026-10-16)
 
 
