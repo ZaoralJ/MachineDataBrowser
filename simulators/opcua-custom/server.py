@@ -153,6 +153,9 @@ async def build(server, idx, types):
     for name, value, vtype in scalars:
         var = await data_types.add_variable(idx, name, ua.Variant(value, vtype))
         await var.set_writable()
+    limited = await data_types.add_variable(idx, "LimitedInt32", ua.Variant(5, ua.VariantType.Int32))
+    await limited.set_writable()
+    await limited.add_property(idx, "EURange", ua.Range(Low=0.0, High=10.0), datatype=ua.ObjectIds.Range)
     arrays = await data_types.add_folder(idx, "Arrays")
     for name, values, vtype in [("Int32Array", list(range(10)), ua.VariantType.Int32), ("DoubleArray", [i / 3 for i in range(10)], ua.VariantType.Double),
                                 ("StringArray", ["alpha", "beta", "gamma"], ua.VariantType.String), ("BooleanArray", [True, False] * 4, ua.VariantType.Boolean),
