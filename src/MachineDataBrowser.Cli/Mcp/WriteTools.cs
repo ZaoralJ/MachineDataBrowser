@@ -36,6 +36,12 @@ internal sealed class WriteTools(EndpointPool pool, bool skipConfirmation, Write
         Checked(() => policy.Check(Names(node, variable), value), detail => log("refused", null, null, detail));
 
         var before = (await client.ReadValuesAsync([variable.Id], cancellationToken).ConfigureAwait(false))[0];
+        if (await WritePreflight.CheckAsync(client, variable.Id, value, cancellationToken).ConfigureAwait(false) is { } issue)
+        {
+            log("refused", ValueJson.ToJson(before), null, issue);
+            throw new McpException($"Write refused before confirmation: {variable.Name}: {issue}.");
+        }
+
         await Confirmed(() => ConfirmAsync(server, $"Write {value} to {variable.Name} ({variable.DisplayId}) on {target.Url}? It is {Text(before)} now.", cancellationToken),
             () => log("declined", ValueJson.ToJson(before), null, null)).ConfigureAwait(false);
 
@@ -95,10 +101,33 @@ internal sealed class WriteTools(EndpointPool pool, bool skipConfirmation, Write
         }
 
         var paths = saved.Items.ToDictionary(i => i.NodeId, i => i.Path, StringComparer.Ordinal);
+        var metadataFailures = new List<(SnapshotDiffRow Row, string Issue)>();
         foreach (var row in rows)
         {
+            var id = client.ParsePortableId(row.NodeId);
+            if (await WritePreflight.CheckAsync(client, id, row.Before, cancellationToken).ConfigureAwait(false) is { } metadataIssue)
+            {
+                metadataFailures.Add((row, metadataIssue));
+            }
+
             var names = new[] { paths[row.NodeId] ?? string.Empty, row.NodeId, client.ToDisplayId(client.ParsePortableId(row.NodeId)) };
             Checked(() => policy.Check(names, row.Before), detail => audit.Add("restore_snapshot", target.Url, paths[row.NodeId] ?? row.Name, row.NodeId, row.Before, "refused", JsonValue.Create(row.After), null, detail));
+        }
+
+        if (metadataFailures.Count > 0)
+        {
+            foreach (var (row, issue) in metadataFailures)
+            {
+                audit.Add("restore_snapshot", target.Url, paths[row.NodeId] ?? row.Name, row.NodeId, row.Before, "refused", JsonValue.Create(row.After), null, issue);
+            }
+
+            var details = string.Join("; ", metadataFailures.Take(10).Select(f => $"{f.Row.Name}: {f.Issue}"));
+            if (metadataFailures.Count > 10)
+            {
+                details += $"; and {metadataFailures.Count - 10} more";
+            }
+
+            throw new McpException($"Restore refused before confirmation: {metadataFailures.Count} value(s) failed device metadata checks. Nothing was written. {details}");
         }
 
         var elsewhere = saved.EndpointUrl.Length > 0 && !string.Equals(saved.EndpointUrl.TrimEnd('/'), target.Url.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)
