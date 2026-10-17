@@ -1,12 +1,13 @@
 using CommunityToolkit.Mvvm.Input;
 using MachineDataBrowser.App.Services;
+using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.App.ViewModels;
 
 /// <summary>
 /// "Copy mdbrowser command": the selection as a command line for the CLI, on the clipboard. Nodes are written as paths
-/// from the root (/Objects/Line1/Speed), as the CLI prints and accepts them, so its output shows names and full paths;
-/// a watch row without a known path (from an older session) falls back to its portable id.
+/// from the root (/Objects/Line1/Speed), except MQTT where portable topic ids preserve JSON pointers and can subscribe
+/// to a topic that is no longer in the app's live message cache.
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
@@ -59,9 +60,11 @@ public sealed partial class MainWindowViewModel
         return ([.. nodes.Select(CliNode)], nodes.Any(n => !n.IsVariable));
     }
 
-    private static string CliNode(NodeViewModel node) => $"/{node.Path}";
+    private string CliNode(NodeViewModel node) => DeviceClient.IsMqtt(EndpointUrl) ? node.NodeIdText : $"/{node.Path}";
 
-    private static string CliNode(WatchItemViewModel item) => item.Path.Length > 0 ? $"/{item.Path}/{item.DisplayName}" : item.PortableId;
+    private string CliNode(WatchItemViewModel item) => DeviceClient.IsMqtt(EndpointUrl) || item.Path.Length == 0
+        ? item.PortableId
+        : $"/{item.Path}/{item.DisplayName}";
 
     private List<WatchItemViewModel> WatchItemsForCli()
     {

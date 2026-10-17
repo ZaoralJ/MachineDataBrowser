@@ -12,6 +12,28 @@ namespace MachineDataBrowser.App.Tests;
 public sealed class MqttAppTests(MqttSimulatorFixture broker)
 {
     [AvaloniaFact]
+    public async Task Copied_cli_commands_use_portable_mqtt_ids_for_live_topics()
+    {
+        string? copied = null;
+        await using var vm = new MainWindowViewModel
+        {
+            EndpointUrl = broker.EndpointUrl,
+            CopyToClipboard = text => { copied = text; return Task.CompletedTask; },
+        };
+        await vm.ConnectCommand.ExecuteAsync(null);
+        var speed = await Find(vm, "Topics", "machines", "m1", "status", "speed");
+        vm.SelectedNode = speed;
+
+        await vm.CopyCliMonitorCommand.ExecuteAsync(null);
+        Assert.Equal($"mdbrowser monitor {broker.EndpointUrl} 't:machines/m1/status#/speed' --trust-all", copied);
+
+        await vm.AddToWatchCommand.ExecuteAsync(null);
+        vm.SelectedWatchItem = vm.WatchItems.Single();
+        await vm.CopyWatchCliReadCommand.ExecuteAsync(null);
+        Assert.Equal($"mdbrowser read {broker.EndpointUrl} 't:machines/m1/status#/speed' --trust-all", copied);
+    }
+
+    [AvaloniaFact]
     public async Task Mqtt_topics_json_fields_and_sparkplug_metrics_can_be_browsed_and_watched()
     {
         await using var vm = new MainWindowViewModel { EndpointUrl = broker.EndpointUrl };
