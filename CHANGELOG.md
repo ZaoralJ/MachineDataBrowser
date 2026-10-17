@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.3](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.29.2...v0.29.3) (2026-10-17)
+
+
+### Fixes
+
+* **mqtt:** monitor copied topics outside the live browse cache ([#163](https://github.com/ZaoralJ/MachineDataBrowser/issues/163)) ([91d3e68](https://github.com/ZaoralJ/MachineDataBrowser/commit/91d3e681e913eaa4581b2d62140d1d27664aaad7))
+
 ## [0.29.2](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.29.1...v0.29.2) (2026-10-16)
 
 
