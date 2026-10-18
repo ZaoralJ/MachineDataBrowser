@@ -216,6 +216,9 @@ name and options from the session; passwords are never saved, so pass `--passwor
 | `json` | `read`/`browse`/`endpoints`: a JSON array; `monitor`/`run`: one JSON object per line, values keep their type | same |
 | `csv` | a header line, then rows | same |
 
+Decoded OPC UA complex values show their named fields. JSON uses nested objects; text and CSV put compact JSON in the
+value column (quoted as needed by CSV).
+
 The live table starts with the current values, read when monitoring starts; *Updates* then counts the changes that
 arrived (the device's first notification that only repeats the starting value isn't counted). Redirected output and
 JSON/CSV stream only the notifications.

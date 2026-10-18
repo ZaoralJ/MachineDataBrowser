@@ -201,7 +201,7 @@ and sort order are saved with the session.
   - *Unit*: shown after numbers. OPC UA variables with an EngineeringUnits property show theirs automatically; type
     another, or untick to hide it.
   - Display only: filters, snapshots, recordings, exports and *Write value* use the device's value; the tooltip shows
-    it. Saved with the session.
+    it. Complex values show formatted JSON in the tooltip. Saved with the session.
 - **Monitoring settings** (OPC UA): right-click ▸ **Monitoring settings…** for the selected rows.
   - *Own sampling interval*: how often the server reads the value. The refresh time follows it, so Watch updates at
     the sampling pace; changing the refresh time afterwards publishes at that rate again.
