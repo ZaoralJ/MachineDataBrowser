@@ -26,10 +26,11 @@ public static class ValueJson
         {
             null => "Null",
             DeviceArray a => $"{a.ElementType}[]",
-            Matrix m => $"{TypeName(m.Elements.Length > 0 ? m.Elements.GetValue(0) : null)}[{string.Join(',', m.Dimensions)}]",
+            Matrix m => $"{TypeName(FirstValue(m.Elements))}[{string.Join(',', m.Dimensions)}]",
             IConvertableToMatrix m => MatrixTypeName(m.ToMatrix(BuiltInType.Null)),
             ByteString => "ByteString",
-            Array a when a.GetType().GetElementType() == typeof(byte) => "ByteString",
+            Array a when a.Rank == 1 && a.GetType().GetElementType() == typeof(byte) => "ByteString",
+            Array a when a.Rank > 1 => $"{TypeName(FirstValue(a))}[{string.Join(',', Enumerable.Range(0, a.Rank).Select(i => a.GetLength(i)))}]",
             Array a => $"{TypeName(a.Length > 0 ? a.GetValue(0) : null)}[]",
             ExtensionObject eo when eo.TryGetValue(out IEncodeable? e) => EncodeableTypeName(e),
             ExtensionObject => "ExtensionObject",
@@ -68,7 +69,8 @@ public static class ValueJson
             Uuid g => JsonValue.Create(((Guid)g).ToString()),
             Guid g => JsonValue.Create(g.ToString()),
             DeviceArray array => new JsonArray([.. array.Values.Cast<object?>().Select(item => Convert(item, depth + 1))]),
-            Array bytes when bytes.GetType().GetElementType() == typeof(byte) => JsonValue.Create(System.Convert.ToBase64String((byte[])bytes)),
+            Array bytes when bytes.Rank == 1 && bytes.GetType().GetElementType() == typeof(byte) => JsonValue.Create(System.Convert.ToBase64String((byte[])bytes)),
+            Array array when array.Rank > 1 => ArrayToJson(array, depth),
             ByteString bytes => bytes.IsNull ? null : JsonValue.Create(bytes.ToBase64()),
             LocalizedText lt => JsonValue.Create(lt.Text),
             QualifiedName qn => JsonValue.Create(qn.ToString()),
@@ -126,8 +128,30 @@ public static class ValueJson
         }
     }
 
+    private static JsonArray ArrayToJson(Array array, int depth)
+    {
+        var indices = new int[array.Rank];
+        return Build(0);
+
+        JsonArray Build(int dimension)
+        {
+            var result = new JsonArray();
+            for (var i = 0; i < array.GetLength(dimension); i++)
+            {
+                indices[dimension] = i;
+                result.Add(dimension == array.Rank - 1
+                    ? Convert(array.GetValue(indices), depth + 1)
+                    : Build(dimension + 1));
+            }
+
+            return result;
+        }
+    }
+
     private static string MatrixTypeName(Matrix matrix) =>
-        $"{TypeName(matrix.Elements.Length > 0 ? matrix.Elements.GetValue(0) : null)}[{string.Join(',', matrix.Dimensions)}]";
+        $"{TypeName(FirstValue(matrix.Elements))}[{string.Join(',', matrix.Dimensions)}]";
+
+    private static object? FirstValue(Array array) => array.Length > 0 ? array.GetValue(new int[array.Rank]) : null;
 
     private static string EncodeableTypeName(IEncodeable encodeable) =>
         encodeable is Structure structure ? structure.XmlName.Name : encodeable.GetType().Name;

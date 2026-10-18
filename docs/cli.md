@@ -218,6 +218,8 @@ name and options from the session; passwords are never saved, so pass `--passwor
 
 Decoded OPC UA complex values show their named fields. JSON uses nested objects; text and CSV put compact JSON in the
 value column (quoted as needed by CSV).
+The OPC UA Decimal built-in is the exception: text and CSV show its exact numeric text, while JSON keeps its lossless
+`Scale` and `Value` fields.
 
 The live table starts with the current values, read when monitoring starts; *Updates* then counts the changes that
 arrived (the device's first notification that only repeats the starting value isn't counted). Redirected output and

@@ -45,6 +45,25 @@ public sealed class OpcUaClientTests(OpcPlcFixture plc) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Static_decimal_formats_as_exact_text_and_json_keeps_its_encoding()
+    {
+        var node = _client.ParsePortableId("ns=8;s=Scalar_Static_Decimal");
+        var value = Assert.IsType<ExtensionObject>((await _client.ReadValuesAsync([node], Ct))[0]);
+        Assert.True(value.TryGetValue(out IEncodeable? body));
+        Assert.NotNull(body);
+        var decimalType = body.GetType();
+        var scale = Assert.IsType<short>(decimalType.GetProperty("Scale")!.GetValue(body));
+        var bytes = Assert.IsType<ByteString>(decimalType.GetProperty("Value")!.GetValue(body));
+        var expected = Opc.Ua.Decimal.FromLittleEndian(scale, bytes.Memory.Span).ToString();
+
+        Assert.StartsWith("0.", UaValueFormatter.Format(new Variant(value)), StringComparison.Ordinal);
+        Assert.Equal(expected, UaValueFormatter.Format(new Variant(value)));
+        var json = Assert.IsType<System.Text.Json.Nodes.JsonObject>(ValueJson.ToJson(value));
+        Assert.Equal(100L, json["Scale"]!.GetValue<long>());
+        Assert.NotNull(json["Value"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task Collect_variables_respects_depth_and_limit()
     {
         var objects = await _client.BrowseAsync(UaId(ObjectIds.ObjectsFolder), Ct);

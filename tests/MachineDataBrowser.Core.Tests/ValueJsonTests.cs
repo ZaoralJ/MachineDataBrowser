@@ -25,7 +25,13 @@ public sealed class ValueJsonTests
     public void Arrays_matrices_and_structures()
     {
         Assert.Equal("[1,2,3]", ValueJson.ToJson(new[] { 1, 2, 3 })!.ToJsonString());
-        Assert.Equal("[[1,2,3],[4,5,6]]", ValueJson.ToJson(new[,] { { 1, 2, 3 }, { 4, 5, 6 } }.ToMatrixOf())!.ToJsonString());
+        var twoDimensional = new[,] { { 1, 2, 3 }, { 4, 5, 6 } };
+        var matrix = twoDimensional.ToMatrixOf();
+        Assert.Equal("[[1,2,3],[4,5,6]]", ValueJson.ToJson(matrix)!.ToJsonString());
+        Assert.Equal("Int32[2,3]", ValueJson.TypeName(matrix));
+        Assert.Equal("[[1,2,3],[4,5,6]]", ValueJson.ToJson(twoDimensional)!.ToJsonString());
+        Assert.Equal("Int32[2,3]", ValueJson.TypeName(twoDimensional));
+        Assert.Equal("[[1,2,3],[4,5,6]]", UaValueFormatter.Format(twoDimensional));
 
         var info = new BuildInfo { ProductName = "PLC", BuildNumber = "7" };
         var obj = Assert.IsType<JsonObject>(ValueJson.ToJson(new ExtensionObject(info)));

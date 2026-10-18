@@ -1,5 +1,6 @@
 using System.Collections;
 using Opc.Ua;
+using Opc.Ua.Encoders;
 using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.Driver.OpcUa;
@@ -16,6 +17,16 @@ public static class UaValueFormatter
 
     private static string FormatObject(object? value)
     {
+        if (TryFormatDecimal(value, out var decimalText))
+        {
+            return decimalText;
+        }
+
+        if (value is Array { Rank: > 1 } multidimensional)
+        {
+            return ValueJson.ToJson(multidimensional)?.ToJsonString() ?? ValueFormatter.Format(value);
+        }
+
         if (ContainsDecodedStructure(value))
         {
             return ValueJson.ToJson(value)?.ToJsonString() ?? ValueFormatter.Format(value);
@@ -32,6 +43,51 @@ public static class UaValueFormatter
             IConvertableToMatrix matrix => FormatMatrix(matrix.ToMatrix(BuiltInType.Null)),
             _ => ValueFormatter.Format(value),
         };
+    }
+
+    private static bool TryFormatDecimal(object? value, out string text)
+    {
+        text = string.Empty;
+        if (value is not ExtensionObject extension || !extension.TryGetValue(out IEncodeable? encodeable))
+        {
+            return false;
+        }
+
+        if (encodeable is Opc.Ua.Decimal decimalValue)
+        {
+            text = decimalValue.ToString();
+            return true;
+        }
+
+        var type = encodeable.GetType();
+        if (type.Name != "DecimalDataType"
+            || type.GetProperty("Scale")?.GetValue(encodeable) is not short scale)
+        {
+            return false;
+        }
+
+        var unscaled = type.GetProperty("Value")?.GetValue(encodeable) switch
+        {
+            ByteString bytes => bytes.Memory.ToArray(),
+            byte[] bytes => bytes,
+            ArrayOf<byte> bytes => bytes.ToArray(),
+            _ => null,
+        };
+        if (unscaled is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            text = Opc.Ua.Decimal.FromLittleEndian(scale, unscaled).ToString();
+            return true;
+        }
+        catch (ArgumentException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning($"Could not format OPC UA Decimal: {ex.Message}");
+            return false;
+        }
     }
 
     private static bool ContainsDecodedStructure(object? value, int depth = 0) => depth <= 16 && value switch
@@ -57,5 +113,5 @@ public static class UaValueFormatter
     }
 
     private static string FormatMatrix(Matrix matrix) =>
-        $"Matrix[{string.Join('x', matrix.Dimensions)}] {ValueFormatter.Format(matrix.Elements)}";
+        $"Matrix[{string.Join('x', matrix.Dimensions)}] {ValueJson.ToJson(matrix)?.ToJsonString() ?? ValueFormatter.Format(matrix.Elements)}";
 }
