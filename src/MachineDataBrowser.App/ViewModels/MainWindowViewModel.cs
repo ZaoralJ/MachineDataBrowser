@@ -1485,12 +1485,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             }
         }
 
-        foreach (var item in _pendingUpdates.Keys)
+        if (State == ConnectionState.Connected)
         {
-            if (_pendingUpdates.TryRemove(item, out var update))
+            foreach (var item in _pendingUpdates.Keys)
             {
-                item.Apply(update);
+                if (_pendingUpdates.TryRemove(item, out var update))
+                {
+                    item.Apply(update);
+                }
             }
+        }
+        else
+        {
+            _pendingUpdates.Clear();
         }
 
         // Values, status and staleness change: rows may enter or leave the filtered view.
@@ -1528,6 +1535,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     {
         var previous = State;
         State = state;
+        if (state is ConnectionState.Reconnecting or ConnectionState.Disconnected)
+        {
+            _pendingUpdates.Clear();
+            foreach (var item in WatchItems)
+            {
+                item.MarkCommunicationLost();
+            }
+        }
+
         if (state == ConnectionState.Reconnecting)
         {
             StatusMessage = "Connection lost, reconnecting…";
@@ -1535,6 +1551,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
         else if (state == ConnectionState.Connected && previous == ConnectionState.Reconnecting)
         {
+            _pendingUpdates.Clear();
             StatusMessage = "Reconnected";
             if (ErrorMessage == ConnectionLostMessage)
             {

@@ -56,9 +56,21 @@ public sealed class ResilienceTests
         Assert.True(vm.IsConnected);
         await Until(() => vm.RootNodes.Count == 1 && vm.RootNodes[0].Children.Count > 0);
 
+        var objects = await ExpandAndFind(vm.RootNodes[0], "Objects");
+        var server = await ExpandAndFind(objects, "Server");
+        var status = await ExpandAndFind(server, "ServerStatus");
+        var currentTime = await ExpandAndFind(status, "CurrentTime");
+        vm.SelectedNode = currentTime;
+        await vm.AddToWatchCommand.ExecuteAsync(null);
+        var watched = Assert.Single(vm.WatchItems);
+        await Until(() => watched.Status == "Good");
+
         await container.StopAsync(TestContext.Current.CancellationToken);
         await Until(() => vm.State != ConnectionState.Connected, seconds: 60);
         Assert.NotNull(vm.ErrorMessage);
+        Assert.Equal("BadNoCommunication", watched.Status);
+        Assert.True(watched.IsBad);
+        Assert.NotEqual("…", watched.Value); // Keep the last observed value while identifying it as unavailable.
 
         // Browsing and disconnecting against a dead server report errors instead of throwing.
         vm.RootNodes[0].Children[0].IsExpanded = true;
@@ -75,5 +87,13 @@ public sealed class ResilienceTests
             Dispatcher.UIThread.RunJobs();
             await Task.Delay(100, TestContext.Current.CancellationToken);
         }
+    }
+
+    private static async Task<NodeViewModel> ExpandAndFind(NodeViewModel parent, string name)
+    {
+        parent.IsExpanded = true;
+        NodeViewModel? found = null;
+        await Until(() => (found = parent.Children.FirstOrDefault(child => child.DisplayName == name)) is not null);
+        return found!;
     }
 }

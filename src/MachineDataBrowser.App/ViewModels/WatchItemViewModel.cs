@@ -182,4 +182,11 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
             ? string.Empty
             : Timestamps.Format(update.SourceTimestamp);
     }
+
+    public void MarkCommunicationLost()
+    {
+        Status = StatusText.Of(DeviceStatusCodes.BadNoCommunication);
+        IsBad = true;
+        IsUncertain = false;
+    }
 }
