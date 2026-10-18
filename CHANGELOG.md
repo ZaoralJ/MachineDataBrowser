@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.32.0...v0.32.1) (2026-10-18)
+
+
+### Fixes
+
+* **opcua:** allow large string values ([#173](https://github.com/ZaoralJ/MachineDataBrowser/issues/173)) ([fcbceb6](https://github.com/ZaoralJ/MachineDataBrowser/commit/fcbceb647dcc5efaea6076a721891d756fcb8d58))
+
 ## [0.32.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.31.0...v0.32.0) (2026-10-18)
 
 
