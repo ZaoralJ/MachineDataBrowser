@@ -19,6 +19,11 @@ internal static class Commands
 {
     public const string PasswordVariable = "MDBROWSER_PASSWORD";
 
+    public static string[] NormalizeArgs(string[] args) =>
+        args.Length > 0 && args[0].Contains("://", StringComparison.Ordinal)
+            ? ["tui", .. args]
+            : args;
+
     public static RootCommand Build(TextWriter stdout, TextWriter stderr, IAnsiConsole? terminal = null)
     {
         var url = new Argument<string>("url") { Description = "Endpoint: opc.tcp://host:4840, eip://host/1,0, mqtt://broker[/topic/#]" };
@@ -667,7 +672,9 @@ internal static class Commands
             return model;
         }
 
-        return new RootCommand("Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix) and MQTT")
+        return new RootCommand(
+            "Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix) and MQTT. " +
+            "Pass a URL to open the full-screen browser.")
         {
             endpoints, browse, read, monitor, run, write, session, mcp, tui,
         };
