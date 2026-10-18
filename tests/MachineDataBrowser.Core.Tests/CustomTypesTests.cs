@@ -127,6 +127,14 @@ public sealed class CustomTypesTests(CustomTypesServerFixture server) : IAsyncLi
     }
 
     [Fact]
+    public async Task Long_string_values_within_the_transport_limit_are_read()
+    {
+        var value = Assert.IsType<string>(await ReadAsync("Custom", "EdgeCases", "LongString"));
+
+        Assert.Equal(100_000, value.Length);
+    }
+
+    [Fact]
     public async Task Flat_folder_with_thousands_of_children_browses_completely()
     {
         var flat = await FindAsync("Custom", "Flat");

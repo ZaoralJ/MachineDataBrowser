@@ -35,7 +35,12 @@ internal static class ClientConfiguration
             ApplicationName = ApplicationName,
             ApplicationUri = $"urn:{System.Net.Dns.GetHostName()}:{ApplicationName}",
             ApplicationType = ApplicationType.Client,
-            TransportQuotas = new TransportQuotas { OperationTimeout = 30_000 },
+            TransportQuotas = new TransportQuotas
+            {
+                OperationTimeout = 30_000,
+                // Bound large values while allowing legitimate machine strings such as the 100 kB simulator value.
+                MaxStringLength = 1_000_000,
+            },
             ClientConfiguration = new Opc.Ua.ClientConfiguration { DefaultSessionTimeout = 60_000 },
             SecurityConfiguration = new SecurityConfiguration
             {
