@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.31.0...v0.32.0) (2026-10-18)
+
+
+### Features
+
+* **cli:** format OPC UA decimals and multidimensional values ([#171](https://github.com/ZaoralJ/MachineDataBrowser/issues/171)) ([e948e39](https://github.com/ZaoralJ/MachineDataBrowser/commit/e948e393385296d7cbf623ef43f713bc542e1740))
+
 ## [0.31.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.30.0...v0.31.0) (2026-10-18)
 
 
