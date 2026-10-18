@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Opc.Ua;
 using Opc.Ua.Encoders;
 using MachineDataBrowser.Driver.OpcUa;
@@ -53,6 +54,25 @@ public sealed class CustomTypesTests(CustomTypesServerFixture server) : IAsyncLi
         var text = UaValueFormatter.Format(new Variant(value));
         Assert.StartsWith("{", text, StringComparison.Ordinal); // decoded fields: {State|Speed|{X|Y|Z}|…}
         Assert.DoesNotContain("undecoded", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Dynamic_structures_format_as_named_nested_fields()
+    {
+        var value = Assert.IsType<ExtensionObject>(await ReadAsync("Custom", "Machines", "Machine1", "Status"));
+        var json = Assert.IsType<JsonObject>(ValueJson.ToJson(value));
+
+        Assert.True(json.ContainsKey("State"));
+        Assert.True(json.ContainsKey("Speed"));
+        Assert.True(json["Position"]!.AsObject().ContainsKey("X"));
+        Assert.True(json["Tool"]!["Offset"]!.AsObject().ContainsKey("Z"));
+        Assert.IsType<JsonArray>(json["Alarms"]);
+        Assert.IsType<JsonArray>(json["Messages"]);
+        Assert.True(json["Waypoints"] is JsonArray, json.ToJsonString());
+
+        var text = UaValueFormatter.Format(new Variant(value));
+        Assert.Contains("\"Position\"", text, StringComparison.Ordinal);
+        Assert.Contains("\"Speed\"", text, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,10 +1,15 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MachineDataBrowser.Core;
+using MachineDataBrowser.Driver.OpcUa;
 
 namespace MachineDataBrowser.App.ViewModels;
 
 public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName) : ObservableObject
 {
+    private static readonly JsonSerializerOptions PrettyJson = new() { WriteIndented = true };
+
     public NodeId NodeId { get; } = nodeId;
 
     public string DisplayName { get; } = displayName;
@@ -85,7 +90,19 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
     /// <summary>The value as shown in the Value column.</summary>
     public string DisplayValue => Display.Apply(RawValue, Value, ServerUnit);
 
-    public string ValueToolTip => Display.IsDefault ? Value : $"{Value} as sent · shown {Display.Describe()}";
+    public string ValueToolTip
+    {
+        get
+        {
+            var json = ValueJson.ToJson(RawValue);
+            if (json is JsonObject or JsonArray)
+            {
+                return json.ToJsonString(PrettyJson);
+            }
+
+            return Display.IsDefault ? Value : $"{Value} as sent · shown {Display.Describe()}";
+        }
+    }
 
     [ObservableProperty]
     public partial string Status { get; private set; } = string.Empty;

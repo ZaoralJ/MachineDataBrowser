@@ -15,28 +15,41 @@ public static class ValueJson
 
     public static JsonNode? ToJson(object? value) => Convert(value, 0);
 
-    public static string TypeName(object? value) => value switch
+    public static string TypeName(object? value)
     {
-        null => "Null",
-        DeviceArray a => $"{a.ElementType}[]",
-        Matrix m => $"{TypeName(m.Elements.Length > 0 ? m.Elements.GetValue(0) : null)}[{string.Join(',', m.Dimensions)}]",
-        IConvertableToMatrix m => MatrixTypeName(m.ToMatrix(BuiltInType.Null)),
-        ByteString => "ByteString",
-        Array a when a.GetType().GetElementType() == typeof(byte) => "ByteString",
-        Array a => $"{TypeName(a.Length > 0 ? a.GetValue(0) : null)}[]",
-        ExtensionObject eo when eo.TryGetValue(out IEncodeable? e) => EncodeableTypeName(e),
-        ExtensionObject => "ExtensionObject",
-        Uuid or Guid => "Guid",
-        DateTimeUtc => "DateTime",
-        float => "Float",
-        _ => value.GetType().Name,
-    };
+        if (value is not null && value is not Array && TryGetArray(value, out var array))
+        {
+            return TypeName(array);
+        }
+
+        return value switch
+        {
+            null => "Null",
+            DeviceArray a => $"{a.ElementType}[]",
+            Matrix m => $"{TypeName(m.Elements.Length > 0 ? m.Elements.GetValue(0) : null)}[{string.Join(',', m.Dimensions)}]",
+            IConvertableToMatrix m => MatrixTypeName(m.ToMatrix(BuiltInType.Null)),
+            ByteString => "ByteString",
+            Array a when a.GetType().GetElementType() == typeof(byte) => "ByteString",
+            Array a => $"{TypeName(a.Length > 0 ? a.GetValue(0) : null)}[]",
+            ExtensionObject eo when eo.TryGetValue(out IEncodeable? e) => EncodeableTypeName(e),
+            ExtensionObject => "ExtensionObject",
+            Uuid or Guid => "Guid",
+            DateTimeUtc => "DateTime",
+            float => "Float",
+            _ => value.GetType().Name,
+        };
+    }
 
     private static JsonNode? Convert(object? value, int depth)
     {
         if (depth > MaxDepth)
         {
             return JsonValue.Create(value?.ToString());
+        }
+
+        if (value is not null && value is not Array && TryGetArray(value, out var convertedArray))
+        {
+            return Convert(convertedArray, depth);
         }
 
         return value switch
@@ -65,6 +78,7 @@ public static class ValueJson
             IConvertableToMatrix matrix => MatrixToJson(matrix.ToMatrix(BuiltInType.Null), depth),
             ExtensionObject eo => ExtensionObjectToJson(eo, depth),
             DataValue dv => Convert(dv.WrappedValue.AsBoxedObject(), depth + 1),
+            Structure structure => StructureToJson(structure, depth),
             IEncodeable encodeable => StructToJson(encodeable, depth),
             Enum e => JsonValue.Create(e.ToString()),
             IEnumerable list => new JsonArray([.. list.Cast<object?>().Select(i => Convert(i, depth + 1))]),
@@ -135,5 +149,40 @@ public static class ValueJson
         }
 
         return result;
+    }
+
+    private static JsonObject StructureToJson(Structure structure, int depth)
+    {
+        var result = new JsonObject();
+        foreach (var field in structure.GetFields())
+        {
+            if (!string.IsNullOrEmpty(field.Name))
+            {
+                result[field.Name] = Convert(structure[field.Name].AsBoxedObject(), depth + 1);
+            }
+        }
+
+        return result;
+    }
+
+    internal static bool TryGetArray(object value, out Array array)
+    {
+        if (value is Array existing)
+        {
+            array = existing;
+            return true;
+        }
+
+        var type = value.GetType();
+        if (type.IsGenericType
+            && type.GetGenericTypeDefinition() == typeof(ArrayOf<>)
+            && type.GetMethod(nameof(ArrayOf<int>.ToArray), Type.EmptyTypes)?.Invoke(value, null) is Array converted)
+        {
+            array = converted;
+            return true;
+        }
+
+        array = Array.Empty<object>();
+        return false;
     }
 }
