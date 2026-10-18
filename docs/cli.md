@@ -33,9 +33,12 @@ command line for them, with the endpoint and options of the connection.
 | `mdbrowser tui <url or session>` | a full-screen browser in the terminal: tree, attributes, live values, trend, write, record; see [below](#full-screen-browser-tui) |
 | `mdbrowser mcp --endpoint <url>... --recording <file.db>...` | an MCP server for AI agents (machines and SQLite recordings), read-only; see [MCP server](mcp.md) |
 
+For the interactive browser, `mdbrowser <url>` is shorthand for `mdbrowser tui <url>`.
+
 `mdbrowser <command> --help` lists every option.
 
 ```sh
+mdbrowser opc.tcp://plc:4840
 mdbrowser endpoints opc.tcp://plc:4840
 mdbrowser browse opc.tcp://plc:4840 /Objects/Line1 --depth 2
 mdbrowser read eip://10.0.0.5/1,0 "/Controller Tags/Motor.Speed"
