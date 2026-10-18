@@ -175,6 +175,8 @@ and sort order are saved with the session.
   - *Since* turns amber when a value is **stale**, i.e. there has been no update for 5× its refresh time (at least
     5 s).
   - The status column shows **Bad** or **Uncertain** in colour.
+  - If the connection is lost, monitored rows show **BadNoCommunication** until fresh values arrive; their last values
+    remain visible.
 - **Select and remove problem rows:**
   - The clock button (or **S**) selects stale rows; the ! button (or **B**) selects bad rows.
   - Double-clicking the button, or pressing the key twice, removes them.
