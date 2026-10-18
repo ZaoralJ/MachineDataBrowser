@@ -288,7 +288,7 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
 
         // + steps the refresh time of every monitored item: 100 ms → 250 ms.
         Press(new Key('+'));
-        await UntilScreen(s => s.Contains("- 250 ms +", StringComparison.Ordinal));
+        await UntilScreen(s => s.Contains("- 250 ms +", StringComparison.Ordinal) && model.Watch.All(r => r.RefreshMs == 250));
         Assert.All(model.Watch, r => Assert.Equal(250, r.RefreshMs));
 
         // The trend shows the last 30 samples at first; ] shows more; x resets it.
