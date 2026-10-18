@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.30.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.29.3...v0.30.0) (2026-10-18)
+
+
+### Features
+
+* **cli:** open TUI from a bare endpoint URL ([#168](https://github.com/ZaoralJ/MachineDataBrowser/issues/168)) ([0260dd3](https://github.com/ZaoralJ/MachineDataBrowser/commit/0260dd3013d5885dfc49ad5f45a0e07b4ffe6407))
+
+
+### Fixes
+
+* **app:** mark watched values unavailable on disconnect ([#166](https://github.com/ZaoralJ/MachineDataBrowser/issues/166)) ([e0f7743](https://github.com/ZaoralJ/MachineDataBrowser/commit/e0f7743417cb0598b2195cf9707a931a6e46356f))
+
 ## [0.29.3](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.29.2...v0.29.3) (2026-10-17)
 
 
