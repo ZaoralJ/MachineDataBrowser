@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.30.0...v0.31.0) (2026-10-18)
+
+
+### Features
+
+* unpack OPC UA complex values in CLI and UI ([#169](https://github.com/ZaoralJ/MachineDataBrowser/issues/169)) ([155c68e](https://github.com/ZaoralJ/MachineDataBrowser/commit/155c68e16d98a87233e4ee0b5dcf96019ff49f75))
+
 ## [0.30.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.29.3...v0.30.0) (2026-10-18)
 
 
