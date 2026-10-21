@@ -100,12 +100,12 @@ internal sealed class WatchRow(Node node, int refreshMs)
             var time = Output.Time(last) is { } stamp ? stamp.ToLocalTime() : _receivedAt;
             var stale = DateTime.Now - _receivedAt > TimeSpan.FromMilliseconds(Math.Max(5000, RefreshMs * 5)) && _notifications > 1;
             return new RowSnapshot(last.Value, StatusText.Of(last.Status), last.Status,
-                time.ToString("HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture), Math.Max(0, _notifications - 1), last.Numeric, stale, Waiting: false);
+                time.ToString("HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture), Math.Max(0, _notifications - 1), last.Numeric, stale, Waiting: false, Raw: last.Raw);
         }
     }
 }
 
-internal sealed record RowSnapshot(string Value, string Status, DeviceStatusCode Code, string Time, int Updates, double? Numeric, bool Stale, bool Waiting);
+internal sealed record RowSnapshot(string Value, string Status, DeviceStatusCode Code, string Time, int Updates, double? Numeric, bool Stale, bool Waiting, object? Raw = null);
 
 internal sealed record WriteOutcome(string Name, string Before, string After, string? Error);
 
@@ -260,30 +260,36 @@ internal sealed class BrowserModel : IAsyncDisposable
     }
 
     /// <summary>Monitors a variable, or every variable below a folder or structure (like Monitor folder in the app).</summary>
-    public async Task<int> MonitorAsync(TreeEntry entry, CancellationToken cancellationToken = default)
+    public Task<int> MonitorAsync(TreeEntry entry, CancellationToken cancellationToken = default) =>
+        MonitorAsync([entry], cancellationToken);
+
+    /// <summary>Monitors selected variables and expands selected folders to their variables.</summary>
+    public async Task<int> MonitorAsync(IReadOnlyList<TreeEntry> entries, CancellationToken cancellationToken = default)
     {
-        List<Node> nodes;
+        List<Node> nodes = [];
         var descendIntoVariables = Client is IDynamicAddressSpace;
-        if (entry.IsVariable && !(descendIntoVariables && entry.Item.HasChildren))
+        foreach (var entry in entries)
         {
-            nodes = [ToNode(entry)];
-        }
-        else
-        {
-            var found = await Client.CollectVariablesWithPathsAsync(entry.Item.NodeId, 10, MaxFolderItems, descendIntoVariables, cancellationToken).ConfigureAwait(false);
-            if (found.Count == 0 && entry.IsVariable)
+            if (entry.IsVariable && !(descendIntoVariables && entry.Item.HasChildren))
             {
-                nodes = [ToNode(entry)];
+                nodes.Add(ToNode(entry));
             }
             else
             {
+                var found = await Client.CollectVariablesWithPathsAsync(entry.Item.NodeId, 10, MaxFolderItems, descendIntoVariables, cancellationToken).ConfigureAwait(false);
+                if (found.Count == 0 && entry.IsVariable)
+                {
+                    nodes.Add(ToNode(entry));
+                    continue;
+                }
+
                 var basePath = entry.Path.TrimStart('/');
-                nodes = [.. found.Select(f => new Node(
+                nodes.AddRange(found.Select(f => new Node(
                     f.Item.NodeId,
                     f.Path.Length == 0 ? f.Item.DisplayName : $"{f.Path}/{f.Item.DisplayName}",
                     Client.ToDisplayId(f.Item.NodeId),
                     f.Item.DisplayName,
-                    f.Path.Length == 0 ? basePath : $"{basePath}/{f.Path}"))];
+                    f.Path.Length == 0 ? basePath : $"{basePath}/{f.Path}")));
                 if (found.Count >= MaxFolderItems)
                 {
                     Log($"Monitoring limited to the first {MaxFolderItems} variables below {entry.Item.DisplayName}.");
@@ -293,11 +299,12 @@ internal sealed class BrowserModel : IAsyncDisposable
 
         if (nodes.Count == 0)
         {
-            Log($"No variables below {entry.Item.DisplayName}.");
+            Log(entries.Count == 1 ? $"No variables below {entries[0].Item.DisplayName}." : $"No variables below the selected items.");
             return 0;
         }
 
-        return await MonitorNodesAsync([.. nodes.Select(n => (n, DefaultRefreshMs))], cancellationToken).ConfigureAwait(false);
+        var unique = nodes.DistinctBy(node => node.Id);
+        return await MonitorNodesAsync([.. unique.Select(node => (node, DefaultRefreshMs))], cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Monitors nodes not monitored yet; returns how many were added.</summary>
@@ -427,6 +434,13 @@ internal sealed class BrowserModel : IAsyncDisposable
     {
         var values = await Client.ReadValuesAsync([id], cancellationToken).ConfigureAwait(false);
         return values[0] is { } value ? ValueFormatter.Format(value) : "-";
+    }
+
+    /// <summary>The current value without shortening arrays, for the full-value popup.</summary>
+    public async Task<string> ReadFullValueTextAsync(NodeId id, CancellationToken cancellationToken = default)
+    {
+        var values = await Client.ReadValuesAsync([id], cancellationToken).ConfigureAwait(false);
+        return values[0] is { } value ? ValueFormatter.FormatFull(value) : "-";
     }
 
     /// <summary>Writes a value and reads it back, so a write the device accepted but didn't apply shows.</summary>
