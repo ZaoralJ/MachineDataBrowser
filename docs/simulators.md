@@ -4,10 +4,10 @@ Four containers under `simulators/` cover local development, manual/user testing
 Start them with [`just`](https://github.com/casey/just) from the repository root:
 
 ```sh
-just cip            # Logix / EtherNet/IP   -> eip://localhost:44818/1,0
-just opcua          # opc-plc               -> opc.tcp://localhost:50000
-just opcua-custom   # custom types (asyncua) -> opc.tcp://localhost:4841/
-just mqtt           # MQTT broker + traffic  -> mqtt://localhost:1883 (ws://localhost:9001)
+just cip            # Logix / EtherNet/IP   -> eip://127.0.0.1:44818/1,0
+just opcua          # opc-plc               -> opc.tcp://127.0.0.1:50000
+just opcua-custom   # custom types (asyncua) -> opc.tcp://127.0.0.1:4841/
+just mqtt           # MQTT broker + traffic  -> mqtt://127.0.0.1:1883 (ws://127.0.0.1:9001)
 just all            # all four in the background (replaces running ones); `just stop` removes them
 just logs cip       # follow a background container's log
 just cip-debug      # log every CIP request (service, path, sizes)
@@ -29,8 +29,8 @@ while paused, so values continue from where they were rather than jumping. Each 
 | opc-plc | no single tag; call `Objects/OpcPlc/Methods/StopUpdateFastNodes` / `StopUpdateSlowNodes` (and `Start…`) |
 
 ```sh
-mdbrowser write eip://localhost:44818/1,0 PauseSimulation true --yes
-mdbrowser write opc.tcp://localhost:4841 /Objects/Custom/PauseSimulation false --yes
+mdbrowser write eip://127.0.0.1:44818/1,0 PauseSimulation true --yes
+mdbrowser write opc.tcp://127.0.0.1:4841 /Objects/Custom/PauseSimulation false --yes
 ```
 
 opc-plc is Microsoft's image: its methods pause only the Fast and Slow telemetry nodes. Basic, Anomaly, alarms and

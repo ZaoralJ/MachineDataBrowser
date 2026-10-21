@@ -9,9 +9,9 @@
 
 | Protocol | Endpoint | Highlights |
 |---|---|---|
-| **OPC UA** | `opc.tcp://host:4840` | secure endpoints, user login, custom structures, subscriptions |
-| **EtherNet/IP** (Allen-Bradley Logix) | `eip://192.168.1.10/1,0` | controller and program tags, UDTs, arrays of UDTs |
-| **MQTT** | `mqtt://broker[:port][/topic/#]`, `mqtts://`, `ws://`, `wss://` | topic tree, JSON fields, Sparkplug B, CloudEvents |
+| **OPC UA** | `opc.tcp://127.0.0.1:4841` | secure endpoints, user login, custom structures, subscriptions |
+| **EtherNet/IP** (Allen-Bradley Logix) | `eip://127.0.0.1:44818/1,0` | controller and program tags, UDTs, arrays of UDTs |
+| **MQTT** | `mqtt://127.0.0.1:1883[/topic/#]`, `mqtts://`, `ws://`, `wss://` | topic tree, JSON fields, Sparkplug B, CloudEvents |
 
 For any of these you can:
 
@@ -52,7 +52,7 @@ Update with `brew upgrade --cask machine-data-browser`, remove with `brew uninst
 
 ```sh
 brew install zaoralj/tap/mdbrowser
-mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1/Speed
+mdbrowser monitor opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines/Machine1/Speed
 ```
 
 `mdbrowser` browses, reads and monitors from a terminal or a script, and runs sessions saved in the app;
@@ -69,10 +69,10 @@ dotnet run --project src/MachineDataBrowser.App
 
 Then connect to one of these:
 
-- `opc.tcp://localhost:50000`
-- `opc.tcp://localhost:4841/`
-- `eip://localhost:44818/1,0`
-- `mqtt://localhost:1883`
+- `opc.tcp://127.0.0.1:50000`
+- `opc.tcp://127.0.0.1:4841/`
+- `eip://127.0.0.1:44818/1,0`
+- `mqtt://127.0.0.1:1883`
 
 [docs/simulators.md](docs/simulators.md) describes what each simulator contains.
 

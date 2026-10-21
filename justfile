@@ -9,7 +9,7 @@ mqtt_image := "machinedatabrowser-mqtt-simulator:dev"
 default:
     @just --list
 
-# Logix (ControlLogix) EtherNet/IP simulator -> eip://localhost:PORT/1,0 (UDT arrays, program scopes, 10/20/50 ms tags)
+# Logix (ControlLogix) EtherNet/IP simulator -> eip://127.0.0.1:PORT/1,0 (UDT arrays, program scopes, 10/20/50 ms tags)
 cip port="44818" fast_ms="10" bulk="3000" programs="20":
     docker build -t {{cip_image}} simulators/cip
     -docker rm -f machinedatabrowser-cip >/dev/null 2>&1
@@ -27,7 +27,7 @@ cip-debug port="44818":
 cip-local port="44818":
     cd simulators/cip && CIP_SIM_PORT={{port}} python3 logix_server.py
 
-# OPC UA opc-plc simulator -> opc.tcp://localhost:PORT (Plant tree, boilers, alarms, fast nodes every FAST_MS)
+# OPC UA opc-plc simulator -> opc.tcp://127.0.0.1:PORT (Plant tree, boilers, alarms, fast nodes every FAST_MS)
 opcua port="50000" fast_ms="10" fast_nodes="20" slow_nodes="10":
     docker build -t {{opcua_image}} simulators/opcua
     -docker rm -f machinedatabrowser-opcua >/dev/null 2>&1
@@ -36,7 +36,7 @@ opcua port="50000" fast_ms="10" fast_nodes="20" slow_nodes="10":
         -e OPCUA_SIM_FAST_NODES={{fast_nodes}} -e OPCUA_SIM_SLOW_NODES={{slow_nodes}} \
         {{opcua_image}}
 
-# OPC UA server with custom structures/enums/unions and a large address space -> opc.tcp://localhost:PORT/
+# OPC UA server with custom structures/enums/unions and a large address space -> opc.tcp://127.0.0.1:PORT/
 opcua-custom port="4841" fast_ms="10" large="10,10,50" flat="10000":
     docker build -t {{custom_image}} simulators/opcua-custom
     -docker rm -f machinedatabrowser-opcua-custom >/dev/null 2>&1
@@ -45,7 +45,7 @@ opcua-custom port="4841" fast_ms="10" large="10,10,50" flat="10000":
         -e OPCUA_CUSTOM_LARGE={{large}} -e OPCUA_CUSTOM_FLAT={{flat}} \
         {{custom_image}}
 
-# MQTT broker (Mosquitto) with plain, JSON, retained, binary and Sparkplug B traffic -> mqtt://localhost:PORT (ws on 9001)
+# MQTT broker (Mosquitto) with plain, JSON, retained, binary and Sparkplug B traffic -> mqtt://127.0.0.1:PORT (ws on 9001)
 mqtt port="1883" fast_ms="10" bulk="500" death_s="30":
     docker build -t {{mqtt_image}} simulators/mqtt
     -docker rm -f machinedatabrowser-mqtt >/dev/null 2>&1
@@ -63,7 +63,7 @@ all: stop
     docker run -d --rm --name machinedatabrowser-opcua -p 50000:50000 -p 8080:8080 {{opcua_image}}
     docker run -d --rm --name machinedatabrowser-opcua-custom -p 4841:4841 {{custom_image}}
     docker run -d --rm --name machinedatabrowser-mqtt -p 1883:1883 -p 9001:9001 {{mqtt_image}}
-    @echo "eip://localhost:44818/1,0  opc.tcp://localhost:50000  opc.tcp://localhost:4841/  mqtt://localhost:1883"
+    @echo "eip://127.0.0.1:44818/1,0  opc.tcp://127.0.0.1:50000  opc.tcp://127.0.0.1:4841/  mqtt://127.0.0.1:1883"
 
 # Stop all simulator containers
 stop:
@@ -80,13 +80,18 @@ test-sim:
 # Regenerate the dark-theme screenshots in docs/images (needs Docker; compresses them with pngquant)
 docs-screenshots:
     MDB_DOCS_SCREENSHOTS=1 dotnet test tests/MachineDataBrowser.App.Tests -- --filter-class "*DocsScreenshotTests"
-    PATH="/opt/homebrew/bin:/usr/local/bin:$PATH" pngquant --force --skip-if-larger --quality=80-95 --strip --ext .png docs/images/*.png
+    PATH="/opt/homebrew/bin:/usr/local/bin:$PATH" pngquant --force --skip-if-larger --quality=80-95 --strip --ext .png docs/images/*.png docs/images/themes/app-*.png
 
-# Regenerate docs/images/tui.png: the real mdbrowser tui in a pseudo-terminal (needs the MQTT simulator, uv, pngquant)
+# Regenerate docs/images/tui*.png: the real mdbrowser tui in a pseudo-terminal (needs `just all`, uv, pngquant)
 docs-tui-screenshot:
     dotnet build src/MachineDataBrowser.Cli -o artifacts/docs-cli
-    uv run scripts/tui-screenshot.py artifacts/docs-cli/mdbrowser docs/images/tui.png
-    PATH="/opt/homebrew/bin:/usr/local/bin:$PATH" pngquant --force --skip-if-larger --quality=80-95 --strip --ext .png docs/images/tui.png
+    uv run scripts/tui-screenshot.py artifacts/docs-cli/mdbrowser docs/images
+    PATH="/opt/homebrew/bin:/usr/local/bin:$PATH" pngquant --force --skip-if-larger --quality=80-95 --strip --ext .png docs/images/tui*.png docs/images/themes/tui-*.png
+
+# Regenerate docs/cli-examples.md: every mdbrowser command with its output (needs `just all`, uv)
+docs-cli-examples:
+    dotnet build src/MachineDataBrowser.Cli -o artifacts/docs-cli
+    uv run scripts/cli-examples.py artifacts/docs-cli/mdbrowser docs/cli-examples.md
 
 # Preview the documentation site at http://127.0.0.1:8000 (needs uv)
 docs-serve:

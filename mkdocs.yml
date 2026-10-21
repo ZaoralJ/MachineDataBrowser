@@ -13,6 +13,8 @@ nav:
   - Home: index.md
   - User manual: user-manual.md
   - Command line: cli.md
+  - Command line examples: cli-examples.md
+  - Colour themes: themes.md
   - MCP server for AI agents: mcp.md
   - Test servers: simulators.md
   - Contributors:

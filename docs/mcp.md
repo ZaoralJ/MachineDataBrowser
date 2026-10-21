@@ -18,7 +18,7 @@ recordings or both: the agent only gets the tools for what is configured.
 | Option | Lets the agent |
 |---|---|
 | `--endpoint url`, `--session file` | use these machines, with their login and trust options |
-| `--allow "opc.tcp://10.0.5.*"` (repeatable) | connect to endpoints it names that match the pattern (`*`, `?`), **without** credentials or auto-trust |
+| `--allow "opc.tcp://127.0.0.1:*"` (repeatable) | connect to endpoints it names that match the pattern (`*`, `?`), **without** credentials or auto-trust |
 | `--allow-any` | connect to any endpoint it names, without credentials (lab use) |
 | `--recording file.db`, `--recordings-dir folder` | read these recordings |
 | `--allow-recording folder` | start background recordings into that folder (and read them) |
@@ -36,7 +36,7 @@ recordings or both: the agent only gets the tools for what is configured.
         "machine-data": {
           "type": "stdio",
           "command": "mdbrowser",
-          "args": ["mcp", "--endpoint", "opc.tcp://plc-01:4840", "--endpoint", "eip://10.0.0.5/1,0"]
+          "args": ["mcp", "--endpoint", "opc.tcp://127.0.0.1:4841", "--endpoint", "eip://127.0.0.1:44818/1,0"]
         }
       }
     }
@@ -45,7 +45,7 @@ recordings or both: the agent only gets the tools for what is configured.
 === "Claude Code"
 
     ```sh
-    claude mcp add machine-data -- mdbrowser mcp --endpoint opc.tcp://plc-01:4840
+    claude mcp add machine-data -- mdbrowser mcp --endpoint opc.tcp://127.0.0.1:4841
     ```
 
 === "opencode"
@@ -70,7 +70,7 @@ recordings or both: the agent only gets the tools for what is configured.
       "mcpServers": {
         "machine-data": {
           "command": "mdbrowser",
-          "args": ["mcp", "--endpoint", "mqtt://broker:1883"],
+          "args": ["mcp", "--endpoint", "mqtt://127.0.0.1:1883"],
           "env": { "MDBROWSER_PASSWORD": "…" }
         }
       }
@@ -126,7 +126,7 @@ Snapshots are named by their full name or a unique start of it (`Recipe` for *Re
 
 ```sh
 mdbrowser mcp --recordings-dir ~/Recordings                              # recordings only
-mdbrowser mcp --endpoint opc.tcp://plc-01:4840 --recording ~/plant.db    # machines and recordings
+mdbrowser mcp --endpoint opc.tcp://127.0.0.1:4841 --recording ~/plant.db  # machines and recordings
 ```
 
 | Tool | Gives the agent |
@@ -164,7 +164,8 @@ Besides tools, the server offers **resources** an agent (or you, in clients that
 | `call_method` | calls an OPC UA method on its object with the given inputs and returns the outputs |
 
 - **You confirm every change.** The server asks through MCP *elicitation*: your agent shows a dialog like *"Write 42.5 to
-  Setpoint (ns=3;s=Setpoint) on opc.tcp://plc-01:4840? It is 40 now."* and nothing happens unless you confirm.
+  Double (ns=2;i=55) on opc.tcp://127.0.0.1:4841? It is 2.718281828459045 now."* and nothing happens unless you
+  confirm.
   Clients that can't show such a dialog are refused; `--skip-write-confirmation` lets them through, relying on the
   client's own tool approval only.
 - **Only configured machines:** endpoints named under `--allow` patterns are never changed, and sessions marked
@@ -202,15 +203,15 @@ Besides tools, the server offers **resources** an agent (or you, in clients that
 
 ## Example questions
 
-- *"What machines can you see, and what's under Line 1?"*
-- *"Find the motor temperatures on plc-01 and tell me which is the hottest."*
-- *"Watch the line speed for 30 seconds. Is it stable?"*
+- *"What machines can you see, and what's under Custom/Machines?"*
+- *"Find the press temperatures on the MQTT broker and tell me which is the hottest."*
+- *"Watch the speed of machine m1 for 30 seconds. Is it stable?"*
 - *"Read all recipe values on the Logix controller and summarise them."*
 - *"Which signals under Boilers are not Good right now?"*
-- *"Which alarms are active on plc-01, and what does the most severe one mean?"*
+- *"Which alarms are active on opc.tcp://127.0.0.1:50000, and what does the most severe one mean?"*
 - *"What did the boiler temperature do overnight? Hourly averages, please."*
 - *"Values look frozen. Is the connection to the PLC healthy?"*
-- *"Tell me when line 1 changes to Run (wait up to 10 minutes)."*
+- *"Tell me when machine m1 changes to Run (wait up to 10 minutes)."*
 - *"Record the press for an hour, then tell me how often the pressure went above 4 bar."*
 - *"In last night's recording, when was the speed below 1000, and for how long?"*
 - *"Compare the average temperature per hour between Monday and Tuesday."*

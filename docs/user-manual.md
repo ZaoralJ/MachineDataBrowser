@@ -42,7 +42,8 @@ flowchart LR
   - *Follow System*, *Light* or *Dark* (⌥⌘7/8/9) picks the appearance.
   - The colour theme sets the palette for both appearances: **Indigo** (default), **Graphite** (pure grey, blue),
     **Ocean** (sea-glass / deep navy, teal), **Forest** (sage / deep green), **Amber** (sand / dark brown),
-    **Nord**, **Solarized** and **Dracula**. Settings previews it while you choose; Cancel returns to the saved one.
+    **Nord**, **Solarized** and **Dracula** ([pictures of each](themes.md)). Settings previews it while you choose;
+    Cancel returns to the saved one.
 - The **status bar** shows what just happened and the connection state (Connected, Reconnecting…).
 - The **red bar** under the header shows errors; most errors show there instead of closing the app.
 
@@ -52,11 +53,11 @@ Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ but
 
 | Protocol | Endpoint | Notes |
 |---|---|---|
-| OPC UA | `opc.tcp://host:4840` | ⚙ options: secure endpoint, user name/password, auto-trust certificates |
-| EtherNet/IP | `eip://192.168.1.10/1,0` | `/backplane,slot`; defaults to `1,0` |
-| MQTT | `mqtt://broker:1883` | TLS `mqtts://` (8883), WebSocket `ws://host/mqtt` / `wss://` |
-| MQTT, narrowed | `mqtt://broker/plant/#` or `mqtt://broker?topic=plant/%2B/status` | subscribe only to part of the broker |
-| MQTT with login | `mqtt://user:password@broker` | or user name/password in the ⚙ options |
+| OPC UA | `opc.tcp://127.0.0.1:4841` | ⚙ options: secure endpoint, user name/password, auto-trust certificates |
+| EtherNet/IP | `eip://127.0.0.1:44818/1,0` | `/backplane,slot`; defaults to `1,0` |
+| MQTT | `mqtt://127.0.0.1:1883` | TLS `mqtts://` (8883), WebSocket `ws://127.0.0.1:9001` / `wss://` |
+| MQTT, narrowed | `mqtt://127.0.0.1:1883/plant/#` or `mqtt://127.0.0.1:1883?topic=machines/%2B/status` | subscribe only to part of the broker |
+| MQTT with login | `mqtt://user:password@127.0.0.1:1883` | or user name/password in the ⚙ options |
 
 **Connection options (⚙):**
 - The default refresh time for new watch items.
@@ -437,8 +438,9 @@ wins.
     settings, plus columns, sort order and grouping.
   - New ⌘N, Open ⌘O, Save ⌘S, Save As ⇧⌘S, File ▸ Open Recent.
   - Settings can reopen the last session at start.
-  - When the open session file is changed elsewhere (another window or instance, `mdbrowser session`, the MCP
-    server, an editor), the app reloads it. With unsaved changes or running recordings it asks first in a bar:
+  - When the open session file is changed elsewhere (another window or instance, `mdbrowser tui`, `mdbrowser session`,
+    the MCP server, an editor), the app reloads it at once; a running `mdbrowser run` or `mdbrowser tui` on the same
+    file follows the app's saves the same way. With unsaved changes or running recordings it asks first in a bar:
     **Reload** opens the file as it is now, **Keep mine** keeps the window (saving then overwrites the file).
 - **Settings (⌘,):** appearance and colour theme, default refresh time, the item limit for "monitor all variables
   in folder", and whether to reopen the last session at start.
