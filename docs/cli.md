@@ -168,6 +168,7 @@ the main ones and `h` lists them all. Click a pane to focus it. Drag the border 
 to resize them (or `Alt+←`/`→` for the address space, `Alt+↑`/`↓` for the focused pane's border); a
 double-click on a border restores its default size. The sizes and the panes hidden with `1` … `5` are remembered
 per endpoint URL (in `tui-layouts.json` in the data folder, not in the session file); `0` resets the layout.
+Attributes, Monitored Items, Trend and Info show vertical scrollbars when their content extends beyond the pane.
 
 | Key | Does |
 |---|---|

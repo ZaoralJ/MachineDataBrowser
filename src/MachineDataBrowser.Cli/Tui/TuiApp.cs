@@ -167,6 +167,11 @@ internal sealed class TuiApp : IDisposable
         _log = new ListView { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
         _log.SetSource(_logLines);
         _logFrame.Add(_log);
+        foreach (var view in new View[] { _attributes, _watch, _chart, _log })
+        {
+            view.ViewportSettings |= ViewportSettingsFlags.HasVerticalScrollBar;
+        }
+
         _panes = [_treeFrame, _attributesFrame, _watchFrame, _chartFrame, _logFrame];
         _window.SetScheme(Theme.Base);
         Theme.Pane(_treeFrame, _tree);
