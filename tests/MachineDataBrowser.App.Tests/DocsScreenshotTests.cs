@@ -19,7 +19,7 @@ namespace MachineDataBrowser.App.Tests;
 /// real app against the test servers and opens dialogs through the app's own commands.
 /// Skipped unless <c>MDB_DOCS_SCREENSHOTS=1</c> (<c>just docs-screenshots</c>): live values differ on every run.
 /// </summary>
-public sealed class DocsScreenshotTests(OpcPlcFixture plc, CustomTypesServerFixture custom, MqttSimulatorFixture broker, S7SimulatorFixture s7) : IDisposable
+public sealed class DocsScreenshotTests(OpcPlcFixture plc, CustomTypesServerFixture custom, MqttSimulatorFixture broker, S7SimulatorFixture s7, MtConnectSimulatorFixture agent) : IDisposable
 {
     private static readonly string OutputDir = Path.Combine(RepoRoot(), "docs", "images");
 
@@ -148,6 +148,26 @@ public sealed class DocsScreenshotTests(OpcPlcFixture plc, CustomTypesServerFixt
         vm.SelectedNode = await Navigate(vm, "Tags", "Machine", "Speed");
         await Until(() => vm.HasAttributes && vm.WatchItems.All(w => w.UpdateCount > 0));
         Save(window, "s7.png");
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Mtconnect_devices_and_data_items()
+    {
+        var (vm, window) = await OpenAsync(agent.EndpointUrl);
+        await using var connection = vm;
+        await WatchAsync(vm, "VMC", "base", "X", "Xpos");
+        await WatchAsync(vm, "VMC", "base", "S", "Sspeed");
+        await WatchAsync(vm, "VMC", "controller", "path", "pathPos");
+        await WatchAsync(vm, "VMC", "controller", "path", "execution");
+        await WatchAsync(vm, "VMC", "controller", "path", "partCount");
+        await WatchAsync(vm, "VMC", "base", "S", "Scond");
+        await WatchAsync(vm, "VMC", "Systems", "coolant", "cond");
+        (await Navigate(vm, "VMC", "controller")).IsExpanded = false;
+        (await Navigate(vm, "VMC", "Systems")).IsExpanded = false;
+        vm.SelectedNode = await Navigate(vm, "VMC", "base", "X", "Xpos");
+        await Until(() => vm.HasAttributes && vm.WatchItems.All(w => w.UpdateCount > 0));
+        Save(window, "mtconnect.png");
         window.Close();
     }
 

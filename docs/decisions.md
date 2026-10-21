@@ -3,7 +3,8 @@
 Short record of the choices behind the current stack. Facts were checked at the time (September 2026).
 
 The app started as an OPC UA browser and is now a machine data viewer for OPC UA, EtherNet/IP (Logix and PCCC),
-Modbus TCP and MQTT.
+Modbus TCP, MQTT and MTConnect.
+
 ## Name: Machine Data Browser (renamed from OPC UA Browser after 0.8)
 
 - Everything carries the new name: repository, projects and namespaces, app bundle (`Machine Data Browser.app`,
@@ -102,6 +103,25 @@ Modbus TCP and MQTT.
 - The refresh time stays meaningful for MQTT as a maximum update rate: the latest value at most once per interval.
   This keeps recordings of fast topics manageable. 0 delivers every message, e.g. for events where each one
   matters.
+
+## MTConnect: the REST API with HttpClient, read-only
+
+- MTConnect agents (the [cppagent](https://github.com/mtconnect/cppagent) reference agent and vendor agents) all
+  serve `/probe`, `/current` and `/sample` as XML over HTTP; that is everything a viewer needs, so the driver uses
+  `HttpClient` and `System.Xml.Linq` with no package. Elements are matched by local name, so agents from 1.x to 2.x
+  (different namespaces) work the same.
+- `/sample` from a sequence is polled per refresh time rather than kept open as a streaming (`interval=`) multipart
+  response: polling keeps the code small, survives proxies, and recovers the same way from a lost connection, a
+  buffer overrun (`OUT_OF_RANGE`) and an agent restart (new `instanceId`): read `/current` and continue.
+- Unlike MQTT's maximum update rate, every observation since the last poll is delivered with its own timestamp:
+  MTConnect agents already buffer changes, not samples, so nothing is gained by dropping them, and a recording at 1 s
+  still holds a value that changes every 100 ms.
+- Read-only: MTConnect has no write service (MTConnect interfaces and assets are out of scope for a value viewer).
+  The simulator's pause is an HTTP request outside the standard for the same reason.
+- Endpoint scheme `mtconnect://` (port 5000, the agent default) plus plain `http://` / `https://`; no OPC UA endpoint
+  uses those, so the scheme alone still picks the driver.
+- The simulator (`simulators/mtconnect`) is a small stdlib-Python agent instead of cppagent plus an SHDR adapter: one
+  process, deterministic content (conditions, time series, data sets, `UNAVAILABLE`), and quick to start in tests.
 
 ## Resilience and threading
 

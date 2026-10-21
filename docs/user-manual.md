@@ -7,7 +7,8 @@ Machine Data Browser is a viewer for machine data. It connects to:
 - **Modbus TCP** devices (`modbus://`), with an optional register map that names their addresses,
 - Allen-Bradley **SLC 500**, **MicroLogix** and **PLC-5** controllers over EtherNet/IP with PCCC (`pccc://`),
 - Siemens **S7** controllers (S7-300/400/1200/1500) over ISO-on-TCP (`s7://`), with an optional tag list,
-- **MQTT** brokers (`mqtt://`, `mqtts://`, `ws://`, `wss://`), including **Sparkplug B** and **CloudEvents**.
+- **MQTT** brokers (`mqtt://`, `mqtts://`, `ws://`, `wss://`), including **Sparkplug B** and **CloudEvents**,
+- **MTConnect** agents (`mtconnect://`, `http://`, `https://`), read-only.
 
 It shows the address space and attributes, watches live values, records them and exports them. It can also write
 values to a device, but only when you ask it to (see [Writing values](#writing-values)).
@@ -28,7 +29,7 @@ flowchart LR
 
 | Pane | What it shows |
 |---|---|
-| **Address Space** (⌘1) | tree of the device: OPC UA nodes, Logix and S7 tags, Modbus addresses, MQTT topics |
+| **Address Space** (⌘1) | tree of the device: OPC UA nodes, Logix and S7 tags, Modbus addresses, MQTT topics, MTConnect devices |
 | **Attributes** (⌘2) | attributes of the selected node; a variable's value updates live |
 | **Watch** (⌘3) | monitored values: status, refresh, last update, since, recorded samples, value |
 | **Recordings** (⌘4) | recordings with state, elapsed time, kept samples and details |
@@ -64,15 +65,18 @@ Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ but
 | MQTT | `mqtt://127.0.0.1:1883` | TLS `mqtts://` (8883), WebSocket `ws://127.0.0.1:9001` / `wss://` |
 | MQTT, narrowed | `mqtt://127.0.0.1:1883/plant/#` or `mqtt://127.0.0.1:1883?topic=machines/%2B/status` | subscribe only to part of the broker |
 | MQTT with login | `mqtt://user:password@127.0.0.1:1883` | or user name/password in the ⚙ options |
+| MTConnect | `mtconnect://127.0.0.1:5050` | the agent's HTTP address; port 5000 (the MTConnect default) when left out; `http://`, `https://` too |
+| MTConnect, one device | `mtconnect://127.0.0.1:5050/VMC` | only that device (the path is put before `/probe`, so proxy prefixes work) |
 
 **Connection options (⚙):**
 - The default refresh time for new watch items.
-- For OPC UA and MQTT: user name and password.
+- For OPC UA, MQTT and MTConnect: user name and password (MTConnect: HTTP basic authentication, for agents behind a
+  proxy).
 - For OPC UA only: "Use secure endpoint".
 - For Modbus only: the **register map** (see [Modbus](#modbus)). **Import…** picks a CSV file, **Remove** drops it.
 - For S7 only: the **tag list** (see [S7 tag lists](#s7-tag-lists)), with the same Import… and Remove.
-- "Auto-trust server certificates" accepts OPC UA server certificates and TLS certificates of MQTT brokers without
-  checking them. Use it on lab networks only.
+- "Auto-trust server certificates" accepts OPC UA server certificates and TLS certificates of MQTT brokers and
+  `https://` MTConnect agents without checking them. Use it on lab networks only.
 - With auto-trust off, an OPC UA server whose certificate is not trusted yet shows it (subject, issuer, validity,
   thumbprint and the reason) and asks: **Trust Once** connects this time only, **Always Trust** adds it to
   `pki/trusted` so later connections don't ask, **Cancel** doesn't connect.
@@ -96,6 +100,9 @@ values seem to stop:
   - S7: host, CPU type, rack and slot, RUN/STOP, negotiated PDU size, link drops, the tag list (tags and skipped
     entries), requests per second and failures, and per refresh time the values polled, the requests a cycle took and
     how long.
+  - MTConnect: agent URL, version, sender, instance id, the agent's buffer (size, first and last sequence), device,
+    component and data item counts, link drops, requests per second and, per refresh time, the data items polled,
+    observations received, the next sequence and the last error.
 - *This app*: watched items, value updates per second, and how many rows are stale, bad or uncertain.
 - *Subscriptions* (OPC UA): the publishing interval the server granted (it may differ from the refresh time), items,
   notifications and when the last one arrived.
@@ -189,6 +196,20 @@ saved with the session (node ids are per server) and work for every protocol.
     names at the next birth. The app does not request a rebirth.
 
 ![MQTT broker: topic tree with JSON fields, Sparkplug B, attributes of a topic](images/mqtt.png)
+
+- **MTConnect:** the agent's devices (with the *Agent* device of MTConnect 2.x agents) ▸ components such as
+  *Axes* ▸ *X*, *Controller* ▸ *path* ▸ data items, as the agent describes them in its `/probe` model.
+  - Components are named by their `name`, or their type when they have none (`Systems`); data items by their `name`,
+    or their id. Siblings with the same name get their id added, e.g. `Linear (x1)`.
+  - A data item's NodeId is its id (`vmc_x_pos`), a component's `@` and its id (`@vmc_axes`).
+  - Attributes show the category (SAMPLE, EVENT, CONDITION), type and subtype, units, representation, the component
+    and device, and the last value with its timestamp and sequence.
+  - Values: samples are numbers; 3D samples (`PATH_POSITION`) and time series are arrays of numbers; part counts and
+    line numbers are integers; other events are text. Data sets and tables show as `key=value; …`. A condition
+    shows its level, text and native code: `Fault: Spindle over temperature [SP-OT]`.
+  - `UNAVAILABLE` (no value from the machine) shows as **Bad (no data)**.
+
+![MTConnect agent: devices and components, attributes of a data item, samples, events and conditions in Watch](images/mtconnect.png)
 
 ### Modbus
 
@@ -318,12 +339,15 @@ and sort order are saved with the session.
   - OPC UA uses it as the sampling interval, Logix, Modbus and S7 as the poll interval.
   - For MQTT it is a maximum update rate: at most the latest value once per interval. **0** means every message;
     use it for events, CloudEvents or anything where each message matters.
+  - For MTConnect it is how often the app asks the agent for what changed (`/sample` from the last sequence). Every
+    observation the agent buffered in between arrives, with its own timestamp, so a 1 s refresh still records a
+    value that changes every 100 ms. **0** polls every 100 ms.
 - **Display format:** right-click ▸ **Display format…** for the selected rows (every protocol).
   - *Format*: as sent, a fixed number of decimals, or for integers hex (`0x00FF`, two's complement for negatives),
     binary in groups of four, or *Bits*, the list of set bits (for status and alarm words).
   - *Scale*: value × gain + offset, e.g. a raw analog input 0…27648 to 0…100 %.
-  - *Unit*: shown after numbers. OPC UA variables with an EngineeringUnits property show theirs automatically; type
-    another, or untick to hide it.
+  - *Unit*: shown after numbers. OPC UA variables with an EngineeringUnits property and MTConnect samples with
+    units (`MILLIMETER` as mm, `CELSIUS` as °C, …) show theirs automatically; type another, or untick to hide it.
   - Display only: filters, snapshots, recordings, exports and *Write value* use the device's value; the tooltip shows
     it. Complex values show formatted JSON in the tooltip. Saved with the session.
 - **Monitoring settings** (OPC UA): right-click ▸ **Monitoring settings…** for the selected rows.
@@ -414,6 +438,7 @@ The app writes to a device only when you ask it to.
     next cycle; a CPU with write protection rejects it (`BadNotWritable`).
   - **MQTT:** a topic is republished with the same payload kind, retain flag and properties; a JSON field republishes
     the last document with the field changed; a Sparkplug B metric is sent as a command (NCMD/DCMD).
+  - **MTConnect:** read-only by design; writing is not offered.
 - Several Watch rows get the same value; failures are listed per item.
 
 ![Write value dialog](images/write-value.png)
@@ -430,16 +455,18 @@ with its name, data type and description; type the values as text (like *Write v
 
 ![Method call form with inputs and outputs](images/method-call.png)
 
-## History (OPC UA)
+## History (OPC UA, MTConnect)
 
-Many OPC UA servers store past values. Right-click one or more variables in the address space or rows in Watch ▸
-**Show history ▸ Last 15 minutes … Last 7 days**. The values open in the recording viewer: a table and a trend
-chart, oldest first, timed by their source timestamp.
+Many OPC UA servers store past values; an MTConnect agent keeps the latest observations in its buffer. Right-click one
+or more variables in the address space or rows in Watch ▸ **Show history ▸ Last 15 minutes … Last 7 days**. The values
+open in the recording viewer: a table and a trend chart, oldest first, timed by their source timestamp.
 
 - At most 20 000 values per item (the oldest); the status bar says when an item had more.
 - A variable without stored history shows a message instead. Whether a server stores history is visible in
   Attributes: *Historizing* and *AccessLevel* (HistoryRead).
 - In the custom test server, *Custom ▸ History* has Temperature, Pressure and Running with two hours of history.
+- **MTConnect:** only what is still in the agent's buffer (its size is in Diagnostics, often 131 072 observations
+  for the whole agent), so a busy agent may hold minutes rather than days.
 
 ![Server history of two items as chart and table](images/history.png)
 
@@ -623,7 +650,10 @@ right-click menus and the tooltips. **Help ▸ Keyboard Shortcuts** (⌘/) lists
 | MQTT: app busy, high traffic | Narrow the topic filter in the URL, or pause discovery (⇧⌘P) to receive only monitored topics |
 | MQTT: `alias 101` instead of names | The Sparkplug device's BIRTH was published before connecting; names appear with the next birth |
 | MQTT: values stop, metrics Bad | The Sparkplug node or device sent a DEATH, or the broker connection is reconnecting (status bar) |
+| MTConnect: `BadNodeIdUnknown` on connect | The device name in the URL path is not one of the agent's devices (`NO_DEVICE`) |
+| MTConnect: value Bad (no data) | The agent reports `UNAVAILABLE`: the machine or its adapter is not sending it |
+| MTConnect: `BadDecodingError` on connect | The URL is not an MTConnect agent (no `MTConnectDevices` from `/probe`); check host and port |
 | Something failed | The error bar shows it; details are in `logs/machinedatabrowser.log` in the data folder |
 
-For local test servers (OPC UA, Logix, SLC 500 / PLC-5, Modbus, S7, MQTT with Sparkplug B and CloudEvents) see
-[simulators.md](simulators.md).
+For local test servers (OPC UA, Logix, SLC 500 / PLC-5, Modbus, S7, MQTT with Sparkplug B and CloudEvents,
+MTConnect) see [simulators.md](simulators.md).

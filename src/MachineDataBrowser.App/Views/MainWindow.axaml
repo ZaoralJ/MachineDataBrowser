@@ -26,7 +26,7 @@
         <Image Classes="brand-mark" Source="/Assets/AppIcon.png" />
         <StackPanel VerticalAlignment="Center" Spacing="0">
           <TextBlock Classes="brand-title" Text="Machine Data Browser" />
-          <TextBlock Classes="brand-subtitle" Text="OPC UA · EtherNet/IP · Modbus · S7 · MQTT" />
+          <TextBlock Classes="brand-subtitle" Text="OPC UA · EtherNet/IP · Modbus · S7 · MQTT · MTConnect" />
         </StackPanel>
       </StackPanel>
       <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
@@ -35,7 +35,7 @@
                  PlaceholderText="opc.tcp://host:4840" VerticalContentAlignment="Center"
                  FontFamily="{StaticResource MonoFont}"
                  AutomationProperties.Name="Server endpoint URL"
-                 ToolTip.Tip="Endpoint URL: opc.tcp://host:port, eip://host[:port]/1,0, pccc://host[:port]?plc=slc500|micrologix|plc5, modbus://host[:port][/unit], s7://host[/rack,slot] or mqtt://host[:port][/topic/#] (mqtts://, ws://, wss://). Enter connects, ↓ shows recent endpoints.">
+                 ToolTip.Tip="Endpoint URL: opc.tcp://host:port, eip://host[:port]/1,0, pccc://host[:port]?plc=slc500|micrologix|plc5, modbus://host[:port][/unit], s7://host[/rack,slot], mqtt://host[:port][/topic/#] (mqtts://, ws://, wss://) or mtconnect://host[:5000][/device] (http://, https://). Enter connects, ↓ shows recent endpoints.">
           <TextBox.InnerLeftContent>
             <Border Classes="endpoint-label">
               <TextBlock Text="Endpoint" />

@@ -15,6 +15,7 @@
 | **PCCC** (SLC 500, MicroLogix, PLC-5) | `pccc://127.0.0.1:44819?plc=slc500` | data files, timers, counters, controls, bits |
 | **S7** (Siemens S7-300/400/1200/1500) | `s7://127.0.0.1/0,1` | data blocks, inputs, outputs, memory by address, every elementary type, TIA Portal / STEP 7 tag lists naming them |
 | **MQTT** | `mqtt://127.0.0.1:1883[/topic/#]`, `mqtts://`, `ws://`, `wss://` | topic tree, JSON fields, Sparkplug B, CloudEvents |
+| **MTConnect** | `mtconnect://127.0.0.1:5050[/device]`, `http://`, `https://` | devices and components, samples, events, conditions, agent buffer as history; read-only |
 
 For any of these you can:
 
@@ -67,7 +68,7 @@ read-only; see [docs/mcp.md](docs/mcp.md).
 ## Try it with the test servers
 
 ```sh
-just all     # Logix, PCCC, OPC UA (two servers), MQTT, Modbus and S7 simulators in Docker
+just all     # Logix, PCCC, OPC UA (two servers), MQTT, Modbus, S7 and MTConnect simulators in Docker
 dotnet run --project src/MachineDataBrowser.App
 ```
 
@@ -81,6 +82,7 @@ Then connect to one of these:
 - `modbus://127.0.0.1:5020/1` (import `simulators/modbus/simulator-map.csv` as its register map, or open
   `simulators/modbus/simulator.mdbsession`)
 - `s7://127.0.0.1/0,1` (import `simulators/s7/tags.csv` as its tag list, or open `simulators/s7/simulator.mdbsession`)
+- `mtconnect://127.0.0.1:5050`
 
 [docs/simulators.md](docs/simulators.md) describes what each simulator contains.
 

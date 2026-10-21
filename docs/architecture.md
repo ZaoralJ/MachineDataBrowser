@@ -6,8 +6,9 @@ Machine Data Browser (repository `MachineDataBrowser`) is a machine data viewer.
 - an Allen-Bradley Logix controller over EtherNet/IP (CIP),
 - an Allen-Bradley SLC 500, MicroLogix or PLC-5 over EtherNet/IP (PCCC),
 - a Modbus TCP device,
-- a Siemens S7 controller over ISO-on-TCP (S7comm), or
-- an MQTT broker, including Sparkplug B.
+- a Siemens S7 controller over ISO-on-TCP (S7comm),
+- an MQTT broker, including Sparkplug B, or
+- an MTConnect agent (read-only).
 
 Whichever device it is, you browse its address space, inspect attributes, watch live values, record them and export
 them. It writes to a device only on an explicit user action (Write value…), through `IDeviceClient.WriteValueAsync`.
@@ -51,6 +52,7 @@ flowchart LR
         Mqtt["MachineDataBrowser.Driver.Mqtt<br/>MqttDeviceClient"]
         Modbus["MachineDataBrowser.Driver.Modbus<br/>ModbusClient"]
         S7["MachineDataBrowser.Driver.S7<br/>S7Client"]
+        Mtc["MachineDataBrowser.Driver.MtConnect<br/>MtConnectClient"]
     end
     Composition["MachineDataBrowser.Drivers<br/>DeviceClientFactory"]
     Composition --> Ua
@@ -59,12 +61,14 @@ flowchart LR
     Composition --> Mqtt
     Composition --> Modbus
     Composition --> S7
+    Composition --> Mtc
     Ua -. implements .-> IDC
     Cip -. implements .-> IDC
     Pccc -. implements .-> IDC
     Mqtt -. implements .-> IDC
     Modbus -. implements .-> IDC
     S7 -. implements .-> IDC
+    Mtc -. implements .-> IDC
     VM --> IDC
     VM --> Rec
     VM --> Engine
@@ -79,6 +83,7 @@ flowchart LR
     Mqtt -- "mqtt:// mqtts:// ws:// wss:// (MQTTnet)" --> S3[(MQTT broker)]
     Modbus -- "modbus:// (own Modbus TCP client)" --> S4[(Modbus device)]
     S7 -- "s7:// (S7netplus)" --> S5[(S7 controller)]
+    Mtc -- "mtconnect:// http:// https:// (HttpClient, XML)" --> S5[(MTConnect agent)]
 ```
 
 | Project | Role |
@@ -95,13 +100,14 @@ flowchart LR
 | `src/MachineDataBrowser.Driver.Pccc` | PCCC (SLC 500, MicroLogix, PLC-5) client: data-table addresses and their codec. References Core. |
 | `src/MachineDataBrowser.Driver.S7` | Siemens S7 client on S7netplus: address and type codec, tag lists (TIA Portal / STEP 7 exports). References Core. |
 | `src/MachineDataBrowser.Driver.Mqtt` | MQTT client, topic model and Sparkplug B support. References Core. |
+| `src/MachineDataBrowser.Driver.MtConnect` | MTConnect agent client (`/probe`, `/current`, `/sample` over HTTP), no packages beyond the BCL. References Core. |
 | `src/MachineDataBrowser.Drivers` | Composition project selecting a driver from an endpoint URL; referenced by app and CLI. |
 | `src/MachineDataBrowser.App` | Avalonia 12 desktop app (MVVM with CommunityToolkit.Mvvm, docking with Dock.Avalonia); uses the driver composition project. |
 | `src/MachineDataBrowser.Cli` | `mdbrowser` command line ([cli.md](cli.md)): System.CommandLine parsing, Spectre.Console output in a terminal; `Tui/` is the full-screen browser on Terminal.Gui (a UI-free `BrowserModel` behind a `TuiApp` view). References Core and the driver composition project; colour themes come from Core's `ColorThemeCatalog`, shared with the app. |
 | `tests/MachineDataBrowser.Core.Tests` | Integration tests against containers (opc-plc and the `simulators/` images, via Testcontainers) plus unit tests. |
 | `tests/MachineDataBrowser.App.Tests` | Headless Avalonia UI tests with real rendering (screenshots) against the same containers. |
 | `tests/MachineDataBrowser.Cli.Tests` | The CLI's commands end to end against opc-plc and the simulators, plain and terminal output; the TUI's model against every protocol and its screen headlessly (ANSI driver, virtual time). |
-| `simulators/` | Test servers for development and tests: Logix, PCCC, opc-plc, OPC UA custom types, MQTT, Modbus, S7. See [simulators.md](simulators.md). |
+| `simulators/` | Test servers for development and tests: Logix, PCCC, opc-plc, OPC UA custom types, MQTT, Modbus, S7, MTConnect. See [simulators.md](simulators.md). |
 
 Every project's root namespace is its project name (e.g. `MachineDataBrowser.Driver.OpcUa`); the recording engine's
 class is `RecordingSession` so that it does not clash with the `MachineDataBrowser.Recording` namespace.
@@ -167,6 +173,10 @@ classDiagram
     IDeviceClient <|.. CipClient
     IDeviceClient <|.. MqttDeviceClient
     IDeviceClient <|.. S7Client
+    class MtConnectClient {
+        probe model · /sample poll groups
+    }
+    IDeviceClient <|.. MtConnectClient
     IDynamicAddressSpace <|.. MqttDeviceClient
     IPausableDiscovery <|.. MqttDeviceClient
     class RecordingSession {
@@ -176,15 +186,15 @@ classDiagram
     RecordingSession --> IDeviceClient
 ```
 
-| | OPC UA (`opc.tcp://`) | EtherNet/IP (`eip://host[:port]/1,0`) | MQTT (`mqtt://host[:port][/filter]`) | Modbus TCP (`modbus://host[:port][/unit]`) | S7 (`s7://host[:port]/rack,slot`) |
-|---|---|---|---|---|---|
-| Library | OPC Foundation UA-.NETStandard | libplctag.NET | MQTTnet | own client (`ModbusTcpTransport`) | S7netplus |
-| Tree | server address space (forward hierarchical references) | Controller tags / Programs ▸ tags ▸ UDT members, array elements | Topics (topic levels, JSON fields) and Sparkplug B (group ▸ edge node ▸ device ▸ metrics) | generated: Tags (register map) and the four areas in blocks of 100 addresses | Tags (tag list, folders from dots in names) and the DB/I/Q/M areas ▸ bytes ▸ bits |
-| Node ids | `nsu=<namespace URI>;…` | Logix tag path, e.g. `Program:Main.Motor[2].Speed` | `t:<topic>[#<JSON pointer>]`, `m:<group>\|<edge>\|<device>\|<metric>` | `area:address[:type][:swap]`, e.g. `hr:20:float32` | address with type `DB1.DBD4:REAL`, symbol `"Machine.Speed"` |
-| Values | read and subscriptions (server pushes) | polled per refresh time, only changes are reported | pushed per message; the refresh time is a maximum update rate (0 = every message) | polled per refresh time, neighbouring addresses in one request, only changes are reported | polled per refresh time, neighbouring addresses in one request, only changes are reported |
-| Subscriptions | per refresh time | none (polling) | the topic filter; with discovery paused (`IPausableDiscovery`) only the monitored topics, and for Sparkplug metrics their edge node and device | none (polling) | none (polling) |
-| Structures | decoded with the server's type definitions | UDT templates (`@udt/<id>`) | JSON payloads, Sparkplug B protobuf | none; multi-register types from the id | none; elementary types and arrays |
-| Status | server status codes | `Bad…` from libplctag errors | `BadNoCommunication` while a Sparkplug node or device is dead | `Bad…` from Modbus exceptions (2: `BadNodeIdUnknown`) and timeouts | PLC answers (`BadNodeIdUnknown`, `BadOutOfRange`, `BadNotWritable`) and link errors |
+| | OPC UA (`opc.tcp://`) | EtherNet/IP (`eip://host[:port]/1,0`) | MQTT (`mqtt://host[:port][/filter]`) | Modbus TCP (`modbus://host[:port][/unit]`) | S7 (`s7://host[:port]/rack,slot`) | MTConnect (`mtconnect://host[:5000][/device]`) |
+|---|---|---|---|---|---|---|
+| Library | OPC Foundation UA-.NETStandard | libplctag.NET | MQTTnet | own client (`ModbusTcpTransport`) | S7netplus | HttpClient + System.Xml.Linq |
+| Tree | server address space (forward hierarchical references) | Controller tags / Programs ▸ tags ▸ UDT members, array elements | Topics (topic levels, JSON fields) and Sparkplug B (group ▸ edge node ▸ device ▸ metrics) | generated: Tags (register map) and the four areas in blocks of 100 addresses | Tags (tag list, folders from dots in names) and the DB/I/Q/M areas ▸ bytes ▸ bits | devices ▸ components ▸ data items, from `/probe` |
+| Node ids | `nsu=<namespace URI>;…` | Logix tag path, e.g. `Program:Main.Motor[2].Speed` | `t:<topic>[#<JSON pointer>]`, `m:<group>\|<edge>\|<device>\|<metric>` | `area:address[:type][:swap]`, e.g. `hr:20:float32` | address with type `DB1.DBD4:REAL`, symbol `"Machine.Speed"` | data item id; components `@<id>` |
+| Values | read and subscriptions (server pushes) | polled per refresh time, only changes are reported | pushed per message; the refresh time is a maximum update rate (0 = every message) | polled per refresh time, neighbouring addresses in one request, only changes are reported | polled per refresh time, neighbouring addresses in one request, only changes are reported | `/current` reads; `/sample` from the last sequence per refresh time, every buffered observation is reported |
+| Subscriptions | per refresh time | none (polling) | the topic filter; with discovery paused (`IPausableDiscovery`) only the monitored topics, and for Sparkplug metrics their edge node and device | none (polling) | none (polling) | none (polling `/sample`) |
+| Structures | decoded with the server's type definitions | UDT templates (`@udt/<id>`) | JSON payloads, Sparkplug B protobuf | none; multi-register types from the id | none; elementary types and arrays | data sets and tables as `key=value; …`, 3D and time series as arrays |
+| Status | server status codes | `Bad…` from libplctag errors | `BadNoCommunication` while a Sparkplug node or device is dead | `Bad…` from Modbus exceptions (2: `BadNodeIdUnknown`) and timeouts | PLC answers (`BadNodeIdUnknown`, `BadOutOfRange`, `BadNotWritable`) and link errors | `BadNoData` for `UNAVAILABLE` |
 
 Shared helpers live in `DeviceClientExtensions`: `MonitorAsync`, `CollectVariablesAsync` and `ReadTreeAsync`.
 Stopping monitors is part of `IDeviceClient`, allowing drivers to batch teardown without Core knowing their concrete types.
@@ -242,6 +252,8 @@ stateDiagram-v2
   mark that value Bad.
 - **MQTT:** a lost broker starts a reconnect loop every 2 s, which subscribes again. Monitors stay registered, so Watch
   and recordings resume.
+- **MTConnect:** failed `/sample` requests switch the state to `Reconnecting` until one succeeds; HTTP needs no
+  session, so nothing else is restored.
 
 ## OPC UA (`Ua.OpcUaClient`)
 
@@ -386,6 +398,29 @@ flowchart TB
 - **Connection:** MQTT 5 over TCP, TLS (`mqtts://`) or WebSocket (`ws://`, `wss://`).
   - User name and password come from the connection options or the URL.
   - "Auto-trust server certificates" also applies to TLS brokers.
+
+## MTConnect (`MtConnect.MtConnectClient`)
+
+- **Endpoint:** `mtconnect://host[:port][/path]` becomes `http://host:port/path/` (port 5000 by default); `http://` and
+  `https://` are taken as they are. Requests go below the path, so `/VMC` narrows to one device and a reverse proxy
+  prefix works the same way. User name and password are sent as HTTP basic authentication; auto-trust accepts any
+  TLS certificate.
+- **Model:** `/probe` is read once on connect into `MtcModel` (devices, components, data items by id). Browse,
+  attributes, paths and units come from it without further requests. Display names are `name`, else the component
+  type or the data item id, made unique among siblings by appending the id.
+- **Values (`MtcXml`):** observations are decoded by the data item's category and representation: samples as
+  `double` (3D units and `TIME_SERIES` as `DeviceArray` of doubles), integer events (`PART_COUNT`, `LINE_NUMBER`, …)
+  as `long`, other events as text, `DATA_SET`/`TABLE` entries as `key=value; …`, conditions as
+  `Level: text [nativeCode]`. `UNAVAILABLE` is `BadNoData` with no value.
+- **Reads:** `/current?path=//DataItem[@id="a" or …]`, 40 ids per request.
+- **Monitoring:** one `PollGroup` per refresh time keeps its own sequence cursor. Adding items reads their current
+  values first; each poll asks `/sample?from=<next>&count=1000` (filtered by id up to 40 items, unfiltered above) and
+  pages until it reaches the agent's last sequence. Every observation is delivered in order, which suits recordings;
+  entries drop observations not newer than what they already reported. `OUT_OF_RANGE` (the cursor fell out of the
+  agent's buffer) or a new `instanceId` (agent restart) resynchronises from `/current`.
+- **History (`IHistorySource`):** scans the agent's buffer with `/sample` filtered to the item, oldest first, and keeps
+  what falls in the time range. It is only as long as the buffer.
+- **Read-only:** MTConnect has no write service; `WriteValueAsync` keeps the interface's "not supported" default.
 
 ## Session file changes (`Core/SessionFileWatcher.cs`)
 

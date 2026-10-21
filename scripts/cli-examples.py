@@ -21,6 +21,7 @@ CUSTOM = "opc.tcp://127.0.0.1:4841"
 LOGIX = "eip://127.0.0.1:44818/1,0"
 MQTT = "mqtt://127.0.0.1:1883"
 S7 = "s7://127.0.0.1/0,1"
+MTCONNECT = "mtconnect://127.0.0.1:5050"
 PRESS = "/Topics/plant/hall1/press1"
 
 # (heading, text, command, lines to keep). The command is shown as typed; {M} is the mdbrowser binary.
@@ -42,6 +43,8 @@ EXAMPLES: list[tuple[str, str, str, int]] = [
      f"mdbrowser read {S7} --map tags.csv /Tags/DataTypes -R", 24),
     ("Browse MQTT", "Topics seen on the broker; JSON payloads open into their fields.",
      f"mdbrowser browse {MQTT} /Topics/plant --depth 3", 14),
+    ("Browse MTConnect", "The agent's devices, components and data items, as described by its probe.",
+     f"mdbrowser browse {MTCONNECT} /VMC/base --depth 2", 14),
     ("Read values", "Value and data type of one or more variables.",
      f"mdbrowser read {CUSTOM} /Objects/Custom/DataTypes/Int32 /Objects/Custom/DataTypes/Double "
      "/Objects/Custom/DataTypes/String", 10),
@@ -57,6 +60,11 @@ EXAMPLES: list[tuple[str, str, str, int]] = [
      "/Topics/machines/m1/status/temperature/motor", 6),
     ("Read a JSON property by its id", "`topic#/path` is the same property as the id the app and `browse` show.",
      f'mdbrowser read {MQTT} "t:machines/m1/status#/temperature/bearing"', 4),
+    ("Read MTConnect data items",
+     "Samples are numbers (3D positions and time series arrays), events text or integers, conditions their level "
+     "and text.",
+     f"mdbrowser read {MTCONNECT} /VMC/base/X/Xpos /VMC/controller/path/pathPos /VMC/controller/path/execution "
+     "/VMC/controller/path/partCount /VMC/base/S/Scond", 10),
     ("Monitor live values", "Every 500 ms for 2 seconds (or until Ctrl+C without `--duration`).",
      f"mdbrowser monitor {CUSTOM} /Objects/Custom/Fast/Every10ms/Counter /Objects/Custom/Fast/Every10ms/Sine "
      "-r 500 --duration 2s", 12),
@@ -68,6 +76,8 @@ EXAMPLES: list[tuple[str, str, str, int]] = [
      "under their alias, so ids by name are the reliable way from the command line.",
      f'mdbrowser monitor {MQTT} "m:Plant1|Edge1|Press1|Temperature" "m:Plant1|Edge1|Press1|Pressure" '
      "-r 1000 --duration 20s", 12),
+    ("Monitor MTConnect", "Every observation the agent buffered arrives, even with a refresh slower than the machine.",
+     f"mdbrowser monitor {MTCONNECT} /VMC/base/X/Xpos /VMC/controller/path/execution -r 1000 --duration 2s", 12),
     ("Write a value", "Shows the value before and after; without `--yes` it asks first.",
      f"mdbrowser write {CUSTOM} /Objects/Custom/DataTypes/Int16 -321 --yes", 6),
     ("Create a session for the app", "",

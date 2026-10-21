@@ -2,8 +2,8 @@
 
 `mdbrowser` does the browsing and monitoring of the app from a terminal or a script: list endpoints, browse the
 address space, read and write values, stream live values, and create and run the app's sessions. It speaks the same
-protocols as the app: **OPC UA**, **EtherNet/IP (Logix and PCCC)**, **Modbus TCP**, **S7 (Siemens)** and **MQTT**
-(Sparkplug B, CloudEvents).
+protocols as the app: **OPC UA**, **EtherNet/IP (Logix and PCCC)**, **Modbus TCP**, **S7 (Siemens)**, **MQTT**
+(Sparkplug B, CloudEvents) and **MTConnect** (read-only).
 
 ## Install
 
@@ -56,7 +56,7 @@ mdbrowser run line1.mdbsession --format csv > shift.csv
 A node is either a **path** of display names from the root, starting with `/`, or an **id**:
 
 - `/Objects/OpcPlc/Telemetry/Basic/StepUp`, `"/Controller Tags/Motor1/Speed"` (quote paths with spaces),
-  `/Topics/machines/m1/status`;
+  `/Topics/machines/m1/status`, `/VMC/base/X/Xpos` (MTConnect: device ▸ components ▸ data item);
 - `ns=3;s=StepUp` or the portable `nsu=http://…;s=StepUp` (OPC UA), a tag name like `Motor1.Speed` (Logix), a
   data-table address like `N7:0` or `T4:0.ACC` (PCCC), an MQTT id as the app shows it, e.g. `t:plant/hall1/press1/temperature` or `t:machines/m1/status#/speed` for a JSON field,
   or `"m:Plant1|Edge1|Press1|Temperature"` for a Sparkplug B metric (group, edge node, device, metric; quote the `|`).
@@ -66,7 +66,8 @@ A node is either a **path** of display names from the root, starting with `/`, o
   `ir:4:int32`, `hr:50:string16`, `co:3`, `di:0` (see the [user manual](user-manual.md#modbus)), or a path like
   `"/Holding Registers/0-99/20"`, or with a register map `/Tags/Line1/Speed`;
 - an S7 address with an optional type, `DB1.DBD4:REAL`, `M0.0`, `MW2:INT`, `DB2.DBD0:REAL[10]`, or an S7 symbol from
-  the tag list, `Machine.Speed` (see [S7](#s7)).
+  the tag list, `Machine.Speed` (see [S7](#s7));
+- an MTConnect data item id from the agent's probe, e.g. `vmc_x_pos`, or `@vmc_axes` for a component.
 
 **Modbus register maps:** `--map file.csv` (`-m`) names the device's addresses for this command; the names appear
 under `/Tags`. The file has one line per value, `name,address[,unit][,description]`, with `/` in names for folders:
@@ -128,6 +129,7 @@ it, like *Monitor folder* in the app:
 - A variable you pass directly is read or monitored itself. OPC UA properties of variables (EURange, EngineeringUnits)
   are left out.
 - MQTT: a topic with a JSON payload expands to its fields (`status/speed`, `status/temperature/bearing`).
+- MTConnect: a device or component expands to its data items (`base/X/Xpos`).
 - Nothing found within `--depth` is an error (exit 1).
 
 ### Sessions
@@ -298,7 +300,7 @@ See the [command line examples](cli-examples.md) for the other commands with the
 
 | Option | |
 |---|---|
-| `-u, --user` / `-p, --password` | login (OPC UA, MQTT); the password can also come from `MDBROWSER_PASSWORD` |
+| `-u, --user` / `-p, --password` | login (OPC UA, MQTT, MTConnect over HTTP basic auth); the password can also come from `MDBROWSER_PASSWORD` |
 | `--secure` | OPC UA: the most secure endpoint the server offers |
 | `--trust-all` | accept untrusted server certificates; for lab networks only |
 | `-m, --map` | Modbus register map (CSV) or S7 tag list (TIA Portal CSV, STEP 7 `.sdf`) naming the device's addresses; overrides the session's |
