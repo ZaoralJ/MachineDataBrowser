@@ -14,6 +14,7 @@
     <ProjectReference Include="..\..\src\MachineDataBrowser.Driver.Mqtt\MachineDataBrowser.Driver.Mqtt.csproj" />
     <ProjectReference Include="..\..\src\MachineDataBrowser.Driver.Cip\MachineDataBrowser.Driver.Cip.csproj" />
     <ProjectReference Include="..\..\src\MachineDataBrowser.Driver.Modbus\MachineDataBrowser.Driver.Modbus.csproj" />
+    <ProjectReference Include="..\..\src\MachineDataBrowser.Driver.Pccc\MachineDataBrowser.Driver.Pccc.csproj" />
     <ProjectReference Include="..\..\src\MachineDataBrowser.Drivers\MachineDataBrowser.Drivers.csproj" />
     <ProjectReference Include="..\..\src\MachineDataBrowser.Recording.Formats\MachineDataBrowser.Recording.Formats.csproj" />
     <ProjectReference Include="..\..\src\MachineDataBrowser.Recording.Sqlite\MachineDataBrowser.Recording.Sqlite.csproj" />

@@ -1,17 +1,19 @@
 # Test servers (simulators)
 
-Five containers under `simulators/` cover local development, manual/user testing and the integration tests.
+Six containers under `simulators/` cover local development, manual/user testing and the integration tests.
 Start them with [`just`](https://github.com/casey/just) from the repository root:
 
 ```sh
 just cip            # Logix / EtherNet/IP   -> eip://127.0.0.1:44818/1,0
+just pccc           # SLC 500 / MicroLogix / PLC-5 -> pccc://127.0.0.1:44819?plc=slc500
 just opcua          # opc-plc               -> opc.tcp://127.0.0.1:50000
 just opcua-custom   # custom types (asyncua) -> opc.tcp://127.0.0.1:4841/
 just mqtt           # MQTT broker + traffic  -> mqtt://127.0.0.1:1883 (ws://127.0.0.1:9001)
 just modbus         # Modbus TCP device      -> modbus://127.0.0.1:5020/1
-just all            # all five in the background (replaces running ones); `just stop` removes them
+just all            # all six in the background (replaces running ones); `just stop` removes them
 just logs cip       # follow a background container's log
 just cip-debug      # log every CIP request (service, path, sizes)
+just pccc-debug     # log every PCCC request
 just test-sim       # Core tests against the simulators
 ```
 
@@ -25,6 +27,7 @@ while paused, so values continue from where they were rather than jumping. Each 
 | Simulator | Pause tag |
 |---|---|
 | Logix | `PauseSimulation` (controller tag, BOOL) |
+| PCCC | `B3:0/0` (bit 0 of `B3:0`) |
 | Custom types | `/Objects/Custom/PauseSimulation` |
 | MQTT | topic `simulator/PauseSimulation` (retained, payload `true`/`false`); the app writes it like any topic |
 | Modbus | coil `co:0` (`/Tags/Simulator/PauseSimulation` with the simulator's map) |
@@ -34,6 +37,7 @@ while paused, so values continue from where they were rather than jumping. Each 
 mdbrowser write eip://127.0.0.1:44818/1,0 PauseSimulation true --yes
 mdbrowser write opc.tcp://127.0.0.1:4841 /Objects/Custom/PauseSimulation false --yes
 mdbrowser write modbus://127.0.0.1:5020/1 co:0 true --yes
+mdbrowser write "pccc://127.0.0.1:44819?plc=slc500" B3:0/0 true --yes
 ```
 
 opc-plc is Microsoft's image: its methods pause only the Fast and Slow telemetry nodes. Basic, Anomaly, alarms and
@@ -88,6 +92,53 @@ Known simplifications: writes of whole structures are accepted as raw bytes, BOO
 index (`Bits[1]` is the second 32-bit word, as pycomm3 expects) and their wire reads/writes use `ceil(n/32)` DWORDs
 (the browser uses the template's logical element count to unpack and update the BOOL bits while preserving padding),
 there are no aliases, AOIs, produced/consumed tags or External Access settings (every tag is writable).
+
+## PCCC simulator (`simulators/pccc`)
+
+A pure-Python (no packages) EtherNet/IP server that answers PCCC like an SLC 500, MicroLogix or PLC-5. One data
+table serves all three: SLC 500 / MicroLogix requests (typed logical read `0xA2`, write `0xAA`, masked write
+`0xAB`) and PLC-5 requests (word range read `0x01`, write `0x00`, read-modify-write `0x26`) are told apart by
+their function code, so `plc=slc500`, `plc=micrologix` and `plc=plc5` all connect to the same container. It runs on
+port 44818 in the container and is mapped to **44819** on the host, next to the Logix simulator.
+
+It implements RegisterSession, ListIdentity, SendRRData with Execute PCCC (`0x4B`) on the PCCC object (directly or
+inside Unconnected Send) and the Identity object. Addresses use the standard encoding (one byte, or `0xFF` and a
+16-bit number), sub-elements (`T4:0.ACC`) and PLC-5 level flags. Errors are PCCC extended statuses: "address
+doesn't point to something usable" for a missing file or wrong file type, "file is wrong size" past its end.
+libplctag's own `ab_server` was not used: it can't address sub-elements and serves one PLC type per process.
+
+### Content
+
+| File | Elements | Contents |
+|------|---------:|----------|
+| `O0`, `I1` | 8 | `I1:0` a walking bit (1 s), `O0:0` mirrors it |
+| `S2` | 66 | `S:1` mode bits, `S:4` free-running clock (10 ms), `S:57` |
+| `B3` | 32 | `B3:0/0` pauses the simulation; `B3:1` counts seconds in binary; `B3:2` = `0x5555`, `B3:3` all ones |
+| `T4` | 10 | `T4:0` times to its preset (1 s) and restarts; `T4:1` done; presets `100 + 50 × n` |
+| `C5` | 10 | `C5:0` counts up once a second to twice its preset; `C5:2.ACC` = 7; presets 50 |
+| `R6` | 4 | `R6:0.POS` walks 0…`LEN` (10) once a second |
+| `N7` | 100 | `N7:0` heartbeat (s), `N7:1` sine ±1000 (10 s), `N7:2` ramp 0…1000, `N7:3` random walk; `N7:10…` = `10 × n` |
+| `F8` | 50 | `F8:0` temperature (sine, 30 s), `F8:1` ramp 0…100, `F8:2` noisy pressure; `F8:10…` = `1.5 × n` |
+| `N9` | 256 | `N9:n` = `n`: a file of the SLC maximum length |
+| `ST10` | 10 | strings `Hello PCCC`, `SLC 500`, `MicroLogix`, `PLC-5`, `Recipe A`, `Recipe B`, rest empty |
+| `L11` | 20 | `L11:0` simulated milliseconds; `L11:n` = `100000 × n` |
+
+`N9`, `ST10` and `L11` are not standard files, so name them in the endpoint to see them in the tree:
+`pccc://127.0.0.1:44819?plc=slc500&files=N9,ST10,L11`.
+
+### Writing
+
+Every element accepts writes. Animated values (`N7:0…3`, `F8:0…2`, `L11:0`, `T4:0`, `C5:0`, `R6:0`, `I1:0`, `O0:0`,
+`B3:1`, `S:4`) are replaced at the next tick unless the simulation is paused; everything else keeps what is written.
+
+### Settings
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `PCCC_SIM_PORT` | `44818` | TCP port inside the container (`just pccc PORT` maps the host port) |
+| `PCCC_SIM_TICK_MS` | `100` | animation tick; `0` freezes all values |
+| `PCCC_SIM_LOG` | `INFO` | `DEBUG` logs every request |
+| `PCCC_SIM_SEED` | — | random seed for the noisy values |
 
 ## opc-plc (`simulators/opcua`)
 
@@ -193,10 +244,11 @@ mdbrowser read modbus://127.0.0.1:5020/1 /Tags/Static -R --map simulators/modbus
 
 ## Integration tests
 
-`tests/MachineDataBrowser.Core.Tests` builds `simulators/cip`, `simulators/opcua-custom` and `simulators/mqtt` with
-Testcontainers (`LogixSimulatorFixture`, `CustomTypesServerFixture`, `MqttSimulatorFixture`); the custom server runs
-with a small address space and the MQTT publisher with faster deaths and rebirths there. `CipClientTests`,
-`CipConnectionLossTests`, `CustomTypesTests`, `MqttClientTests` and the App's `MqttAppTests` run in CI with the rest
-of `dotnet test`. `simulators/modbus` runs the same way (`ModbusSimulatorFixture`) for `ModbusClientTests`,
-`ModbusTagMapClientTests`, the CLI's `ModbusCliTests` and the App's `ModbusAppTests`; one test checks that the
-simulator's register map and session still match it.
+`tests/MachineDataBrowser.Core.Tests` builds `simulators/cip`, `simulators/pccc`, `simulators/opcua-custom` and
+`simulators/mqtt` with Testcontainers (`LogixSimulatorFixture`, `PcccSimulatorFixture`, `CustomTypesServerFixture`,
+`MqttSimulatorFixture`); the custom server runs with a small address space and the MQTT publisher with faster deaths
+and rebirths there. `CipClientTests`,
+`CipConnectionLossTests`, `PcccClientTests`, `CustomTypesTests`, `MqttClientTests` and the App's `MqttAppTests` run
+in CI with the rest of `dotnet test`. `simulators/modbus` runs the same way (`ModbusSimulatorFixture`) for
+`ModbusClientTests`, `ModbusTagMapClientTests`, the CLI's `ModbusCliTests` and the App's `ModbusAppTests`; one test
+checks that the simulator's register map and session still match it.

@@ -4,6 +4,7 @@ Machine Data Browser (repository `MachineDataBrowser`) is a machine data viewer.
 
 - an OPC UA server,
 - an Allen-Bradley Logix controller over EtherNet/IP (CIP),
+- an Allen-Bradley SLC 500, MicroLogix or PLC-5 over EtherNet/IP (PCCC),
 - a Modbus TCP device, or
 - an MQTT broker, including Sparkplug B.
 
@@ -45,16 +46,19 @@ flowchart LR
     subgraph Drivers["Protocol drivers"]
         Ua["MachineDataBrowser.Driver.OpcUa<br/>OpcUaClient"]
         Cip["MachineDataBrowser.Driver.Cip<br/>CipClient"]
+        Pccc["MachineDataBrowser.Driver.Pccc<br/>PcccClient"]
         Mqtt["MachineDataBrowser.Driver.Mqtt<br/>MqttDeviceClient"]
         Modbus["MachineDataBrowser.Driver.Modbus<br/>ModbusClient"]
     end
     Composition["MachineDataBrowser.Drivers<br/>DeviceClientFactory"]
     Composition --> Ua
     Composition --> Cip
+    Composition --> Pccc
     Composition --> Mqtt
     Composition --> Modbus
     Ua -. implements .-> IDC
     Cip -. implements .-> IDC
+    Pccc -. implements .-> IDC
     Mqtt -. implements .-> IDC
     Modbus -. implements .-> IDC
     VM --> IDC
@@ -67,6 +71,7 @@ flowchart LR
 
     Ua -- "opc.tcp:// (OPC Foundation UA-.NETStandard)" --> S1[(OPC UA server)]
     Cip -- "eip:// (libplctag)" --> S2[(Logix controller)]
+    Pccc -- "pccc:// (libplctag)" --> S4[(SLC 500 / MicroLogix / PLC-5)]
     Mqtt -- "mqtt:// mqtts:// ws:// wss:// (MQTTnet)" --> S3[(MQTT broker)]
     Modbus -- "modbus:// (own Modbus TCP client)" --> S4[(Modbus device)]
 ```
@@ -82,6 +87,7 @@ flowchart LR
 | `src/MachineDataBrowser.Driver.OpcUa` | OPC UA client, SDK adapter, and UA-aware value JSON/C# export. References Core. |
 | `src/MachineDataBrowser.Driver.Cip` | EtherNet/IP (Logix) client. References Core. |
 | `src/MachineDataBrowser.Driver.Modbus` | Modbus TCP client (no library), address syntax and register maps. References Core. |
+| `src/MachineDataBrowser.Driver.Pccc` | PCCC (SLC 500, MicroLogix, PLC-5) client: data-table addresses and their codec. References Core. |
 | `src/MachineDataBrowser.Driver.Mqtt` | MQTT client, topic model and Sparkplug B support. References Core. |
 | `src/MachineDataBrowser.Drivers` | Composition project selecting a driver from an endpoint URL; referenced by app and CLI. |
 | `src/MachineDataBrowser.App` | Avalonia 12 desktop app (MVVM with CommunityToolkit.Mvvm, docking with Dock.Avalonia); uses the driver composition project. |
@@ -89,7 +95,7 @@ flowchart LR
 | `tests/MachineDataBrowser.Core.Tests` | Integration tests against containers (opc-plc and the `simulators/` images, via Testcontainers) plus unit tests. |
 | `tests/MachineDataBrowser.App.Tests` | Headless Avalonia UI tests with real rendering (screenshots) against the same containers. |
 | `tests/MachineDataBrowser.Cli.Tests` | The CLI's commands end to end against opc-plc and the simulators, plain and terminal output; the TUI's model against every protocol and its screen headlessly (ANSI driver, virtual time). |
-| `simulators/` | Test servers for development and tests: Logix, opc-plc, OPC UA custom types, MQTT, Modbus. See [simulators.md](simulators.md). |
+| `simulators/` | Test servers for development and tests: Logix, PCCC, opc-plc, OPC UA custom types, MQTT, Modbus. See [simulators.md](simulators.md). |
 
 Every project's root namespace is its project name (e.g. `MachineDataBrowser.Driver.OpcUa`); the recording engine's
 class is `RecordingSession` so that it does not clash with the `MachineDataBrowser.Recording` namespace.
@@ -219,6 +225,7 @@ stateDiagram-v2
   itself.
 - **Modbus:** a failed request switches the state to `Reconnecting` and drops the socket; the next request (the
   poll loop) opens it again, and an answer switches back to `Connected`.
+- **PCCC:** like EtherNet/IP: failed polls mean `Reconnecting` until a read succeeds.
 - **MQTT:** a lost broker starts a reconnect loop every 2 s, which subscribes again. Monitors stay registered, so Watch
   and recordings resume.
 
@@ -277,6 +284,22 @@ stateDiagram-v2
 - **Monitoring:** one poll loop per refresh time. It only reports changes.
 - **Tag creation:** tags are created synchronously on a pool thread, because libplctag.NET's async creation leaks
   failed tags (see [decisions.md](decisions.md)).
+
+## PCCC (`Pccc.PcccClient`)
+
+- **Scope:** SLC 500, MicroLogix and PLC-5 with an Ethernet port (`plc=` in the URL picks libplctag's command set).
+  No DH+ bridging, no PD/MG/A/BT files.
+- **Addresses as node ids:** these controllers have no tags. Ids are normalised data-table addresses (`N7:0`,
+  `B3:0/5`, `T4:0.ACC`, `ST10:1`), files are `N7`, and the root is the folder `@Root`. `PcccAddress` parses and
+  prints them; `PcccCodec` decodes element bytes (INT, REAL, DINT, byte-swapped ST strings, bits, T/C/R members).
+- **Discovery:** PCCC through libplctag can't read the file directory. The standard files `O0`…`F8` are probed at
+  connect (which also proves the link) and `files=` adds others. A file's length is found by binary search over
+  element reads when it is first browsed, and cached.
+- **Reads:** always the whole element (a timer is 6 bytes); members and bits are taken from it, so every node of an
+  element reads the same way. Writes go to the element or the member word (`T4:0.PRE`, `.CON` for flags); bits are
+  read-modify-write of their word.
+- **Monitoring:** one poll loop per refresh time, like `CipClient`; changes are compared by decoded value so a bit
+  doesn't report when another bit of its word changes.
 
 ## Modbus TCP (`Modbus.ModbusClient`)
 

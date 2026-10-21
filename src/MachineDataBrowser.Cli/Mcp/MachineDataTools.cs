@@ -30,7 +30,7 @@ internal sealed partial class MachineDataTools(EndpointPool pool)
         .. pool.Endpoints.Select(e => (JsonNode)new JsonObject
         {
             ["endpoint"] = e.Url,
-            ["protocol"] = DeviceClient.IsEip(e.Url) ? "EtherNet/IP (Logix)" : DeviceClient.IsModbus(e.Url) ? "Modbus TCP" : DeviceClient.IsMqtt(e.Url) ? "MQTT" : "OPC UA",
+            ["protocol"] = DeviceClient.ProtocolName(e.Url),
             ["state"] = pool.StateOf(e).ToString(),
         }),
         .. pool.Patterns.Select(p => (JsonNode)new JsonObject

@@ -4,21 +4,22 @@ Instructions for coding agents working in this repository. Humans: see [CONTRIBU
 
 ## What this is
 
-Machine Data Browser: a cross-platform desktop viewer for machine data over **OPC UA**, **EtherNet/IP (Logix)**,
-**Modbus TCP** and **MQTT** (Sparkplug B, CloudEvents). .NET 10, Avalonia 12, Dock.Avalonia, CommunityToolkit.Mvvm,
-OPC Foundation UA-.NETStandard. Read [docs/architecture.md](docs/architecture.md) before changing structure.
+Machine Data Browser: a cross-platform desktop viewer for machine data over **OPC UA**, **EtherNet/IP (Logix,
+PCCC)**, **Modbus TCP** and **MQTT** (Sparkplug B, CloudEvents). .NET 10, Avalonia 12, Dock.Avalonia,
+CommunityToolkit.Mvvm, OPC Foundation UA-.NETStandard. Read [docs/architecture.md](docs/architecture.md) before
+changing structure.
 
 | Path | Contents |
 |---|---|
 | `src/MachineDataBrowser.Core` | protocol-neutral contracts behind `IDeviceClient`, recordings, value formatting/JSON. **No UI references.** |
-| `src/MachineDataBrowser.Driver.*` | OPC UA, EtherNet/IP, Modbus and MQTT implementations of `IDeviceClient`, each in its own project. |
+| `src/MachineDataBrowser.Driver.*` | OPC UA, EtherNet/IP (Logix, PCCC), Modbus and MQTT implementations of `IDeviceClient`, each in its own project. |
 | `src/MachineDataBrowser.Drivers` | Composition/factory project referenced by the app and CLI. |
 | `src/MachineDataBrowser.App` | Avalonia app: `ViewModels/` (MVVM, `MainWindowViewModel.*.cs` partials per feature), `Views/`, `Services/` |
 | `src/MachineDataBrowser.Cli` | `mdbrowser` command line ([docs/cli.md](docs/cli.md)): System.CommandLine + Spectre.Console, references Core only; `Mcp/` is the MCP server ([docs/mcp.md](docs/mcp.md)) |
 | `tests/MachineDataBrowser.Cli.Tests` | the CLI end to end against opc-plc and the MQTT simulator |
 | `tests/MachineDataBrowser.Core.Tests` | integration tests against containers (opc-plc, `simulators/`) via Testcontainers, plus unit tests |
 | `tests/MachineDataBrowser.App.Tests` | headless Avalonia UI tests (`[AvaloniaFact]`) against the same containers |
-| `simulators/` | local test servers (custom OPC UA, Logix, MQTT, Modbus); `just` recipes start them |
+| `simulators/` | local test servers (custom OPC UA, Logix, PCCC, MQTT, Modbus); `just` recipes start them |
 | `docs/` | `user-manual.md`, `architecture.md`, `decisions.md`, `simulators.md`, `images/` |
 
 ## Commands
@@ -90,6 +91,7 @@ The `mdbrowser-*` MCP servers (and `mdbrowser` itself) are often pointed at the 
 | Simulator | Endpoint | Pause tag |
 |---|---|---|
 | Logix | `eip://localhost:44818/1,0` | `PauseSimulation` |
+| PCCC (SLC/MicroLogix/PLC-5) | `pccc://localhost:44819?plc=slc500` | `B3:0/0` |
 | Custom types | `opc.tcp://localhost:4841` | `/Objects/Custom/PauseSimulation` |
 | MQTT | `mqtt://localhost:1883` | `/Topics/simulator/PauseSimulation` (retained topic) |
 | Modbus | `modbus://localhost:5020/1` | coil `co:0` (map: `simulators/modbus/simulator-map.csv`) |

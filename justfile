@@ -2,6 +2,7 @@
 # Details: docs/simulators.md
 
 cip_image := "machinedatabrowser-cip-simulator:dev"
+pccc_image := "machinedatabrowser-pccc-simulator:dev"
 opcua_image := "machinedatabrowser-opcua-simulator:dev"
 custom_image := "machinedatabrowser-opcua-custom:dev"
 mqtt_image := "machinedatabrowser-mqtt-simulator:dev"
@@ -27,6 +28,22 @@ cip-debug port="44818":
 # Run the Logix simulator without Docker (Python 3.11+, no packages needed)
 cip-local port="44818":
     cd simulators/cip && CIP_SIM_PORT={{port}} python3 logix_server.py
+
+# SLC 500 / MicroLogix / PLC-5 (PCCC) simulator -> pccc://127.0.0.1:PORT?plc=slc500|micrologix|plc5 (pause: B3:0/0)
+pccc port="44819" tick_ms="100":
+    docker build -t {{pccc_image}} simulators/pccc
+    -docker rm -f machinedatabrowser-pccc >/dev/null 2>&1
+    docker run --rm -it --name machinedatabrowser-pccc -p {{port}}:44818 -e PCCC_SIM_TICK_MS={{tick_ms}} {{pccc_image}}
+
+# Same, with every PCCC request logged
+pccc-debug port="44819":
+    docker build -t {{pccc_image}} simulators/pccc
+    -docker rm -f machinedatabrowser-pccc >/dev/null 2>&1
+    docker run --rm -it --name machinedatabrowser-pccc -p {{port}}:44818 -e PCCC_SIM_LOG=DEBUG {{pccc_image}}
+
+# Run the PCCC simulator without Docker (Python 3.11+, no packages needed)
+pccc-local port="44819":
+    cd simulators/pccc && PCCC_SIM_PORT={{port}} python3 pccc_server.py
 
 # OPC UA opc-plc simulator -> opc.tcp://127.0.0.1:PORT (Plant tree, boilers, alarms, fast nodes every FAST_MS)
 opcua port="50000" fast_ms="10" fast_nodes="20" slow_nodes="10":
@@ -67,28 +84,30 @@ modbus-local port="5020":
 # Start all simulators in the background
 all: stop
     docker build -t {{cip_image}} simulators/cip
+    docker build -t {{pccc_image}} simulators/pccc
     docker build -t {{opcua_image}} simulators/opcua
     docker build -t {{custom_image}} simulators/opcua-custom
     docker build -t {{mqtt_image}} simulators/mqtt
     docker build -t {{modbus_image}} simulators/modbus
     docker run -d --rm --name machinedatabrowser-cip -p 44818:44818 {{cip_image}}
+    docker run -d --rm --name machinedatabrowser-pccc -p 44819:44818 {{pccc_image}}
     docker run -d --rm --name machinedatabrowser-opcua -p 50000:50000 -p 8080:8080 {{opcua_image}}
     docker run -d --rm --name machinedatabrowser-opcua-custom -p 4841:4841 {{custom_image}}
     docker run -d --rm --name machinedatabrowser-mqtt -p 1883:1883 -p 9001:9001 {{mqtt_image}}
     docker run -d --rm --name machinedatabrowser-modbus -p 5020:502 {{modbus_image}}
-    @echo "eip://127.0.0.1:44818/1,0  opc.tcp://127.0.0.1:50000  opc.tcp://127.0.0.1:4841/  mqtt://127.0.0.1:1883  modbus://127.0.0.1:5020/1"
+    @echo "eip://127.0.0.1:44818/1,0  pccc://127.0.0.1:44819?plc=slc500  opc.tcp://127.0.0.1:50000  opc.tcp://127.0.0.1:4841/  mqtt://127.0.0.1:1883  modbus://127.0.0.1:5020/1"
 
 # Stop all simulator containers
 stop:
-    -docker rm -f machinedatabrowser-cip machinedatabrowser-opcua machinedatabrowser-opcua-custom machinedatabrowser-mqtt machinedatabrowser-modbus
+    -docker rm -f machinedatabrowser-cip machinedatabrowser-pccc machinedatabrowser-opcua machinedatabrowser-opcua-custom machinedatabrowser-mqtt machinedatabrowser-modbus
 
-# Follow a simulator's log (cip | opcua | opcua-custom | mqtt | modbus)
+# Follow a simulator's log (cip | pccc | opcua | opcua-custom | mqtt | modbus)
 logs name="cip":
     docker logs -f machinedatabrowser-{{name}}
 
 # Core tests against the simulators (needs Docker)
 test-sim:
-    dotnet test tests/MachineDataBrowser.Core.Tests -- --filter-class "*CipClientTests" --filter-class "*CustomTypesTests" --filter-class "*MqttClientTests" --filter-class "*CipConnectionLossTests" --filter-class "*ModbusClientTests"
+    dotnet test tests/MachineDataBrowser.Core.Tests -- --filter-class "*CipClientTests" --filter-class "*CustomTypesTests" --filter-class "*MqttClientTests" --filter-class "*CipConnectionLossTests" --filter-class "*ModbusClientTests" --filter-class "*PcccClientTests"
 
 # Regenerate the dark-theme screenshots in docs/images (needs Docker; compresses them with pngquant)
 docs-screenshots:

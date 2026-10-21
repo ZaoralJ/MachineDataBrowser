@@ -5,6 +5,7 @@ Machine Data Browser is a viewer for machine data. It connects to:
 - **OPC UA** servers (`opc.tcp://`),
 - Allen-Bradley **Logix** controllers over EtherNet/IP (`eip://`),
 - **Modbus TCP** devices (`modbus://`), with an optional register map that names their addresses,
+- Allen-Bradley **SLC 500**, **MicroLogix** and **PLC-5** controllers over EtherNet/IP with PCCC (`pccc://`),
 - **MQTT** brokers (`mqtt://`, `mqtts://`, `ws://`, `wss://`), including **Sparkplug B** and **CloudEvents**.
 
 It shows the address space and attributes, watches live values, records them and exports them. It can also write
@@ -57,6 +58,7 @@ Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ but
 | OPC UA | `opc.tcp://127.0.0.1:4841` | ⚙ options: secure endpoint, user name/password, auto-trust certificates |
 | EtherNet/IP | `eip://127.0.0.1:44818/1,0` | `/backplane,slot`; defaults to `1,0` |
 | Modbus TCP | `modbus://127.0.0.1:5020/1` | `/unit id`; port defaults to 502, unit to 1. ⚙ options: register map |
+| PCCC | `pccc://127.0.0.1:44819?plc=slc500` | `plc=` `slc500` (default), `micrologix`, `plc5`; files: `&files=N10,ST11` |
 | MQTT | `mqtt://127.0.0.1:1883` | TLS `mqtts://` (8883), WebSocket `ws://127.0.0.1:9001` / `wss://` |
 | MQTT, narrowed | `mqtt://127.0.0.1:1883/plant/#` or `mqtt://127.0.0.1:1883?topic=machines/%2B/status` | subscribe only to part of the broker |
 | MQTT with login | `mqtt://user:password@127.0.0.1:1883` | or user name/password in the ⚙ options |
@@ -87,6 +89,7 @@ values seem to stop:
     up), with the last error.
   - Modbus: device, unit id, timeout, link drops, the register map, requests per second and failures, and per
     refresh time the values polled, how many requests one cycle needs, the last cycle and the last error.
+  - PCCC: gateway, controller family, timeout, link drops, the data files found, and the same read and poll figures.
 - *This app*: watched items, value updates per second, and how many rows are stale, bad or uncertain.
 - *Subscriptions* (OPC UA): the publishing interval the server granted (it may differ from the refresh time), items,
   notifications and when the last one arrived.
@@ -146,6 +149,15 @@ saved with the session (node ids are per server) and work for OPC UA, EtherNet/I
 - **EtherNet/IP:** *Controller Tags* and *Programs*. UDTs and arrays of UDTs expand into members and elements
   (arrays show up to 1000 elements).
 - **Modbus:** see [Modbus](#modbus) below: *Tags* from the register map, then the four areas by address.
+- **PCCC (SLC 500, MicroLogix, PLC-5):** *Data Files*. These controllers have no tag names, only data-table
+  addresses such as `N7:0`, `F8:3`, `B3:0/5` or `T4:0.ACC`.
+  - PCCC can't list the files, so the standard ones (`O0`, `I1`, `S2`, `B3`, `T4`, `C5`, `R6`, `N7`, `F8`) are
+    tried, and those that exist are shown. Name other files in the endpoint: `pccc://10.0.0.5?files=N10,F11,ST12,L13`.
+  - A file's length is found when you expand it (a few reads); a file shows up to 1000 elements.
+  - Timers, counters and controls expand into their members (`EN`, `TT`, `DN`, `PRE`, `ACC`; `CU`, `CD`, `OV`,
+    `UN`; `EU`, `EM`, `ER`, `UL`, `IN`, `FD`, `LEN`, `POS`). Binary words expand into their 16 bits.
+  - Supported files: O, I, S, B, N (INT), F (REAL), L (DINT), ST (string), T, C, R. Bits of N, L, O, I and S words
+    can be watched by address (`N7:0/3`). PLC-5 I/O element numbers are decimal here, not octal as in RSLogix 5.
 - **MQTT, *Topics*:** topic levels as folders. A topic that received a message is a variable.
   - A topic can have a value and also subtopics, e.g. `plant/hall1`.
   - JSON payloads expand into their fields, so you can watch or chart a single field such as
@@ -333,6 +345,8 @@ The app writes to a device only when you ask it to.
     (`BadNotWritable`).
   - **Modbus:** coils and holding registers; discrete inputs and input registers are read-only. A value is written
     with its type from the id (`hr:20:float32` writes two registers). Strings are padded with zero bytes.
+  - **PCCC:** elements, timer/counter/control words and bits. A bit is written as read-modify-write of its word
+    in two requests, so if the program changes another bit of that word in between, that change is lost.
   - **MQTT:** a topic is republished with the same payload kind, retain flag and properties; a JSON field republishes
     the last document with the field changed; a Sparkplug B metric is sent as a command (NCMD/DCMD).
 - Several Watch rows get the same value; failures are listed per item.
@@ -533,6 +547,8 @@ right-click menus and the tooltips. **Help ▸ Keyboard Shortcuts** (⌘/) lists
 | Modbus: wrong numbers | Check the type and word order (`:swap`) in the device manual |
 | Modbus: no answer, `BadTimeout` | Check the unit id in the URL (`/1`); gateways need the id of the device behind them |
 | EtherNet/IP: no tags | Only Logix (ControlLogix/CompactLogix) lists tags; check the path (`/1,0` = backplane 1, slot 0) |
+| PCCC: a data file is missing | Only the standard files are tried; add others to the endpoint: `?files=N10,ST12` |
+| PCCC: `No data files found` | Check the address and `plc=`; needs an Ethernet port (SLC 5/05, MicroLogix 1100/1400, PLC-5/xxE) |
 | MQTT: empty tree | Nothing has been published yet on the filter (only retained messages appear at once); check the topic filter in the URL |
 | MQTT: new topics don't appear | Discovery is paused (⏸ in the Address Space toolbar is on); resume it with ⇧⌘P |
 | MQTT: app busy, high traffic | Narrow the topic filter in the URL, or pause discovery (⇧⌘P) to receive only monitored topics |
@@ -540,4 +556,5 @@ right-click menus and the tooltips. **Help ▸ Keyboard Shortcuts** (⌘/) lists
 | MQTT: values stop, metrics Bad | The Sparkplug node or device sent a DEATH, or the broker connection is reconnecting (status bar) |
 | Something failed | The error bar shows it; details are in `logs/machinedatabrowser.log` in the data folder |
 
-For local test servers (OPC UA, Logix, MQTT with Sparkplug B and CloudEvents) see [simulators.md](simulators.md).
+For local test servers (OPC UA, Logix, SLC 500 / PLC-5, MQTT with Sparkplug B and CloudEvents) see
+[simulators.md](simulators.md).

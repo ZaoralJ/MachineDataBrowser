@@ -5,6 +5,7 @@
     <ProjectReference Include="..\MachineDataBrowser.Driver.Mqtt\MachineDataBrowser.Driver.Mqtt.csproj" />
     <ProjectReference Include="..\MachineDataBrowser.Driver.Cip\MachineDataBrowser.Driver.Cip.csproj" />
     <ProjectReference Include="..\MachineDataBrowser.Driver.Modbus\MachineDataBrowser.Driver.Modbus.csproj" />
+    <ProjectReference Include="..\MachineDataBrowser.Driver.Pccc\MachineDataBrowser.Driver.Pccc.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

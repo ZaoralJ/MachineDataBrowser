@@ -12,6 +12,7 @@
 | **OPC UA** | `opc.tcp://127.0.0.1:4841` | secure endpoints, user login, custom structures, subscriptions |
 | **EtherNet/IP** (Allen-Bradley Logix) | `eip://127.0.0.1:44818/1,0` | controller and program tags, UDTs, arrays of UDTs |
 | **Modbus TCP** | `modbus://127.0.0.1:5020/1` | coils, inputs and registers by address, typed values (float32, int32, strings, word order), register maps naming them |
+| **PCCC** (SLC 500, MicroLogix, PLC-5) | `pccc://127.0.0.1:44819?plc=slc500` | data files, timers, counters, controls, bits |
 | **MQTT** | `mqtt://127.0.0.1:1883[/topic/#]`, `mqtts://`, `ws://`, `wss://` | topic tree, JSON fields, Sparkplug B, CloudEvents |
 
 For any of these you can:
@@ -64,7 +65,7 @@ read-only; see [docs/mcp.md](docs/mcp.md).
 ## Try it with the test servers
 
 ```sh
-just all     # Logix, OPC UA (two servers), MQTT and Modbus simulators in Docker
+just all     # Logix, PCCC, OPC UA (two servers), MQTT and Modbus simulators in Docker
 dotnet run --project src/MachineDataBrowser.App
 ```
 
@@ -73,6 +74,7 @@ Then connect to one of these:
 - `opc.tcp://127.0.0.1:50000`
 - `opc.tcp://127.0.0.1:4841/`
 - `eip://127.0.0.1:44818/1,0`
+- `pccc://127.0.0.1:44819?plc=slc500` (also `micrologix`, `plc5`)
 - `mqtt://127.0.0.1:1883`
 - `modbus://127.0.0.1:5020/1` (import `simulators/modbus/simulator-map.csv` as its register map, or open
   `simulators/modbus/simulator.mdbsession`)
