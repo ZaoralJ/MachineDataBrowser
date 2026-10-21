@@ -26,7 +26,7 @@ internal static class Commands
 
     public static RootCommand Build(TextWriter stdout, TextWriter stderr, IAnsiConsole? terminal = null)
     {
-        var url = new Argument<string>("url") { Description = "Endpoint: opc.tcp://host:4840, eip://host/1,0, mqtt://broker[/topic/#]" };
+        var url = new Argument<string>("url") { Description = "Endpoint: opc.tcp://host:4840, eip://host/1,0, modbus://host[:502][/unit], mqtt://broker[/topic/#]" };
         var user = new Option<string?>("--user", "-u") { Description = "User name (OPC UA, MQTT)" };
         var password = new Option<string?>("--password", "-p") { Description = $"Password; or set {PasswordVariable}" };
         var secure = new Option<bool>("--secure") { Description = "OPC UA: use the most secure endpoint the server offers" };
@@ -39,6 +39,7 @@ internal static class Commands
             CustomParser = r => ParseDuration(r.Tokens.Single().Value, r),
         };
         var count = new Option<int?>("--count", "-n") { Description = "Stop after this many updates" };
+        var tagMap = new Option<string?>("--map", "-m") { Description = "Modbus: register map naming the device's addresses (CSV: name,address[,unit][,description])" };
         var ids = new Option<bool>("--ids") { Description = "Show node ids next to names (shown anyway when names repeat)" };
 
         // Equal names (the same variable under two objects) can't be told apart without their ids.
@@ -67,12 +68,16 @@ internal static class Commands
             r.GetValue(user),
             r.GetValue(password) ?? Environment.GetEnvironmentVariable(PasswordVariable),
             r.GetValue(secure),
-            r.GetValue(trustAll));
+            r.GetValue(trustAll),
+            TagMap: MapPath(r));
+
+        // Relative paths are resolved now: session files store the map relative to themselves, not to the working folder.
+        string? MapPath(ParseResult r) => r.GetValue(tagMap) is { Length: > 0 } map ? Path.GetFullPath(map) : null;
 
         Command WithConnection(Command command)
         {
             command.Arguments.Insert(0, url);
-            foreach (var option in new Option[] { user, password, secure, trustAll, format })
+            foreach (var option in new Option[] { user, password, secure, trustAll, tagMap, format })
             {
                 command.Options.Add(option);
             }
@@ -87,7 +92,7 @@ internal static class Commands
         endpoints.SetAction((r, ct) => Guard(stderr, async () =>
         {
             var target = r.GetValue(url)!;
-            if (DeviceClient.IsEip(target) || DeviceClient.IsMqtt(target))
+            if (DeviceClient.IsEip(target) || DeviceClient.IsModbus(target) || DeviceClient.IsMqtt(target))
             {
                 throw new CliException("endpoints works for OPC UA (opc.tcp://) only.");
             }
@@ -247,7 +252,8 @@ internal static class Commands
                         session.UserName,
                         r.GetValue(password) ?? Environment.GetEnvironmentVariable(PasswordVariable),
                         session.UseSecurity,
-                        session.AutoAcceptCertificates || r.GetValue(trustAll));
+                        session.AutoAcceptCertificates || r.GetValue(trustAll),
+                        TagMap: session.TagMapFor(path));
                     if (client is null || target != connected)
                     {
                         if (client is not null)
@@ -369,7 +375,7 @@ internal static class Commands
         var mcpWriteLimit = new Option<string[]>("--write-limit") { Description = "With --allow-writes: numbers written to matching variables must be in range, e.g. '/Objects/Line1/Speed=0..1500'; repeatable" };
         var mcpAuditLog = new Option<string?>("--audit-log") { Description = "With --allow-writes: file every change is logged to as JSON lines (default logs/mcp-audit.jsonl in the data folder)" };
         var mcp = new Command("mcp", "Run an MCP server on stdin/stdout: read-only tools for AI agents (machines: browse, search, read, sample; recordings: list, items, samples)");
-        foreach (var option in new Option[] { mcpEndpoints, mcpSessions, mcpRecordings, mcpRecordingDirs, mcpAllow, mcpAllowAny, mcpAllowRecording, mcpAllowWrites, mcpSkipConfirmation, mcpSnapshotsDir, mcpAllowSnapshots, mcpWriteNode, mcpWriteLimit, mcpAuditLog, user, password, secure, trustAll })
+        foreach (var option in new Option[] { mcpEndpoints, mcpSessions, mcpRecordings, mcpRecordingDirs, mcpAllow, mcpAllowAny, mcpAllowRecording, mcpAllowWrites, mcpSkipConfirmation, mcpSnapshotsDir, mcpAllowSnapshots, mcpWriteNode, mcpWriteLimit, mcpAuditLog, user, password, secure, trustAll, tagMap })
         {
             mcp.Options.Add(option);
         }
@@ -378,11 +384,11 @@ internal static class Commands
         {
             var secret = r.GetValue(password) ?? Environment.GetEnvironmentVariable(PasswordVariable);
             var allowed = new List<ConnectionArgs>();
-            allowed.AddRange((r.GetValue(mcpEndpoints) ?? []).Select(url => new ConnectionArgs(url, r.GetValue(user), secret, r.GetValue(secure), r.GetValue(trustAll))));
+            allowed.AddRange((r.GetValue(mcpEndpoints) ?? []).Select(url => new ConnectionArgs(url, r.GetValue(user), secret, r.GetValue(secure), r.GetValue(trustAll), TagMap: MapPath(r))));
             foreach (var path in r.GetValue(mcpSessions) ?? [])
             {
                 var session = await SessionFile.LoadAsync(path, ct).ConfigureAwait(false);
-                allowed.Add(new ConnectionArgs(session.EndpointUrl, session.UserName, secret, session.UseSecurity, session.AutoAcceptCertificates || r.GetValue(trustAll), session.ReadOnly));
+                allowed.Add(new ConnectionArgs(session.EndpointUrl, session.UserName, secret, session.UseSecurity, session.AutoAcceptCertificates || r.GetValue(trustAll), session.ReadOnly, TagMap: session.TagMapFor(path)));
             }
 
             var files = r.GetValue(mcpRecordings) ?? [];
@@ -567,7 +573,8 @@ internal static class Commands
                 (string?)document["userName"],
                 r.GetValue(password) ?? Environment.GetEnvironmentVariable(PasswordVariable),
                 document["useSecurity"]?.GetValue<bool>() ?? false,
-                (document["autoAcceptCertificates"]?.GetValue<bool>() ?? false) || r.GetValue(trustAll));
+                (document["autoAcceptCertificates"]?.GetValue<bool>() ?? false) || r.GetValue(trustAll),
+                TagMap: (string?)document["tagMap"] is { Length: > 0 } map ? TagMapReference.Resolve(map, file) : null);
             await using var client = await Cli.Connection.ConnectAsync(target, ct).ConfigureAwait(false);
             var resolved = await NodesAsync(client, r, ct).ConfigureAwait(false);
             var result = await SessionWriter.AddAsync(file, document, client, [.. resolved.Select(n => new SessionWriter.Item(n, r.GetValue(refresh)))], ct).ConfigureAwait(false);
@@ -594,13 +601,13 @@ internal static class Commands
         var session = new Command("session", "Create session files for the app, or add nodes to them or remove them") { create, add, remove };
 
         // tui
-        var tuiTarget = new Argument<string>("target") { Description = "Endpoint (opc.tcp://…, eip://…, mqtt://…) or a session file (.mdbsession)" };
+        var tuiTarget = new Argument<string>("target") { Description = "Endpoint (opc.tcp://…, eip://…, modbus://…, mqtt://…) or a session file (.mdbsession)" };
         var tuiTheme = new Option<string?>("--theme") { Description = $"Colour theme, like the app's: {string.Join(", ", ColorThemeCatalog.All.Select(t => t.Name))} (default: the app's)" };
         tuiTheme.AcceptOnlyFromAmong([.. ColorThemeCatalog.All.Select(t => t.Name)]);
         var tuiLight = new Option<bool>("--light") { Description = "Light appearance of the theme (default: the app's; dark when it follows the system)" };
         var tui = new Command("tui", "Full-screen browser: address space, attributes, monitored items, write, record, alarms, history");
         tui.Arguments.Add(tuiTarget);
-        foreach (var option in new Option[] { user, password, secure, trustAll, refresh, tuiTheme, tuiLight })
+        foreach (var option in new Option[] { user, password, secure, trustAll, tagMap, refresh, tuiTheme, tuiLight })
         {
             tui.Options.Add(option);
         }
@@ -633,7 +640,8 @@ internal static class Commands
             {
                 file = await SessionFile.LoadAsync(text, ct).ConfigureAwait(false);
                 target = new ConnectionArgs(file.EndpointUrl, (first ? r.GetValue(user) : null) ?? file.UserName, secret,
-                    file.UseSecurity || (first && r.GetValue(secure)), file.AutoAcceptCertificates || (first && r.GetValue(trustAll)), file.ReadOnly);
+                    file.UseSecurity || (first && r.GetValue(secure)), file.AutoAcceptCertificates || (first && r.GetValue(trustAll)), file.ReadOnly,
+                    TagMap: (first ? MapPath(r) : null) ?? file.TagMapFor(text));
             }
             else
             {
@@ -673,7 +681,7 @@ internal static class Commands
         }
 
         return new RootCommand(
-            "Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix) and MQTT. " +
+            "Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix), Modbus TCP and MQTT. " +
             "Pass a URL to open the full-screen browser.")
         {
             endpoints, browse, read, monitor, run, write, session, mcp, tui,

@@ -4,6 +4,7 @@ Machine Data Browser is a viewer for machine data. It connects to:
 
 - **OPC UA** servers (`opc.tcp://`),
 - Allen-Bradley **Logix** controllers over EtherNet/IP (`eip://`),
+- **Modbus TCP** devices (`modbus://`), with an optional register map that names their addresses,
 - **MQTT** brokers (`mqtt://`, `mqtts://`, `ws://`, `wss://`), including **Sparkplug B** and **CloudEvents**.
 
 It shows the address space and attributes, watches live values, records them and exports them. It can also write
@@ -55,6 +56,7 @@ Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ but
 |---|---|---|
 | OPC UA | `opc.tcp://127.0.0.1:4841` | ⚙ options: secure endpoint, user name/password, auto-trust certificates |
 | EtherNet/IP | `eip://127.0.0.1:44818/1,0` | `/backplane,slot`; defaults to `1,0` |
+| Modbus TCP | `modbus://127.0.0.1:5020/1` | `/unit id`; port defaults to 502, unit to 1. ⚙ options: register map |
 | MQTT | `mqtt://127.0.0.1:1883` | TLS `mqtts://` (8883), WebSocket `ws://127.0.0.1:9001` / `wss://` |
 | MQTT, narrowed | `mqtt://127.0.0.1:1883/plant/#` or `mqtt://127.0.0.1:1883?topic=machines/%2B/status` | subscribe only to part of the broker |
 | MQTT with login | `mqtt://user:password@127.0.0.1:1883` | or user name/password in the ⚙ options |
@@ -63,6 +65,7 @@ Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ but
 - The default refresh time for new watch items.
 - For OPC UA and MQTT: user name and password.
 - For OPC UA only: "Use secure endpoint".
+- For Modbus only: the **register map** (see [Modbus](#modbus)). **Import…** picks a CSV file, **Remove** drops it.
 - "Auto-trust server certificates" accepts OPC UA server certificates and TLS certificates of MQTT brokers without
   checking them. Use it on lab networks only.
 - With auto-trust off, an OPC UA server whose certificate is not trusted yet shows it (subject, issuer, validity,
@@ -82,6 +85,8 @@ values seem to stop:
   - EtherNet/IP: gateway, path, timeout, link drops, tag counts, reads per second and failures, and per refresh time
     the tags polled, the last read cycle and how long it took (longer than the refresh time means the PLC can't keep
     up), with the last error.
+  - Modbus: device, unit id, timeout, link drops, the register map, requests per second and failures, and per
+    refresh time the values polled, how many requests one cycle needs, the last cycle and the last error.
 - *This app*: watched items, value updates per second, and how many rows are stale, bad or uncertain.
 - *Subscriptions* (OPC UA): the publishing interval the server granted (it may differ from the refresh time), items,
   notifications and when the last one arrived.
@@ -140,6 +145,7 @@ saved with the session (node ids are per server) and work for OPC UA, EtherNet/I
 - **OPC UA:** the server's address space. Custom structures are decoded using the server's type definitions.
 - **EtherNet/IP:** *Controller Tags* and *Programs*. UDTs and arrays of UDTs expand into members and elements
   (arrays show up to 1000 elements).
+- **Modbus:** see [Modbus](#modbus) below: *Tags* from the register map, then the four areas by address.
 - **MQTT, *Topics*:** topic levels as folders. A topic that received a message is a variable.
   - A topic can have a value and also subtopics, e.g. `plant/hall1`.
   - JSON payloads expand into their fields, so you can watch or chart a single field such as
@@ -163,6 +169,48 @@ saved with the session (node ids are per server) and work for OPC UA, EtherNet/I
     names at the next birth. The app does not request a rebirth.
 
 ![MQTT broker: topic tree with JSON fields, Sparkplug B, attributes of a topic](images/mqtt.png)
+
+### Modbus
+
+Modbus devices have no names and nothing to browse: only four tables of numbered addresses. The tree shows them by
+number, and a **register map** can give them names.
+
+- **Addresses:** *Coils* and *Discrete Inputs* (bits), *Input Registers* and *Holding Registers* (16 bits), each in
+  blocks of 100 (`0-99`, `100-199`, …). A block shows its addresses as single bits or `uint16` registers. Addresses
+  the device doesn't have read as `BadNodeIdUnknown`.
+- **Ids:** `area:address[:type][:swap]`, with the address 0-based, as the manuals of most devices number them
+  (Attributes also shows the 1-based Modicon reference, e.g. `400021` for `hr:20`):
+
+  | Id | Value |
+  |---|---|
+  | `co:3`, `di:0` | coil, discrete input (bool) |
+  | `ir:4`, `hr:100` | input register, holding register (uint16) |
+  | `hr:10:int16` | other 16-bit type |
+  | `hr:20:float32`, `hr:30:int32`, `hr:32:uint32` | two registers, high word first |
+  | `hr:40:float64`, `hr:44:int64`, `hr:48:uint64` | four registers |
+  | `hr:22:float32:swap` | low word first (many PLCs) |
+  | `hr:50:string16` | 16 characters, two per register (`:swap`: low byte first) |
+
+  Watch a typed value by adding its id (e.g. paste it into the CLI command, or name it in a register map). Rows keep
+  the id, so a session's watch list works with or without the map.
+- **Register map:** a CSV file, comma- or semicolon-separated, with an optional header and `#` comments:
+
+  ```text
+  name,address,unit,description
+  Line1/Motor/Speed,hr:20:float32,rpm,Motor speed
+  Line1/Motor/Running,co:1
+  Line1/Recipe,hr:50:string16
+  ```
+
+  `/` in a name makes folders. Unit and description are optional; the unit shows in Watch and Attributes like an OPC
+  UA engineering unit. Import it in the connection options (⚙ ▸ Register map ▸ **Import…**) or with Connection ▸
+  **Import Register Map…** (⌥⌘K); when connected, the app reconnects and the names appear under *Tags* in the tree.
+  The map is saved with the session: relative to the session file when it is in the same folder or below (so they can
+  be copied together), otherwise as a full path. A map with an error (bad address, a name used twice) stops the
+  connection with the line number.
+- **Reading:** watched values are polled at their refresh time. Addresses close to each other are read in one request
+  (up to 125 registers or 2000 bits); if one of them doesn't exist, the others are read one by one so they still
+  update.
 
 ## Watch
 
@@ -283,6 +331,8 @@ The app writes to a device only when you ask it to.
   - **OPC UA:** writes the Value attribute. The server decides whether the variable is writable (AccessLevel).
   - **EtherNet/IP:** atomics, atomic arrays and STRINGs. Tags the controller program owns may be rejected
     (`BadNotWritable`).
+  - **Modbus:** coils and holding registers; discrete inputs and input registers are read-only. A value is written
+    with its type from the id (`hr:20:float32` writes two registers). Strings are padded with zero bytes.
   - **MQTT:** a topic is republished with the same payload kind, retain flag and properties; a JSON field republishes
     the last document with the field changed; a Sparkplug B metric is sent as a command (NCMD/DCMD).
 - Several Watch rows get the same value; failures are listed per item.
@@ -433,9 +483,9 @@ wins.
 ## Sessions and settings
 
 - **Sessions (`.mdbsession`; `.opcsession` files from before the rename still open):**
-  - A session holds the endpoint and its options (read-only, auto-trust, user name; never passwords), the default
-    refresh, bookmarks, and the watch list: rows with their path, refresh time, display format and monitoring
-    settings, plus columns, sort order and grouping.
+  - A session holds the endpoint and its options (read-only, auto-trust, user name; never passwords; Modbus: the
+    register map), the default refresh, bookmarks, and the watch list: rows with their path, refresh time, display
+    format and monitoring settings, plus columns, sort order and grouping.
   - New ⌘N, Open ⌘O, Save ⌘S, Save As ⇧⌘S, File ▸ Open Recent.
   - Settings can reopen the last session at start.
   - When the open session file is changed elsewhere (another window or instance, `mdbrowser tui`, `mdbrowser session`,
@@ -479,6 +529,9 @@ right-click menus and the tooltips. **Help ▸ Keyboard Shortcuts** (⌘/) lists
 |---|---|
 | OPC UA: `BadCertificateUntrusted` | Answer the trust prompt, or copy the certificate into `pki/trusted/certs` in the certificate folder |
 | OPC UA structure shows as bytes | The server does not publish its type definitions; the raw value is still shown |
+| Modbus: `BadNodeIdUnknown` | The device has no such address (Modbus exception 2); check the area and that addresses are 0-based |
+| Modbus: wrong numbers | Check the type and word order (`:swap`) in the device manual |
+| Modbus: no answer, `BadTimeout` | Check the unit id in the URL (`/1`); gateways need the id of the device behind them |
 | EtherNet/IP: no tags | Only Logix (ControlLogix/CompactLogix) lists tags; check the path (`/1,0` = backplane 1, slot 0) |
 | MQTT: empty tree | Nothing has been published yet on the filter (only retained messages appear at once); check the topic filter in the URL |
 | MQTT: new topics don't appear | Discovery is paused (⏸ in the Address Space toolbar is on); resume it with ⇧⌘P |

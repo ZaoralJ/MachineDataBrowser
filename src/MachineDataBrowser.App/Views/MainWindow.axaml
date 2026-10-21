@@ -26,7 +26,7 @@
         <Image Classes="brand-mark" Source="/Assets/AppIcon.png" />
         <StackPanel VerticalAlignment="Center" Spacing="0">
           <TextBlock Classes="brand-title" Text="Machine Data Browser" />
-          <TextBlock Classes="brand-subtitle" Text="OPC UA · EtherNet/IP · MQTT" />
+          <TextBlock Classes="brand-subtitle" Text="OPC UA · EtherNet/IP · Modbus · MQTT" />
         </StackPanel>
       </StackPanel>
       <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
@@ -35,7 +35,7 @@
                  PlaceholderText="opc.tcp://host:4840" VerticalContentAlignment="Center"
                  FontFamily="{StaticResource MonoFont}"
                  AutomationProperties.Name="Server endpoint URL"
-                 ToolTip.Tip="Endpoint URL: opc.tcp://host:port, eip://host[:port]/1,0 or mqtt://host[:port][/topic/#] (mqtts://, ws://, wss://). Enter connects, ↓ shows recent endpoints.">
+                 ToolTip.Tip="Endpoint URL: opc.tcp://host:port, eip://host[:port]/1,0, modbus://host[:port][/unit] or mqtt://host[:port][/topic/#] (mqtts://, ws://, wss://). Enter connects, ↓ shows recent endpoints.">
           <TextBox.InnerLeftContent>
             <Border Classes="endpoint-label">
               <TextBlock Text="Endpoint" />
@@ -111,6 +111,18 @@
                                  Minimum="0" Maximum="86400" Increment="10" FormatString="0"
                                  AutomationProperties.Name="Pause discovery after"
                                  ToolTip.Tip="Browse the whole topic filter for this long after connecting, then receive only the monitored topics. For busy brokers. Saved with the session." />
+                </StackPanel>
+                <StackPanel Spacing="4" IsVisible="{Binding IsModbusEndpoint}">
+                  <TextBlock Text="Register map" />
+                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                    <TextBlock Text="{Binding TagMapName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="{Binding TagMapPath}" />
+                    <Button Grid.Column="1" Content="Import…" Command="{Binding ImportTagMapCommand}"
+                            AutomationProperties.Name="Import register map"
+                            ToolTip.Tip="CSV naming the device's addresses: name,address[,unit][,description], e.g. Line1/Speed,hr:20:float32,rpm. Shown under Tags; saved with the session." />
+                    <Button Grid.Column="2" Content="Remove" Command="{Binding RemoveTagMapCommand}"
+                            AutomationProperties.Name="Remove register map" />
+                  </Grid>
                 </StackPanel>
                 <StackPanel Spacing="12" IsVisible="{Binding HasCredentials}">
                 <CheckBox Content="Use secure endpoint" IsChecked="{Binding UseSecurity}" IsVisible="{Binding IsOpcUaEndpoint}"

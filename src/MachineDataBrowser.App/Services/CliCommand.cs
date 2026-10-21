@@ -73,7 +73,7 @@ public static class CliCommand
             line.Append(" --user ").Append(Quote(connection.UserName.Trim()));
         }
 
-        if (connection.UseSecurity && !DeviceClient.IsEip(url) && !DeviceClient.IsMqtt(url))
+        if (connection.UseSecurity && !DeviceClient.IsEip(url) && !DeviceClient.IsModbus(url) && !DeviceClient.IsMqtt(url))
         {
             line.Append(" --secure");
         }

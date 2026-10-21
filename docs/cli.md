@@ -2,7 +2,7 @@
 
 `mdbrowser` does the browsing and monitoring of the app from a terminal or a script: list endpoints, browse the
 address space, read and write values, stream live values, and create and run the app's sessions. It speaks the same
-protocols as the app: **OPC UA**, **EtherNet/IP (Logix)** and **MQTT** (Sparkplug B, CloudEvents).
+protocols as the app: **OPC UA**, **EtherNet/IP (Logix)**, **Modbus TCP** and **MQTT** (Sparkplug B, CloudEvents).
 
 ## Install
 
@@ -42,6 +42,8 @@ mdbrowser opc.tcp://127.0.0.1:4841
 mdbrowser endpoints opc.tcp://127.0.0.1:50000
 mdbrowser browse opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines --depth 2
 mdbrowser read eip://127.0.0.1:44818/1,0 "/Controller Tags/Motor1/Speed"
+mdbrowser read modbus://127.0.0.1:5020/1 hr:20:float32 hr:50:string16 co:1
+mdbrowser monitor modbus://127.0.0.1:5020/1 /Tags/Simulator -R --map simulators/modbus/simulator-map.csv
 mdbrowser monitor "mqtt://127.0.0.1:1883/machines/#" /Topics/machines/m1/status/speed --duration 10m
 mdbrowser monitor opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines --recursive --depth 3
 mdbrowser run line1.mdbsession --format csv > shift.csv
@@ -57,7 +59,23 @@ A node is either a **path** of display names from the root, starting with `/`, o
   as the app shows it, e.g. `t:plant/hall1/press1/temperature` or `t:machines/m1/status#/speed` for a JSON field,
   or `"m:Plant1|Edge1|Press1|Temperature"` for a Sparkplug B metric (group, edge node, device, metric; quote the `|`).
   A fresh connection learns Sparkplug metric names from the next birth, so use these ids rather than paths for them
-  ([example](cli-examples.md#monitor-sparkplug-b-metrics)).
+  ([example](cli-examples.md#monitor-sparkplug-b-metrics));
+- a Modbus address `area:address[:type][:swap]`, 0-based: `hr:100`, `hr:20:float32`, `hr:22:float32:swap`,
+  `ir:4:int32`, `hr:50:string16`, `co:3`, `di:0` (see the [user manual](user-manual.md#modbus)), or a path like
+  `"/Holding Registers/0-99/20"`, or with a register map `/Tags/Line1/Speed`.
+
+**Modbus register maps:** `--map file.csv` (`-m`) names the device's addresses for this command; the names appear
+under `/Tags`. The file has one line per value, `name,address[,unit][,description]`, with `/` in names for folders:
+
+```text
+name,address,unit,description
+Line1/Motor/Speed,hr:20:float32,rpm,Motor speed
+Line1/Running,co:1
+```
+
+`session create` and `tui` (`Ctrl+S`) store the map in the session file (`tagMap`, relative to the session when it
+is in the same folder or below); `run`, `session add`, `tui` and `mcp --session` load it from there.
+`simulators/modbus/simulator-map.csv` is the map of the [Modbus simulator](simulators.md#modbus-simulator-simulatorsmodbus).
 
 `browse` prints full paths, so its output can be passed to `read` and `monitor` as it is.
 
@@ -109,7 +127,7 @@ mdbrowser run line1.mdbsession                                                  
 
 - Nodes are saved like the app saves them: portable ids (`nsu=…`, stable across server restarts) with their name and
   path, so Watch can group them by path. `-R`, `--depth` and `--max-items` work as for `read`.
-- Options are saved (user name, `--secure`, `--trust-all`, `-r` as the session's default refresh); **never a
+- Options are saved (user name, `--secure`, `--trust-all`, `--map`, `-r` as the session's default refresh); **never a
   password**. `session add` and `run` take it from `--password` or `MDBROWSER_PASSWORD`.
 - `session create` and `--save` don't overwrite an existing file without `--force`. `session add` connects with the
   file's endpoint, skips nodes already in the watch list and keeps everything else (bookmarks, columns, display
@@ -171,6 +189,7 @@ when a window is one too many.
 mdbrowser tui opc.tcp://127.0.0.1:4841
 mdbrowser tui eip://127.0.0.1:44818/1,0
 mdbrowser tui mqtt://127.0.0.1:1883
+mdbrowser tui modbus://127.0.0.1:5020/1 --map simulators/modbus/simulator-map.csv
 mdbrowser tui line1.mdbsession          # the session's endpoint, options and watch list, monitored at once
 ```
 
@@ -207,6 +226,7 @@ Attributes, Monitored Items, Trend and Info show vertical scrollbars when their 
 | `Ctrl+O` | open a session (the app's recent ones, those in this folder, or any file): its endpoint, options and watch list, in place |
 | `y` / `a` / `e` | OPC UA: history of the variable / current alarms / live events |
 | `d` | MQTT: pause discovery, receiving only the monitored topics (like *Pause discovery* in the app) |
+| `k` | Modbus: load a register map (or remove it with an empty path); reconnects, keeps the monitored items; `Ctrl+S` stores it |
 | `g` / `t` / `l` | connection diagnostics / next colour theme / light or dark |
 | `q` | quit |
 
@@ -255,6 +275,7 @@ See the [command line examples](cli-examples.md) for the other commands with the
 | `-u, --user` / `-p, --password` | login (OPC UA, MQTT); the password can also come from `MDBROWSER_PASSWORD` |
 | `--secure` | OPC UA: the most secure endpoint the server offers |
 | `--trust-all` | accept untrusted server certificates; for lab networks only |
+| `-m, --map` | Modbus: register map (CSV) naming the device's addresses; overrides the session's |
 
 `mdbrowser` shares the app's data folder: certificates trusted in the app are trusted here, and the OPC UA client
 identity is the same, so a server that trusts the app trusts the command line too. `run` takes the endpoint, login

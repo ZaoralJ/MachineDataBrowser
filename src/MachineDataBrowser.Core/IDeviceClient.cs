@@ -117,6 +117,12 @@ public static class DeviceClient
     public static bool IsEip(string endpointUrl) =>
         endpointUrl.TrimStart().StartsWith(EipScheme + "://", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>URL scheme of Modbus TCP endpoints: <c>modbus://host[:port][/unit]</c>, port 502 and unit 1 by default.</summary>
+    public const string ModbusScheme = "modbus";
+
+    public static bool IsModbus(string endpointUrl) =>
+        endpointUrl.TrimStart().StartsWith(ModbusScheme + "://", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>MQTT endpoints: <c>mqtt://</c>, <c>mqtts://</c>, <c>ws://</c>, <c>wss://</c>.</summary>
     public static bool IsMqtt(string endpointUrl)
     {

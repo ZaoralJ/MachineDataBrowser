@@ -275,14 +275,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsOpcUaEndpoint), nameof(IsMqttEndpoint), nameof(HasCredentials), nameof(OptionsSummary))]
+    [NotifyPropertyChangedFor(nameof(IsOpcUaEndpoint), nameof(IsMqttEndpoint), nameof(IsModbusEndpoint), nameof(HasCredentials), nameof(OptionsSummary))]
+    [NotifyCanExecuteChangedFor(nameof(ImportTagMapCommand))]
     public partial string EndpointUrl { get; set; } = "opc.tcp://localhost:50000";
 
-    /// <summary>Security, credentials and certificate trust only apply to OPC UA, not to EtherNet/IP (<c>eip://</c>).</summary>
-    public bool IsOpcUaEndpoint => !DeviceClient.IsEip(EndpointUrl ?? string.Empty) && !DeviceClient.IsMqtt(EndpointUrl ?? string.Empty);
+    /// <summary>Security, credentials and certificate trust only apply to OPC UA, not to EtherNet/IP (<c>eip://</c>) or Modbus.</summary>
+    public bool IsOpcUaEndpoint => !DeviceClient.IsEip(EndpointUrl ?? string.Empty) && !DeviceClient.IsModbus(EndpointUrl ?? string.Empty)
+        && !DeviceClient.IsMqtt(EndpointUrl ?? string.Empty);
 
-    /// <summary>User name, password and certificate trust apply to OPC UA and MQTT (mqtts://, wss://), not to EtherNet/IP.</summary>
-    public bool HasCredentials => !DeviceClient.IsEip(EndpointUrl ?? string.Empty);
+    /// <summary>User name, password and certificate trust apply to OPC UA and MQTT (mqtts://, wss://), not to EtherNet/IP or Modbus.</summary>
+    public bool HasCredentials => !DeviceClient.IsEip(EndpointUrl ?? string.Empty) && !DeviceClient.IsModbus(EndpointUrl ?? string.Empty);
 
     /// <summary>The last connected endpoint, or localhost when there is no history.</summary>
     private string DefaultEndpointUrl => Settings.RecentEndpoints.Count > 0 ? Settings.RecentEndpoints[0] : "opc.tcp://localhost:50000";
@@ -382,6 +384,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             return $"EtherNet/IP · {refresh}";
         }
 
+        if (DeviceClient.IsModbus(EndpointUrl ?? string.Empty))
+        {
+            return HasTagMap ? $"Modbus TCP · {TagMapName} · {refresh}" : $"Modbus TCP · {refresh}";
+        }
+
         if (DeviceClient.IsMqtt(EndpointUrl ?? string.Empty))
         {
             var mqtt = $"MQTT · {user} · {refresh}";
@@ -434,6 +441,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
                 UseSecurity = UseSecurity,
                 AutoAcceptUntrustedCertificates = AutoAcceptCertificates,
                 AutoPauseDiscoverySeconds = IsMqttEndpoint ? AutoPauseDiscoverySeconds : 0,
+                TagMapPath = TagMapForConnect,
                 UserName = string.IsNullOrWhiteSpace(UserName) ? null : UserName,
                 Password = Password,
             };

@@ -2,7 +2,8 @@
 
 Short record of the choices behind the current stack. Facts were checked at the time (September 2026).
 
-The app started as an OPC UA browser and is now a machine data viewer for OPC UA, EtherNet/IP (Logix) and MQTT.
+The app started as an OPC UA browser and is now a machine data viewer for OPC UA, EtherNet/IP (Logix), Modbus TCP
+and MQTT.
 ## Name: Machine Data Browser (renamed from OPC UA Browser after 0.8)
 
 - Everything carries the new name: repository, projects and namespaces, app bundle (`Machine Data Browser.app`,
@@ -25,6 +26,18 @@ The app started as an OPC UA browser and is now a machine data viewer for OPC UA
   structures (`Opc.Ua.Client.ComplexTypes`), which a generic browser needs.
 - Alternatives considered: `async-opcua` (Rust, MPL-2.0, younger), open62541 (C, MPL-2.0; runtime structure
   decoding is manual), node-opcua (MIT, heavier runtime), Eclipse Milo (Java). No maintained MIT Rust SDK exists.
+
+## Modbus TCP: own client, register maps as CSV
+
+- Modbus TCP is a small protocol (an MBAP header and eight function codes are enough), so the driver implements it
+  directly instead of adding a library (NModbus, FluentModbus): no dependency, and request planning (merging
+  neighbouring addresses, retrying one by one after exception 2) fits the poll loop.
+- Devices have no names, so the type and word order are part of the id (`hr:20:float32:swap`). Watch lists keep
+  working with or without a register map, and the same id works in the app, CLI and MCP.
+- Names come from an optional register map, CSV (`name,address,unit,description`) because device manuals and PLC
+  exports are spreadsheets. The session stores its path (`tagMap`), relative to the session file when possible,
+  rather than a copy, so editing the map changes every session using it. Scaling (raw × factor) is not part of the
+  map yet; Watch's display format can scale values.
 
 ## EtherNet/IP (Logix): libplctag.NET
 

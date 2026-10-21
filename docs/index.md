@@ -15,6 +15,7 @@ them and export them.
 |---|---|---|
 | **OPC UA** | `opc.tcp://127.0.0.1:4841` | secure endpoints, user login, custom structures, history, events & alarms, methods |
 | **EtherNet/IP** (Allen-Bradley Logix) | `eip://127.0.0.1:44818/1,0` | controller and program tags, UDTs, arrays of UDTs |
+| **Modbus TCP** | `modbus://127.0.0.1:5020/1` | coils, inputs and registers by address, typed values (float32, int32, strings, word order), register maps naming them |
 | **MQTT** | `mqtt://127.0.0.1:1883[/topic/#]`, `mqtts://`, `ws://`, `wss://` | topic tree, JSON fields, Sparkplug B, CloudEvents |
 
 ## Install (macOS)

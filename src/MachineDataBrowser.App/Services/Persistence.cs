@@ -32,6 +32,9 @@ public sealed record SessionDocument
     /// <summary>MQTT: pause discovery this many seconds after connecting; missing or 0 = never.</summary>
     public int? AutoPauseDiscoverySeconds { get; init; }
 
+    /// <summary>Modbus register map: relative to the session file when beside or below it, else absolute; missing = none.</summary>
+    public string? TagMap { get; init; }
+
     public IReadOnlyList<WatchEntry> Watch { get; init; } = [];
 
     public IReadOnlyList<ViewModels.Bookmark> Bookmarks { get; init; } = [];

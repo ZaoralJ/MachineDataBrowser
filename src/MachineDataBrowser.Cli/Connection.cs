@@ -9,8 +9,9 @@ internal sealed class CliException(string message) : Exception(message);
 /// <summary>
 /// How to connect to an endpoint. <paramref name="ReadOnly"/>: the session it came from is read-only in the app.
 /// <paramref name="Named"/>: the MCP agent named it under an allow pattern (no credentials, never written to).
+/// <paramref name="TagMap"/>: full path of a register map naming the addresses (Modbus).
 /// </summary>
-internal sealed record ConnectionArgs(string Url, string? User, string? Password, bool Secure, bool TrustAll, bool ReadOnly = false, bool Named = false);
+internal sealed record ConnectionArgs(string Url, string? User, string? Password, bool Secure, bool TrustAll, bool ReadOnly = false, bool Named = false, string? TagMap = null);
 
 /// <summary>
 /// A resolved node: its id and the name to show for it. <paramref name="DisplayName"/> and <paramref name="ParentPath"/>
@@ -87,6 +88,7 @@ internal static class Connection
                     AutoAcceptUntrustedCertificates = args.TrustAll,
                     UserName = args.User,
                     Password = args.Password,
+                    TagMapPath = args.TagMap,
                 },
                 cancellationToken).ConfigureAwait(false);
             if (client is IDynamicAddressSpace dynamic)

@@ -171,6 +171,34 @@ internal sealed class BrowserModel : IAsyncDisposable
     /// <summary>MQTT: discovery (subscribing to the whole topic filter) can be paused on busy brokers, like in the app.</summary>
     public bool SupportsDiscoveryPause => Client is IPausableDiscovery;
 
+    /// <summary>Modbus: a register map names the device's addresses (k).</summary>
+    public bool SupportsTagMap => DeviceClient.IsModbus(Args.Url);
+
+    /// <summary>
+    /// Connects again with the register map at <paramref name="path"/> (null: without one), watching the same items.
+    /// The caller shows the returned model; it disposes this one. Ctrl+S stores the map in the session.
+    /// </summary>
+    public async Task<BrowserModel> WithTagMapAsync(string? path, CancellationToken cancellationToken = default)
+    {
+        var args = Args with { TagMap = path };
+        var client = await Connection.ConnectAsync(args, cancellationToken).ConfigureAwait(false);
+        var model = new BrowserModel(client, args, DefaultRefreshMs, SessionPath, ownsClient: true);
+        try
+        {
+            await model.MonitorNodesAsync([.. Watch.Select(r => (r.Node, r.RefreshMs))], cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            await model.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+
+        model.Log(path is null
+            ? "Register map removed."
+            : $"Register map {System.IO.Path.GetFileName(path)} loaded{(SessionPath is null ? string.Empty : "; Ctrl+S stores it in the session")}.");
+        return model;
+    }
+
     public bool IsDiscoveryPaused => Client is IPausableDiscovery { IsDiscoveryPaused: true };
 
     public Task ToggleDiscoveryAsync(CancellationToken cancellationToken = default) =>

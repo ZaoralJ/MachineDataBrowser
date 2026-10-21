@@ -7,6 +7,7 @@
   <Folder Name="/src/Drivers/">
     <Project Path="src/MachineDataBrowser.Drivers/MachineDataBrowser.Drivers.csproj" />
     <Project Path="src/MachineDataBrowser.Driver.Cip/MachineDataBrowser.Driver.Cip.csproj" />
+    <Project Path="src/MachineDataBrowser.Driver.Modbus/MachineDataBrowser.Driver.Modbus.csproj" />
     <Project Path="src/MachineDataBrowser.Driver.Mqtt/MachineDataBrowser.Driver.Mqtt.csproj" />
     <Project Path="src/MachineDataBrowser.Driver.OpcUa/MachineDataBrowser.Driver.OpcUa.csproj" />
   </Folder>

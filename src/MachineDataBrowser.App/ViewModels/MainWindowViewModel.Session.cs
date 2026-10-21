@@ -90,6 +90,7 @@ public sealed partial class MainWindowViewModel
         UserName = string.Empty;
         DefaultRefreshMs = DefaultRefreshFor(EndpointUrl);
         AutoPauseDiscoverySeconds = 0;
+        TagMapPath = string.Empty;
         GroupWatchByPath = false;
         WatchColumns.Reset();
         Password = string.Empty;
@@ -160,6 +161,7 @@ public sealed partial class MainWindowViewModel
         UserName = document.UserName ?? string.Empty;
         DefaultRefreshMs = document.DefaultRefreshMs ?? DefaultRefreshFor(document.EndpointUrl);
         AutoPauseDiscoverySeconds = document.AutoPauseDiscoverySeconds ?? 0;
+        TagMapPath = string.IsNullOrWhiteSpace(document.TagMap) ? string.Empty : MachineDataBrowser.Core.TagMapReference.Resolve(document.TagMap, path);
         WatchColumns.SetSort(document.WatchSortColumn, document.WatchSortDescending);
         WatchColumns.Apply(document.WatchColumns);
         GroupWatchByPath = document.GroupWatchByPath;
@@ -266,6 +268,7 @@ public sealed partial class MainWindowViewModel
             UserName = string.IsNullOrWhiteSpace(UserName) ? null : UserName,
             DefaultRefreshMs = DefaultRefreshMs,
             AutoPauseDiscoverySeconds = AutoPauseDiscoverySeconds > 0 ? AutoPauseDiscoverySeconds : null,
+            TagMap = HasTagMap ? MachineDataBrowser.Core.TagMapReference.ToStored(TagMapPath.Trim(), path) : null,
             WatchColumns = WatchColumns.Capture(),
             WatchSortColumn = WatchColumns.SortColumn,
             WatchSortDescending = WatchColumns.SortDescending,

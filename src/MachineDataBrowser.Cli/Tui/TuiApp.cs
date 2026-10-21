@@ -293,6 +293,7 @@ internal sealed class TuiApp : IDisposable
             ('o', "Sort"), ('r', "Record"),
             .. opcUa ? new[] { ('a', "Alarms"), ('e', "Events"), ('y', "History") } : [],
             .. _model.SupportsDiscoveryPause ? new[] { ('d', "Discovery") } : [],
+            .. _model.SupportsTagMap ? new[] { ('k', "Map") } : [],
             ('t', "Theme"), ('h', "Help"), ('q', "Quit"),
         ]);
         _extraKeys.Clear();
@@ -323,6 +324,11 @@ internal sealed class TuiApp : IDisposable
         if (_model.SupportsDiscoveryPause)
         {
             _extraKeys[Key.D] = () => Run(() => _model.ToggleDiscoveryAsync(), "pausing or resuming discovery");
+        }
+
+        if (_model.SupportsTagMap)
+        {
+            _extraKeys[Key.K] = ImportTagMap;
         }
     }
 
@@ -1972,6 +1978,35 @@ internal sealed class TuiApp : IDisposable
         }, $"opening {path}");
     }
 
+    /// <summary>k (Modbus): load a register map, or remove it with an empty path; the browser reconnects with it.</summary>
+    private void ImportTagMap()
+    {
+        var path = Ask("Register map", "Register map, CSV with name,address[,unit][,description] (empty removes it; Tab completes):",
+            _model.Args.TagMap ?? string.Empty, path: true);
+        if (path is null)
+        {
+            return;
+        }
+
+        var full = string.IsNullOrWhiteSpace(path) ? null : Path.GetFullPath(path.Trim());
+        if (full is not null && !File.Exists(full))
+        {
+            Error("Register map", $"{full} doesn't exist.");
+            return;
+        }
+
+        if (_model.RecordingPath is { } recording && !Confirm("Register map", $"Recording to {recording} stops when the browser reconnects. Go on?"))
+        {
+            return;
+        }
+
+        Run(async () =>
+        {
+            var model = await _model.WithTagMapAsync(full).ConfigureAwait(false);
+            Ui(() => SwitchTo(model));
+        }, full is null ? "removing the register map" : $"loading {full}");
+    }
+
     private void SaveSession()
     {
         var suggestion = _model.SessionPath ?? "mdbrowser.mdbsession";
@@ -2156,6 +2191,11 @@ internal sealed class TuiApp : IDisposable
         if (_model.SupportsEvents)
         {
             rows.Add(["a / e", "Current alarms / live events"]);
+        }
+
+        if (_model.SupportsTagMap)
+        {
+            rows.Add(["k", "Load a register map (CSV naming the Modbus addresses) or remove it; Ctrl+S stores it in the session"]);
         }
 
         if (_model.SupportsDiscoveryPause)

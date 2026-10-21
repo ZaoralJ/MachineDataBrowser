@@ -1,5 +1,6 @@
 using MachineDataBrowser.Core;
 using MachineDataBrowser.Driver.Cip;
+using MachineDataBrowser.Driver.Modbus;
 using MachineDataBrowser.Driver.Mqtt;
 using MachineDataBrowser.Driver.OpcUa;
 using MachineDataBrowser.Drivers;
@@ -13,6 +14,7 @@ public sealed class DeviceClientFactoryTests
     [InlineData("opc.tcp://localhost:4840", typeof(OpcUaClient))]
     [InlineData("eip://localhost/1,0", typeof(CipClient))]
     [InlineData("mqtt://localhost", typeof(MqttDeviceClient))]
+    [InlineData("modbus://localhost:502/1", typeof(ModbusClient))]
     public async Task Create_selects_client_for_endpoint(string endpoint, Type expectedType)
     {
         var client = new DeviceClientFactory().Create(endpoint);
