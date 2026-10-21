@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "endpointUrl": "opc.tcp://127.0.0.1:50000",
+  "useSecurity": false,
+  "readOnly": false,
+  "autoAcceptCertificates": true,
+  "userName": null,
+  "defaultRefreshMs": 250,
+  "tagMap": null,
+  "watch": [
+    {
+      "nodeId": "nsu=http://microsoft.com/Opc/OpcPlc/;s=StepUp",
+      "displayName": "StepUp",
+      "path": "Objects/OpcPlc/Telemetry/Basic"
+    },
+    {
+      "nodeId": "nsu=http://microsoft.com/Opc/OpcPlc/;s=AlternatingBoolean",
+      "displayName": "AlternatingBoolean",
+      "path": "Objects/OpcPlc/Telemetry/Basic"
+    }
+  ],
+  "bookmarks": [],
+  "groupWatchByPath": false
+}

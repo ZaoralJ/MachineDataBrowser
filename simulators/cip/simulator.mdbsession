@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "endpointUrl": "eip://127.0.0.1:44818/1,0",
+  "useSecurity": false,
+  "readOnly": false,
+  "autoAcceptCertificates": false,
+  "userName": null,
+  "defaultRefreshMs": 250,
+  "watch": [
+    {
+      "nodeId": "Heartbeat",
+      "displayName": "Heartbeat"
+    },
+    {
+      "nodeId": "PauseSimulation",
+      "displayName": "PauseSimulation"
+    },
+    {
+      "nodeId": "Motor1.Speed",
+      "displayName": "Motor1.Speed"
+    }
+  ],
+  "bookmarks": [],
+  "groupWatchByPath": false
+}

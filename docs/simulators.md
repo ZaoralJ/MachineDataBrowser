@@ -21,6 +21,28 @@ just test-sim       # Core tests against the simulators
 
 Recipe parameters are positional, e.g. `just cip 44900 20` (port 44900, 20 ms base tick).
 
+## Example sessions
+
+Each simulator has a ready-to-open session with representative live values in its watch list. Start the simulators with
+`just all`, then open a session from **File ▸ Open** in the app or run it in the terminal:
+
+```sh
+mdbrowser tui simulators/cip/simulator.mdbsession
+```
+
+| Simulator | Example session |
+|---|---|
+| Logix / EtherNet/IP | [`simulators/cip/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/cip/simulator.mdbsession) |
+| PCCC | [`simulators/pccc/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/pccc/simulator.mdbsession) |
+| opc-plc | [`simulators/opcua/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/opcua/simulator.mdbsession) |
+| Custom OPC UA types | [`simulators/opcua-custom/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/opcua-custom/simulator.mdbsession) |
+| MQTT | [`simulators/mqtt/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/mqtt/simulator.mdbsession) |
+| Modbus TCP | [`simulators/modbus/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/modbus/simulator.mdbsession) |
+| Siemens S7 | [`simulators/s7/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/s7/simulator.mdbsession) |
+| MTConnect | [`simulators/mtconnect/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/mtconnect/simulator.mdbsession) |
+
+The Modbus and S7 sessions also load their adjacent register map/tag list by a relative path.
+
 ## Pausing the simulation
 
 Write `true` to the pause tag to freeze every changing value, `false` to continue. The simulation clock stops

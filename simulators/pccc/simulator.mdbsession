@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "endpointUrl": "pccc://127.0.0.1:44819?plc=slc500",
+  "useSecurity": false,
+  "readOnly": false,
+  "autoAcceptCertificates": false,
+  "userName": null,
+  "defaultRefreshMs": 250,
+  "tagMap": null,
+  "watch": [
+    {
+      "nodeId": "N7:0",
+      "displayName": "N7:0"
+    },
+    {
+      "nodeId": "F8:0",
+      "displayName": "F8:0"
+    },
+    {
+      "nodeId": "B3:0/0",
+      "displayName": "B3:0/0"
+    }
+  ],
+  "bookmarks": [],
+  "groupWatchByPath": false
+}
