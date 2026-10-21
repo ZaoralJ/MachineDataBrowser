@@ -52,6 +52,7 @@ public static class DeviceStatusCodes
     public static DeviceStatusCode BadUnexpectedError => Code("BadUnexpectedError");
     public static DeviceStatusCode BadOutOfRange => Code("BadOutOfRange");
     public static DeviceStatusCode BadSensorFailure => Code("BadSensorFailure");
+    public static DeviceStatusCode BadConfigurationError => Code("BadConfigurationError");
 
     private static DeviceStatusCode Code(string name) =>
         DeviceStatusCode.FromName(name) with
@@ -74,6 +75,7 @@ public static class DeviceStatusCodes
                 "BadOutOfRange" => 0x803C0000,
                 "BadSensorFailure" => 0x80560000,
                 "BadTcpEndpointUrlInvalid" => 0x80830000,
+                "BadConfigurationError" => 0x80890000,
                 "BadNotConnected" => 0x808A0000,
                 "BadNoData" => 0x809B0000,
                 _ => 0,
@@ -240,6 +242,11 @@ public sealed record ConnectOptions
     /// broker is browsed briefly and then only monitored topics are received. 0 keeps discovering.
     /// </summary>
     public int AutoPauseDiscoverySeconds { get; init; }
+
+    /// <summary>
+    /// Clients without names in the device (Modbus): a file naming its addresses, shown as a tag tree. Null: none.
+    /// </summary>
+    public string? TagMapPath { get; init; }
 }
 
 /// <summary>A server certificate the client did not trust, as shown to the user before trusting it.</summary>

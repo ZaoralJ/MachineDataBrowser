@@ -85,6 +85,10 @@ public class TestDialogs : IDialogService
 
     public Task<string?> PickSnapshotFileAsync() => Task.FromResult(SnapshotImportAnswer);
 
+    public string? TagMapAnswer { get; set; }
+
+    public Task<string?> PickTagMapFileAsync() => Task.FromResult(TagMapAnswer);
+
     public DiagnosticsViewModel? Diagnostics { get; private set; }
 
     public void ShowDiagnostics(DiagnosticsViewModel diagnostics) => Diagnostics = diagnostics;

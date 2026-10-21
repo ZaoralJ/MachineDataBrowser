@@ -120,6 +120,7 @@ public sealed partial class MainWindow
                 new NativeMenuItemSeparator(),
                 ReadOnlyItem(vm, new KeyGesture(Key.L, cmd | KeyModifiers.Shift)),
                 DiscoveryItem(vm, new KeyGesture(Key.P, cmd | KeyModifiers.Shift)),
+                Item("Import _Register Map…", vm.ImportTagMapCommand, new KeyGesture(Key.K, cmd | KeyModifiers.Alt)),
                 new NativeMenuItemSeparator(),
                 Item("Events & _Alarms…", vm.ShowEventsCommand, new KeyGesture(Key.A, cmd | KeyModifiers.Alt)),
                 Item("D_iagnostics…", vm.ShowDiagnosticsCommand, new KeyGesture(Key.I, cmd | KeyModifiers.Shift)),

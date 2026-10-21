@@ -253,6 +253,17 @@ public sealed partial class MainWindow : IDialogService
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }
 
+    public async Task<string?> PickTagMapFileAsync()
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Import Register Map",
+            AllowMultiple = false,
+            FileTypeFilter = [CsvFileType, FilePickerFileTypes.All],
+        });
+        return files.Count > 0 ? files[0].TryGetLocalPath() : null;
+    }
+
     public Task<MonitoringOptions?> EditMonitoringAsync(MonitoringOptions current, string target, int? refreshMs) =>
         new MonitoringSettingsWindow { DataContext = new MonitoringSettingsViewModel(current, target, refreshMs) }.ShowDialog<MonitoringOptions?>(this);
 

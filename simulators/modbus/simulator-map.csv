@@ -1,0 +1,31 @@
+# Register map for the Modbus simulator (modbus_server.py): names for its addresses.
+# Use it with: mdbrowser tui modbus://127.0.0.1:5020/1 --map simulators/modbus/simulator-map.csv
+# or open simulators/modbus/simulator.mdbsession in the app or the TUI. Addresses are 0-based.
+name,address,unit,description
+Simulator/PauseSimulation,co:0,,Write true to freeze every changing value
+Simulator/Counter,hr:0,,Counts up every tick (wraps at 65535)
+Simulator/Sine,hr:1:int16,,1000 * sin(t)
+Simulator/Setpoint,hr:2:float32,°C,20 ± 5 (slow sine)
+Simulator/Toggle,co:16,,Changes every 2 s
+Inputs/Counter,ir:0,,Same counter as a read-only input register
+Inputs/Pressure,ir:2:float32,bar,50 ± 10 (cosine)
+Inputs/Constant,ir:10,,Always 4242
+Inputs/Offset,ir:20:float32,mm,Always -12.25
+Inputs/Blink,di:0,,Changes every second
+Inputs/Pattern/Input3,di:3,,On (multiples of 3 are on)
+Inputs/Pattern/Input4,di:4,,Off
+Static/Int16,hr:10:int16,,-1234
+Static/UInt16,hr:11,,54321
+Static/Float32,hr:20:float32,,"3.5, high word first"
+Static/Float32 swapped,hr:22:float32:swap,,"3.5, low word first"
+Static/UInt32,hr:30:uint32,,123456789
+Static/Int32,hr:32:int32,,-100000
+Static/Float64,hr:40:float64,,e = 2.718281828459045
+Static/Int64,hr:44:int64,,-9007199254740993
+Static/Name,hr:50:string16,,MDB-SIM
+Static/Coils/Coil1,co:1,,On (odd coils 1-15 are on)
+Static/Coils/Coil2,co:2,,Off
+Scratch/Value,hr:100,,Free to write (holding registers 100-999)
+Scratch/Float,hr:102:float32,,Free to write
+Scratch/Text,hr:110:string20,,Free to write
+Scratch/Flag,co:20,,Free to write (coils 17-99)

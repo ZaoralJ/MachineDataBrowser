@@ -3,7 +3,8 @@
 Machine Data Browser (repository `MachineDataBrowser`) is a machine data viewer. It connects to one device at a time:
 
 - an OPC UA server,
-- an Allen-Bradley Logix controller over EtherNet/IP (CIP), or
+- an Allen-Bradley Logix controller over EtherNet/IP (CIP),
+- a Modbus TCP device, or
 - an MQTT broker, including Sparkplug B.
 
 Whichever device it is, you browse its address space, inspect attributes, watch live values, record them and export
@@ -45,14 +46,17 @@ flowchart LR
         Ua["MachineDataBrowser.Driver.OpcUa<br/>OpcUaClient"]
         Cip["MachineDataBrowser.Driver.Cip<br/>CipClient"]
         Mqtt["MachineDataBrowser.Driver.Mqtt<br/>MqttDeviceClient"]
+        Modbus["MachineDataBrowser.Driver.Modbus<br/>ModbusClient"]
     end
     Composition["MachineDataBrowser.Drivers<br/>DeviceClientFactory"]
     Composition --> Ua
     Composition --> Cip
     Composition --> Mqtt
+    Composition --> Modbus
     Ua -. implements .-> IDC
     Cip -. implements .-> IDC
     Mqtt -. implements .-> IDC
+    Modbus -. implements .-> IDC
     VM --> IDC
     VM --> Rec
     VM --> Engine
@@ -64,6 +68,7 @@ flowchart LR
     Ua -- "opc.tcp:// (OPC Foundation UA-.NETStandard)" --> S1[(OPC UA server)]
     Cip -- "eip:// (libplctag)" --> S2[(Logix controller)]
     Mqtt -- "mqtt:// mqtts:// ws:// wss:// (MQTTnet)" --> S3[(MQTT broker)]
+    Modbus -- "modbus:// (own Modbus TCP client)" --> S4[(Modbus device)]
 ```
 
 | Project | Role |
@@ -76,6 +81,7 @@ flowchart LR
 | `src/MachineDataBrowser.Recording.Formats` | Composes recording targets by file extension and exposes common readers and exports to clients. |
 | `src/MachineDataBrowser.Driver.OpcUa` | OPC UA client, SDK adapter, and UA-aware value JSON/C# export. References Core. |
 | `src/MachineDataBrowser.Driver.Cip` | EtherNet/IP (Logix) client. References Core. |
+| `src/MachineDataBrowser.Driver.Modbus` | Modbus TCP client (no library), address syntax and register maps. References Core. |
 | `src/MachineDataBrowser.Driver.Mqtt` | MQTT client, topic model and Sparkplug B support. References Core. |
 | `src/MachineDataBrowser.Drivers` | Composition project selecting a driver from an endpoint URL; referenced by app and CLI. |
 | `src/MachineDataBrowser.App` | Avalonia 12 desktop app (MVVM with CommunityToolkit.Mvvm, docking with Dock.Avalonia); uses the driver composition project. |
@@ -83,7 +89,7 @@ flowchart LR
 | `tests/MachineDataBrowser.Core.Tests` | Integration tests against containers (opc-plc and the `simulators/` images, via Testcontainers) plus unit tests. |
 | `tests/MachineDataBrowser.App.Tests` | Headless Avalonia UI tests with real rendering (screenshots) against the same containers. |
 | `tests/MachineDataBrowser.Cli.Tests` | The CLI's commands end to end against opc-plc and the simulators, plain and terminal output; the TUI's model against every protocol and its screen headlessly (ANSI driver, virtual time). |
-| `simulators/` | Test servers for development and tests: Logix, opc-plc, OPC UA custom types, MQTT. See [simulators.md](simulators.md). |
+| `simulators/` | Test servers for development and tests: Logix, opc-plc, OPC UA custom types, MQTT, Modbus. See [simulators.md](simulators.md). |
 
 Every project's root namespace is its project name (e.g. `MachineDataBrowser.Driver.OpcUa`); the recording engine's
 class is `RecordingSession` so that it does not clash with the `MachineDataBrowser.Recording` namespace.
@@ -153,15 +159,15 @@ classDiagram
     RecordingSession --> IDeviceClient
 ```
 
-| | OPC UA (`opc.tcp://`) | EtherNet/IP (`eip://host[:port]/1,0`) | MQTT (`mqtt://host[:port][/filter]`) |
-|---|---|---|---|
-| Library | OPC Foundation UA-.NETStandard | libplctag.NET | MQTTnet |
-| Tree | server address space (forward hierarchical references) | Controller tags / Programs ▸ tags ▸ UDT members, array elements | Topics (topic levels, JSON fields) and Sparkplug B (group ▸ edge node ▸ device ▸ metrics) |
-| Node ids | `nsu=<namespace URI>;…` | Logix tag path, e.g. `Program:Main.Motor[2].Speed` | `t:<topic>[#<JSON pointer>]`, `m:<group>\|<edge>\|<device>\|<metric>` |
-| Values | read and subscriptions (server pushes) | polled per refresh time, only changes are reported | pushed per message; the refresh time is a maximum update rate (0 = every message) |
-| Subscriptions | per refresh time | none (polling) | the topic filter; with discovery paused (`IPausableDiscovery`) only the monitored topics, and for Sparkplug metrics their edge node and device |
-| Structures | decoded with the server's type definitions | UDT templates (`@udt/<id>`) | JSON payloads, Sparkplug B protobuf |
-| Status | server status codes | `Bad…` from libplctag errors | `BadNoCommunication` while a Sparkplug node or device is dead |
+| | OPC UA (`opc.tcp://`) | EtherNet/IP (`eip://host[:port]/1,0`) | MQTT (`mqtt://host[:port][/filter]`) | Modbus TCP (`modbus://host[:port][/unit]`) |
+|---|---|---|---|---|
+| Library | OPC Foundation UA-.NETStandard | libplctag.NET | MQTTnet | own client (`ModbusTcpTransport`) |
+| Tree | server address space (forward hierarchical references) | Controller tags / Programs ▸ tags ▸ UDT members, array elements | Topics (topic levels, JSON fields) and Sparkplug B (group ▸ edge node ▸ device ▸ metrics) | generated: Tags (register map) and the four areas in blocks of 100 addresses |
+| Node ids | `nsu=<namespace URI>;…` | Logix tag path, e.g. `Program:Main.Motor[2].Speed` | `t:<topic>[#<JSON pointer>]`, `m:<group>\|<edge>\|<device>\|<metric>` | `area:address[:type][:swap]`, e.g. `hr:20:float32` |
+| Values | read and subscriptions (server pushes) | polled per refresh time, only changes are reported | pushed per message; the refresh time is a maximum update rate (0 = every message) | polled per refresh time, neighbouring addresses in one request, only changes are reported |
+| Subscriptions | per refresh time | none (polling) | the topic filter; with discovery paused (`IPausableDiscovery`) only the monitored topics, and for Sparkplug metrics their edge node and device | none (polling) |
+| Structures | decoded with the server's type definitions | UDT templates (`@udt/<id>`) | JSON payloads, Sparkplug B protobuf | none; multi-register types from the id |
+| Status | server status codes | `Bad…` from libplctag errors | `BadNoCommunication` while a Sparkplug node or device is dead | `Bad…` from Modbus exceptions (2: `BadNodeIdUnknown`) and timeouts |
 
 Shared helpers live in `DeviceClientExtensions`: `MonitorAsync`, `CollectVariablesAsync` and `ReadTreeAsync`.
 Stopping monitors is part of `IDeviceClient`, allowing drivers to batch teardown without Core knowing their concrete types.
@@ -211,6 +217,8 @@ stateDiagram-v2
   session.
 - **EtherNet/IP:** failed polls switch the state to `Reconnecting` until a read succeeds; libplctag reconnects by
   itself.
+- **Modbus:** a failed request switches the state to `Reconnecting` and drops the socket; the next request (the
+  poll loop) opens it again, and an answer switches back to `Connected`.
 - **MQTT:** a lost broker starts a reconnect loop every 2 s, which subscribes again. Monitors stay registered, so Watch
   and recordings resume.
 
@@ -269,6 +277,26 @@ stateDiagram-v2
 - **Monitoring:** one poll loop per refresh time. It only reports changes.
 - **Tag creation:** tags are created synchronously on a pool thread, because libplctag.NET's async creation leaks
   failed tags (see [decisions.md](decisions.md)).
+
+## Modbus TCP (`Modbus.ModbusClient`)
+
+- **No address space:** Modbus has four tables of numbered addresses and no names, so the tree is generated:
+  `Coils`, `Discrete Inputs`, `Input Registers`, `Holding Registers` (ns=2 folders `co`, `hr/100`, …), each in blocks
+  of 100 addresses with single bits or `uint16` registers.
+- **Ids (`ModbusAddress`):** `area:address[:type][:swap]`, 0-based. The type decides how many registers a value
+  spans and how they decode (big-endian, high word first; `swap` = low word first; `stringN`). The id is the portable
+  id, so watch lists don't depend on a map.
+- **Register map (`ModbusTagMap`, `ConnectOptions.TagMapPath`):** a CSV of `name,address[,unit][,description]` loaded
+  at connect. Its names form a `Tags` folder (ns=3 folders `Tags/Line1`); leaves keep the address as id. The map
+  supplies Attributes (Name, Description, EngineeringUnits) and `IEngineeringUnitsSource`. Session files store it as
+  `tagMap`, relative to the session file when beside or below it (`Core/TagMapReference`), shared by app and CLI.
+- **Transport:** one TCP connection, one request at a time (many devices allow no more), transaction ids checked
+  (late answers to timed-out requests are skipped), 3 s timeout.
+- **Reading:** `ReadManyAsync` plans requests per area: addresses within 16 registers / 64 bits of each other are
+  merged up to the protocol limits (125 registers, 2000 bits). When a merged request hits a missing address
+  (exception 2), its values are read one by one, so one bad address doesn't spoil its neighbours. Reads, attributes
+  and every poll loop share it.
+- **Monitoring:** one poll loop per refresh time; only changes are reported.
 
 ## MQTT (`Mqtt.MqttDeviceClient`)
 

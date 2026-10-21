@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "endpointUrl": "modbus://127.0.0.1:5020/1",
+  "defaultRefreshMs": 250,
+  "tagMap": "simulator-map.csv",
+  "watch": [
+    { "nodeId": "hr:0", "displayName": "Counter", "path": "Tags/Simulator" },
+    { "nodeId": "hr:1:int16", "displayName": "Sine", "path": "Tags/Simulator" },
+    { "nodeId": "hr:2:float32", "displayName": "Setpoint", "path": "Tags/Simulator" },
+    { "nodeId": "ir:2:float32", "displayName": "Pressure", "path": "Tags/Inputs" },
+    { "nodeId": "di:0", "displayName": "Blink", "path": "Tags/Inputs" },
+    { "nodeId": "co:0", "displayName": "PauseSimulation", "path": "Tags/Simulator" }
+  ],
+  "bookmarks": []
+}

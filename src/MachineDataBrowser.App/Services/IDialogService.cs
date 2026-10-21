@@ -54,6 +54,9 @@ public interface IDialogService
     /// <summary>Asks for a snapshot file to import; null when cancelled.</summary>
     Task<string?> PickSnapshotFileAsync();
 
+    /// <summary>Asks for a Modbus register map (CSV); null when cancelled.</summary>
+    Task<string?> PickTagMapFileAsync();
+
     /// <summary>Opens the live connection diagnostics.</summary>
     void ShowDiagnostics(ViewModels.DiagnosticsViewModel diagnostics);
 

@@ -3,7 +3,8 @@
 `mdbrowser mcp` runs an [MCP](https://modelcontextprotocol.io) server, so AI agents (GitHub Copilot, Claude, opencode,
 Cursor, …) can explore and read machines: find a signal, read values, check how they behave over a few seconds. They
 can also read [recordings in SQLite files](user-manual.md#recording-to-sqlite): what was recorded, statistics, and
-samples over any time range. It is part of the [command line](cli.md) and speaks OPC UA, EtherNet/IP (Logix) and MQTT.
+samples over any time range. It is part of the [command line](cli.md) and speaks OPC UA, EtherNet/IP (Logix),
+Modbus TCP and MQTT.
 
 **Read-only by default:** without `--allow-writes` no tool can write values or call methods, and none ever
 acknowledges alarms. With it, every change is confirmed by you first (see [Changes](#changes-allow-writes)).
@@ -17,7 +18,8 @@ recordings or both: the agent only gets the tools for what is configured.
 
 | Option | Lets the agent |
 |---|---|
-| `--endpoint url`, `--session file` | use these machines, with their login and trust options |
+| `--endpoint url`, `--session file` | use these machines, with their login and trust options (and a session's Modbus register map) |
+| `--map file.csv` | Modbus: register map for the `--endpoint` machines, so the agent sees names under `/Tags` |
 | `--allow "opc.tcp://127.0.0.1:*"` (repeatable) | connect to endpoints it names that match the pattern (`*`, `?`), **without** credentials or auto-trust |
 | `--allow-any` | connect to any endpoint it names, without credentials (lab use) |
 | `--recording file.db`, `--recordings-dir folder` | read these recordings |
@@ -93,7 +95,7 @@ Logins: `--user` with the password in `MDBROWSER_PASSWORD` (set it in the agent'
 | `history` | what an OPC UA server stored over a time range, raw or per `bucketSeconds` (count, min, max, average, not Good) |
 | `alarms` | the server's current alarms, most severe first: source, name, severity, active, acknowledged, message |
 | `events` | events and alarm changes collected for 1–300 s, newest first, optionally only above a severity |
-| `diagnostics` | connection health: state; OPC UA security, keep-alive, reconnects, server state and clock offset, subscriptions; MQTT message rate, topics, Sparkplug nodes online; EtherNet/IP read rate, failures, poll cycle times |
+| `diagnostics` | connection health: state; OPC UA security, keep-alive, reconnects, server state and clock offset, subscriptions; MQTT message rate, topics, Sparkplug nodes online; Modbus requests, failures and poll cycles; EtherNet/IP read rate, failures, poll cycle times |
 | `generate_code` | C# records or classes mirroring a structure (like *Copy as C#* in the app), or a JSON snapshot of its values |
 | `wait_for` | waits up to 10 min until a value meets a condition (`> 80`, `== Run`, `contains Error`, `changes`) and says when |
 | `start_recording`, `stop_recording`, `active_recordings` | with `--allow-recording`: records items in the background into a SQLite file (≤ 24 h, ≤ 5 at a time, ≤ 500 items), to analyse with the recording tools |

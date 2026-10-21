@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.Cli;
 
@@ -22,7 +23,13 @@ internal sealed record SessionFile
 
     public int? DefaultRefreshMs { get; init; }
 
+    /// <summary>Modbus register map, relative to the session file or absolute (<see cref="TagMapReference"/>).</summary>
+    public string? TagMap { get; init; }
+
     public IReadOnlyList<SessionWatchEntry>? Watch { get; init; }
+
+    /// <summary>Full path of <see cref="TagMap"/> for the session file at <paramref name="sessionPath"/>.</summary>
+    public string? TagMapFor(string sessionPath) => string.IsNullOrWhiteSpace(TagMap) ? null : TagMapReference.Resolve(TagMap, sessionPath);
 
     public static async Task<SessionFile> LoadAsync(string path, CancellationToken cancellationToken)
     {

@@ -33,6 +33,7 @@ internal static class SessionWriter
             ["autoAcceptCertificates"] = connection.TrustAll,
             ["userName"] = string.IsNullOrWhiteSpace(connection.User) ? null : connection.User,
             ["defaultRefreshMs"] = defaultRefreshMs,
+            ["tagMap"] = connection.TagMap is { } map ? TagMapReference.ToStored(map, path) : null,
             ["watch"] = new JsonArray(),
             ["bookmarks"] = new JsonArray(),
             ["groupWatchByPath"] = false,
@@ -62,6 +63,7 @@ internal static class SessionWriter
         }
 
         var document = await LoadAsync(path, cancellationToken).ConfigureAwait(false);
+        document["tagMap"] = connection.TagMap is { } map ? TagMapReference.ToStored(map, path) : null;
         var keep = items.Select(i => client.ToPortableId(i.Node.Id)).ToHashSet(StringComparer.Ordinal);
         if (document["watch"] is JsonArray watch)
         {

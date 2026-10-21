@@ -1,6 +1,6 @@
 # Test servers (simulators)
 
-Four containers under `simulators/` cover local development, manual/user testing and the integration tests.
+Five containers under `simulators/` cover local development, manual/user testing and the integration tests.
 Start them with [`just`](https://github.com/casey/just) from the repository root:
 
 ```sh
@@ -8,7 +8,8 @@ just cip            # Logix / EtherNet/IP   -> eip://127.0.0.1:44818/1,0
 just opcua          # opc-plc               -> opc.tcp://127.0.0.1:50000
 just opcua-custom   # custom types (asyncua) -> opc.tcp://127.0.0.1:4841/
 just mqtt           # MQTT broker + traffic  -> mqtt://127.0.0.1:1883 (ws://127.0.0.1:9001)
-just all            # all four in the background (replaces running ones); `just stop` removes them
+just modbus         # Modbus TCP device      -> modbus://127.0.0.1:5020/1
+just all            # all five in the background (replaces running ones); `just stop` removes them
 just logs cip       # follow a background container's log
 just cip-debug      # log every CIP request (service, path, sizes)
 just test-sim       # Core tests against the simulators
@@ -26,11 +27,13 @@ while paused, so values continue from where they were rather than jumping. Each 
 | Logix | `PauseSimulation` (controller tag, BOOL) |
 | Custom types | `/Objects/Custom/PauseSimulation` |
 | MQTT | topic `simulator/PauseSimulation` (retained, payload `true`/`false`); the app writes it like any topic |
+| Modbus | coil `co:0` (`/Tags/Simulator/PauseSimulation` with the simulator's map) |
 | opc-plc | no single tag; call `Objects/OpcPlc/Methods/StopUpdateFastNodes` / `StopUpdateSlowNodes` (and `Start…`) |
 
 ```sh
 mdbrowser write eip://127.0.0.1:44818/1,0 PauseSimulation true --yes
 mdbrowser write opc.tcp://127.0.0.1:4841 /Objects/Custom/PauseSimulation false --yes
+mdbrowser write modbus://127.0.0.1:5020/1 co:0 true --yes
 ```
 
 opc-plc is Microsoft's image: its methods pause only the Fast and Slow telemetry nodes. Basic, Anomaly, alarms and
@@ -158,10 +161,42 @@ overwritten at its next tick. Values that keep what is written:
   metrics `Config/Recipe` and `Types/Int8`, `Types/Int16`, `Types/UInt8`, `Types/UInt32` and report them in DDATA;
   animated metrics ignore commands. NCMD `Node Control/Rebirth` = true on `Edge1` re-sends its births.
 
+## Modbus simulator (`simulators/modbus`)
+
+A pure-Python (no packages) Modbus TCP server (`modbus_server.py`) on port 502 in the container (5020 on the host,
+since ports below 1024 need root). It answers every unit id and supports functions 1–6, 15 and 16. Addresses beyond
+the ranges below answer with exception 2 (illegal data address).
+
+| Area | Addresses | Content |
+|---|---|---|
+| Coils | 0–99 | `0` PauseSimulation; `1`–`15` static (odd on); `16` toggles every 2 s; `17`–`99` free to write |
+| Discrete inputs | 0–99 | `0` toggles every second; `1`–`15` static (multiples of 3 on) |
+| Input registers | 0–99 | `0` counter; `2` float32 50 ± 10; `10` = 4242; `20` float32 −12.25 |
+| Holding registers | 0–999 | `0` counter; `1` int16 sine; `2` float32 20 ± 5; static: `10` int16 −1234, `11` 54321, `20` float32 3.5, `22` float32 3.5 word-swapped, `30` uint32 123456789, `32` int32 −100000, `40` float64 e, `44` int64 −9007199254740993, `50` string "MDB-SIM" (8 registers); `100`–`999` free to write |
+
+**Register map:** `simulators/modbus/simulator-map.csv` names all of these (Simulator, Inputs, Static, Scratch
+folders, with units and descriptions). Import it in the app (⚙ ▸ Register map ▸ Import…, or Connection ▸ Import
+Register Map…), pass it to the CLI with `--map`, or press `k` in the TUI. `simulators/modbus/simulator.mdbsession`
+uses it (by relative path) with a watch list of the changing values:
+
+```sh
+just modbus
+mdbrowser tui simulators/modbus/simulator.mdbsession
+mdbrowser read modbus://127.0.0.1:5020/1 /Tags/Static -R --map simulators/modbus/simulator-map.csv
+```
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `MODBUS_SIM_PORT` | `502` | port inside the container |
+| `MODBUS_SIM_TICK_MS` | `100` | how often the changing values update |
+| `MODBUS_SIM_LOG` | `INFO` | `DEBUG` logs every request |
+
 ## Integration tests
 
 `tests/MachineDataBrowser.Core.Tests` builds `simulators/cip`, `simulators/opcua-custom` and `simulators/mqtt` with
 Testcontainers (`LogixSimulatorFixture`, `CustomTypesServerFixture`, `MqttSimulatorFixture`); the custom server runs
 with a small address space and the MQTT publisher with faster deaths and rebirths there. `CipClientTests`,
 `CipConnectionLossTests`, `CustomTypesTests`, `MqttClientTests` and the App's `MqttAppTests` run in CI with the rest
-of `dotnet test`.
+of `dotnet test`. `simulators/modbus` runs the same way (`ModbusSimulatorFixture`) for `ModbusClientTests`,
+`ModbusTagMapClientTests`, the CLI's `ModbusCliTests` and the App's `ModbusAppTests`; one test checks that the
+simulator's register map and session still match it.
