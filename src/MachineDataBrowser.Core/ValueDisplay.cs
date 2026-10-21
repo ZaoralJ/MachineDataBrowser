@@ -81,9 +81,10 @@ public sealed record ValueDisplay
             return number.ToString("F" + Math.Clamp(Decimals, 0, 15).ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
         }
 
-        // Auto: integers stay integers unless scaled; doubles use the shortest round-trip form.
-        return !IsScaled && IntegerBits(raw) is not null
-            ? Convert.ToString(raw, CultureInfo.InvariantCulture)
+        // Auto: integers stay integers unless scaled; floats and doubles use the shortest round-trip form of their own
+        // precision (a REAL widened to double would show digits the device never had: 925.6076049804688).
+        return !IsScaled && IntegerBits(raw) is not null ? Convert.ToString(raw, CultureInfo.InvariantCulture)
+            : !IsScaled && raw is float single ? single.ToString("R", CultureInfo.InvariantCulture)
             : number.ToString("R", CultureInfo.InvariantCulture);
     }
 

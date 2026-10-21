@@ -244,7 +244,8 @@ public sealed record ConnectOptions
     public int AutoPauseDiscoverySeconds { get; init; }
 
     /// <summary>
-    /// Clients without names in the device (Modbus): a file naming its addresses, shown as a tag tree. Null: none.
+    /// Clients without names in the device (Modbus, S7): a file naming its addresses (register map, symbol table), shown
+    /// as a tag tree. Null: none.
     /// </summary>
     public string? TagMapPath { get; init; }
 }

@@ -1,0 +1,47 @@
+Name,Path,Data Type,Logical Address,Comment
+Machine.Running,,Bool,%DB1.DBX0.0,Line is running
+Machine.Fault,,Bool,%DB1.DBX0.1,Toggles every 10 s
+Machine.Blink,,Bool,%DB1.DBX0.2,Toggles every tick
+Machine.Speed,,Real,%DB1.DBD2,Spindle speed (rpm)
+Machine.Counter,,DInt,%DB1.DBD6,Ticks since start
+Machine.Temperature,,Real,%DB1.DBD10,°C
+Machine.Pressure,,LReal,%DB1.DBB14,bar
+Machine.Mode,,Int,%DB1.DBW22,1..4
+Machine.Status,,Word,%DB1.DBW24,One bit set at a time
+Machine.Name,,String[20],%DB1.DBB26,Writable
+Machine.Setpoint,,Real,%DB1.DBD48,Writable
+Machine.Recipe,,Int,%DB1.DBW52,Writable
+Machine.Runtime,,Time,%DB1.DBD54,Simulation time
+Arrays.Reals,,Array[0..9] of Real,%DB2.DBD0,
+Arrays.Ints,,Array[0..9] of Int,%DB2.DBW40,
+Arrays.Bools,,Array[0..15] of Bool,%DB2.DBX60.0,Walking bit
+Arrays.Bytes,,Array[0..7] of Byte,%DB2.DBB62,
+DataTypes.Bool,,Bool,%DB3.DBX0.0,
+DataTypes.Byte,,Byte,%DB3.DBB1,
+DataTypes.Word,,Word,%DB3.DBW2,
+DataTypes.Int,,Int,%DB3.DBW4,
+DataTypes.DWord,,DWord,%DB3.DBD6,
+DataTypes.DInt,,DInt,%DB3.DBD10,
+DataTypes.Real,,Real,%DB3.DBD14,
+DataTypes.LReal,,LReal,%DB3.DBB18,
+DataTypes.Char,,Char,%DB3.DBB26,
+DataTypes.String,,String[10],%DB3.DBB28,
+DataTypes.WString,,WString[10],%DB3.DBB40,
+DataTypes.USInt,,USInt,%DB3.DBB64,
+DataTypes.SInt,,SInt,%DB3.DBB65,
+DataTypes.UInt,,UInt,%DB3.DBW66,
+DataTypes.UDInt,,UDInt,%DB3.DBD68,
+DataTypes.LInt,,LInt,%DB3.DBB72,
+DataTypes.ULInt,,ULInt,%DB3.DBB80,
+DataTypes.Date,,Date,%DB3.DBW88,
+DataTypes.Time,,Time,%DB3.DBD90,
+DataTypes.TimeOfDay,,Time_Of_Day,%DB3.DBD94,
+DataTypes.LWord,,LWord,%DB3.DBB98,
+Inputs.Toggle,IO,Bool,%I0.0,Toggles every second
+Inputs.Counter,IO,Byte,%IB1,
+Inputs.Analog,IO,Int,%IW2,0..27648
+Outputs.Running,IO,Bool,%Q0.0,Mirrors Machine.Running
+Outputs.Counter,IO,Byte,%QB1,Mirrors Inputs.Counter
+PauseSimulation,,Bool,%M0.0,true freezes every changing value
+Ticks,,Int,%MW2,
+Uptime,,Real,%MD4,Seconds

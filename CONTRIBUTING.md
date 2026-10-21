@@ -37,6 +37,7 @@ just opcua          # opc-plc                        -> opc.tcp://localhost:5000
 just opcua-custom   # custom structures, large tree  -> opc.tcp://localhost:4841/
 just cip            # Logix / EtherNet/IP            -> eip://localhost:44818/1,0
 just mqtt           # MQTT + Sparkplug B + CloudEvents -> mqtt://localhost:1883
+just s7             # Siemens S7 (tags: simulators/s7/tags.csv) -> s7://localhost:102/0,1
 ```
 
 Tip: while the app is running, run tests with `--artifacts-path /tmp/opcua-artifacts` so the test build does not
@@ -52,7 +53,7 @@ Preview it locally with `just docs-serve`.
 
 ## Code guidelines
 
-- Read [docs/architecture.md](docs/architecture.md) first; protocol logic (OPC UA, EtherNet/IP, MQTT) belongs in `MachineDataBrowser.Core`
+- Read [docs/architecture.md](docs/architecture.md) first; protocol logic (OPC UA, EtherNet/IP, S7, MQTT) belongs in `MachineDataBrowser.Core`
   (no UI dependencies), UI in `MachineDataBrowser.App`.
 - Follow `.editorconfig` and the existing style; nullable reference types are on.
 - Persist NodeIds in the `nsu=` form (`ToPortableId`), never namespace indexes.

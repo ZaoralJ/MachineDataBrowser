@@ -2,7 +2,8 @@
 
 `mdbrowser` does the browsing and monitoring of the app from a terminal or a script: list endpoints, browse the
 address space, read and write values, stream live values, and create and run the app's sessions. It speaks the same
-protocols as the app: **OPC UA**, **EtherNet/IP (Logix and PCCC)**, **Modbus TCP** and **MQTT** (Sparkplug B, CloudEvents).
+protocols as the app: **OPC UA**, **EtherNet/IP (Logix and PCCC)**, **Modbus TCP**, **S7 (Siemens)** and **MQTT**
+(Sparkplug B, CloudEvents).
 
 ## Install
 
@@ -44,6 +45,7 @@ mdbrowser browse opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines --depth 2
 mdbrowser read eip://127.0.0.1:44818/1,0 "/Controller Tags/Motor1/Speed"
 mdbrowser read modbus://127.0.0.1:5020/1 hr:20:float32 hr:50:string16 co:1
 mdbrowser monitor modbus://127.0.0.1:5020/1 /Tags/Simulator -R --map simulators/modbus/simulator-map.csv
+mdbrowser read s7://127.0.0.1/0,1 --map simulators/s7/tags.csv /Tags/Machine/Speed DB1.DBD2:REAL
 mdbrowser monitor "mqtt://127.0.0.1:1883/machines/#" /Topics/machines/m1/status/speed --duration 10m
 mdbrowser monitor opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines --recursive --depth 3
 mdbrowser run line1.mdbsession --format csv > shift.csv
@@ -62,7 +64,9 @@ A node is either a **path** of display names from the root, starting with `/`, o
   ([example](cli-examples.md#monitor-sparkplug-b-metrics));
 - a Modbus address `area:address[:type][:swap]`, 0-based: `hr:100`, `hr:20:float32`, `hr:22:float32:swap`,
   `ir:4:int32`, `hr:50:string16`, `co:3`, `di:0` (see the [user manual](user-manual.md#modbus)), or a path like
-  `"/Holding Registers/0-99/20"`, or with a register map `/Tags/Line1/Speed`.
+  `"/Holding Registers/0-99/20"`, or with a register map `/Tags/Line1/Speed`;
+- an S7 address with an optional type, `DB1.DBD4:REAL`, `M0.0`, `MW2:INT`, `DB2.DBD0:REAL[10]`, or an S7 symbol from
+  the tag list, `Machine.Speed` (see [S7](#s7)).
 
 **Modbus register maps:** `--map file.csv` (`-m`) names the device's addresses for this command; the names appear
 under `/Tags`. The file has one line per value, `name,address[,unit][,description]`, with `/` in names for folders:
@@ -76,6 +80,27 @@ Line1/Running,co:1
 `session create` and `tui` (`Ctrl+S`) store the map in the session file (`tagMap`, relative to the session when it
 is in the same folder or below); `run`, `session add`, `tui` and `mcp --session` load it from there.
 `simulators/modbus/simulator-map.csv` is the map of the [Modbus simulator](simulators.md#modbus-simulator-simulatorsmodbus).
+
+### S7
+
+S7 controllers can't list their variables: give `--map` a **tag list** (a TIA Portal PLC tag export saved as CSV,
+a STEP 7 `.sdf`, or any CSV with name, address and type columns; see the
+[user manual](user-manual.md#s7-tag-lists)) and the tree has a *Tags* folder with them by name. Without one, use
+addresses (`DB1.DBD4:REAL`, `M0.0`, `IW2:INT`) or the *Data blocks* / *Inputs* / *Outputs* / *Memory* folders.
+
+```sh
+mdbrowser browse s7://192.168.0.1/0,1 --map plc-tags.csv /Tags
+mdbrowser monitor s7://192.168.0.1/0,1 --map plc-tags.csv /Tags/Machine -R
+mdbrowser read "s7://192.168.0.1/0,2?cpu=300" MW10:INT DB5.DBB0:STRING[20]     # S7-300 in slot 2
+mdbrowser session create line1.mdbsession s7://192.168.0.1/0,1 --map plc-tags.csv /Tags/Machine -R
+mdbrowser run line1.mdbsession                                                 # uses the saved tag list
+```
+
+- The URL is `s7://host[:port][/rack,slot]` (port 102, rack 0, slot 1 by default). Options after `?`: `cpu=300`,
+  `400`, `1200` or `1500` (default), `db=1,2,10` (DBs to list under *Data blocks*), `bytes=64` (bytes listed per
+  area), `timeout=5000` (ms), `tags=<file>` (a tag list in the URL; `--map` wins).
+- The tag list is stored in session files like a Modbus register map (`tagMap`); `k` in `tui` loads or removes it.
+  `simulators/s7/tags.csv` is the tag list of the [S7 simulator](simulators.md#s7-simulator-simulatorss7).
 
 `browse` prints full paths, so its output can be passed to `read` and `monitor` as it is.
 
@@ -190,6 +215,7 @@ mdbrowser tui opc.tcp://127.0.0.1:4841
 mdbrowser tui eip://127.0.0.1:44818/1,0
 mdbrowser tui mqtt://127.0.0.1:1883
 mdbrowser tui modbus://127.0.0.1:5020/1 --map simulators/modbus/simulator-map.csv
+mdbrowser tui s7://127.0.0.1/0,1 --map simulators/s7/tags.csv
 mdbrowser tui line1.mdbsession          # the session's endpoint, options and watch list, monitored at once
 ```
 
@@ -226,7 +252,7 @@ Attributes, Monitored Items, Trend and Info show vertical scrollbars when their 
 | `Ctrl+O` | open a session (the app's recent ones, those in this folder, or any file): its endpoint, options and watch list, in place |
 | `y` / `a` / `e` | OPC UA: history of the variable / current alarms / live events |
 | `d` | MQTT: pause discovery, receiving only the monitored topics (like *Pause discovery* in the app) |
-| `k` | Modbus: load a register map (or remove it with an empty path); reconnects, keeps the monitored items; `Ctrl+S` stores it |
+| `k` | Modbus / S7: load a register map or tag list (or remove it with an empty path); reconnects, keeps the monitored items; `Ctrl+S` stores it |
 | `g` / `t` / `l` | connection diagnostics / next colour theme / light or dark |
 | `q` | quit |
 
@@ -275,7 +301,7 @@ See the [command line examples](cli-examples.md) for the other commands with the
 | `-u, --user` / `-p, --password` | login (OPC UA, MQTT); the password can also come from `MDBROWSER_PASSWORD` |
 | `--secure` | OPC UA: the most secure endpoint the server offers |
 | `--trust-all` | accept untrusted server certificates; for lab networks only |
-| `-m, --map` | Modbus: register map (CSV) naming the device's addresses; overrides the session's |
+| `-m, --map` | Modbus register map (CSV) or S7 tag list (TIA Portal CSV, STEP 7 `.sdf`) naming the device's addresses; overrides the session's |
 
 `mdbrowser` shares the app's data folder: certificates trusted in the app are trusted here, and the OPC UA client
 identity is the same, so a server that trusts the app trusts the command line too. `run` takes the endpoint, login

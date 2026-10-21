@@ -171,8 +171,11 @@ internal sealed class BrowserModel : IAsyncDisposable
     /// <summary>MQTT: discovery (subscribing to the whole topic filter) can be paused on busy brokers, like in the app.</summary>
     public bool SupportsDiscoveryPause => Client is IPausableDiscovery;
 
-    /// <summary>Modbus: a register map names the device's addresses (k).</summary>
-    public bool SupportsTagMap => DeviceClient.IsModbus(Args.Url);
+    /// <summary>Modbus and S7: a register map or tag list names the device's addresses (k).</summary>
+    public bool SupportsTagMap => DeviceClient.UsesTagMap(Args.Url);
+
+    /// <summary>"Register map" (Modbus) or "Tag list" (S7).</summary>
+    public string TagMapLabel => DeviceClient.TagMapName(Args.Url) is var name ? char.ToUpperInvariant(name[0]) + name[1..] : string.Empty;
 
     /// <summary>
     /// Connects again with the register map at <paramref name="path"/> (null: without one), watching the same items.
@@ -194,8 +197,8 @@ internal sealed class BrowserModel : IAsyncDisposable
         }
 
         model.Log(path is null
-            ? "Register map removed."
-            : $"Register map {System.IO.Path.GetFileName(path)} loaded{(SessionPath is null ? string.Empty : "; Ctrl+S stores it in the session")}.");
+            ? $"{TagMapLabel} removed."
+            : $"{TagMapLabel} {System.IO.Path.GetFileName(path)} loaded{(SessionPath is null ? string.Empty : "; Ctrl+S stores it in the session")}.");
         return model;
     }
 

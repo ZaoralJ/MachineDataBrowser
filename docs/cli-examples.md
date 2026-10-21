@@ -15,13 +15,13 @@ mdbrowser endpoints opc.tcp://127.0.0.1:50000
 
 ``` { .text .no-copy }
 url                         mode            policy                 level  logins                          thumbprint
-opc.tcp://127.0.0.1:50000/  SignAndEncrypt  Aes256_Sha256_RsaPss   110    Anonymous UserName Certificate  B0361C8C37CAE0AFE54393168B8864BCD819A73A
-opc.tcp://127.0.0.1:50000/  SignAndEncrypt  Aes128_Sha256_RsaOaep  108    Anonymous UserName Certificate  B0361C8C37CAE0AFE54393168B8864BCD819A73A
-opc.tcp://127.0.0.1:50000/  SignAndEncrypt  Basic256Sha256         106    Anonymous UserName Certificate  B0361C8C37CAE0AFE54393168B8864BCD819A73A
-opc.tcp://127.0.0.1:50000/  Sign            Aes256_Sha256_RsaPss   10     Anonymous UserName Certificate  B0361C8C37CAE0AFE54393168B8864BCD819A73A
-opc.tcp://127.0.0.1:50000/  Sign            Aes128_Sha256_RsaOaep  8      Anonymous UserName Certificate  B0361C8C37CAE0AFE54393168B8864BCD819A73A
-opc.tcp://127.0.0.1:50000/  Sign            Basic256Sha256         6      Anonymous UserName Certificate  B0361C8C37CAE0AFE54393168B8864BCD819A73A
-opc.tcp://127.0.0.1:50000/  None            None                   0      Anonymous UserName Certificate  B0361C8C37CAE0AFE54393168B8864BCD819A73A
+opc.tcp://127.0.0.1:50000/  SignAndEncrypt  Aes256_Sha256_RsaPss   110    Anonymous UserName Certificate  36DEFBDCBFB40A8C205786ABC4A0BCB025BDA051
+opc.tcp://127.0.0.1:50000/  SignAndEncrypt  Aes128_Sha256_RsaOaep  108    Anonymous UserName Certificate  36DEFBDCBFB40A8C205786ABC4A0BCB025BDA051
+opc.tcp://127.0.0.1:50000/  SignAndEncrypt  Basic256Sha256         106    Anonymous UserName Certificate  36DEFBDCBFB40A8C205786ABC4A0BCB025BDA051
+opc.tcp://127.0.0.1:50000/  Sign            Aes256_Sha256_RsaPss   10     Anonymous UserName Certificate  36DEFBDCBFB40A8C205786ABC4A0BCB025BDA051
+opc.tcp://127.0.0.1:50000/  Sign            Aes128_Sha256_RsaOaep  8      Anonymous UserName Certificate  36DEFBDCBFB40A8C205786ABC4A0BCB025BDA051
+opc.tcp://127.0.0.1:50000/  Sign            Basic256Sha256         6      Anonymous UserName Certificate  36DEFBDCBFB40A8C205786ABC4A0BCB025BDA051
+opc.tcp://127.0.0.1:50000/  None            None                   0      Anonymous UserName Certificate  36DEFBDCBFB40A8C205786ABC4A0BCB025BDA051
 ```
 
 ## Browse OPC UA
@@ -94,6 +94,78 @@ path                                                      class     id
 … (3046 more lines)
 ```
 
+## Browse S7 with a tag list
+
+`--map` gives the tree the symbol table's names (here the simulator's `tags.csv`, a TIA Portal CSV export).
+
+```sh
+mdbrowser browse s7://127.0.0.1/0,1 --map tags.csv /Tags/Machine
+```
+
+``` { .text .no-copy }
+path                       class     id
+/Tags/Machine/Running      Variable  "Machine.Running"
+/Tags/Machine/Fault        Variable  "Machine.Fault"
+/Tags/Machine/Blink        Variable  "Machine.Blink"
+/Tags/Machine/Speed        Variable  "Machine.Speed"
+/Tags/Machine/Counter      Variable  "Machine.Counter"
+/Tags/Machine/Temperature  Variable  "Machine.Temperature"
+/Tags/Machine/Pressure     Variable  "Machine.Pressure"
+/Tags/Machine/Mode         Variable  "Machine.Mode"
+/Tags/Machine/Status       Variable  "Machine.Status"
+/Tags/Machine/Name         Variable  "Machine.Name"
+/Tags/Machine/Setpoint     Variable  "Machine.Setpoint"
+/Tags/Machine/Recipe       Variable  "Machine.Recipe"
+/Tags/Machine/Runtime      Variable  "Machine.Runtime"
+```
+
+## Read S7 addresses
+
+Without a tag list: absolute addresses with an optional type.
+
+```sh
+mdbrowser read s7://127.0.0.1/0,1 DB1.DBD2:REAL MW2:INT DB3.DBB28:STRING[10] DB2.DBW40:INT[10]
+```
+
+``` { .text .no-copy }
+name                  type    value
+DB1.DBD2:REAL         Float   1307.5247
+MW2:INT               Int16   1474
+DB3.DBB28:STRING[10]  String  Hello
+DB2.DBW40:INT[10]     INT[]   [1474, 2948, 4422, 5896, 7370, 8844, 10318, 11792, 13266, 14740]
+```
+
+## Read every type of an S7 data block
+
+```sh
+mdbrowser read s7://127.0.0.1/0,1 --map tags.csv /Tags/DataTypes -R
+```
+
+``` { .text .no-copy }
+name       type      value
+Bool       Boolean   True
+Byte       Byte      171
+Word       UInt16    48879
+Int        Int16     -1234
+DWord      UInt32    3735928559
+DInt       Int32     -123456
+Real       Float     3.14
+LReal      Double    2.718281828459045
+Char       String    S
+String     String    Hello
+WString    String    Grüße
+USInt      Byte      200
+SInt       SByte     -5
+UInt       UInt16    60000
+UDInt      UInt32    4000000000
+LInt       Int64     -9000000000
+ULInt      UInt64    18000000000
+Date       DateTime  2026-10-21T00:00:00.0000000
+Time       TimeSpan  00:01:30
+TimeOfDay  TimeSpan  13:45:30.2500000
+LWord      UInt64    81985529216486895
+```
+
 ## Browse MQTT
 
 Topics seen on the broker; JSON payloads open into their fields.
@@ -141,7 +213,7 @@ mdbrowser read eip://127.0.0.1:44818/1,0 "/Controller Tags/Arrays/Lreals"
 
 ``` { .text .no-copy }
 name    type     value
-Lreals  LREAL[]  [1.5, 2.5, 3.5, 4.5]
+Lreals  LREAL[]  [0.1, 0.2, 0.3, 0.4]
 ```
 
 ## Read a folder as JSON
@@ -176,7 +248,7 @@ mdbrowser read opc.tcp://127.0.0.1:4841 /Objects/Custom/DataTypes -R -f json
     "name": "Int16",
     "id": "ns=2;i=48",
     "type": "Int16",
-    "value": -321
+    "value": -1234
   },
   {
 … (10240 more lines)
@@ -192,7 +264,7 @@ mdbrowser read mqtt://127.0.0.1:1883 /Topics/machines/m1/status
 
 ``` { .text .no-copy }
 name    type    value
-status  String  {"state":"Stop","speed":1403.94,"temperature":{"bearing":54.77,"motor":61.47},"alarms":[0,101],"ok":true,"operator":null}
+status  String  {"state":"Stop","speed":1498.44,"temperature":{"bearing":54.22,"motor":60.68},"alarms":[],"ok":true,"operator":null}
 ```
 
 ## Read properties from the JSON on a topic
@@ -205,9 +277,9 @@ mdbrowser read mqtt://127.0.0.1:1883 /Topics/machines/m1/status/speed /Topics/ma
 
 ``` { .text .no-copy }
 name   type    value
-speed  Double  1492.86
-state  String  Stop
-motor  Double  60.75
+speed  Double  1408.95
+state  String  Idle
+motor  Double  60.03
 ```
 
 ## Read a JSON property by its id
@@ -220,7 +292,7 @@ mdbrowser read mqtt://127.0.0.1:1883 "t:machines/m1/status#/temperature/bearing"
 
 ``` { .text .no-copy }
 name                                       type    value
-t:machines/m1/status#/temperature/bearing  Double  54.03
+t:machines/m1/status#/temperature/bearing  Double  54.13
 ```
 
 ## Monitor live values
@@ -232,14 +304,14 @@ mdbrowser monitor opc.tcp://127.0.0.1:4841 /Objects/Custom/Fast/Every10ms/Counte
 ```
 
 ``` { .text .no-copy }
-22:25:47.428  Counter                      Good         1601455
-22:25:47.428  Sine                         Good         -0.31896973251111516
-22:25:47.928  Counter                      Good         1601505
-22:25:47.928  Sine                         Good         0.31868040673492903
-22:25:48.427  Counter                      Good         1601555
-22:25:48.427  Sine                         Good         -0.31184361317935677
-22:25:48.929  Counter                      Good         1601605
-22:25:48.929  Sine                         Good         0.32476116046501213
+23:48:47.233  Counter                      Good         5150
+23:48:47.233  Sine                         Good         -0.019346699665534265
+23:48:47.731  Counter                      Good         5200
+23:48:47.731  Sine                         Good         0.009863806368917594
+23:48:48.233  Sine                         Good         -0.019530190530856216
+23:48:48.233  Counter                      Good         5250
+23:48:48.733  Counter                      Good         5300
+23:48:48.733  Sine                         Good         0.020292924781080683
 ```
 
 ## Monitor MQTT and record
@@ -251,18 +323,18 @@ mdbrowser monitor mqtt://127.0.0.1:1883 /Topics/plant/hall1/press1 -R --duration
 ```
 
 ``` { .text .no-copy }
-22:25:50.927  counter                      Good         160520
-22:25:50.927  pressure                     Good         4.001
-22:25:50.927  running                      Good         True
-22:25:50.927  state                        Good         Idle
-22:25:50.927  temperature                  Good         223.47
-22:25:51.027  temperature                  Good         223.29
-22:25:51.028  counter                      Good         160521
-22:25:51.126  temperature                  Good         223.1
-22:25:51.126  counter                      Good         160522
-22:25:51.227  temperature                  Good         222.9
-22:25:51.227  counter                      Good         160523
-22:25:51.327  temperature                  Good         222.69
+23:48:53.840  counter                      Good         971
+23:48:53.740  pressure                     Good         5.377
+23:48:53.740  running                      Good         True
+23:48:53.740  state                        Good         Heating
+23:48:53.839  temperature                  Good         215.05
+23:48:53.936  temperature                  Good         215.02
+23:48:53.937  counter                      Good         972
+23:48:54.037  temperature                  Good         215
+23:48:54.037  counter                      Good         973
+23:48:54.136  temperature                  Good         215
+23:48:54.136  counter                      Good         974
+23:48:54.238  temperature                  Good         215.01
 … (40 more lines)
 ```
 
@@ -275,19 +347,19 @@ mdbrowser monitor mqtt://127.0.0.1:1883 "m:Plant1|Edge1|Press1|Temperature" "m:P
 ```
 
 ``` { .text .no-copy }
-22:26:03.927  m:Plant1|Edge1|Press1|Temperature Good         182.15251066329077
-22:26:03.927  m:Plant1|Edge1|Press1|Pressure Good         4.8445606
-22:26:04.927  m:Plant1|Edge1|Press1|Pressure Good         4.5298095
-22:26:04.926  m:Plant1|Edge1|Press1|Temperature Good         197.95803397462052
-22:26:05.927  m:Plant1|Edge1|Press1|Pressure Good         4.266809
-22:26:05.926  m:Plant1|Edge1|Press1|Temperature Good         215.6442754932001
-22:26:06.925  m:Plant1|Edge1|Press1|Pressure Good         4.0849795
-22:26:06.924  m:Plant1|Edge1|Press1|Temperature Good         218.95247535498407
-22:26:07.927  m:Plant1|Edge1|Press1|Pressure Good         4.003304
-22:26:07.926  m:Plant1|Edge1|Press1|Temperature Good         204.830343667849
-22:26:08.926  m:Plant1|Edge1|Press1|Temperature Good         186.2796204077829
-22:26:08.927  m:Plant1|Edge1|Press1|Pressure Good         4.0315847
-… (14 more lines)
+23:49:01.737  m:Plant1|Edge1|Press1|Temperature Good         180.57741142106192
+23:49:01.737  m:Plant1|Edge1|Press1|Pressure Good         4.0966616
+23:49:02.736  m:Plant1|Edge1|Press1|Temperature Good         185.49046045507117
+23:49:02.738  m:Plant1|Edge1|Press1|Pressure Good         4.2867146
+23:49:03.736  m:Plant1|Edge1|Press1|Pressure Good         4.555039
+23:49:03.735  m:Plant1|Edge1|Press1|Temperature Good         203.72619418720294
+23:49:04.737  m:Plant1|Edge1|Press1|Pressure Good         4.872467
+23:49:04.735  m:Plant1|Edge1|Press1|Temperature Good         218.54613626258165
+23:49:05.737  m:Plant1|Edge1|Press1|Pressure Good         5.2041726
+23:49:05.736  m:Plant1|Edge1|Press1|Temperature Good         216.31403083876944
+23:49:06.737  m:Plant1|Edge1|Press1|Pressure Good         5.513164
+23:49:06.735  m:Plant1|Edge1|Press1|Temperature Good         199.0842120274951
+… (22 more lines)
 ```
 
 ## Write a value
@@ -300,7 +372,7 @@ mdbrowser write opc.tcp://127.0.0.1:4841 /Objects/Custom/DataTypes/Int16 -321 --
 
 ``` { .text .no-copy }
 name   before  after  result
-Int16  -321    -321   written
+Int16  -1234   -321   written
 ```
 
 ## Create a session for the app
@@ -344,11 +416,6 @@ mdbrowser run press1.mdbsession --duration 2s
 ```
 
 ``` { .text .no-copy }
-22:26:22.026  temperature                  Good         216
-22:26:21.928  pressure                     Good         4.072
-22:26:21.928  state                        Good         Idle
-22:26:22.127  temperature                  Good         216.16
-22:26:22.226  temperature                  Good         216.32
 ```
 
 ## Run a session as CSV
@@ -359,14 +426,46 @@ mdbrowser run press1.mdbsession --duration 3s -f csv
 
 ``` { .text .no-copy }
 time,name,id,status,value
-2026-10-21T20:26:24.9287020Z,temperature,t:plant/hall1/press1/temperature,Good,222.5
-2026-10-21T20:26:24.9288230Z,pressure,t:plant/hall1/press1/pressure,Good,5.867
-2026-10-21T20:26:24.9288340Z,state,t:plant/hall1/press1/state,Good,Heating
-2026-10-21T20:26:25.0281180Z,temperature,t:plant/hall1/press1/temperature,Good,222.72
-2026-10-21T20:26:25.1277730Z,temperature,t:plant/hall1/press1/temperature,Good,222.92
-2026-10-21T20:26:25.2272060Z,temperature,t:plant/hall1/press1/temperature,Good,223.12
-2026-10-21T20:26:25.3274850Z,temperature,t:plant/hall1/press1/temperature,Good,223.31
-… (1 more lines)
+2026-10-21T21:49:29.8369130Z,temperature,t:plant/hall1/press1/temperature,Good,217.27
+2026-10-21T21:49:29.7382170Z,pressure,t:plant/hall1/press1/pressure,Good,5.87
+2026-10-21T21:49:29.7382280Z,state,t:plant/hall1/press1/state,Good,Running
+2026-10-21T21:49:29.9366530Z,temperature,t:plant/hall1/press1/temperature,Good,217.07
+2026-10-21T21:49:30.0367650Z,temperature,t:plant/hall1/press1/temperature,Good,216.87
+2026-10-21T21:49:30.1377530Z,temperature,t:plant/hall1/press1/temperature,Good,216.67
+2026-10-21T21:49:30.2423980Z,temperature,t:plant/hall1/press1/temperature,Good,216.49
+… (9 more lines)
+```
+
+## An S7 session with its tag list
+
+The tag list is saved in the session (relative to it) and used by `run`.
+
+```sh
+mdbrowser session create line1.mdbsession s7://127.0.0.1/0,1 --map tags.csv /Tags/Machine/Speed /Tags/Machine/Counter
+```
+
+``` { .text .no-copy }
+Saved 2 watch item(s) to line1.mdbsession (s7://127.0.0.1/0,1).
+```
+
+## Run the S7 session
+
+```sh
+mdbrowser run line1.mdbsession --duration 2s
+```
+
+``` { .text .no-copy }
+23:49:31.322  Speed                        Good         1497.28
+23:49:31.323  Counter                      Good         2568
+23:49:31.570  Speed                        Good         1494.7521
+23:49:31.570  Counter                      Good         2573
+23:49:31.813  Speed                        Good         1491.4901
+23:49:31.813  Counter                      Good         2578
+23:49:32.066  Speed                        Good         1487.4799
+23:49:32.066  Counter                      Good         2583
+23:49:32.320  Speed                        Good         1482.7347
+23:49:32.320  Counter                      Good         2588
+… (6 more lines)
 ```
 
 The full-screen browser (`mdbrowser tui`) is shown in [Command line](cli.md#full-screen-browser-tui);

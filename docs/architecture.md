@@ -5,7 +5,8 @@ Machine Data Browser (repository `MachineDataBrowser`) is a machine data viewer.
 - an OPC UA server,
 - an Allen-Bradley Logix controller over EtherNet/IP (CIP),
 - an Allen-Bradley SLC 500, MicroLogix or PLC-5 over EtherNet/IP (PCCC),
-- a Modbus TCP device, or
+- a Modbus TCP device,
+- a Siemens S7 controller over ISO-on-TCP (S7comm), or
 - an MQTT broker, including Sparkplug B.
 
 Whichever device it is, you browse its address space, inspect attributes, watch live values, record them and export
@@ -49,6 +50,7 @@ flowchart LR
         Pccc["MachineDataBrowser.Driver.Pccc<br/>PcccClient"]
         Mqtt["MachineDataBrowser.Driver.Mqtt<br/>MqttDeviceClient"]
         Modbus["MachineDataBrowser.Driver.Modbus<br/>ModbusClient"]
+        S7["MachineDataBrowser.Driver.S7<br/>S7Client"]
     end
     Composition["MachineDataBrowser.Drivers<br/>DeviceClientFactory"]
     Composition --> Ua
@@ -56,11 +58,13 @@ flowchart LR
     Composition --> Pccc
     Composition --> Mqtt
     Composition --> Modbus
+    Composition --> S7
     Ua -. implements .-> IDC
     Cip -. implements .-> IDC
     Pccc -. implements .-> IDC
     Mqtt -. implements .-> IDC
     Modbus -. implements .-> IDC
+    S7 -. implements .-> IDC
     VM --> IDC
     VM --> Rec
     VM --> Engine
@@ -74,6 +78,7 @@ flowchart LR
     Pccc -- "pccc:// (libplctag)" --> S4[(SLC 500 / MicroLogix / PLC-5)]
     Mqtt -- "mqtt:// mqtts:// ws:// wss:// (MQTTnet)" --> S3[(MQTT broker)]
     Modbus -- "modbus:// (own Modbus TCP client)" --> S4[(Modbus device)]
+    S7 -- "s7:// (S7netplus)" --> S5[(S7 controller)]
 ```
 
 | Project | Role |
@@ -88,6 +93,7 @@ flowchart LR
 | `src/MachineDataBrowser.Driver.Cip` | EtherNet/IP (Logix) client. References Core. |
 | `src/MachineDataBrowser.Driver.Modbus` | Modbus TCP client (no library), address syntax and register maps. References Core. |
 | `src/MachineDataBrowser.Driver.Pccc` | PCCC (SLC 500, MicroLogix, PLC-5) client: data-table addresses and their codec. References Core. |
+| `src/MachineDataBrowser.Driver.S7` | Siemens S7 client on S7netplus: address and type codec, tag lists (TIA Portal / STEP 7 exports). References Core. |
 | `src/MachineDataBrowser.Driver.Mqtt` | MQTT client, topic model and Sparkplug B support. References Core. |
 | `src/MachineDataBrowser.Drivers` | Composition project selecting a driver from an endpoint URL; referenced by app and CLI. |
 | `src/MachineDataBrowser.App` | Avalonia 12 desktop app (MVVM with CommunityToolkit.Mvvm, docking with Dock.Avalonia); uses the driver composition project. |
@@ -95,7 +101,7 @@ flowchart LR
 | `tests/MachineDataBrowser.Core.Tests` | Integration tests against containers (opc-plc and the `simulators/` images, via Testcontainers) plus unit tests. |
 | `tests/MachineDataBrowser.App.Tests` | Headless Avalonia UI tests with real rendering (screenshots) against the same containers. |
 | `tests/MachineDataBrowser.Cli.Tests` | The CLI's commands end to end against opc-plc and the simulators, plain and terminal output; the TUI's model against every protocol and its screen headlessly (ANSI driver, virtual time). |
-| `simulators/` | Test servers for development and tests: Logix, PCCC, opc-plc, OPC UA custom types, MQTT, Modbus. See [simulators.md](simulators.md). |
+| `simulators/` | Test servers for development and tests: Logix, PCCC, opc-plc, OPC UA custom types, MQTT, Modbus, S7. See [simulators.md](simulators.md). |
 
 Every project's root namespace is its project name (e.g. `MachineDataBrowser.Driver.OpcUa`); the recording engine's
 class is `RecordingSession` so that it does not clash with the `MachineDataBrowser.Recording` namespace.
@@ -153,9 +159,14 @@ classDiagram
         MqttModel (topics, JSON, Sparkplug B)
         reconnect loop
     }
+    class S7Client {
+        tag list · areas · typed addresses
+        coalesced poll groups
+    }
     IDeviceClient <|.. OpcUaClient
     IDeviceClient <|.. CipClient
     IDeviceClient <|.. MqttDeviceClient
+    IDeviceClient <|.. S7Client
     IDynamicAddressSpace <|.. MqttDeviceClient
     IPausableDiscovery <|.. MqttDeviceClient
     class RecordingSession {
@@ -165,15 +176,15 @@ classDiagram
     RecordingSession --> IDeviceClient
 ```
 
-| | OPC UA (`opc.tcp://`) | EtherNet/IP (`eip://host[:port]/1,0`) | MQTT (`mqtt://host[:port][/filter]`) | Modbus TCP (`modbus://host[:port][/unit]`) |
-|---|---|---|---|---|
-| Library | OPC Foundation UA-.NETStandard | libplctag.NET | MQTTnet | own client (`ModbusTcpTransport`) |
-| Tree | server address space (forward hierarchical references) | Controller tags / Programs ▸ tags ▸ UDT members, array elements | Topics (topic levels, JSON fields) and Sparkplug B (group ▸ edge node ▸ device ▸ metrics) | generated: Tags (register map) and the four areas in blocks of 100 addresses |
-| Node ids | `nsu=<namespace URI>;…` | Logix tag path, e.g. `Program:Main.Motor[2].Speed` | `t:<topic>[#<JSON pointer>]`, `m:<group>\|<edge>\|<device>\|<metric>` | `area:address[:type][:swap]`, e.g. `hr:20:float32` |
-| Values | read and subscriptions (server pushes) | polled per refresh time, only changes are reported | pushed per message; the refresh time is a maximum update rate (0 = every message) | polled per refresh time, neighbouring addresses in one request, only changes are reported |
-| Subscriptions | per refresh time | none (polling) | the topic filter; with discovery paused (`IPausableDiscovery`) only the monitored topics, and for Sparkplug metrics their edge node and device | none (polling) |
-| Structures | decoded with the server's type definitions | UDT templates (`@udt/<id>`) | JSON payloads, Sparkplug B protobuf | none; multi-register types from the id |
-| Status | server status codes | `Bad…` from libplctag errors | `BadNoCommunication` while a Sparkplug node or device is dead | `Bad…` from Modbus exceptions (2: `BadNodeIdUnknown`) and timeouts |
+| | OPC UA (`opc.tcp://`) | EtherNet/IP (`eip://host[:port]/1,0`) | MQTT (`mqtt://host[:port][/filter]`) | Modbus TCP (`modbus://host[:port][/unit]`) | S7 (`s7://host[:port]/rack,slot`) |
+|---|---|---|---|---|---|
+| Library | OPC Foundation UA-.NETStandard | libplctag.NET | MQTTnet | own client (`ModbusTcpTransport`) | S7netplus |
+| Tree | server address space (forward hierarchical references) | Controller tags / Programs ▸ tags ▸ UDT members, array elements | Topics (topic levels, JSON fields) and Sparkplug B (group ▸ edge node ▸ device ▸ metrics) | generated: Tags (register map) and the four areas in blocks of 100 addresses | Tags (tag list, folders from dots in names) and the DB/I/Q/M areas ▸ bytes ▸ bits |
+| Node ids | `nsu=<namespace URI>;…` | Logix tag path, e.g. `Program:Main.Motor[2].Speed` | `t:<topic>[#<JSON pointer>]`, `m:<group>\|<edge>\|<device>\|<metric>` | `area:address[:type][:swap]`, e.g. `hr:20:float32` | address with type `DB1.DBD4:REAL`, symbol `"Machine.Speed"` |
+| Values | read and subscriptions (server pushes) | polled per refresh time, only changes are reported | pushed per message; the refresh time is a maximum update rate (0 = every message) | polled per refresh time, neighbouring addresses in one request, only changes are reported | polled per refresh time, neighbouring addresses in one request, only changes are reported |
+| Subscriptions | per refresh time | none (polling) | the topic filter; with discovery paused (`IPausableDiscovery`) only the monitored topics, and for Sparkplug metrics their edge node and device | none (polling) | none (polling) |
+| Structures | decoded with the server's type definitions | UDT templates (`@udt/<id>`) | JSON payloads, Sparkplug B protobuf | none; multi-register types from the id | none; elementary types and arrays |
+| Status | server status codes | `Bad…` from libplctag errors | `BadNoCommunication` while a Sparkplug node or device is dead | `Bad…` from Modbus exceptions (2: `BadNodeIdUnknown`) and timeouts | PLC answers (`BadNodeIdUnknown`, `BadOutOfRange`, `BadNotWritable`) and link errors |
 
 Shared helpers live in `DeviceClientExtensions`: `MonitorAsync`, `CollectVariablesAsync` and `ReadTreeAsync`.
 Stopping monitors is part of `IDeviceClient`, allowing drivers to batch teardown without Core knowing their concrete types.
@@ -226,6 +237,9 @@ stateDiagram-v2
 - **Modbus:** a failed request switches the state to `Reconnecting` and drops the socket; the next request (the
   poll loop) opens it again, and an answer switches back to `Connected`.
 - **PCCC:** like EtherNet/IP: failed polls mean `Reconnecting` until a read succeeds.
+- **S7:** a request without an answer (socket error, timeout) closes the connection and switches to `Reconnecting`;
+  the next request opens it again. Error answers from the PLC (unknown DB, out of range) keep the connection and only
+  mark that value Bad.
 - **MQTT:** a lost broker starts a reconnect loop every 2 s, which subscribes again. Monitors stay registered, so Watch
   and recordings resume.
 
@@ -300,6 +314,21 @@ stateDiagram-v2
   read-modify-write of their word.
 - **Monitoring:** one poll loop per refresh time, like `CipClient`; changes are compared by decoded value so a bit
   doesn't report when another bit of its word changes.
+
+## S7 (`S7.S7Client`)
+
+- **No symbols on the wire:** classic S7comm reads and writes absolute addresses (area, DB, byte, bit) only, so names
+  come from a tag list, loaded through the same tag map option as Modbus register maps (`ConnectOptions.TagMapPath`,
+  or `?tags=` in the URL). `S7TagList` parses TIA Portal CSV exports, STEP 7 `.sdf` and plain CSV (header detection,
+  `,` `;` tab separators, Latin-1 fallback); entries it can't use are kept as *skipped* with the reason (Diagnostics).
+- **Tree:** `Tags` (ns=2 folders from the dots in symbol names, ns=3 symbols with their name as id), then `Data
+  blocks` (DBs of the tag list and `?db=`), `Inputs`, `Outputs`, `Memory`, each listing its first bytes with their bits.
+- **Ids (`S7Address`, `S7Type`):** STEP 7/TIA syntax (`DB1.DBX0.0`, `MW2`, `%I0.1`, German `E`/`A`) with an optional
+  `:TYPE` / `:TYPE[n]` suffix, printed in canonical form. Values are big-endian; STRING/WSTRING keep their length
+  headers; BOOL arrays are bits from a start bit.
+- **Requests:** one S7netplus `Plc`, one request at a time. A poll cycle's reads are grouped by area and merged when
+  less than 16 bytes apart (up to 1 kB; S7netplus splits by PDU size); a refused merged read is retried one by one.
+- **Writes:** a single BOOL with a bit write; BOOL arrays read-modify-write their bytes; the rest as encoded bytes.
 
 ## Modbus TCP (`Modbus.ModbusClient`)
 
