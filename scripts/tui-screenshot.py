@@ -179,7 +179,8 @@ def main() -> None:
         # The status topic of machine m1 and its parts, with status/speed selected for the trend.
         terminal.keys("s", 0.8)
         terminal.keys("m1\r", 2.0)
-        terminal.wait_for("match")
+        # Search results are in the modal table; background log refresh pauses while a dialog is open.
+        terminal.wait_for("temperature")
         terminal.keys("\r", 1.5)
         terminal.wait_for("NodeId")
         terminal.keys("\x1b[C", 1.0)

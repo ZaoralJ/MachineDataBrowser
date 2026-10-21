@@ -5,6 +5,7 @@ using Terminal.Gui.Drivers;
 using Terminal.Gui.Input;
 using Terminal.Gui.Testing;
 using Terminal.Gui.Time;
+using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 using Xunit;
 
@@ -57,6 +58,20 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
         var selected = TuiApp.PromptScheme().Active;
         Assert.Equal(Theme.Bright, selected.Background);
         Assert.Equal(Theme.Background, selected.Foreground);
+    }
+
+    [Fact]
+    public void Non_tree_panes_enable_automatic_vertical_scrollbars()
+    {
+        var panes = _session!.Tui.Window.SubViews.OfType<FrameView>()
+            .ToDictionary(frame => frame.Title, frame => Assert.Single(frame.SubViews));
+
+        foreach (var title in new[] { "²Attributes", "³Monitored Items", "⁴Trend", "⁵Info" })
+        {
+            var pane = panes[title];
+            Assert.True(pane.ViewportSettings.HasFlag(ViewportSettingsFlags.HasVerticalScrollBar));
+            Assert.Equal(ScrollBarVisibilityMode.Auto, pane.VerticalScrollBar.VisibilityMode);
+        }
     }
 
     /// <summary>Runs timers and the callbacks device work posted back, then draws, until the screen shows what's expected.</summary>
