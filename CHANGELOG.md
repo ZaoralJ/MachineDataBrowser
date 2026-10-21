@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.33.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.32.1...v0.33.0) (2026-10-21)
+
+
+### Features
+
+* Allen-Bradley PCCC driver (SLC 500, MicroLogix, PLC-5) ([#182](https://github.com/ZaoralJ/MachineDataBrowser/issues/182)) ([496e93f](https://github.com/ZaoralJ/MachineDataBrowser/commit/496e93f15532b59a458cfad4416b507bb965eb81))
+* **cli:** add vertical scrollbars to TUI panes ([#177](https://github.com/ZaoralJ/MachineDataBrowser/issues/177)) ([81936c6](https://github.com/ZaoralJ/MachineDataBrowser/commit/81936c6288ddf7ebbad99342b280999d2826dc0c))
+* **cli:** TUI multi-selection, full-value popup and copy ([#178](https://github.com/ZaoralJ/MachineDataBrowser/issues/178)) ([bae07ed](https://github.com/ZaoralJ/MachineDataBrowser/commit/bae07ed2d8cdafae9dd16a8b6034fe56241257bb))
+* Modbus TCP driver with register maps (app, CLI, TUI, MCP) ([#180](https://github.com/ZaoralJ/MachineDataBrowser/issues/180)) ([d2152ec](https://github.com/ZaoralJ/MachineDataBrowser/commit/d2152ec7446b12b4c5e38044ce2e4f1d31f51887))
+* **mtconnect:** read-only MTConnect driver, agent simulator and docs ([#183](https://github.com/ZaoralJ/MachineDataBrowser/issues/183)) ([3a79603](https://github.com/ZaoralJ/MachineDataBrowser/commit/3a7960309791d9aecd7ad280979813c21257c4be))
+* **s7:** Siemens S7 driver with tag list import ([#181](https://github.com/ZaoralJ/MachineDataBrowser/issues/181)) ([6b1e164](https://github.com/ZaoralJ/MachineDataBrowser/commit/6b1e164b76d89383405ffb5e4b7524d69ad16cfe))
+
+
+### Fixes
+
+* **cli:** improve TUI prompt cursor and completion ([#175](https://github.com/ZaoralJ/MachineDataBrowser/issues/175)) ([e2892fc](https://github.com/ZaoralJ/MachineDataBrowser/commit/e2892fcd01adf5a7e0d29979091a939784a6a04a))
+
 ## [0.32.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.32.0...v0.32.1) (2026-10-18)
 
 
