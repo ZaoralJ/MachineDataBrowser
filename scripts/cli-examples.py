@@ -10,6 +10,7 @@ Writes go to simulator values that are restored right after, so the shared conta
 
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,7 @@ OPCUA = "opc.tcp://127.0.0.1:50000"
 CUSTOM = "opc.tcp://127.0.0.1:4841"
 LOGIX = "eip://127.0.0.1:44818/1,0"
 MQTT = "mqtt://127.0.0.1:1883"
+S7 = "s7://127.0.0.1/0,1"
 PRESS = "/Topics/plant/hall1/press1"
 
 # (heading, text, command, lines to keep). The command is shown as typed; {M} is the mdbrowser binary.
@@ -31,6 +33,13 @@ EXAMPLES: list[tuple[str, str, str, int]] = [
      f"mdbrowser browse {CUSTOM} /Objects/Custom/Fast --depth 2", 12),
     ("Browse Logix (EtherNet/IP)", "Controller tags and programs of a ControlLogix.",
      f'mdbrowser browse {LOGIX} "/Controller Tags"', 12),
+    ("Browse S7 with a tag list",
+     "`--map` gives the tree the symbol table's names (here the simulator's `tags.csv`, a TIA Portal CSV export).",
+     f"mdbrowser browse {S7} --map tags.csv /Tags/Machine", 14),
+    ("Read S7 addresses", "Without a tag list: absolute addresses with an optional type.",
+     f"mdbrowser read {S7} DB1.DBD2:REAL MW2:INT DB3.DBB28:STRING[10] DB2.DBW40:INT[10]", 6),
+    ("Read every type of an S7 data block", "",
+     f"mdbrowser read {S7} --map tags.csv /Tags/DataTypes -R", 24),
     ("Browse MQTT", "Topics seen on the broker; JSON payloads open into their fields.",
      f"mdbrowser browse {MQTT} /Topics/plant --depth 3", 14),
     ("Read values", "Value and data type of one or more variables.",
@@ -71,6 +80,10 @@ EXAMPLES: list[tuple[str, str, str, int]] = [
      "mdbrowser run press1.mdbsession --duration 2s", 10),
     ("Run a session as CSV", "",
      "mdbrowser run press1.mdbsession --duration 3s -f csv", 8),
+    ("An S7 session with its tag list", "The tag list is saved in the session (relative to it) and used by `run`.",
+     f"mdbrowser session create line1.mdbsession {S7} --map tags.csv /Tags/Machine/Speed /Tags/Machine/Counter", 4),
+    ("Run the S7 session", "",
+     "mdbrowser run line1.mdbsession --duration 2s", 10),
 ]
 
 # Restores what the examples write, so the shared simulators stay as they were.
@@ -90,6 +103,8 @@ def run(mdbrowser: str, command: str, cwd: str, env: dict[str, str]) -> str:
 def main() -> None:
     mdbrowser, output = os.path.abspath(sys.argv[1]), sys.argv[2]
     cwd = tempfile.mkdtemp(prefix="mdb-cli-examples-")
+    # The S7 examples use the simulator's tag map as `tags.csv` in the working folder.
+    shutil.copy(Path(__file__).resolve().parent.parent / "simulators" / "s7" / "tags.csv", cwd)
     env = dict(os.environ, NO_COLOR="1", COLUMNS="120", TERM="dumb",
                MACHINEDATABROWSER_DATA_DIR=tempfile.mkdtemp(prefix="mdb-docs-"))
     lines = [

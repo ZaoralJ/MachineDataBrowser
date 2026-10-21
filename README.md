@@ -13,6 +13,7 @@
 | **EtherNet/IP** (Allen-Bradley Logix) | `eip://127.0.0.1:44818/1,0` | controller and program tags, UDTs, arrays of UDTs |
 | **Modbus TCP** | `modbus://127.0.0.1:5020/1` | coils, inputs and registers by address, typed values (float32, int32, strings, word order), register maps naming them |
 | **PCCC** (SLC 500, MicroLogix, PLC-5) | `pccc://127.0.0.1:44819?plc=slc500` | data files, timers, counters, controls, bits |
+| **S7** (Siemens S7-300/400/1200/1500) | `s7://127.0.0.1/0,1` | data blocks, inputs, outputs, memory by address, every elementary type, TIA Portal / STEP 7 tag lists naming them |
 | **MQTT** | `mqtt://127.0.0.1:1883[/topic/#]`, `mqtts://`, `ws://`, `wss://` | topic tree, JSON fields, Sparkplug B, CloudEvents |
 
 For any of these you can:
@@ -29,6 +30,7 @@ Everything has a keyboard shortcut.
 flowchart LR
     UA[(OPC UA server)] --- App
     PLC[(Logix controller)] --- App
+    DEV[(Modbus device · S7 controller)] --- App
     MQ[(MQTT broker<br/>Sparkplug B · CloudEvents)] --- App
     App[Machine Data Browser] --> W[Watch] --> R[Recordings] --> V[Viewer + chart]
     App --> X[Export · copy · sessions]
@@ -65,7 +67,7 @@ read-only; see [docs/mcp.md](docs/mcp.md).
 ## Try it with the test servers
 
 ```sh
-just all     # Logix, PCCC, OPC UA (two servers), MQTT and Modbus simulators in Docker
+just all     # Logix, PCCC, OPC UA (two servers), MQTT, Modbus and S7 simulators in Docker
 dotnet run --project src/MachineDataBrowser.App
 ```
 
@@ -78,6 +80,7 @@ Then connect to one of these:
 - `mqtt://127.0.0.1:1883`
 - `modbus://127.0.0.1:5020/1` (import `simulators/modbus/simulator-map.csv` as its register map, or open
   `simulators/modbus/simulator.mdbsession`)
+- `s7://127.0.0.1/0,1` (import `simulators/s7/tags.csv` as its tag list, or open `simulators/s7/simulator.mdbsession`)
 
 [docs/simulators.md](docs/simulators.md) describes what each simulator contains.
 

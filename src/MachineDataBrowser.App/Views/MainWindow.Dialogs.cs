@@ -253,13 +253,19 @@ public sealed partial class MainWindow : IDialogService
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }
 
+    private static readonly FilePickerFileType TagListFileType = new("S7 tag list (CSV, SDF)")
+    {
+        Patterns = ["*.csv", "*.sdf"],
+        AppleUniformTypeIdentifiers = ["public.comma-separated-values-text", "public.plain-text"],
+    };
+
     public async Task<string?> PickTagMapFileAsync()
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Import Register Map",
+            Title = "Import Register Map or Tag List",
             AllowMultiple = false,
-            FileTypeFilter = [CsvFileType, FilePickerFileTypes.All],
+            FileTypeFilter = [CsvFileType, TagListFileType, FilePickerFileTypes.All],
         });
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }

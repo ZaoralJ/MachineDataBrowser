@@ -9,7 +9,7 @@ internal sealed class CliException(string message) : Exception(message);
 /// <summary>
 /// How to connect to an endpoint. <paramref name="ReadOnly"/>: the session it came from is read-only in the app.
 /// <paramref name="Named"/>: the MCP agent named it under an allow pattern (no credentials, never written to).
-/// <paramref name="TagMap"/>: full path of a register map naming the addresses (Modbus).
+/// <paramref name="TagMap"/>: full path of a tag map naming the addresses (Modbus register map, S7 tag list).
 /// </summary>
 internal sealed record ConnectionArgs(string Url, string? User, string? Password, bool Secure, bool TrustAll, bool ReadOnly = false, bool Named = false, string? TagMap = null);
 

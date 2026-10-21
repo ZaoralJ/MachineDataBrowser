@@ -135,11 +135,27 @@ public static class DeviceClient
     /// <summary>Allen-Bradley controllers over EtherNet/IP: Logix (<c>eip://</c>) or PCCC (<c>pccc://</c>). No security or credentials.</summary>
     public static bool IsAllenBradley(string endpointUrl) => IsEip(endpointUrl) || IsPccc(endpointUrl);
 
+    /// <summary>URL scheme of Siemens S7 endpoints: <c>s7://host[:port][/rack,slot]</c>, port 102, rack 0, slot 1 by default.</summary>
+    public const string S7Scheme = "s7";
+
+    public static bool IsS7(string endpointUrl) =>
+        endpointUrl.TrimStart().StartsWith(S7Scheme + "://", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Protocols without names in the device, which take a tag map (<see cref="ConnectOptions.TagMapPath"/>): a Modbus
+    /// register map or an S7 tag list (symbol table).
+    /// </summary>
+    public static bool UsesTagMap(string endpointUrl) => IsModbus(endpointUrl) || IsS7(endpointUrl);
+
+    /// <summary>What the protocol calls its tag map, lower case: "register map" (Modbus), "tag list" (S7).</summary>
+    public static string TagMapName(string endpointUrl) => IsS7(endpointUrl) ? "tag list" : "register map";
+
     /// <summary>Protocol name for people, from the endpoint URL.</summary>
     public static string ProtocolName(string endpointUrl) =>
         IsEip(endpointUrl) ? "EtherNet/IP (Logix)"
         : IsPccc(endpointUrl) ? "EtherNet/IP (PCCC)"
         : IsModbus(endpointUrl) ? "Modbus TCP"
+        : IsS7(endpointUrl) ? "S7 (Siemens)"
         : IsMqtt(endpointUrl) ? "MQTT"
         : "OPC UA";
 

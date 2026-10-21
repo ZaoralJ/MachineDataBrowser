@@ -29,6 +29,14 @@ public sealed class ValueDisplayTests
     }
 
     [Fact]
+    public void Floats_show_in_their_own_precision()
+    {
+        Assert.Equal("925.6076", ValueDisplay.Default.Apply(925.6076f, "925.6076"));
+        Assert.Equal("3.14", ValueDisplay.Default.Apply(3.14f, "3.14"));
+        Assert.Equal("925.6076049804688", ValueDisplay.Default.Apply(925.6076049804688, "925.6076049804688"));
+    }
+
+    [Fact]
     public void Non_numbers_and_floats_in_integer_formats_are_left_alone()
     {
         var hex = new ValueDisplay { Format = ValueFormat.Hex, Unit = "x" };

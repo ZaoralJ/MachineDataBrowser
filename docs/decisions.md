@@ -66,6 +66,25 @@ Modbus TCP and MQTT.
 - Own simulator (`simulators/pccc`): `ab_server` can't address sub-elements (`T4:0.ACC`) and runs one PLC type per
   process; ours serves SLC and PLC-5 commands from one data table.
 
+## S7 (Siemens): S7netplus
+
+- `S7netplus` (MIT) is pure managed .NET, so no native binaries per platform, and covers S7-300/400/1200/1500 with
+  PDU negotiation and chunking. The driver only uses its byte reads/writes and bit writes; addresses, types and
+  encoding are our own (`S7Address`, `S7Type`), so every type behaves the same for reads, writes and the poll path.
+  Sharp7 was the alternative: similar scope, lower level.
+- Classic S7comm has no symbol browsing (S7-1200/1500 symbolic access needs the proprietary S7comm-plus). Names come
+  from a **tag list file** (TIA Portal CSV, STEP 7 `.sdf`, plain CSV), plus a generic tree of the memory areas and
+  typed-in addresses for everything not in it.
+- The tag list is the connection's **tag map**, the same mechanism as Modbus register maps rather than a second one:
+  `ConnectOptions.TagMapPath`, `tagMap` in session files (relative to the session when in the same folder or below),
+  `--map` in the CLI, Import… in the app and `k` in the TUI; changing it reconnects. `?tags=` in the URL also works,
+  for MCP `--endpoint` and one-off commands; the tag map wins when both are given.
+- Ids are the canonical address with its type (`DB1.DBD4:REAL`) or the quoted symbol (`"Machine.Speed"`). Addresses
+  are stable across tag list changes; symbols survive address changes after a re-export.
+- No subscriptions: polling per refresh time, with neighbouring addresses of a cycle merged into few requests.
+- The simulator is python-snap7's pure-Python server (`simulators/s7`) with a patch for bit writes (the stock server
+  overwrites the whole byte); its symbol table `simulators/s7/tags.csv` doubles as an example tag list.
+
 ## MQTT: MQTTnet, with Sparkplug B
 
 - `MQTTnet` (MIT) supports MQTT 3.1.1 and 5, TLS and WebSocket on every platform the app targets.

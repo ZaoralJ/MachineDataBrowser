@@ -275,16 +275,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsOpcUaEndpoint), nameof(IsMqttEndpoint), nameof(IsModbusEndpoint), nameof(HasCredentials), nameof(OptionsSummary))]
+    [NotifyPropertyChangedFor(nameof(IsOpcUaEndpoint), nameof(IsMqttEndpoint), nameof(IsModbusEndpoint), nameof(SupportsTagMap), nameof(TagMapLabel), nameof(HasCredentials), nameof(OptionsSummary))]
     [NotifyCanExecuteChangedFor(nameof(ImportTagMapCommand))]
     public partial string EndpointUrl { get; set; } = "opc.tcp://localhost:50000";
 
-    /// <summary>Security, credentials and certificate trust only apply to OPC UA, not to EtherNet/IP (<c>eip://</c>, <c>pccc://</c>) or Modbus.</summary>
-    public bool IsOpcUaEndpoint => !DeviceClient.IsAllenBradley(EndpointUrl ?? string.Empty) && !DeviceClient.IsModbus(EndpointUrl ?? string.Empty)
+    /// <summary>Security, credentials and certificate trust only apply to OPC UA, not to EtherNet/IP (<c>eip://</c>, <c>pccc://</c>), Modbus or S7.</summary>
+    public bool IsOpcUaEndpoint => !DeviceClient.IsAllenBradley(EndpointUrl ?? string.Empty) && !DeviceClient.UsesTagMap(EndpointUrl ?? string.Empty)
         && !DeviceClient.IsMqtt(EndpointUrl ?? string.Empty);
 
-    /// <summary>User name, password and certificate trust apply to OPC UA and MQTT (mqtts://, wss://), not to EtherNet/IP or Modbus.</summary>
-    public bool HasCredentials => !DeviceClient.IsAllenBradley(EndpointUrl ?? string.Empty) && !DeviceClient.IsModbus(EndpointUrl ?? string.Empty);
+    /// <summary>User name, password and certificate trust apply to OPC UA and MQTT (mqtts://, wss://), not to EtherNet/IP, Modbus or S7.</summary>
+    public bool HasCredentials => !DeviceClient.IsAllenBradley(EndpointUrl ?? string.Empty) && !DeviceClient.UsesTagMap(EndpointUrl ?? string.Empty);
 
     /// <summary>The last connected endpoint, or localhost when there is no history.</summary>
     private string DefaultEndpointUrl => Settings.RecentEndpoints.Count > 0 ? Settings.RecentEndpoints[0] : "opc.tcp://localhost:50000";
@@ -392,6 +392,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         if (DeviceClient.IsModbus(EndpointUrl ?? string.Empty))
         {
             return HasTagMap ? $"Modbus TCP · {TagMapName} · {refresh}" : $"Modbus TCP · {refresh}";
+        }
+
+        if (DeviceClient.IsS7(EndpointUrl ?? string.Empty))
+        {
+            return HasTagMap ? $"S7 · {TagMapName} · {refresh}" : $"S7 · no tag list · {refresh}";
         }
 
         if (DeviceClient.IsMqtt(EndpointUrl ?? string.Empty))

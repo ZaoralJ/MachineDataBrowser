@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "endpointUrl": "s7://127.0.0.1:102/0,1",
+  "useSecurity": false,
+  "readOnly": false,
+  "autoAcceptCertificates": false,
+  "userName": null,
+  "defaultRefreshMs": null,
+  "tagMap": "tags.csv",
+  "watch": [
+    {
+      "nodeId": "\u0022Machine.Running\u0022",
+      "displayName": "Running",
+      "path": "Tags/Machine"
+    },
+    {
+      "nodeId": "\u0022Machine.Fault\u0022",
+      "displayName": "Fault",
+      "path": "Tags/Machine"
+    },
+    {
+      "nodeId": "\u0022Machine.Blink\u0022",
+      "displayName": "Blink",
+      "path": "Tags/Machine"
+    },
+    {
+      "nodeId": "\u0022Machine.Speed\u0022",
+      "displayName": "Speed",
+      "path": "Tags/Machine"
+    },
+    {
+      "nodeId": "\u0022Machine.Counter\u0022",
+      "displayName": "Counter",
+      "path": "Tags/Machine"
+    },
+    {
+      "nodeId": "\u0022Machine.Temperature\u0022",
+      "displayName": "Temperature",
+      "path": "Tags/Machine"
+    },
+    {
+      "nodeId": "\u0022Machine.Pressure\u0022",
+      "displayName": "Pressure",
+      "path": "Tags/Machine"
+    },
+    {
+      "nodeId": "\u0022Machine.Mode\u0022",
+      "displayName": "Mode",
+      "path": "Tags/Machine"
+    },
+    {
+      "nodeId": "\u0022Machine.Status\u0022",
+      "displayName": "Status",
+      "path": "Tags/Machine"
+    },
+    {
+      "nodeId": "\u0022Machine.Name\u0022",
+      "displayName": "Name",
+      "path": "Tags/Machine"
+    },
+    {
+      "nodeId": "\u0022Machine.Setpoint\u0022",
+      "displayName": "Setpoint",
+      "path": "Tags/Machine"
+    },
+    {
+      "nodeId": "\u0022Machine.Recipe\u0022",
+      "displayName": "Recipe",
+      "path": "Tags/Machine"
+    },
+    {
+      "nodeId": "\u0022Machine.Runtime\u0022",
+      "displayName": "Runtime",
+      "path": "Tags/Machine"
+    },
+    {
+      "nodeId": "\u0022Arrays.Reals\u0022",
+      "displayName": "Reals",
+      "path": "Tags/Arrays"
+    },
+    {
+      "nodeId": "\u0022PauseSimulation\u0022",
+      "displayName": "PauseSimulation",
+      "path": "Tags"
+    }
+  ],
+  "bookmarks": [],
+  "groupWatchByPath": false
+}

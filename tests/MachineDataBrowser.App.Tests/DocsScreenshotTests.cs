@@ -19,7 +19,7 @@ namespace MachineDataBrowser.App.Tests;
 /// real app against the test servers and opens dialogs through the app's own commands.
 /// Skipped unless <c>MDB_DOCS_SCREENSHOTS=1</c> (<c>just docs-screenshots</c>): live values differ on every run.
 /// </summary>
-public sealed class DocsScreenshotTests(OpcPlcFixture plc, CustomTypesServerFixture custom, MqttSimulatorFixture broker) : IDisposable
+public sealed class DocsScreenshotTests(OpcPlcFixture plc, CustomTypesServerFixture custom, MqttSimulatorFixture broker, S7SimulatorFixture s7) : IDisposable
 {
     private static readonly string OutputDir = Path.Combine(RepoRoot(), "docs", "images");
 
@@ -125,6 +125,29 @@ public sealed class DocsScreenshotTests(OpcPlcFixture plc, CustomTypesServerFixt
         vm.SelectedNode = await Navigate(vm, "Topics", "machines", "m1", "status");
         await Until(() => vm.HasAttributes && vm.WatchItems.All(w => w.UpdateCount > 1));
         Save(window, "mqtt.png");
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task S7_tag_list_and_connection_options()
+    {
+        var (vm, window) = await OpenAsync($"s7://{s7.Host}/0,1", connect: false);
+        await using var connection = vm;
+        vm.TagMapPath = S7SimulatorFixture.TagFile;
+        var options = window.GetVisualDescendants().OfType<Button>().Single(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Connection options");
+        options.Flyout!.ShowAt(options);
+        Save(window, "s7-connection-options.png");
+        options.Flyout.Hide();
+
+        await vm.ConnectCommand.ExecuteAsync(null);
+        Assert.True(vm.IsConnected);
+        await vm.DropNodesAsync([await Navigate(vm, "Tags", "Machine")]);
+        await WatchAsync(vm, "Tags", "Arrays", "Reals");
+        await WatchAsync(vm, "Data blocks", "DB3", "DBB1");
+        (await Navigate(vm, "Data blocks", "DB3", "DBB1")).IsExpanded = true;
+        vm.SelectedNode = await Navigate(vm, "Tags", "Machine", "Speed");
+        await Until(() => vm.HasAttributes && vm.WatchItems.All(w => w.UpdateCount > 0));
+        Save(window, "s7.png");
         window.Close();
     }
 

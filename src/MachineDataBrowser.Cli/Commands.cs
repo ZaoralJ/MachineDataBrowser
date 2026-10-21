@@ -26,7 +26,7 @@ internal static class Commands
 
     public static RootCommand Build(TextWriter stdout, TextWriter stderr, IAnsiConsole? terminal = null)
     {
-        var url = new Argument<string>("url") { Description = "Endpoint: opc.tcp://host:4840, eip://host/1,0, pccc://host?plc=slc500, modbus://host[:502][/unit], mqtt://broker[/topic/#]" };
+        var url = new Argument<string>("url") { Description = "Endpoint: opc.tcp://host:4840, eip://host/1,0, pccc://host?plc=slc500, modbus://host[:502][/unit], s7://host[/rack,slot], mqtt://broker[/topic/#]" };
         var user = new Option<string?>("--user", "-u") { Description = "User name (OPC UA, MQTT)" };
         var password = new Option<string?>("--password", "-p") { Description = $"Password; or set {PasswordVariable}" };
         var secure = new Option<bool>("--secure") { Description = "OPC UA: use the most secure endpoint the server offers" };
@@ -39,7 +39,7 @@ internal static class Commands
             CustomParser = r => ParseDuration(r.Tokens.Single().Value, r),
         };
         var count = new Option<int?>("--count", "-n") { Description = "Stop after this many updates" };
-        var tagMap = new Option<string?>("--map", "-m") { Description = "Modbus: register map naming the device's addresses (CSV: name,address[,unit][,description])" };
+        var tagMap = new Option<string?>("--map", "-m") { Description = "Modbus: register map (CSV: name,address[,unit][,description]); S7: tag list (TIA Portal CSV, STEP 7 .sdf). Saved in session files" };
         var ids = new Option<bool>("--ids") { Description = "Show node ids next to names (shown anyway when names repeat)" };
 
         // Equal names (the same variable under two objects) can't be told apart without their ids.
@@ -92,7 +92,7 @@ internal static class Commands
         endpoints.SetAction((r, ct) => Guard(stderr, async () =>
         {
             var target = r.GetValue(url)!;
-            if (DeviceClient.IsAllenBradley(target) || DeviceClient.IsModbus(target) || DeviceClient.IsMqtt(target))
+            if (DeviceClient.IsAllenBradley(target) || DeviceClient.UsesTagMap(target) || DeviceClient.IsMqtt(target))
             {
                 throw new CliException("endpoints works for OPC UA (opc.tcp://) only.");
             }
@@ -601,7 +601,7 @@ internal static class Commands
         var session = new Command("session", "Create session files for the app, or add nodes to them or remove them") { create, add, remove };
 
         // tui
-        var tuiTarget = new Argument<string>("target") { Description = "Endpoint (opc.tcp://…, eip://…, pccc://…, modbus://…, mqtt://…) or a session file (.mdbsession)" };
+        var tuiTarget = new Argument<string>("target") { Description = "Endpoint (opc.tcp://…, eip://…, pccc://…, modbus://…, s7://…, mqtt://…) or a session file (.mdbsession)" };
         var tuiTheme = new Option<string?>("--theme") { Description = $"Colour theme, like the app's: {string.Join(", ", ColorThemeCatalog.All.Select(t => t.Name))} (default: the app's)" };
         tuiTheme.AcceptOnlyFromAmong([.. ColorThemeCatalog.All.Select(t => t.Name)]);
         var tuiLight = new Option<bool>("--light") { Description = "Light appearance of the theme (default: the app's; dark when it follows the system)" };
@@ -681,7 +681,7 @@ internal static class Commands
         }
 
         return new RootCommand(
-            "Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix), Modbus TCP and MQTT. " +
+            "Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix), Modbus TCP, S7 (Siemens) and MQTT. " +
             "Pass a URL to open the full-screen browser.")
         {
             endpoints, browse, read, monitor, run, write, session, mcp, tui,

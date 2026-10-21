@@ -11,6 +11,7 @@
     <Project Path="src/MachineDataBrowser.Driver.Mqtt/MachineDataBrowser.Driver.Mqtt.csproj" />
     <Project Path="src/MachineDataBrowser.Driver.Pccc/MachineDataBrowser.Driver.Pccc.csproj" />
     <Project Path="src/MachineDataBrowser.Driver.OpcUa/MachineDataBrowser.Driver.OpcUa.csproj" />
+    <Project Path="src/MachineDataBrowser.Driver.S7/MachineDataBrowser.Driver.S7.csproj" />
   </Folder>
   <Folder Name="/src/Recording/">
     <Project Path="src/MachineDataBrowser.Recording/MachineDataBrowser.Recording.csproj" />
@@ -18,6 +19,12 @@
     <Project Path="src/MachineDataBrowser.Recording.Formats/MachineDataBrowser.Recording.Formats.csproj" />
     <Project Path="src/MachineDataBrowser.Recording.Json/MachineDataBrowser.Recording.Json.csproj" />
     <Project Path="src/MachineDataBrowser.Recording.Sqlite/MachineDataBrowser.Recording.Sqlite.csproj" />
+  </Folder>
+  <Folder Name="/simulators/s7/">
+    <File Path="simulators/s7/tags.csv" />
+    <File Path="simulators/s7/simulator.mdbsession" />
+    <File Path="simulators/s7/s7_server.py" />
+    <File Path="simulators/s7/Dockerfile" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MachineDataBrowser.App.Tests/MachineDataBrowser.App.Tests.csproj" />

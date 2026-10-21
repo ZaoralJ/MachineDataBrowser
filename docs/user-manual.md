@@ -6,6 +6,7 @@ Machine Data Browser is a viewer for machine data. It connects to:
 - Allen-Bradley **Logix** controllers over EtherNet/IP (`eip://`),
 - **Modbus TCP** devices (`modbus://`), with an optional register map that names their addresses,
 - Allen-Bradley **SLC 500**, **MicroLogix** and **PLC-5** controllers over EtherNet/IP with PCCC (`pccc://`),
+- Siemens **S7** controllers (S7-300/400/1200/1500) over ISO-on-TCP (`s7://`), with an optional tag list,
 - **MQTT** brokers (`mqtt://`, `mqtts://`, `ws://`, `wss://`), including **Sparkplug B** and **CloudEvents**.
 
 It shows the address space and attributes, watches live values, records them and exports them. It can also write
@@ -27,7 +28,7 @@ flowchart LR
 
 | Pane | What it shows |
 |---|---|
-| **Address Space** (⌘1) | tree of the device: OPC UA nodes, Logix tags, MQTT topics and Sparkplug metrics |
+| **Address Space** (⌘1) | tree of the device: OPC UA nodes, Logix and S7 tags, Modbus addresses, MQTT topics |
 | **Attributes** (⌘2) | attributes of the selected node; a variable's value updates live |
 | **Watch** (⌘3) | monitored values: status, refresh, last update, since, recorded samples, value |
 | **Recordings** (⌘4) | recordings with state, elapsed time, kept samples and details |
@@ -59,6 +60,7 @@ Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ but
 | EtherNet/IP | `eip://127.0.0.1:44818/1,0` | `/backplane,slot`; defaults to `1,0` |
 | Modbus TCP | `modbus://127.0.0.1:5020/1` | `/unit id`; port defaults to 502, unit to 1. ⚙ options: register map |
 | PCCC | `pccc://127.0.0.1:44819?plc=slc500` | `plc=` `slc500` (default), `micrologix`, `plc5`; files: `&files=N10,ST11` |
+| S7 | `s7://127.0.0.1/0,1` | `/rack,slot`; defaults to `0,1` (S7-1200/1500); S7-300 is usually `0,2`. ⚙ options: tag list. See [S7](#s7) |
 | MQTT | `mqtt://127.0.0.1:1883` | TLS `mqtts://` (8883), WebSocket `ws://127.0.0.1:9001` / `wss://` |
 | MQTT, narrowed | `mqtt://127.0.0.1:1883/plant/#` or `mqtt://127.0.0.1:1883?topic=machines/%2B/status` | subscribe only to part of the broker |
 | MQTT with login | `mqtt://user:password@127.0.0.1:1883` | or user name/password in the ⚙ options |
@@ -68,6 +70,7 @@ Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ but
 - For OPC UA and MQTT: user name and password.
 - For OPC UA only: "Use secure endpoint".
 - For Modbus only: the **register map** (see [Modbus](#modbus)). **Import…** picks a CSV file, **Remove** drops it.
+- For S7 only: the **tag list** (see [S7 tag lists](#s7-tag-lists)), with the same Import… and Remove.
 - "Auto-trust server certificates" accepts OPC UA server certificates and TLS certificates of MQTT brokers without
   checking them. Use it on lab networks only.
 - With auto-trust off, an OPC UA server whose certificate is not trusted yet shows it (subject, issuer, validity,
@@ -90,6 +93,9 @@ values seem to stop:
   - Modbus: device, unit id, timeout, link drops, the register map, requests per second and failures, and per
     refresh time the values polled, how many requests one cycle needs, the last cycle and the last error.
   - PCCC: gateway, controller family, timeout, link drops, the data files found, and the same read and poll figures.
+  - S7: host, CPU type, rack and slot, RUN/STOP, negotiated PDU size, link drops, the tag list (tags and skipped
+    entries), requests per second and failures, and per refresh time the values polled, the requests a cycle took and
+    how long.
 - *This app*: watched items, value updates per second, and how many rows are stale, bad or uncertain.
 - *Subscriptions* (OPC UA): the publishing interval the server granted (it may differ from the refresh time), items,
   notifications and when the last one arrived.
@@ -123,7 +129,7 @@ connection by itself. Watch items and recordings continue after that.
 
 Select a node and press **B** (or right-click ▸ **Bookmark**) to bookmark it; again removes it. The bookmark button in
 the Address Space toolbar lists them with their path: click one to open the tree there, ✕ removes it. Bookmarks are
-saved with the session (node ids are per server) and work for OPC UA, EtherNet/IP and MQTT.
+saved with the session (node ids are per server) and work for every protocol.
 
 ![Bookmarks list in the Address Space toolbar](images/bookmarks.png)
 
@@ -158,6 +164,8 @@ saved with the session (node ids are per server) and work for OPC UA, EtherNet/I
     `UN`; `EU`, `EM`, `ER`, `UL`, `IN`, `FD`, `LEN`, `POS`). Binary words expand into their 16 bits.
   - Supported files: O, I, S, B, N (INT), F (REAL), L (DINT), ST (string), T, C, R. Bits of N, L, O, I and S words
     can be watched by address (`N7:0/3`). PLC-5 I/O element numbers are decimal here, not octal as in RSLogix 5.
+- **S7:** see [S7](#s7) below: *Tags* from the tag list, then *Data blocks*, *Inputs*, *Outputs* and *Memory* with
+  their first bytes and bits.
 - **MQTT, *Topics*:** topic levels as folders. A topic that received a message is a variable.
   - A topic can have a value and also subtopics, e.g. `plant/hall1`.
   - JSON payloads expand into their fields, so you can watch or chart a single field such as
@@ -216,13 +224,68 @@ number, and a **register map** can give them names.
 
   `/` in a name makes folders. Unit and description are optional; the unit shows in Watch and Attributes like an OPC
   UA engineering unit. Import it in the connection options (⚙ ▸ Register map ▸ **Import…**) or with Connection ▸
-  **Import Register Map…** (⌥⌘K); when connected, the app reconnects and the names appear under *Tags* in the tree.
+  **Import Register Map / Tag List…** (⌥⌘K); when connected, the app reconnects and the names appear under *Tags* in the tree.
   The map is saved with the session: relative to the session file when it is in the same folder or below (so they can
   be copied together), otherwise as a full path. A map with an error (bad address, a name used twice) stops the
   connection with the line number.
 - **Reading:** watched values are polled at their refresh time. Addresses close to each other are read in one request
   (up to 125 registers or 2000 bits); if one of them doesn't exist, the others are read one by one so they still
   update.
+
+### S7
+
+Classic S7 controllers can't list their variables, so the tree is built from three sources:
+
+![S7 controller: tags from the tag list, a data block's bytes and bits, attributes of a symbol](images/s7.png)
+
+- **Tags:** the symbols of an imported [tag list](#s7-tag-lists), by name. Dots in a name become folders
+  (`Machine.Speed` is *Tags ▸ Machine ▸ Speed*), and so does the TIA Portal tag table.
+- **Data blocks, Inputs, Outputs, Memory:** the first 64 bytes of each area as `BYTE` values; a byte expands into
+  its eight bits. *Data blocks* lists the DBs the tag list uses, plus those in the URL (`?db=1,2,10`). `?bytes=256`
+  shows more bytes per area.
+- **Typed-in addresses:** any address can be watched or read without a tag list, with an optional type after a
+  colon. Use them in the CLI, in session files or with Watch ▸ add by id.
+
+| Address | Meaning |
+|---|---|
+| `DB1.DBX0.0`, `M0.0`, `I1.7`, `Q4.0` | a bit (`BOOL`) |
+| `DB1.DBB2`, `MB10`, `IB0` | a byte (`BYTE`) |
+| `DB1.DBW4`, `MW2:INT`, `IW64:INT` | a word (`WORD`, or the type after `:`) |
+| `DB1.DBD8:REAL`, `MD4:DINT` | a double word (`DWORD`, or the type after `:`) |
+| `DB1.DBB14:LREAL`, `DB1.DBB26:STRING[20]` | larger types start at a byte address |
+| `DB2.DBD0:REAL[10]`, `DB2.DBX60.0:BOOL[16]` | arrays: the element type and count |
+
+- Types: `BOOL BYTE WORD DWORD LWORD CHAR WCHAR SINT USINT INT UINT DINT UDINT LINT ULINT REAL LREAL STRING[n]
+  WSTRING[n] TIME DATE TIME_OF_DAY`. German mnemonics (`E`, `A`, `EW`, `AB`) and TIA's `%` are accepted.
+- **Optimized block access** (S7-1200/1500 default) has no absolute addresses: switch it off for the DBs you want to
+  read (block properties ▸ Attributes), and allow *PUT/GET communication* in the CPU's protection settings.
+- Values are polled (S7 has no subscriptions): addresses close together in one area are read in one request.
+- **Writing:** a single `BOOL` writes just that bit; `BOOL` arrays read the bytes, change the bits and write them back.
+  Strings keep their maximum length and fail when the text doesn't fit.
+
+### S7 tag lists
+
+A tag list gives the S7 tree its names. Supported files:
+
+- **TIA Portal:** PLC tags ▸ Export (an `.xlsx`), saved as CSV from Excel: columns *Name*, *Path*, *Data Type*,
+  *Logical Address*, *Comment*. Tags without an absolute address (optimized DBs) are skipped.
+- **STEP 7 (classic):** Symbol table ▸ Export as *System Data Format* (`.sdf`).
+- **Any CSV** with a header naming at least a name and an address column (`Name`/`Symbol`, `Address`/`Operand`, plus
+  optional `Type`/`Data Type` and `Comment`); separators `,` `;` or tab. Without a header: name, address, type,
+  comment.
+
+<img src="images/s7-connection-options.png" alt="Connection options of an S7 endpoint with its tag list" width="60%">
+
+Import it like a Modbus register map: in the connection options (⚙ ▸ *Tag list* ▸ **Import…**) or with Connection ▸
+**Import Register Map / Tag List…** (⌥⌘K); when connected, the app reconnects and the names appear under *Tags*.
+**Remove** goes back to areas and addresses only. Entries that can't be used (unsupported types such as UDTs or
+`DTL`, no address, a name defined twice) are skipped; Connection ▸ Diagnostics lists them.
+
+The tag list is **saved with the session** (`tagMap`): relative to the session file when it is in the same folder or
+below, so the folder can be moved or shared; absolute otherwise. Keep the export next to the session. Watch rows store
+the symbol (`"Machine.Speed"`) or address (`DB1.DBD2:REAL`), so they work again when the session is opened. The CLI
+(`--map`) and the TUI (`k`) use the same tag list from the session ([command line](cli.md#s7)); `?tags=<file>` in the
+URL works too.
 
 ## Watch
 
@@ -252,7 +315,7 @@ and sort order are saved with the session.
   with the session. Rows from session files saved before 0.10.0 have no path and are grouped under *(no path)*; add
   them again to group them.
 - **Refresh time:** 1–7 (100 ms … 10 s), T for a custom time, or right-click ▸ Refresh time.
-  - OPC UA uses it as the sampling interval, Logix as the poll interval.
+  - OPC UA uses it as the sampling interval, Logix, Modbus and S7 as the poll interval.
   - For MQTT it is a maximum update rate: at most the latest value once per interval. **0** means every message;
     use it for events, CloudEvents or anything where each message matters.
 - **Display format:** right-click ▸ **Display format…** for the selected rows (every protocol).
@@ -347,6 +410,8 @@ The app writes to a device only when you ask it to.
     with its type from the id (`hr:20:float32` writes two registers). Strings are padded with zero bytes.
   - **PCCC:** elements, timer/counter/control words and bits. A bit is written as read-modify-write of its word
     in two requests, so if the program changes another bit of that word in between, that change is lost.
+  - **S7:** every supported type and array, as described under [S7](#s7). The program may overwrite the value in its
+    next cycle; a CPU with write protection rejects it (`BadNotWritable`).
   - **MQTT:** a topic is republished with the same payload kind, retain flag and properties; a JSON field republishes
     the last document with the field changed; a Sparkplug B metric is sent as a command (NCMD/DCMD).
 - Several Watch rows get the same value; failures are listed per item.
@@ -498,7 +563,7 @@ wins.
 
 - **Sessions (`.mdbsession`; `.opcsession` files from before the rename still open):**
   - A session holds the endpoint and its options (read-only, auto-trust, user name; never passwords; Modbus: the
-    register map), the default refresh, bookmarks, and the watch list: rows with their path, refresh time, display
+    register map; S7: the tag list), the default refresh, bookmarks, and the watch list: rows with their path, refresh time, display
     format and monitoring settings, plus columns, sort order and grouping.
   - New ⌘N, Open ⌘O, Save ⌘S, Save As ⇧⌘S, File ▸ Open Recent.
   - Settings can reopen the last session at start.
@@ -546,6 +611,10 @@ right-click menus and the tooltips. **Help ▸ Keyboard Shortcuts** (⌘/) lists
 | Modbus: `BadNodeIdUnknown` | The device has no such address (Modbus exception 2); check the area and that addresses are 0-based |
 | Modbus: wrong numbers | Check the type and word order (`:swap`) in the device manual |
 | Modbus: no answer, `BadTimeout` | Check the unit id in the URL (`/1`); gateways need the id of the device behind them |
+| S7: can't connect | Rack/slot (`/0,1` for S7-1200/1500, `/0,2` for S7-300); *PUT/GET communication* allowed in the CPU |
+| S7: `BadNodeIdUnknown` | The DB doesn't exist, or uses optimized block access (no absolute addresses) |
+| S7: `BadOutOfRange` | The address is past the end of the DB or area |
+| S7: no *Tags* folder | No tag list imported, or every entry was skipped (Connection ▸ Diagnostics shows why) |
 | EtherNet/IP: no tags | Only Logix (ControlLogix/CompactLogix) lists tags; check the path (`/1,0` = backplane 1, slot 0) |
 | PCCC: a data file is missing | Only the standard files are tried; add others to the endpoint: `?files=N10,ST12` |
 | PCCC: `No data files found` | Check the address and `plc=`; needs an Ethernet port (SLC 5/05, MicroLogix 1100/1400, PLC-5/xxE) |
@@ -556,5 +625,5 @@ right-click menus and the tooltips. **Help ▸ Keyboard Shortcuts** (⌘/) lists
 | MQTT: values stop, metrics Bad | The Sparkplug node or device sent a DEATH, or the broker connection is reconnecting (status bar) |
 | Something failed | The error bar shows it; details are in `logs/machinedatabrowser.log` in the data folder |
 
-For local test servers (OPC UA, Logix, SLC 500 / PLC-5, MQTT with Sparkplug B and CloudEvents) see
+For local test servers (OPC UA, Logix, SLC 500 / PLC-5, Modbus, S7, MQTT with Sparkplug B and CloudEvents) see
 [simulators.md](simulators.md).

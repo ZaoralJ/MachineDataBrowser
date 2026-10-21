@@ -7,6 +7,7 @@ opcua_image := "machinedatabrowser-opcua-simulator:dev"
 custom_image := "machinedatabrowser-opcua-custom:dev"
 mqtt_image := "machinedatabrowser-mqtt-simulator:dev"
 modbus_image := "machinedatabrowser-modbus-simulator:dev"
+s7_image := "machinedatabrowser-s7-simulator:dev"
 
 default:
     @just --list
@@ -81,6 +82,13 @@ modbus port="5020" tick_ms="100":
 modbus-local port="5020":
     cd simulators/modbus && MODBUS_SIM_PORT={{port}} python3 modbus_server.py
 
+# Siemens S7 simulator (python-snap7) -> s7://127.0.0.1:PORT/0,1 with tag map simulators/s7/tags.csv
+s7 port="102" tick_ms="50":
+    docker build -t {{s7_image}} simulators/s7
+    -docker rm -f machinedatabrowser-s7 >/dev/null 2>&1
+    @echo "Tag map: simulators/s7/tags.csv (or open simulators/s7/simulator.mdbsession)"
+    docker run --rm -it --name machinedatabrowser-s7 -p {{port}}:102 -e S7_SIM_TICK_MS={{tick_ms}} {{s7_image}}
+
 # Start all simulators in the background
 all: stop
     docker build -t {{cip_image}} simulators/cip
@@ -89,25 +97,27 @@ all: stop
     docker build -t {{custom_image}} simulators/opcua-custom
     docker build -t {{mqtt_image}} simulators/mqtt
     docker build -t {{modbus_image}} simulators/modbus
+    docker build -t {{s7_image}} simulators/s7
     docker run -d --rm --name machinedatabrowser-cip -p 44818:44818 {{cip_image}}
     docker run -d --rm --name machinedatabrowser-pccc -p 44819:44818 {{pccc_image}}
     docker run -d --rm --name machinedatabrowser-opcua -p 50000:50000 -p 8080:8080 {{opcua_image}}
     docker run -d --rm --name machinedatabrowser-opcua-custom -p 4841:4841 {{custom_image}}
     docker run -d --rm --name machinedatabrowser-mqtt -p 1883:1883 -p 9001:9001 {{mqtt_image}}
     docker run -d --rm --name machinedatabrowser-modbus -p 5020:502 {{modbus_image}}
-    @echo "eip://127.0.0.1:44818/1,0  pccc://127.0.0.1:44819?plc=slc500  opc.tcp://127.0.0.1:50000  opc.tcp://127.0.0.1:4841/  mqtt://127.0.0.1:1883  modbus://127.0.0.1:5020/1"
+    docker run -d --rm --name machinedatabrowser-s7 -p 102:102 {{s7_image}}
+    @echo "eip://127.0.0.1:44818/1,0  pccc://127.0.0.1:44819?plc=slc500  opc.tcp://127.0.0.1:50000  opc.tcp://127.0.0.1:4841/  mqtt://127.0.0.1:1883  modbus://127.0.0.1:5020/1  s7://127.0.0.1:102/0,1"
 
 # Stop all simulator containers
 stop:
-    -docker rm -f machinedatabrowser-cip machinedatabrowser-pccc machinedatabrowser-opcua machinedatabrowser-opcua-custom machinedatabrowser-mqtt machinedatabrowser-modbus
+    -docker rm -f machinedatabrowser-cip machinedatabrowser-pccc machinedatabrowser-opcua machinedatabrowser-opcua-custom machinedatabrowser-mqtt machinedatabrowser-modbus machinedatabrowser-s7
 
-# Follow a simulator's log (cip | pccc | opcua | opcua-custom | mqtt | modbus)
+# Follow a simulator's log (cip | pccc | opcua | opcua-custom | mqtt | modbus | s7)
 logs name="cip":
     docker logs -f machinedatabrowser-{{name}}
 
 # Core tests against the simulators (needs Docker)
 test-sim:
-    dotnet test tests/MachineDataBrowser.Core.Tests -- --filter-class "*CipClientTests" --filter-class "*CustomTypesTests" --filter-class "*MqttClientTests" --filter-class "*CipConnectionLossTests" --filter-class "*ModbusClientTests" --filter-class "*PcccClientTests"
+    dotnet test tests/MachineDataBrowser.Core.Tests -- --filter-class "*CipClientTests" --filter-class "*CustomTypesTests" --filter-class "*MqttClientTests" --filter-class "*CipConnectionLossTests" --filter-class "*ModbusClientTests" --filter-class "*PcccClientTests" --filter-class "*S7*"
 
 # Regenerate the dark-theme screenshots in docs/images (needs Docker; compresses them with pngquant)
 docs-screenshots:

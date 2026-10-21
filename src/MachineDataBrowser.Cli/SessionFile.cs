@@ -23,7 +23,7 @@ internal sealed record SessionFile
 
     public int? DefaultRefreshMs { get; init; }
 
-    /// <summary>Modbus register map, relative to the session file or absolute (<see cref="TagMapReference"/>).</summary>
+    /// <summary>Modbus register map or S7 tag list, relative to the session file or absolute (<see cref="TagMapReference"/>).</summary>
     public string? TagMap { get; init; }
 
     public IReadOnlyList<SessionWatchEntry>? Watch { get; init; }

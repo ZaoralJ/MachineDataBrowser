@@ -1,6 +1,6 @@
 # Test servers (simulators)
 
-Six containers under `simulators/` cover local development, manual/user testing and the integration tests.
+Seven containers under `simulators/` cover local development, manual/user testing and the integration tests.
 Start them with [`just`](https://github.com/casey/just) from the repository root:
 
 ```sh
@@ -10,7 +10,8 @@ just opcua          # opc-plc               -> opc.tcp://127.0.0.1:50000
 just opcua-custom   # custom types (asyncua) -> opc.tcp://127.0.0.1:4841/
 just mqtt           # MQTT broker + traffic  -> mqtt://127.0.0.1:1883 (ws://127.0.0.1:9001)
 just modbus         # Modbus TCP device      -> modbus://127.0.0.1:5020/1
-just all            # all six in the background (replaces running ones); `just stop` removes them
+just s7             # Siemens S7 (snap7)     -> s7://127.0.0.1:102/0,1, tag list simulators/s7/tags.csv
+just all            # all seven in the background (replaces running ones); `just stop` removes them
 just logs cip       # follow a background container's log
 just cip-debug      # log every CIP request (service, path, sizes)
 just pccc-debug     # log every PCCC request
@@ -31,6 +32,7 @@ while paused, so values continue from where they were rather than jumping. Each 
 | Custom types | `/Objects/Custom/PauseSimulation` |
 | MQTT | topic `simulator/PauseSimulation` (retained, payload `true`/`false`); the app writes it like any topic |
 | Modbus | coil `co:0` (`/Tags/Simulator/PauseSimulation` with the simulator's map) |
+| S7 | `M0.0` (symbol `PauseSimulation` in `tags.csv`) |
 | opc-plc | no single tag; call `Objects/OpcPlc/Methods/StopUpdateFastNodes` / `StopUpdateSlowNodes` (and `Start…`) |
 
 ```sh
@@ -38,6 +40,7 @@ mdbrowser write eip://127.0.0.1:44818/1,0 PauseSimulation true --yes
 mdbrowser write opc.tcp://127.0.0.1:4841 /Objects/Custom/PauseSimulation false --yes
 mdbrowser write modbus://127.0.0.1:5020/1 co:0 true --yes
 mdbrowser write "pccc://127.0.0.1:44819?plc=slc500" B3:0/0 true --yes
+mdbrowser write s7://127.0.0.1/0,1 M0.0 true --yes
 ```
 
 opc-plc is Microsoft's image: its methods pause only the Fast and Slow telemetry nodes. Basic, Anomaly, alarms and
@@ -242,6 +245,34 @@ mdbrowser read modbus://127.0.0.1:5020/1 /Tags/Static -R --map simulators/modbus
 | `MODBUS_SIM_TICK_MS` | `100` | how often the changing values update |
 | `MODBUS_SIM_LOG` | `INFO` | `DEBUG` logs every request |
 
+## S7 simulator (`simulators/s7`)
+
+A Siemens S7 server from [python-snap7](https://github.com/gijzelaerr/python-snap7) (pure Python) on ISO-on-TCP port
+102, rack 0, slot 1. It answers like an S7 CPU with non-optimized data blocks: reads, writes (bit writes change only
+that bit, which the stock snap7 server gets wrong), PDU negotiation and errors for unknown DBs or addresses out of
+range. Values change every 50 ms (`S7_SIM_TICK_MS`).
+
+**Tag map:** [`simulators/s7/tags.csv`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/s7/tags.csv)
+is the symbol table for every address below, in the TIA Portal CSV layout (Name, Path, Data Type, Logical Address,
+Comment). Import it in the app (Connection ▸ Import Register Map / Tag List…) or pass it with `--map`.
+[`simulators/s7/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/s7/simulator.mdbsession)
+is a session with the tag map and a watch list: File ▸ Open in the app, or `mdbrowser tui simulators/s7/simulator.mdbsession`.
+Both are in the solution under *simulators/s7*.
+
+| Area | Content |
+|------|---------|
+| DB1 *Machine* (64 bytes) | `Running`, `Fault` (10 s), `Blink` (every tick), `Speed` REAL, `Counter` DINT, `Temperature` REAL, `Pressure` LREAL, `Mode` INT, `Status` WORD, `Runtime` TIME; writable and static: `Name` STRING[20], `Setpoint` REAL, `Recipe` INT |
+| DB2 *Arrays* (72 bytes) | `Reals` REAL[10] (sines), `Ints` INT[10] (counters), `Bools` BOOL[16] (walking bit), `Bytes` BYTE[8] |
+| DB3 *DataTypes* (128 bytes) | one static value of every supported type, BOOL … LWORD, STRING, WSTRING, DATE, TIME, TIME_OF_DAY |
+| Inputs (16 bytes) | `I0.0` toggles every second, `IB1` counter, `IW2` analog INT 0…27648 |
+| Outputs (16 bytes) | `Q0.0` mirrors `Machine.Running`, `QB1` mirrors `IB1` |
+| Memory (64 bytes) | `M0.0` PauseSimulation, `MW2` tick counter, `MD4` uptime REAL; the rest is free for write tests |
+
+```sh
+mdbrowser browse s7://127.0.0.1/0,1 --map simulators/s7/tags.csv /Tags/Machine
+mdbrowser read s7://127.0.0.1/0,1 DB3.DBW4:INT DB3.DBB28:STRING[10]
+```
+
 ## Integration tests
 
 `tests/MachineDataBrowser.Core.Tests` builds `simulators/cip`, `simulators/pccc`, `simulators/opcua-custom` and
@@ -251,4 +282,5 @@ and rebirths there. `CipClientTests`,
 `CipConnectionLossTests`, `PcccClientTests`, `CustomTypesTests`, `MqttClientTests` and the App's `MqttAppTests` run
 in CI with the rest of `dotnet test`. `simulators/modbus` runs the same way (`ModbusSimulatorFixture`) for
 `ModbusClientTests`, `ModbusTagMapClientTests`, the CLI's `ModbusCliTests` and the App's `ModbusAppTests`; one test
-checks that the simulator's register map and session still match it.
+checks that the simulator's register map and session still match it. `simulators/s7` likewise (`S7SimulatorFixture`)
+for the `S7*Tests` in Core, the CLI's `S7CliTests` and the App's `S7AppTests`.

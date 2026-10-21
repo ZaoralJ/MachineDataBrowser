@@ -1978,11 +1978,14 @@ internal sealed class TuiApp : IDisposable
         }, $"opening {path}");
     }
 
-    /// <summary>k (Modbus): load a register map, or remove it with an empty path; the browser reconnects with it.</summary>
+    /// <summary>k (Modbus, S7): load a register map or tag list, or remove it with an empty path; the browser reconnects with it.</summary>
     private void ImportTagMap()
     {
-        var path = Ask("Register map", "Register map, CSV with name,address[,unit][,description] (empty removes it; Tab completes):",
-            _model.Args.TagMap ?? string.Empty, path: true);
+        var title = _model.TagMapLabel;
+        var prompt = DeviceClient.IsS7(_model.Args.Url)
+            ? "Tag list: TIA Portal tag export (CSV) or STEP 7 symbol table (.sdf) (empty removes it; Tab completes):"
+            : "Register map, CSV with name,address[,unit][,description] (empty removes it; Tab completes):";
+        var path = Ask(title, prompt, _model.Args.TagMap ?? string.Empty, path: true);
         if (path is null)
         {
             return;
@@ -1991,11 +1994,11 @@ internal sealed class TuiApp : IDisposable
         var full = string.IsNullOrWhiteSpace(path) ? null : Path.GetFullPath(path.Trim());
         if (full is not null && !File.Exists(full))
         {
-            Error("Register map", $"{full} doesn't exist.");
+            Error(title, $"{full} doesn't exist.");
             return;
         }
 
-        if (_model.RecordingPath is { } recording && !Confirm("Register map", $"Recording to {recording} stops when the browser reconnects. Go on?"))
+        if (_model.RecordingPath is { } recording && !Confirm(title, $"Recording to {recording} stops when the browser reconnects. Go on?"))
         {
             return;
         }
@@ -2004,7 +2007,7 @@ internal sealed class TuiApp : IDisposable
         {
             var model = await _model.WithTagMapAsync(full).ConfigureAwait(false);
             Ui(() => SwitchTo(model));
-        }, full is null ? "removing the register map" : $"loading {full}");
+        }, full is null ? $"removing the {title.ToLowerInvariant()}" : $"loading {full}");
     }
 
     private void SaveSession()
@@ -2195,7 +2198,9 @@ internal sealed class TuiApp : IDisposable
 
         if (_model.SupportsTagMap)
         {
-            rows.Add(["k", "Load a register map (CSV naming the Modbus addresses) or remove it; Ctrl+S stores it in the session"]);
+            rows.Add(["k", DeviceClient.IsS7(_model.Args.Url)
+                ? "Load a tag list (TIA Portal CSV or STEP 7 .sdf naming the S7 addresses) or remove it; Ctrl+S stores it in the session"
+                : "Load a register map (CSV naming the Modbus addresses) or remove it; Ctrl+S stores it in the session"]);
         }
 
         if (_model.SupportsDiscoveryPause)
