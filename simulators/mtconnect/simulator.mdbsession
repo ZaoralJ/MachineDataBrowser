@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "endpointUrl": "mtconnect://127.0.0.1:5050",
+  "useSecurity": false,
+  "readOnly": false,
+  "autoAcceptCertificates": false,
+  "userName": null,
+  "defaultRefreshMs": 250,
+  "tagMap": null,
+  "watch": [
+    {
+      "nodeId": "vmc_x_pos",
+      "displayName": "Xpos"
+    },
+    {
+      "nodeId": "vmc_s_speed",
+      "displayName": "Sspeed"
+    },
+    {
+      "nodeId": "vmc_exec",
+      "displayName": "execution"
+    }
+  ],
+  "bookmarks": [],
+  "groupWatchByPath": false
+}

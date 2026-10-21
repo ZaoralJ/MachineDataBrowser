@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "endpointUrl": "opc.tcp://127.0.0.1:4841",
+  "useSecurity": false,
+  "readOnly": false,
+  "autoAcceptCertificates": true,
+  "userName": null,
+  "defaultRefreshMs": 250,
+  "watch": [
+    {
+      "nodeId": "nsu=urn:machinedatabrowser:simulator:custom;i=22",
+      "displayName": "Speed",
+      "path": "Objects/Custom/Machines/Machine1"
+    },
+    {
+      "nodeId": "nsu=urn:machinedatabrowser:simulator:custom;i=76",
+      "displayName": "Counter",
+      "path": "Objects/Custom/Fast/Every10ms"
+    },
+    {
+      "nodeId": "nsu=urn:machinedatabrowser:simulator:custom;s=PauseSimulation",
+      "displayName": "PauseSimulation",
+      "path": "Objects/Custom"
+    }
+  ],
+  "bookmarks": [],
+  "groupWatchByPath": false
+}

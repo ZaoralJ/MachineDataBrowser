@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "endpointUrl": "mqtt://127.0.0.1:1883",
+  "useSecurity": false,
+  "readOnly": false,
+  "autoAcceptCertificates": false,
+  "userName": null,
+  "defaultRefreshMs": 250,
+  "watch": [
+    {
+      "nodeId": "t:plant/hall1/press1/temperature",
+      "displayName": "temperature",
+      "path": "Topics/plant/hall1/press1"
+    },
+    {
+      "nodeId": "t:plant/hall1/press1/pressure",
+      "displayName": "pressure",
+      "path": "Topics/plant/hall1/press1"
+    },
+    {
+      "nodeId": "t:plant/hall1/press1/state",
+      "displayName": "state",
+      "path": "Topics/plant/hall1/press1"
+    }
+  ],
+  "bookmarks": [],
+  "groupWatchByPath": false
+}
