@@ -176,7 +176,12 @@ Attributes, Monitored Items, Trend and Info show vertical scrollbars when their 
 | `1` … `5` / `Shift+1` … `5` | show or hide a pane / the pane alone on the full screen (again restores the layout) |
 | `0` | reset the layout: every pane shown, default sizes, the endpoint's saved layout forgotten |
 | `Alt+←` `→` / `Alt+↑` `↓` | resize the address space / move the focused pane's border (like dragging it) |
-| `m` / `u` | monitor the variable, or every variable below a folder or structure / stop monitoring it |
+| `m` / `u` | monitor selected address-space nodes (folders include variables) / stop monitoring selected rows |
+| `v` | the full value of the selected tag, monitored item or attribute in a scrollable popup |
+| `C` (`Shift+c`) | copy that full value to the clipboard, also inside the popup (`⌘C` stays the terminal's own copy) |
+| `Shift+↑` / `Shift+↓`, Shift-click or drag | extend tree/watch selection; `m` / `u` act on it |
+| Ctrl-click | cherry-pick a tree node or monitored row |
+| `Space` / `Ctrl+A` | Monitored Items: toggle row / select all; Address Space: select visible nodes |
 | `w` | write a value: shows the current one, asks first, reads it back |
 | `s` | search the address space by name or id (`Temp*`, `Motor?`) and go to a match |
 | `f` / `o` `O` / `i` / `p` | filter the monitored items / sort by a column, reverse / show the NodeId column / pause the display |

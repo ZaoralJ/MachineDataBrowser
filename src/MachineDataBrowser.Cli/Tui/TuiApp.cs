@@ -26,6 +26,17 @@ internal sealed class GridSource(string[] columns) : ITableSource
 
     public object this[int row, int col] => _rows[row][col];
 
+    public int ContentWidth(int col)
+    {
+        var width = ColumnNames[col].Length;
+        foreach (var row in _rows)
+        {
+            width = Math.Max(width, row[col].Length);
+        }
+
+        return width;
+    }
+
     public void SetRows(IReadOnlyList<string[]> rows) => _rows = rows;
 }
 
@@ -89,7 +100,18 @@ internal sealed class TuiApp : IDisposable
     private readonly FrameView[] _panes;
     private readonly KeyBar _status;
     private readonly Dictionary<TreeEntry, TreeEntry> _loadingPlaceholders = [];
+    private readonly HashSet<TreeEntry> _treeMouseSelections = [];
     private readonly Dictionary<Key, Action> _extraKeys = [];
+    private TreeEntry? _treeSelectionAnchor;
+    private TreeEntry? _treeMouseDragAnchor;
+    private bool _treeMouseWasDragged;
+    private bool _ignoreNextTreeClick;
+    private System.Drawing.Point? _treeMousePosition;
+    private System.Drawing.Point? _watchMouseDragAnchor;
+    private bool _watchMouseWasDragged;
+    private bool _ignoreNextWatchClick;
+    private System.Drawing.Point? _watchMousePosition;
+    private bool _preserveTreeSelectionAnchor;
     private List<WatchRow> _shown = [];
     private List<RowSnapshot> _shownSnapshots = [];
     private string _filter = string.Empty;
@@ -128,11 +150,20 @@ internal sealed class TuiApp : IDisposable
             Height = Dim.Fill(),
             TreeBuilder = new DelegateTreeBuilder<TreeEntry>(Children, e => e.Item.HasChildren),
             AspectGetter = Label,
+            MultiSelect = true,
             // Letters are the commands (m, w, q, …), not type-to-find.
             AllowLetterBasedNavigation = false,
         };
         _tree.AddObject(model.Root);
-        _tree.SelectionChanged += (_, e) => ShowAttributes(e.NewValue);
+        _tree.SelectionChanged += (_, e) =>
+        {
+            if (!_preserveTreeSelectionAnchor)
+            {
+                _treeSelectionAnchor = e.NewValue;
+            }
+
+            ShowAttributes(e.NewValue);
+        };
         _tree.ColorGetter = TreeColor;
         _tree.Style.ShowBranchLines = false;
         _tree.Style.ExpandableSymbol = new System.Text.Rune('▸');
@@ -145,7 +176,7 @@ internal sealed class TuiApp : IDisposable
         _attributesFrame.Add(_attributes);
 
         _watchFrame = new FrameView { Title = "³Monitored Items" };
-        _watch = new TableView(_watchRows) { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), FullRowSelect = true, CollectionNavigator = null };
+        _watch = new TableView(_watchRows) { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), FullRowSelect = true, MultiSelect = true, CollectionNavigator = null };
         Theme.Table(_watch);
         _watch.Style.RowColorGetter = args => RowScheme(args.RowIndex);
         // Value stands out, status in its colour, time, count and id recede.
@@ -215,6 +246,7 @@ internal sealed class TuiApp : IDisposable
             }
 
             RefreshWatch();
+            AutoScrollMouseSelection();
             RefreshChart();
             RefreshLog();
             RefreshDynamicTree();
@@ -224,6 +256,8 @@ internal sealed class TuiApp : IDisposable
     }
 
     public Window Window => _window;
+
+    internal IReadOnlyList<TreeEntry> CurrentTreeSelection => SelectedEntries;
 
     /// <summary>The title last sent to the terminal (its tab), for tests.</summary>
     internal string? TerminalTitle => _terminalTitle;
@@ -265,6 +299,7 @@ internal sealed class TuiApp : IDisposable
         foreach (var (key, action) in new (Key, Action)[]
         {
             (Key.M, Monitor), (Key.U, Unmonitor), (Key.W, Write), (Key.S, Search), (Key.F, Filter), (Key.P, TogglePause),
+            (Key.V, ShowValue), (Key.C.WithShift, CopyValue),
             (Key.O, NextSort), (Key.R, ToggleRecording), (Key.H, Help), (Key.T, NextTheme), (Key.L, ToggleLight),
             (Key.Q, Quit), (Key.I, ToggleIds), (Key.G, Diagnostics), (Key.S.WithCtrl, SaveSession),
             (Key.F5, Reload), (Key.C, () => _model.ClearLog()), (Key.O.WithCtrl, OpenSession),
@@ -358,6 +393,8 @@ internal sealed class TuiApp : IDisposable
         _model = model;
         Attach(model);
         _loadingPlaceholders.Clear();
+        _treeMouseSelections.Clear();
+        _treeSelectionAnchor = null;
         _tree.ClearObjects();
         _tree.AddObject(model.Root);
         _tree.Expand(model.Root);
@@ -426,6 +463,12 @@ internal sealed class TuiApp : IDisposable
     };
 
     private TreeEntry? Selected => _tree.SelectedObject is { Item.NodeClass: not NodeClass.Unspecified } entry ? entry : null;
+
+    private List<TreeEntry> SelectedEntries => _tree.GetAllSelectedObjects()
+        .Concat(_treeMouseSelections)
+        .Where(entry => entry.Item.NodeClass != NodeClass.Unspecified)
+        .Distinct()
+        .ToList();
 
     private void ShowAttributes(TreeEntry? entry)
     {
@@ -520,21 +563,23 @@ internal sealed class TuiApp : IDisposable
 
     private void Monitor()
     {
-        if (Selected is not { } entry)
+        var entries = SelectedEntries;
+        if (entries.Count == 0)
         {
             return;
         }
 
         Run(async () =>
         {
-            await _model.MonitorAsync(entry).ConfigureAwait(false);
+            await _model.MonitorAsync(entries).ConfigureAwait(false);
             Ui(() => RefreshWatch());
-        }, $"monitoring {entry.Item.DisplayName}");
+        }, entries.Count == 1 ? $"monitoring {entries[0].Item.DisplayName}" : $"monitoring {entries.Count} selected address-space items");
     }
 
     private void Unmonitor()
     {
-        if (SelectedRow is not { } row)
+        var rows = SelectedRows;
+        if (!_watch.HasFocus || rows.Count == 0)
         {
             _model.Log("Select a monitored item first (Tab to the Monitored Items pane).");
             return;
@@ -542,12 +587,146 @@ internal sealed class TuiApp : IDisposable
 
         Run(async () =>
         {
-            await _model.UnmonitorAsync(row).ConfigureAwait(false);
-            Ui(() => RefreshWatch());
-        }, $"unmonitoring {row.Node.Name}");
+            foreach (var row in rows)
+            {
+                await _model.UnmonitorAsync(row).ConfigureAwait(false);
+            }
+
+            Ui(() => RefreshWatch(force: true, clearSelection: true));
+        }, rows.Count == 1 ? $"unmonitoring {rows[0].Node.Name}" : $"unmonitoring {rows.Count} selected monitored items");
     }
 
-    private void RefreshWatch(bool force = false)
+    private List<WatchRow> SelectedRows =>
+    [
+        .. _watch.GetAllSelectedCells()
+            .Select(cell => cell.Y)
+            .Distinct()
+            .Where(row => row >= 0 && row < _shown.Count)
+            .Order()
+            .Select(row => _shown[row]),
+    ];
+
+    private void ShowValue()
+    {
+        if (ValueTarget() is { } target)
+        {
+            ShowText(target.Title, target.Value ?? "reading…", target.Load);
+        }
+    }
+
+    /// <summary>Shift+C: the full value of what <see cref="ShowValue"/> would show, to the clipboard.</summary>
+    private void CopyValue()
+    {
+        if (ValueTarget() is not { } target)
+        {
+            return;
+        }
+
+        if (target.Load is null)
+        {
+            CopyText(target.Title, target.Value ?? string.Empty);
+            return;
+        }
+
+        Run(async () =>
+        {
+            var value = await target.Load().ConfigureAwait(false);
+            Ui(() => CopyText(target.Title, value));
+        }, $"reading {target.Title}");
+    }
+
+    private void CopyText(string title, string value)
+    {
+        _model.Log(_app.Clipboard?.TrySetClipboardData(value) == true
+            ? $"Copied {title} ({value.Length} characters)."
+            : "Could not copy: the terminal gives no clipboard access.");
+    }
+
+    /// <summary>
+    /// The value under the cursor of the focused pane: an attribute row, a variable in the tree (read now) or a monitored
+    /// row; null (with a hint in the log) when there is none.
+    /// </summary>
+    internal (string Title, string? Value, Func<Task<string>>? Load)? CurrentValueTarget() => ValueTarget();
+
+    private (string Title, string? Value, Func<Task<string>>? Load)? ValueTarget()
+    {
+        if (_attributes.HasFocus)
+        {
+            var row = _attributes.Value?.SelectedCell.Y ?? -1;
+            if (row >= 0 && row < _attributeRows.Rows)
+            {
+                return ($"{_attributeRows[row, 0]} — {Selected?.Item.DisplayName}", (string)_attributeRows[row, 1], null);
+            }
+
+            _model.Log("Select an attribute first.");
+            return null;
+        }
+
+        if (_tree.HasFocus)
+        {
+            if (Selected is not { IsVariable: true } entry)
+            {
+                _model.Log("Select a variable first.");
+                return null;
+            }
+
+            var nodeId = entry.Item.NodeId;
+            return ($"Value — {entry.Item.DisplayName}", null, () => _model.ReadFullValueTextAsync(nodeId));
+        }
+
+        var rowIndex = _watch.Value?.SelectedCell.Y ?? -1;
+        if (!_watch.HasFocus || rowIndex < 0 || rowIndex >= _shown.Count || rowIndex >= _shownSnapshots.Count)
+        {
+            _model.Log("Select a monitored item, variable or attribute first.");
+            return null;
+        }
+
+        var snapshot = _shownSnapshots[rowIndex];
+        return ($"Value — {_shown[rowIndex].Node.Name}", snapshot.Raw is { } raw ? ValueFormatter.FormatFull(raw) : snapshot.Value, null);
+    }
+
+    private void ShowText(string title, string value, Func<Task<string>>? load = null)
+    {
+        // Terminal.Gui 2.x has no built-in non-obsolete read-only multiline view; EditorView is a separate package.
+#pragma warning disable CS0618
+        var text = new TextView
+        {
+            X = 1,
+            Y = 0,
+            Width = Dim.Fill(1),
+            Height = Dim.Fill(),
+            Text = value,
+            ReadOnly = true,
+            WordWrap = true,
+        };
+        text.ViewportSettings |= ViewportSettingsFlags.HasVerticalScrollBar;
+        text.VerticalScrollBar.VisibilityMode = ScrollBarVisibilityMode.Auto;
+        text.SetScheme(new Scheme(Theme.Base) { Normal = new Attribute(Theme.Foreground, Theme.Surface) });
+        using var dialog = NewDialog(title, Dim.Percent(90), Dim.Percent(80), [text], "_Close");
+        if (load is not null)
+        {
+            Run(async () =>
+            {
+                var loaded = await load().ConfigureAwait(false);
+                Ui(() => text.Text = loaded);
+            }, $"reading {title}");
+        }
+
+        text.SetFocus();
+        // Shift+C copies what the popup shows; the dialog's own letter keys ignore Shift.
+        text.KeyDown += (_, key) =>
+        {
+            if (key == Key.C.WithShift)
+            {
+                CopyText(title, text.Text ?? string.Empty);
+                key.Handled = true;
+            }
+        };
+        RunDialog(dialog);
+#pragma warning restore CS0618
+    }
+
+    private void RefreshWatch(bool force = false, bool clearSelection = false)
     {
         var rows = _model.Watch;
         if (_paused && !force)
@@ -584,7 +763,36 @@ internal sealed class TuiApp : IDisposable
             p.Row.Node.Name, p.Snap.Value, p.Snap.Status, p.Snap.Time, p.Snap.Updates.ToString(CultureInfo.InvariantCulture), p.Row.Node.DisplayId,
         })]);
         _watch.Update();
+        FitWatchValueColumn();
+        if (clearSelection)
+        {
+            _watch.Value = _shown.Count == 0 ? null : new TableSelection(new System.Drawing.Point(0, 0));
+            _watch.Update();
+        }
+
         _watchFrame.Title = WatchTitle(rows.Count);
+    }
+
+    /// <summary>Give Value the table's spare width while keeping the other visible columns readable.</summary>
+    private void FitWatchValueColumn()
+    {
+        var available = _watch.Viewport.Width;
+        if (available <= 0)
+        {
+            return;
+        }
+
+        _watch.MaxCellWidth = Math.Max(_watch.MaxCellWidth, available);
+        var visibleColumns = Enumerable.Range(0, _watchRows.Columns)
+            .Where(column => column != 1 && _watch.Style.ColumnStyles[column].Visible)
+            .ToArray();
+        var fixedWidth = visibleColumns.Sum(column => Math.Min(
+            _watchRows.ContentWidth(column), _watch.Style.ColumnStyles[column].MaxWidth));
+        var valueWidth = Math.Max(1, available - fixedWidth - visibleColumns.Length - 1);
+        var valueStyle = _watch.Style.ColumnStyles[1];
+        valueStyle.MinWidth = valueWidth;
+        valueStyle.MaxWidth = valueWidth;
+        _watch.SetNeedsDraw();
     }
 
     private string WatchTitle(int total)
@@ -795,12 +1003,28 @@ internal sealed class TuiApp : IDisposable
     /// <summary>Dragging a border between panes resizes them; a double-click on it restores the default size.</summary>
     private void OnAppMouse(object? sender, Mouse mouse)
     {
-        if (mouse.Handled || _app.TopRunnableView != _window)
+        if (_app.TopRunnableView != _window)
         {
             return;
         }
 
         var at = mouse.ScreenPosition;
+        if (mouse.Flags.HasFlag(MouseFlags.LeftButtonReleased))
+        {
+            FinishTreeMouseDrag(mouse);
+            FinishWatchMouseDrag(mouse);
+        }
+
+        if (HandleTreeModifierMouse(mouse, at))
+        {
+            return;
+        }
+
+        if (mouse.Handled)
+        {
+            return;
+        }
+
         if (mouse.Flags.HasFlag(MouseFlags.LeftButtonReleased) && _dragging != Splitter.None)
         {
             _dragging = Splitter.None;
@@ -813,6 +1037,16 @@ internal sealed class TuiApp : IDisposable
         {
             Resize(_dragging, at);
             mouse.Handled = true;
+            return;
+        }
+
+        if (HandleTreeMouseDrag(mouse, at) || HandleWatchMouseDrag(mouse, at))
+        {
+            return;
+        }
+
+        if (HandleTreeSelectionMouse(mouse, at))
+        {
             return;
         }
 
@@ -863,6 +1097,378 @@ internal sealed class TuiApp : IDisposable
         {
             view.SetFocus();
         }
+    }
+
+    private bool HandleTreeModifierMouse(Mouse mouse, System.Drawing.Point screenPosition)
+    {
+        if (_ignoreNextTreeClick && mouse.Flags.HasFlag(MouseFlags.LeftButtonClicked))
+        {
+            if (!mouse.Flags.HasFlag(MouseFlags.LeftButtonReleased))
+            {
+                _ignoreNextTreeClick = false;
+            }
+
+            mouse.Handled = true;
+            return true;
+        }
+
+        if (mouse.Flags.HasFlag(MouseFlags.LeftButtonClicked)
+            && !mouse.Flags.HasFlag(MouseFlags.Ctrl) && !mouse.Flags.HasFlag(MouseFlags.Shift)
+            && TreeEntryAt(screenPosition) is { } plainClick)
+        {
+            _treeMouseSelections.Clear();
+            _tree.AdjustSelection(0);
+            _tree.GoTo(plainClick);
+            _treeSelectionAnchor = plainClick;
+        }
+
+        var isPress = mouse.Flags.HasFlag(MouseFlags.LeftButtonPressed) && !mouse.Flags.HasFlag(MouseFlags.PositionReport)
+            && !mouse.Flags.HasFlag(MouseFlags.LeftButtonReleased);
+        var isClick = mouse.Flags.HasFlag(MouseFlags.LeftButtonClicked);
+        var isSelectionClick = isClick || isPress;
+        if (!isSelectionClick
+            || !mouse.Flags.HasFlag(MouseFlags.Ctrl) && !mouse.Flags.HasFlag(MouseFlags.Shift)
+            || TreeEntryAt(screenPosition) is not { } entry)
+        {
+            return false;
+        }
+
+        _tree.SetFocus();
+        if (mouse.Flags.HasFlag(MouseFlags.Ctrl))
+        {
+            CherryPickTreeMouseSelection(entry);
+            mouse.Handled = true;
+            return true;
+        }
+
+        ExtendTreeSelectionTo(entry);
+        if (isPress && !isClick)
+        {
+            _treeMouseDragAnchor = _treeSelectionAnchor ?? _tree.SelectedObject ?? entry;
+            _treeMousePosition = screenPosition;
+            _treeMouseWasDragged = false;
+            _ignoreNextTreeClick = true;
+        }
+
+        mouse.Handled = true;
+        return true;
+    }
+
+    private bool HandleTreeMouseDrag(Mouse mouse, System.Drawing.Point screenPosition)
+    {
+        if (_ignoreNextTreeClick && mouse.Flags.HasFlag(MouseFlags.LeftButtonClicked))
+        {
+            if (!mouse.Flags.HasFlag(MouseFlags.LeftButtonReleased))
+            {
+                _ignoreNextTreeClick = false;
+            }
+
+            mouse.Handled = true;
+            return true;
+        }
+
+        if (_ignoreNextTreeClick && mouse.Flags.HasFlag(MouseFlags.LeftButtonPressed) && !mouse.Flags.HasFlag(MouseFlags.PositionReport))
+        {
+            _ignoreNextTreeClick = false;
+        }
+
+        if (mouse.Flags.HasFlag(MouseFlags.LeftButtonPressed) && mouse.Flags.HasFlag(MouseFlags.PositionReport)
+            && _treeMouseDragAnchor is not null)
+        {
+            _treeMousePosition = screenPosition;
+            if (TreeEntryAt(screenPosition) is { } entry)
+            {
+                if (!ReferenceEquals(entry, _tree.SelectedObject))
+                {
+                    ExtendTreeSelectionTo(entry);
+                    _treeMouseWasDragged = true;
+                }
+
+            }
+
+            // Keep the drag owned by the tree even if it crosses the pane border; otherwise the same motion can grab a
+            // splitter and resize the layout instead of extending the range.
+            mouse.Handled = true;
+            return true;
+        }
+
+        if (!mouse.Flags.HasFlag(MouseFlags.LeftButtonPressed) || mouse.Flags.HasFlag(MouseFlags.PositionReport)
+            || TreeEntryAt(screenPosition) is not { } pressed)
+        {
+            return false;
+        }
+
+        if (mouse.Flags.HasFlag(MouseFlags.Ctrl))
+        {
+            return false;
+        }
+
+        _tree.SetFocus();
+        if (mouse.Flags.HasFlag(MouseFlags.Shift))
+        {
+            _treeMouseDragAnchor = _treeSelectionAnchor ?? _tree.SelectedObject ?? pressed;
+            ExtendTreeSelectionTo(pressed);
+            _treeMouseWasDragged = false;
+            _ignoreNextTreeClick = true;
+        }
+        else
+        {
+            _treeMouseSelections.Clear();
+            _tree.AdjustSelection(0);
+            _tree.GoTo(pressed);
+            _treeSelectionAnchor = pressed;
+            _treeMouseDragAnchor = pressed;
+            _treeMousePosition = screenPosition;
+            _treeMouseWasDragged = false;
+            mouse.Handled = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private void FinishTreeMouseDrag(Mouse mouse)
+    {
+        if (_treeMouseDragAnchor is null)
+        {
+            return;
+        }
+
+        var dragged = _treeMouseWasDragged;
+        _treeMouseDragAnchor = null;
+        _treeMousePosition = null;
+        _treeMouseWasDragged = false;
+        _ignoreNextTreeClick = dragged;
+        if (dragged)
+        {
+            mouse.Handled = true;
+        }
+    }
+
+    private bool HandleWatchMouseDrag(Mouse mouse, System.Drawing.Point screenPosition)
+    {
+        if (_ignoreNextWatchClick && mouse.Flags.HasFlag(MouseFlags.LeftButtonClicked))
+        {
+            if (!mouse.Flags.HasFlag(MouseFlags.LeftButtonReleased))
+            {
+                _ignoreNextWatchClick = false;
+            }
+
+            mouse.Handled = true;
+            return true;
+        }
+
+        if (_ignoreNextWatchClick && mouse.Flags.HasFlag(MouseFlags.LeftButtonPressed) && !mouse.Flags.HasFlag(MouseFlags.PositionReport))
+        {
+            _ignoreNextWatchClick = false;
+        }
+
+        if (mouse.Flags.HasFlag(MouseFlags.LeftButtonPressed) && mouse.Flags.HasFlag(MouseFlags.PositionReport)
+            && _watchMouseDragAnchor is not null)
+        {
+            _watchMousePosition = screenPosition;
+            if (WatchCellAt(screenPosition) is { } cell)
+            {
+                if (cell != _watchMouseDragAnchor.Value)
+                {
+                    _watch.SetSelection(cell.X, cell.Y, extendExistingSelection: true);
+                    _watch.Update();
+                    _watchMouseWasDragged = true;
+                }
+
+            }
+
+            // A selection drag stays with the table even when the pointer passes over a pane divider.
+            mouse.Handled = true;
+            return true;
+        }
+
+        if (!mouse.Flags.HasFlag(MouseFlags.LeftButtonPressed) || mouse.Flags.HasFlag(MouseFlags.PositionReport)
+            || mouse.Flags.HasFlag(MouseFlags.Ctrl) || mouse.Flags.HasFlag(MouseFlags.Alt)
+            || WatchCellAt(screenPosition) is not { } pressed)
+        {
+            return false;
+        }
+
+        _watch.SetFocus();
+        _watchMouseDragAnchor = pressed;
+        _watchMousePosition = screenPosition;
+        _watchMouseWasDragged = false;
+        _watch.SetSelection(pressed.X, pressed.Y, extendExistingSelection: mouse.Flags.HasFlag(MouseFlags.Shift));
+        _watch.Update();
+        return false;
+    }
+
+    private void FinishWatchMouseDrag(Mouse mouse)
+    {
+        if (_watchMouseDragAnchor is null)
+        {
+            return;
+        }
+
+        var dragged = _watchMouseWasDragged;
+        _watchMouseDragAnchor = null;
+        _watchMousePosition = null;
+        _watchMouseWasDragged = false;
+        _ignoreNextWatchClick = dragged;
+        if (dragged)
+        {
+            mouse.Handled = true;
+        }
+    }
+
+    private void AutoScrollMouseSelection()
+    {
+        if (_treeMouseDragAnchor is not null && _treeMouseWasDragged && _treeMousePosition is { } treePosition)
+        {
+            var viewport = _tree.ScreenToViewport(treePosition);
+            var edgeRow = viewport.Y <= 0 ? 0 : viewport.Y >= _tree.Viewport.Height - 1 ? _tree.Viewport.Height - 1 : -1;
+            if (edgeRow >= 0 && viewport.X >= 0 && viewport.X < _tree.Viewport.Width)
+            {
+                var before = _tree.GetObjectOnRow(edgeRow);
+                if (edgeRow == 0)
+                {
+                    _tree.ScrollUp();
+                }
+                else
+                {
+                    _tree.ScrollDown();
+                }
+
+                if (_tree.GetObjectOnRow(edgeRow) is { } entry && !ReferenceEquals(before, entry))
+                {
+                    ExtendTreeSelectionTo(entry);
+                    _treeMouseWasDragged = true;
+                }
+            }
+        }
+
+        if (_watchMouseDragAnchor is null || !_watchMouseWasDragged || _watchMousePosition is not { } watchPosition)
+        {
+            return;
+        }
+
+        var watchViewport = _watch.ScreenToViewport(watchPosition);
+        var watchEdgeRow = watchViewport.Y <= 1 ? 1
+            : watchViewport.Y >= _watch.Viewport.Height - 1 ? _watch.Viewport.Height - 1 : -1;
+        if (watchEdgeRow < 1 || watchViewport.X < 0 || watchViewport.X >= _watch.Viewport.Width)
+        {
+            return;
+        }
+
+        var oldOffset = _watch.RowOffset;
+        _watch.RowOffset = watchEdgeRow == 1 ? Math.Max(0, oldOffset - 1) : oldOffset + 1;
+        _watch.EnsureValidScrollOffsets();
+        if (_watch.RowOffset != oldOffset && WatchCellAt(watchPosition) is { } cell)
+        {
+            _watch.SetSelection(cell.X, cell.Y, extendExistingSelection: true);
+            _watch.Update();
+        }
+    }
+
+    private TreeEntry? TreeEntryAt(System.Drawing.Point screenPosition)
+    {
+        var position = _tree.ScreenToViewport(screenPosition);
+        return position.X >= 0 && position.X < _tree.Viewport.Width && position.Y >= 0 && position.Y < _tree.Viewport.Height
+            ? _tree.GetObjectOnRow(position.Y)
+            : null;
+    }
+
+    private System.Drawing.Point? WatchCellAt(System.Drawing.Point screenPosition)
+    {
+        var framePosition = _watch.ScreenToFrame(screenPosition);
+        return _watch.ScreenToCell(framePosition.X, framePosition.Y);
+    }
+
+    private bool HandleTreeSelectionMouse(Mouse mouse, System.Drawing.Point screenPosition)
+    {
+        if (!mouse.Flags.HasFlag(MouseFlags.LeftButtonClicked))
+        {
+            return false;
+        }
+
+        var position = _tree.ScreenToViewport(screenPosition);
+        if (position.X < 0 || position.X >= _tree.Viewport.Width || position.Y < 0 || position.Y >= _tree.Viewport.Height
+            || _tree.GetObjectOnRow(position.Y) is not { } entry)
+        {
+            return false;
+        }
+
+        if (mouse.Flags.HasFlag(MouseFlags.Shift))
+        {
+            ExtendTreeSelectionTo(entry);
+            mouse.Handled = true;
+            return true;
+        }
+
+        if (mouse.Flags.HasFlag(MouseFlags.Ctrl))
+        {
+            CherryPickTreeMouseSelection(entry);
+            mouse.Handled = true;
+            return true;
+        }
+
+        // A plain click returns to single selection and lets TreeView handle expand/collapse symbols normally.
+        _treeMouseSelections.Clear();
+        _treeSelectionAnchor = null;
+        _tree.AdjustSelection(0);
+        _tree.GoTo(entry);
+        _treeSelectionAnchor = entry;
+        _tree.SetNeedsDraw();
+        return false;
+    }
+
+    private void ExtendTreeSelectionTo(TreeEntry entry)
+    {
+        var anchor = _treeSelectionAnchor ?? _tree.SelectedObject ?? entry;
+        var from = _tree.GetObjectRow(anchor);
+        var to = _tree.GetObjectRow(entry);
+        if (from is null || to is null)
+        {
+            _tree.AdjustSelection(0);
+            _tree.GoTo(entry);
+            _treeSelectionAnchor = entry;
+            return;
+        }
+
+        _tree.SetFocus();
+        _preserveTreeSelectionAnchor = true;
+        try
+        {
+            _tree.SelectedObject = anchor;
+            _tree.AdjustSelection(to.Value - from.Value, expandSelection: true);
+        }
+        finally
+        {
+            _preserveTreeSelectionAnchor = false;
+        }
+
+        _treeSelectionAnchor = anchor;
+        _tree.SetNeedsDraw();
+    }
+
+    private void CherryPickTreeMouseSelection(TreeEntry entry)
+    {
+        var selected = SelectedEntries.ToHashSet();
+        selected.Add(entry);
+
+        var cursor = _tree.SelectedObject is { } current && selected.Contains(current) ? current : selected.First();
+        _tree.SetFocus();
+        _preserveTreeSelectionAnchor = true;
+        try
+        {
+            _tree.AdjustSelection(0);
+            _tree.SelectedObject = cursor;
+        }
+        finally
+        {
+            _preserveTreeSelectionAnchor = false;
+        }
+
+        _treeMouseSelections.Clear();
+        _treeMouseSelections.UnionWith(selected);
+        _treeSelectionAnchor = cursor;
+        _tree.SetNeedsDraw();
     }
 
     /// <summary>The border under <paramref name="at"/> (screen cells): a pane's edge or the one next to it.</summary>
@@ -958,6 +1564,30 @@ internal sealed class TuiApp : IDisposable
         if (key.Handled || _app.TopRunnableView != _window)
         {
             return;
+        }
+
+        if (_tree.HasFocus && (key == Key.CursorUp.WithShift || key == Key.CursorDown.WithShift))
+        {
+            _treeSelectionAnchor ??= _tree.SelectedObject;
+            _preserveTreeSelectionAnchor = true;
+            try
+            {
+                _tree.AdjustSelection(key == Key.CursorUp.WithShift ? -1 : 1, expandSelection: true);
+            }
+            finally
+            {
+                _preserveTreeSelectionAnchor = false;
+            }
+
+            _treeSelectionAnchor ??= _tree.SelectedObject;
+            key.Handled = true;
+            return;
+        }
+
+        if (_tree.HasFocus && (key == Key.CursorUp || key == Key.CursorDown) && _treeMouseSelections.Count > 0)
+        {
+            _treeMouseSelections.Clear();
+            _tree.SetNeedsDraw();
         }
 
         OnKeyDown(sender, key);
@@ -1129,13 +1759,20 @@ internal sealed class TuiApp : IDisposable
 
     // ------------------------------------------------------------------ colours
 
-    private static Scheme? TreeColor(TreeEntry entry) => entry.Item.NodeClass switch
-    {
-        NodeClass.Variable => Theme.Colored(Theme.Green),
-        NodeClass.Method => Theme.Colored(Theme.Magenta),
-        NodeClass.Unspecified => Theme.Colored(Theme.Dim),
-        _ => Theme.Colored(Theme.Foreground),
-    };
+    private Scheme? TreeColor(TreeEntry entry) => _treeMouseSelections.Contains(entry)
+        ? new Scheme(Theme.Base)
+        {
+            Normal = new Attribute(Theme.Bright, Theme.Selection),
+            Focus = new Attribute(Theme.Bright, Theme.Selection),
+            Active = new Attribute(Theme.Bright, Theme.Selection),
+        }
+        : entry.Item.NodeClass switch
+        {
+            NodeClass.Variable => Theme.Colored(Theme.Green),
+            NodeClass.Method => Theme.Colored(Theme.Magenta),
+            NodeClass.Unspecified => Theme.Colored(Theme.Dim),
+            _ => Theme.Colored(Theme.Foreground),
+        };
 
     /// <summary>Stale and waiting rows are dimmed.</summary>
     private Scheme? RowScheme(int row) =>
@@ -1262,7 +1899,10 @@ internal sealed class TuiApp : IDisposable
                     _ = _tree.GetObjectRow(parent);
                 }
 
+                _treeMouseSelections.Clear();
+                _tree.AdjustSelection(0);
                 _tree.SelectedObject = entry;
+                _treeSelectionAnchor = entry;
                 _tree.EnsureVisible(entry);
                 _tree.SetFocus();
             });
@@ -1487,9 +2127,14 @@ internal sealed class TuiApp : IDisposable
             ["Shift+1 … 5", "The pane alone on the full screen; again restores the layout"],
             ["0", "Reset the layout: every pane, default sizes (forgets the sizes saved for this endpoint)"],
             ["Alt+arrows", "Resize: ←/→ the address space, ↑/↓ the focused pane's border (saved per endpoint)"],
-            ["Mouse", "Click a pane to focus it; drag a border to resize; double-click a border: its default"],
-            ["m", "Monitor the variable, or every variable below a folder or structure"],
-            ["u", "Stop monitoring the selected monitored item"],
+            ["Mouse", "Shift-click / drag selects a range, Ctrl-click cherry-picks; drag borders to resize"],
+            ["m", "Monitor selected nodes; folders include their variables"],
+            ["u", "Stop monitoring the selected monitored item(s)"],
+            ["v", "Full value of the selected tag, monitored item or attribute (scrollable)"],
+            ["C (Shift+c)", "Copy that full value to the clipboard (also in the value popup)"],
+            ["Shift+↑ / ↓", "Extend selection in Address Space or Monitored Items"],
+            ["Space / Ctrl+A", "Monitored Items: toggle row selection / select all"],
+            ["Ctrl+A", "Address Space: select all visible nodes"],
             ["w", "Write a value (shows the current one, asks first, reads back)"],
             ["s", "Search the address space by name or id (Temp*, Motor?)"],
             ["f", "Filter the monitored items by name or id"],
@@ -1596,7 +2241,7 @@ internal sealed class TuiApp : IDisposable
 
         void OnKey(object? sender, Key key)
         {
-            if (key.Handled || _app.TopRunnableView != dialog || dialog.MostFocused is TextField || key.IsCtrl || key.IsAlt)
+            if (key.Handled || _app.TopRunnableView != dialog || dialog.MostFocused is TextField || key.IsCtrl || key.IsAlt || key.IsShift)
             {
                 return;
             }

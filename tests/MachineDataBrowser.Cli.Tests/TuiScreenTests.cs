@@ -52,6 +52,12 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
 
     private string Screen => App.Driver!.ToString() ?? string.Empty;
 
+    private TreeView<TreeEntry> AddressSpace => (TreeView<TreeEntry>)_session!.Tui.Window.SubViews
+        .OfType<FrameView>().Single(frame => frame.Title == "¹Address Space").SubViews.Single();
+
+    private TableView Watch => (TableView)_session!.Tui.Window.SubViews
+        .OfType<FrameView>().Single(frame => frame.Title?.StartsWith("³Monitored Items", StringComparison.Ordinal) == true).SubViews.Single();
+
     [Fact]
     public void Prompt_selected_text_uses_a_high_contrast_background()
     {
@@ -127,6 +133,13 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
     {
         App.InjectMouse(new Mouse { Flags = flags, ScreenPosition = new System.Drawing.Point(x, y) });
         App.LayoutAndDraw(true);
+    }
+
+    private void Click(MouseFlags modifiers, int x, int y)
+    {
+        Mouse(MouseFlags.LeftButtonPressed | modifiers, x, y);
+        Mouse(MouseFlags.LeftButtonReleased | modifiers, x, y);
+        Mouse(MouseFlags.LeftButtonClicked | modifiers, x, y);
     }
 
     private void Drag(int fromX, int fromY, int toX, int toY)
@@ -322,5 +335,106 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
         await UntilScreen(s => s.Contains("of 60 ·", StringComparison.Ordinal) || s.Contains("window 60", StringComparison.Ordinal));
         Press(Key.X);
         await UntilScreen(s => s.Contains("reset.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Monitor_and_unmonitor_apply_to_multi_selected_items()
+    {
+        App.Driver!.SetScreenSize(150, 45);
+        var model = _session!.Model;
+        var hit = (await model.SearchAsync("Every10ms", cancellationToken: Ct)).Hits.Single();
+        _session.Tui.Reveal(hit.Path);
+        await UntilScreen(s => s.Contains("Every10ms", StringComparison.Ordinal));
+        var tree = AddressSpace;
+        var folder = Assert.IsType<TreeEntry>(tree.SelectedObject);
+        var children = await model.LoadChildrenAsync(folder!, cancellationToken: Ct);
+        var variables = children.Where(entry => entry.IsVariable).Take(3).ToArray();
+        Assert.Equal(3, variables.Length);
+
+        tree.RefreshObject(folder, startAtTop: true);
+        Assert.True(tree.MultiSelect);
+        tree.Expand(folder);
+        System.Drawing.Point TreePosition(TreeEntry entry) => tree.ViewportToScreen(new System.Drawing.Point(5, tree.GetObjectRow(entry)!.Value));
+        void ClickTree(MouseFlags modifiers, TreeEntry entry)
+        {
+            var position = TreePosition(entry);
+            var viewport = tree.ScreenToViewport(position);
+            Assert.Equal(entry, tree.GetObjectOnRow(viewport.Y));
+            Click(modifiers, position.X, position.Y);
+        }
+
+        void DragTree(TreeEntry from, TreeEntry to)
+        {
+            var start = TreePosition(from);
+            var end = TreePosition(to);
+            Drag(start.X, start.Y, end.X, end.Y);
+        }
+
+        ClickTree(MouseFlags.None, variables[0]);
+        Assert.Equal([variables[0]], _session.Tui.CurrentTreeSelection);
+        DragTree(variables[0], variables[1]);
+        Assert.Equal(variables[..2].Select(entry => entry.Item.DisplayName).Order(StringComparer.Ordinal), _session.Tui.CurrentTreeSelection.Select(entry => entry.Item.DisplayName).Order(StringComparer.Ordinal));
+        ClickTree(MouseFlags.None, variables[0]);
+        ClickTree(MouseFlags.Shift, variables[1]);
+        Assert.Equal(variables[..2].Select(entry => entry.Item.DisplayName).Order(StringComparer.Ordinal), _session.Tui.CurrentTreeSelection.Select(entry => entry.Item.DisplayName).Order(StringComparer.Ordinal));
+        ClickTree(MouseFlags.None, variables[0]);
+        Assert.Equal([variables[0]], _session.Tui.CurrentTreeSelection);
+        ClickTree(MouseFlags.Ctrl, variables[2]);
+        Assert.Equal(new[] { variables[0].Item.DisplayName, variables[2].Item.DisplayName }.Order(StringComparer.Ordinal), _session.Tui.CurrentTreeSelection.Select(entry => entry.Item.DisplayName).Order(StringComparer.Ordinal));
+        ClickTree(MouseFlags.None, variables[0]);
+        ClickTree(MouseFlags.Shift, variables[2]);
+        Assert.Equal(variables.Select(entry => entry.Item.DisplayName).Order(StringComparer.Ordinal), _session.Tui.CurrentTreeSelection.Select(entry => entry.Item.DisplayName).Order(StringComparer.Ordinal));
+
+        Press(Key.M);
+        var screen = await UntilScreen(s => s.Contains("Monitored Items (3)", StringComparison.Ordinal)
+            && s.Contains("Monitoring 3 items:", StringComparison.Ordinal));
+        Assert.Equal(3, model.Watch.Count);
+        Assert.Contains("Monitoring 3 items:", screen, StringComparison.Ordinal);
+
+        var watch = Watch;
+        Assert.True(watch.MultiSelect);
+        watch.SetFocus();
+        watch.Value = new TableSelection(new System.Drawing.Point(0, 0));
+        App.LayoutAndDraw(true);
+        var watchStart = watch.ViewportToScreen(new System.Drawing.Point(2, 1));
+        var watchEnd = watch.ViewportToScreen(new System.Drawing.Point(2, 2));
+        Click(MouseFlags.Ctrl, watchEnd.X, watchEnd.Y);
+        Assert.Equal([0, 1], watch.GetAllSelectedCells().Select(cell => cell.Y).Distinct().Order().ToArray());
+        watch.Value = new TableSelection(new System.Drawing.Point(0, 0));
+        Drag(watchStart.X, watchStart.Y, watchEnd.X, watchEnd.Y);
+        var selectedRows = watch.GetAllSelectedCells().Select(cell => cell.Y).Distinct().Order().ToArray();
+        Assert.Equal([0, 1], selectedRows);
+
+        Press(Key.U);
+        await UntilScreen(_ => model.Watch.Count == 1);
+        Assert.Single(model.Watch);
+        Assert.Empty(watch.Value!.Regions);
+        Assert.Equal([0], watch.GetAllSelectedCells().Select(cell => cell.Y).Distinct().ToArray());
+
+        Click(MouseFlags.None, watchStart.X, watchStart.Y);
+        Assert.Empty(watch.Value!.Regions);
+    }
+
+    [Fact]
+    public async Task Value_column_uses_spare_width_and_full_value_popup_keeps_untruncated_arrays()
+    {
+        App.Driver!.SetScreenSize(150, 40);
+        var model = _session!.Model;
+        var hit = (await model.SearchAsync("LargeArray", cancellationToken: Ct)).Hits.Single();
+        _session.Tui.Reveal(hit.Path);
+        await UntilScreen(s => s.Contains("LargeArray", StringComparison.Ordinal));
+        Press(Key.M);
+        await UntilScreen(s => s.Contains("Monitored Items (1)", StringComparison.Ordinal) && !model.Watch[0].Snapshot().Waiting);
+
+        var watch = Watch;
+        watch.SetFocus();
+        watch.Value = new TableSelection(new System.Drawing.Point(0, 0));
+        App.LayoutAndDraw(true);
+        await UntilScreen(s => s.Contains("LargeArray", StringComparison.Ordinal));
+        Assert.True(watch.Style.ColumnStyles[1].MinWidth > 30);
+
+        // v and Shift+C show / copy this; the popup itself is modal, so the test checks what it would get.
+        var target = Assert.NotNull(_session.Tui.CurrentValueTarget());
+        Assert.EndsWith("9999]", target.Value, StringComparison.Ordinal);
     }
 }

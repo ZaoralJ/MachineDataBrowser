@@ -70,4 +70,16 @@ public sealed class ValueJsonTests
         Assert.Equal("\"AQI=\"", ValueJson.ToJson(bytes)!.ToJsonString());
         Assert.Equal("ByteString[2] 0102", ValueFormatter.Format(bytes));
     }
+
+    [Fact]
+    public void Full_value_formatter_does_not_shorten_arrays_or_byte_strings()
+    {
+        var values = Enumerable.Range(0, 40).ToArray();
+        var bytes = Enumerable.Range(0, 40).Select(value => (byte)value).ToArray();
+
+        Assert.Contains("… (+8)", ValueFormatter.Format(values), StringComparison.Ordinal);
+        Assert.EndsWith("37, 38, 39]", ValueFormatter.FormatFull(values), StringComparison.Ordinal);
+        Assert.Contains("…", ValueFormatter.Format(bytes), StringComparison.Ordinal);
+        Assert.EndsWith(Convert.ToHexString(bytes), ValueFormatter.FormatFull(bytes), StringComparison.Ordinal);
+    }
 }
