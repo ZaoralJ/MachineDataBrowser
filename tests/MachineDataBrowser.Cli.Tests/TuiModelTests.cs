@@ -6,7 +6,7 @@ using Xunit;
 namespace MachineDataBrowser.Cli.Tests;
 
 /// <summary>What <c>mdbrowser tui</c> does, through its UI-free model, against the simulators.</summary>
-public sealed class TuiModelTests(CustomTypesServerFixture custom, OpcPlcFixture plc, MqttSimulatorFixture broker, LogixSimulatorFixture logix) : IDisposable
+public sealed class TuiModelTests(CustomTypesServerFixture custom, OpcPlcFixture plc, MqttSimulatorFixture broker, LogixSimulatorFixture logix, MtConnectSimulatorFixture mtconnect) : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("mdbrowser-tui").FullName;
 
@@ -200,5 +200,22 @@ public sealed class TuiModelTests(CustomTypesServerFixture custom, OpcPlcFixture
         var medium = await FindAsync(model, "Medium");
         Assert.Equal(4, await model.MonitorAsync(medium, Ct));
         await Until(() => model.Watch.All(r => r.Snapshot().Status == "Good"));
+    }
+
+    [Fact]
+    public async Task Mtconnect_component_monitors_its_data_items_and_reads_the_agent_buffer()
+    {
+        await using var model = await OpenAsync(mtconnect.EndpointUrl);
+        await using var _ = model.Client;
+        Assert.False(model.SupportsEvents);
+        Assert.True(model.SupportsHistory);
+        var x = await FindAsync(model, "X");
+        Assert.Equal("/VMC/base/X", x.Path);
+        Assert.Equal(5, await model.MonitorAsync(x, Ct));
+        await Until(() => model.Watch.Single(r => r.Node.Name == "Xpos").Snapshot().Updates > 3);
+
+        var position = await FindAsync(model, "Xpos");
+        var history = await model.ReadHistoryAsync(position.Item.NodeId, TimeSpan.FromMinutes(1), Ct);
+        Assert.NotEmpty(history.Values);
     }
 }

@@ -157,6 +157,7 @@ public static class DeviceClient
         : IsModbus(endpointUrl) ? "Modbus TCP"
         : IsS7(endpointUrl) ? "S7 (Siemens)"
         : IsMqtt(endpointUrl) ? "MQTT"
+        : IsMtConnect(endpointUrl) ? "MTConnect"
         : "OPC UA";
 
     /// <summary>MQTT endpoints: <c>mqtt://</c>, <c>mqtts://</c>, <c>ws://</c>, <c>wss://</c>.</summary>
@@ -168,6 +169,19 @@ public static class DeviceClient
             || trimmed.StartsWith("ws://", StringComparison.OrdinalIgnoreCase)
             || trimmed.StartsWith("wss://", StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>MTConnect agents: <c>mtconnect://host[:port][/device]</c> (HTTP, port 5000), <c>http://</c>, <c>https://</c>.</summary>
+    public static bool IsMtConnect(string endpointUrl)
+    {
+        var trimmed = endpointUrl.TrimStart();
+        return trimmed.StartsWith("mtconnect://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Everything that is not another protocol is OPC UA (<c>opc.tcp://</c>, <c>opc.https://</c>, …).</summary>
+    public static bool IsOpcUa(string endpointUrl) =>
+        !IsAllenBradley(endpointUrl) && !UsesTagMap(endpointUrl) && !IsMqtt(endpointUrl) && !IsMtConnect(endpointUrl);
 }
 
 public interface IDeviceClientFactory

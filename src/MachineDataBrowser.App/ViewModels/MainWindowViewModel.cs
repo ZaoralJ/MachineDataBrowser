@@ -279,11 +279,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     [NotifyCanExecuteChangedFor(nameof(ImportTagMapCommand))]
     public partial string EndpointUrl { get; set; } = "opc.tcp://localhost:50000";
 
-    /// <summary>Security, credentials and certificate trust only apply to OPC UA, not to EtherNet/IP (<c>eip://</c>, <c>pccc://</c>), Modbus or S7.</summary>
-    public bool IsOpcUaEndpoint => !DeviceClient.IsAllenBradley(EndpointUrl ?? string.Empty) && !DeviceClient.UsesTagMap(EndpointUrl ?? string.Empty)
-        && !DeviceClient.IsMqtt(EndpointUrl ?? string.Empty);
+    /// <summary>Security mode choice only applies to OPC UA, not to EtherNet/IP, PCCC, Modbus, S7, MQTT or MTConnect.</summary>
+    public bool IsOpcUaEndpoint => DeviceClient.IsOpcUa(EndpointUrl ?? string.Empty);
 
-    /// <summary>User name, password and certificate trust apply to OPC UA and MQTT (mqtts://, wss://), not to EtherNet/IP, Modbus or S7.</summary>
+    /// <summary>User name, password and certificate trust apply to OPC UA, MQTT (mqtts://, wss://) and MTConnect (HTTP basic auth, https://), not to EtherNet/IP, Modbus or S7.</summary>
     public bool HasCredentials => !DeviceClient.IsAllenBradley(EndpointUrl ?? string.Empty) && !DeviceClient.UsesTagMap(EndpointUrl ?? string.Empty);
 
     /// <summary>The last connected endpoint, or localhost when there is no history.</summary>
@@ -397,6 +396,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         if (DeviceClient.IsS7(EndpointUrl ?? string.Empty))
         {
             return HasTagMap ? $"S7 · {TagMapName} · {refresh}" : $"S7 · no tag list · {refresh}";
+        }
+
+        if (DeviceClient.IsMtConnect(EndpointUrl ?? string.Empty))
+        {
+            var mtconnect = $"MTConnect · {user} · {refresh}";
+            return AutoAcceptCertificates ? mtconnect + " · auto-trust" : mtconnect;
         }
 
         if (DeviceClient.IsMqtt(EndpointUrl ?? string.Empty))

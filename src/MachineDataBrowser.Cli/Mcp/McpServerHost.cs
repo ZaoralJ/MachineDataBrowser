@@ -13,14 +13,15 @@ internal static class McpServerHost
 {
     public const string Instructions = """
         Read-only access to industrial machines over OPC UA, EtherNet/IP (Allen-Bradley Logix; SLC 500, MicroLogix and
-        PLC-5 over PCCC), Modbus TCP, S7 (Siemens) and MQTT (Sparkplug B, CloudEvents). Nothing can be written or called.
+        PLC-5 over PCCC), Modbus TCP, S7 (Siemens), MTConnect and MQTT (Sparkplug B, CloudEvents). Nothing can be
+        written or called.
 
         Start with list_endpoints, then browse from the root ("/") a level or two at a time, or search by name.
         Nodes are paths of display names from the root, like /Objects/Line1/Speed, "/Controller Tags/Motor.Speed",
-        /Topics/plant/line1/status, or ids like ns=3;s=Speed (OPC UA), Program:Main.Speed (Logix), N7:0 or T4:0.ACC
-        (PCCC data-table addresses), hr:100 or hr:20:float32 (Modbus: area co/di/ir/hr, 0-based address, optional
-        type and :swap), DB1.DBD4:REAL or "Machine.Speed" (S7 address with type, or symbol). Paths from browse and
-        search can be passed to read and sample as they are.
+        /Topics/plant/line1/status, /VMC/base/X/Xpos, or ids like ns=3;s=Speed (OPC UA), Program:Main.Speed (Logix),
+        N7:0 or T4:0.ACC (PCCC data-table addresses), hr:100 or hr:20:float32 (Modbus: area co/di/ir/hr, 0-based
+        address, optional type and :swap), DB1.DBD4:REAL or "Machine.Speed" (S7 address with type, or symbol), a data
+        item id (MTConnect). Paths from browse and search can be passed to read and sample as they are.
 
         read gives current values; sample watches values for some seconds and summarises them (changes, min/max/mean,
         statuses), which is how to judge behaviour over time. recursive=true expands a folder or structure to every
@@ -28,8 +29,8 @@ internal static class McpServerHost
         Results are limited in size; narrow the node or depth when a result says truncated.
 
         For context: attributes gives a node's data type, description, access and engineering unit (check it before
-        interpreting a number); history reads what an OPC UA server stored over a time range (bucketSeconds for long
-        ranges); alarms lists the server's current alarms, events collects events for some seconds; diagnostics shows
+        interpreting a number); history reads what an OPC UA server stored, or what an MTConnect agent still
+        buffers, over a time range (bucketSeconds for long ranges); alarms lists the server's current alarms, events collects events for some seconds; diagnostics shows
         whether the connection is healthy when values look stale.
         """;
 

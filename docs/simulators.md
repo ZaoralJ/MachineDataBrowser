@@ -1,6 +1,6 @@
 # Test servers (simulators)
 
-Seven containers under `simulators/` cover local development, manual/user testing and the integration tests.
+Eight containers under `simulators/` cover local development, manual/user testing and the integration tests.
 Start them with [`just`](https://github.com/casey/just) from the repository root:
 
 ```sh
@@ -11,7 +11,8 @@ just opcua-custom   # custom types (asyncua) -> opc.tcp://127.0.0.1:4841/
 just mqtt           # MQTT broker + traffic  -> mqtt://127.0.0.1:1883 (ws://127.0.0.1:9001)
 just modbus         # Modbus TCP device      -> modbus://127.0.0.1:5020/1
 just s7             # Siemens S7 (snap7)     -> s7://127.0.0.1:102/0,1, tag list simulators/s7/tags.csv
-just all            # all seven in the background (replaces running ones); `just stop` removes them
+just mtconnect      # MTConnect agent        -> mtconnect://127.0.0.1:5050
+just all            # all eight in the background (replaces running ones); `just stop` removes them
 just logs cip       # follow a background container's log
 just cip-debug      # log every CIP request (service, path, sizes)
 just pccc-debug     # log every PCCC request
@@ -33,6 +34,7 @@ while paused, so values continue from where they were rather than jumping. Each 
 | MQTT | topic `simulator/PauseSimulation` (retained, payload `true`/`false`); the app writes it like any topic |
 | Modbus | coil `co:0` (`/Tags/Simulator/PauseSimulation` with the simulator's map) |
 | S7 | `M0.0` (symbol `PauseSimulation` in `tags.csv`) |
+| MTConnect | `curl -X PUT 'http://127.0.0.1:5050/simulator/pause?value=true'` (MTConnect is read-only); data item `agent_pause` (*Agent ▸ PauseSimulation*) shows the state |
 | opc-plc | no single tag; call `Objects/OpcPlc/Methods/StopUpdateFastNodes` / `StopUpdateSlowNodes` (and `Start…`) |
 
 ```sh
@@ -273,6 +275,36 @@ mdbrowser browse s7://127.0.0.1/0,1 --map simulators/s7/tags.csv /Tags/Machine
 mdbrowser read s7://127.0.0.1/0,1 DB3.DBW4:INT DB3.DBB28:STRING[10]
 ```
 
+## MTConnect agent simulator (`simulators/mtconnect`)
+
+A pure-Python (no packages) MTConnect agent: it answers `/probe`, `/current` and `/sample` (MTConnect 2.2 XML,
+including `from`, `count` and the `path` filter forms clients use: `//DataItem[@id="a" or @id="b"]`, `@type`,
+`@name`, `@category`, and `//Components/Axes`), per device too (`/VMC/current`), with a ring buffer of observations
+and `MTConnectError` answers (`OUT_OF_RANGE`, `NO_DEVICE`, `INVALID_XPATH`). The real
+[cppagent](https://github.com/mtconnect/cppagent) works the same for the browser; this one has no adapter to set up.
+
+| Device | Content |
+|--------|---------|
+| `Agent` | `AVAILABILITY`, `DEVICE_ADDED` and `PauseSimulation` (`agent_pause`), like an MTConnect 2.x agent device |
+| `VMC` | 3-axis mill: *Axes ▸ base* with `X`/`Y`/`Z` (position actual and commanded every 100 ms, load, temperature, travel condition) and spindle `S` (speed, override, load, mode, a 10-sample `DISPLACEMENT` time series, condition); *Controller ▸ path* (execution, program, line, block, part count, tool, feedrate, 3D `PATH_POSITION`, `WORK_OFFSET` data set, conditions); *Systems* (coolant level and a low-level warning, power, powered time); door; `spare` sensor that is always `UNAVAILABLE` |
+| `Lathe` | 2-axis turning centre: `X`/`Z` positions, `C` spindle speed and chuck state, path with execution, program, part count and a recurring tailstock *Warning* |
+
+The container listens on 5000, the MTConnect default; `just` publishes it on 5050 because macOS uses 5000 for the
+AirPlay Receiver. A part takes 60 s (the mill cuts for 80 % of it). Every two minutes the spindle reports a *Fault* (`SP-OT`) for 5 s.
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `MTCONNECT_SIM_PORT` | `5000` | HTTP port |
+| `MTCONNECT_SIM_TICK_MS` | `100` | fast tick; slow values change every 10 ticks |
+| `MTCONNECT_SIM_BUFFER` | `131072` | observations kept for `/sample` and history |
+| `MTCONNECT_SIM_LOG` | `INFO` | `DEBUG` logs every request |
+
+```sh
+curl -s http://127.0.0.1:5050/probe                                        # the device model
+curl -sg 'http://127.0.0.1:5050/current?path=//DataItem[@id="vmc_x_pos"]'  # one data item
+mdbrowser read mtconnect://127.0.0.1:5050 /VMC/base/X/Xpos /VMC/base/S/Scond
+```
+
 ## Integration tests
 
 `tests/MachineDataBrowser.Core.Tests` builds `simulators/cip`, `simulators/pccc`, `simulators/opcua-custom` and
@@ -283,4 +315,6 @@ and rebirths there. `CipClientTests`,
 in CI with the rest of `dotnet test`. `simulators/modbus` runs the same way (`ModbusSimulatorFixture`) for
 `ModbusClientTests`, `ModbusTagMapClientTests`, the CLI's `ModbusCliTests` and the App's `ModbusAppTests`; one test
 checks that the simulator's register map and session still match it. `simulators/s7` likewise (`S7SimulatorFixture`)
-for the `S7*Tests` in Core, the CLI's `S7CliTests` and the App's `S7AppTests`.
+for the `S7*Tests` in Core, the CLI's `S7CliTests` and the App's `S7AppTests`. `simulators/mtconnect`
+(`MtConnectSimulatorFixture`) backs `MtConnectClientTests`, the CLI's `MtConnectCliTests` and the App's
+`MtConnectAppTests`.

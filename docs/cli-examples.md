@@ -129,10 +129,10 @@ mdbrowser read s7://127.0.0.1/0,1 DB1.DBD2:REAL MW2:INT DB3.DBB28:STRING[10] DB2
 
 ``` { .text .no-copy }
 name                  type    value
-DB1.DBD2:REAL         Float   1307.5247
-MW2:INT               Int16   1474
+DB1.DBD2:REAL         Float   953.1318
+MW2:INT               Int16   14330
 DB3.DBB28:STRING[10]  String  Hello
-DB2.DBW40:INT[10]     INT[]   [1474, 2948, 4422, 5896, 7370, 8844, 10318, 11792, 13266, 14740]
+DB2.DBW40:INT[10]     INT[]   [14330, 28660, 10222, 24552, 6114, 20444, 2006, 16336, 30666, 12228]
 ```
 
 ## Read every type of an S7 data block
@@ -188,6 +188,32 @@ path                                    class     id
 /Topics/plant/info                      Object    t:plant/info
 /Topics/plant/info/site                 Variable  t:plant/info/site
 /Topics/plant/info/version              Variable  t:plant/info/version
+```
+
+## Browse MTConnect
+
+The agent's devices, components and data items, as described by its probe.
+
+```sh
+mdbrowser browse mtconnect://127.0.0.1:5050 /VMC/base --depth 2
+```
+
+``` { .text .no-copy }
+path                 class     id
+/VMC/base/X          Object    @vmc_x
+/VMC/base/X/Xpos     Variable  vmc_x_pos
+/VMC/base/X/Xcmd     Variable  vmc_x_cmd
+/VMC/base/X/Xload    Variable  vmc_x_load
+/VMC/base/X/Xtemp    Variable  vmc_x_temp
+/VMC/base/X/Xtravel  Variable  vmc_x_travel
+/VMC/base/Y          Object    @vmc_y
+/VMC/base/Y/Ypos     Variable  vmc_y_pos
+/VMC/base/Y/Ycmd     Variable  vmc_y_cmd
+/VMC/base/Y/Yload    Variable  vmc_y_load
+/VMC/base/Y/Ytemp    Variable  vmc_y_temp
+/VMC/base/Y/Ytravel  Variable  vmc_y_travel
+/VMC/base/Z          Object    @vmc_z
+… (12 more lines)
 ```
 
 ## Read values
@@ -264,7 +290,7 @@ mdbrowser read mqtt://127.0.0.1:1883 /Topics/machines/m1/status
 
 ``` { .text .no-copy }
 name    type    value
-status  String  {"state":"Stop","speed":1498.44,"temperature":{"bearing":54.22,"motor":60.68},"alarms":[],"ok":true,"operator":null}
+status  String  {"state":"Idle","speed":1402.35,"temperature":{"bearing":55.84,"motor":61.31},"alarms":[0,101],"ok":true,"operator":null}
 ```
 
 ## Read properties from the JSON on a topic
@@ -277,9 +303,9 @@ mdbrowser read mqtt://127.0.0.1:1883 /Topics/machines/m1/status/speed /Topics/ma
 
 ``` { .text .no-copy }
 name   type    value
-speed  Double  1408.95
+speed  Double  1483.59
 state  String  Idle
-motor  Double  60.03
+motor  Double  60.82
 ```
 
 ## Read a JSON property by its id
@@ -292,7 +318,24 @@ mdbrowser read mqtt://127.0.0.1:1883 "t:machines/m1/status#/temperature/bearing"
 
 ``` { .text .no-copy }
 name                                       type    value
-t:machines/m1/status#/temperature/bearing  Double  54.13
+t:machines/m1/status#/temperature/bearing  Double  55.97
+```
+
+## Read MTConnect data items
+
+Samples are numbers (3D positions and time series arrays), events text or integers, conditions their level and text.
+
+```sh
+mdbrowser read mtconnect://127.0.0.1:5050 /VMC/base/X/Xpos /VMC/controller/path/pathPos /VMC/controller/path/execution /VMC/controller/path/partCount /VMC/base/S/Scond
+```
+
+``` { .text .no-copy }
+name       type      value
+Xpos       Double    55.219
+pathPos    Double[]  [55.219, -26.892, -29.069]
+execution  String    ACTIVE
+partCount  Int64     0
+Scond      String    Normal
 ```
 
 ## Monitor live values
@@ -304,14 +347,14 @@ mdbrowser monitor opc.tcp://127.0.0.1:4841 /Objects/Custom/Fast/Every10ms/Counte
 ```
 
 ``` { .text .no-copy }
-23:48:47.233  Counter                      Good         5150
-23:48:47.233  Sine                         Good         -0.019346699665534265
-23:48:47.731  Counter                      Good         5200
-23:48:47.731  Sine                         Good         0.009863806368917594
-23:48:48.233  Sine                         Good         -0.019530190530856216
-23:48:48.233  Counter                      Good         5250
-23:48:48.733  Counter                      Good         5300
-23:48:48.733  Sine                         Good         0.020292924781080683
+00:00:01.446  Counter                      Good         72571
+00:00:01.446  Sine                         Good         -0.9755995714273031
+00:00:01.945  Counter                      Good         72621
+00:00:01.945  Sine                         Good         0.9737182478040377
+00:00:02.442  Counter                      Good         72671
+00:00:02.443  Sine                         Good         -0.9706527117708156
+00:00:02.942  Counter                      Good         72721
+00:00:02.942  Sine                         Good         0.970424744109036
 ```
 
 ## Monitor MQTT and record
@@ -323,19 +366,19 @@ mdbrowser monitor mqtt://127.0.0.1:1883 /Topics/plant/hall1/press1 -R --duration
 ```
 
 ``` { .text .no-copy }
-23:48:53.840  counter                      Good         971
-23:48:53.740  pressure                     Good         5.377
-23:48:53.740  running                      Good         True
-23:48:53.740  state                        Good         Heating
-23:48:53.839  temperature                  Good         215.05
-23:48:53.936  temperature                  Good         215.02
-23:48:53.937  counter                      Good         972
-23:48:54.037  temperature                  Good         215
-23:48:54.037  counter                      Good         973
-23:48:54.136  temperature                  Good         215
-23:48:54.136  counter                      Good         974
-23:48:54.238  temperature                  Good         215.01
-… (40 more lines)
+00:00:04.738  counter                      Good         7680
+00:00:04.738  pressure                     Good         5.993
+00:00:04.738  running                      Good         True
+00:00:04.738  state                        Good         Idle
+00:00:04.738  temperature                  Good         223.32
+00:00:04.837  temperature                  Good         223.5
+00:00:04.838  counter                      Good         7681
+00:00:04.938  temperature                  Good         223.68
+00:00:04.938  counter                      Good         7682
+00:00:05.036  temperature                  Good         223.84
+00:00:05.036  counter                      Good         7683
+00:00:05.138  temperature                  Good         224
+… (42 more lines)
 ```
 
 ## Monitor Sparkplug B metrics
@@ -347,19 +390,43 @@ mdbrowser monitor mqtt://127.0.0.1:1883 "m:Plant1|Edge1|Press1|Temperature" "m:P
 ```
 
 ``` { .text .no-copy }
-23:49:01.737  m:Plant1|Edge1|Press1|Temperature Good         180.57741142106192
-23:49:01.737  m:Plant1|Edge1|Press1|Pressure Good         4.0966616
-23:49:02.736  m:Plant1|Edge1|Press1|Temperature Good         185.49046045507117
-23:49:02.738  m:Plant1|Edge1|Press1|Pressure Good         4.2867146
-23:49:03.736  m:Plant1|Edge1|Press1|Pressure Good         4.555039
-23:49:03.735  m:Plant1|Edge1|Press1|Temperature Good         203.72619418720294
-23:49:04.737  m:Plant1|Edge1|Press1|Pressure Good         4.872467
-23:49:04.735  m:Plant1|Edge1|Press1|Temperature Good         218.54613626258165
-23:49:05.737  m:Plant1|Edge1|Press1|Pressure Good         5.2041726
-23:49:05.736  m:Plant1|Edge1|Press1|Temperature Good         216.31403083876944
-23:49:06.737  m:Plant1|Edge1|Press1|Pressure Good         5.513164
-23:49:06.735  m:Plant1|Edge1|Press1|Temperature Good         199.0842120274951
-… (22 more lines)
+00:00:16.738  m:Plant1|Edge1|Press1|Temperature Good         215.509455604142
+00:00:16.738  m:Plant1|Edge1|Press1|Pressure Good         4.26925
+00:00:17.736  m:Plant1|Edge1|Press1|Temperature Good         219.00501355805704
+00:00:17.738  m:Plant1|Edge1|Press1|Pressure Good         4.086103
+00:00:18.738  m:Plant1|Edge1|Press1|Pressure Good         4.003586
+00:00:18.736  m:Plant1|Edge1|Press1|Temperature Good         205.0281484062949
+00:00:19.737  m:Plant1|Edge1|Press1|Pressure Good         4.030756
+00:00:19.736  m:Plant1|Edge1|Press1|Temperature Good         186.4263502730646
+00:00:20.737  m:Plant1|Edge1|Press1|Pressure Good         4.164564
+00:00:20.736  m:Plant1|Edge1|Press1|Temperature Good         180.30482679551716
+00:00:21.735  m:Plant1|Edge1|Press1|Temperature Good         192.2619292658878
+00:00:21.736  m:Plant1|Edge1|Press1|Pressure Good         4.3900304
+… (16 more lines)
+```
+
+## Monitor MTConnect
+
+Every observation the agent buffered arrives, even with a refresh slower than the machine.
+
+```sh
+mdbrowser monitor mtconnect://127.0.0.1:5050 /VMC/base/X/Xpos /VMC/controller/path/execution -r 1000 --duration 2s
+```
+
+``` { .text .no-copy }
+00:00:29.905  Xpos                         Good         -55.219
+23:59:44.805  execution                    Good         ACTIVE
+00:00:30.008  Xpos                         Good         -59.572
+00:00:30.108  Xpos                         Good         -63.867
+00:00:30.205  Xpos                         Good         -68.099
+00:00:30.308  Xpos                         Good         -72.263
+00:00:30.405  Xpos                         Good         -76.356
+00:00:30.504  Xpos                         Good         -80.374
+00:00:30.608  Xpos                         Good         -84.313
+00:00:30.708  Xpos                         Good         -88.168
+00:00:30.804  Xpos                         Good         -91.936
+00:00:30.905  Xpos                         Good         -95.614
+… (1 more lines)
 ```
 
 ## Write a value
@@ -416,6 +483,15 @@ mdbrowser run press1.mdbsession --duration 2s
 ```
 
 ``` { .text .no-copy }
+00:00:43.737  temperature                  Good         224.91
+00:00:43.737  pressure                     Good         5.378
+00:00:43.737  state                        Good         Running
+00:00:43.836  temperature                  Good         224.95
+00:00:43.937  temperature                  Good         224.98
+00:00:44.037  temperature                  Good         225
+00:00:44.137  temperature                  Good         225
+00:00:44.237  temperature                  Good         224.99
+00:00:44.336  temperature                  Good         224.97
 ```
 
 ## Run a session as CSV
@@ -426,14 +502,6 @@ mdbrowser run press1.mdbsession --duration 3s -f csv
 
 ``` { .text .no-copy }
 time,name,id,status,value
-2026-10-21T21:49:29.8369130Z,temperature,t:plant/hall1/press1/temperature,Good,217.27
-2026-10-21T21:49:29.7382170Z,pressure,t:plant/hall1/press1/pressure,Good,5.87
-2026-10-21T21:49:29.7382280Z,state,t:plant/hall1/press1/state,Good,Running
-2026-10-21T21:49:29.9366530Z,temperature,t:plant/hall1/press1/temperature,Good,217.07
-2026-10-21T21:49:30.0367650Z,temperature,t:plant/hall1/press1/temperature,Good,216.87
-2026-10-21T21:49:30.1377530Z,temperature,t:plant/hall1/press1/temperature,Good,216.67
-2026-10-21T21:49:30.2423980Z,temperature,t:plant/hall1/press1/temperature,Good,216.49
-… (9 more lines)
 ```
 
 ## An S7 session with its tag list
@@ -455,16 +523,16 @@ mdbrowser run line1.mdbsession --duration 2s
 ```
 
 ``` { .text .no-copy }
-23:49:31.322  Speed                        Good         1497.28
-23:49:31.323  Counter                      Good         2568
-23:49:31.570  Speed                        Good         1494.7521
-23:49:31.570  Counter                      Good         2573
-23:49:31.813  Speed                        Good         1491.4901
-23:49:31.813  Counter                      Good         2578
-23:49:32.066  Speed                        Good         1487.4799
-23:49:32.066  Counter                      Good         2583
-23:49:32.320  Speed                        Good         1482.7347
-23:49:32.320  Counter                      Good         2588
+00:00:56.864  Speed                        Good         1366.8724
+00:00:56.865  Counter                      Good         15682
+00:00:57.104  Speed                        Good         1377.3394
+00:00:57.104  Counter                      Good         15686
+00:00:57.355  Speed                        Good         1389.6879
+00:00:57.355  Counter                      Good         15691
+00:00:57.606  Speed                        Good         1401.9384
+00:00:57.606  Counter                      Good         15696
+00:00:57.860  Speed                        Good         1410.9183
+00:00:57.860  Counter                      Good         15700
 … (6 more lines)
 ```
 

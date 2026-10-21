@@ -26,8 +26,8 @@ internal static class Commands
 
     public static RootCommand Build(TextWriter stdout, TextWriter stderr, IAnsiConsole? terminal = null)
     {
-        var url = new Argument<string>("url") { Description = "Endpoint: opc.tcp://host:4840, eip://host/1,0, pccc://host?plc=slc500, modbus://host[:502][/unit], s7://host[/rack,slot], mqtt://broker[/topic/#]" };
-        var user = new Option<string?>("--user", "-u") { Description = "User name (OPC UA, MQTT)" };
+        var url = new Argument<string>("url") { Description = "Endpoint: opc.tcp://host:4840, eip://host/1,0, pccc://host?plc=slc500, modbus://host[:502][/unit], s7://host[/rack,slot], mqtt://broker[/topic/#], mtconnect://agent[:5000][/device]" };
+        var user = new Option<string?>("--user", "-u") { Description = "User name (OPC UA, MQTT, MTConnect)" };
         var password = new Option<string?>("--password", "-p") { Description = $"Password; or set {PasswordVariable}" };
         var secure = new Option<bool>("--secure") { Description = "OPC UA: use the most secure endpoint the server offers" };
         var trustAll = new Option<bool>("--trust-all") { Description = "Accept untrusted server certificates (lab networks only)" };
@@ -92,7 +92,7 @@ internal static class Commands
         endpoints.SetAction((r, ct) => Guard(stderr, async () =>
         {
             var target = r.GetValue(url)!;
-            if (DeviceClient.IsAllenBradley(target) || DeviceClient.UsesTagMap(target) || DeviceClient.IsMqtt(target))
+            if (!DeviceClient.IsOpcUa(target))
             {
                 throw new CliException("endpoints works for OPC UA (opc.tcp://) only.");
             }
@@ -601,7 +601,7 @@ internal static class Commands
         var session = new Command("session", "Create session files for the app, or add nodes to them or remove them") { create, add, remove };
 
         // tui
-        var tuiTarget = new Argument<string>("target") { Description = "Endpoint (opc.tcp://…, eip://…, pccc://…, modbus://…, s7://…, mqtt://…) or a session file (.mdbsession)" };
+        var tuiTarget = new Argument<string>("target") { Description = "Endpoint (opc.tcp://…, eip://…, pccc://…, modbus://…, s7://…, mqtt://…, mtconnect://…) or a session file (.mdbsession)" };
         var tuiTheme = new Option<string?>("--theme") { Description = $"Colour theme, like the app's: {string.Join(", ", ColorThemeCatalog.All.Select(t => t.Name))} (default: the app's)" };
         tuiTheme.AcceptOnlyFromAmong([.. ColorThemeCatalog.All.Select(t => t.Name)]);
         var tuiLight = new Option<bool>("--light") { Description = "Light appearance of the theme (default: the app's; dark when it follows the system)" };
@@ -681,7 +681,7 @@ internal static class Commands
         }
 
         return new RootCommand(
-            "Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix), Modbus TCP, S7 (Siemens) and MQTT. " +
+            "Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix), Modbus TCP, S7 (Siemens), MQTT and MTConnect. " +
             "Pass a URL to open the full-screen browser.")
         {
             endpoints, browse, read, monitor, run, write, session, mcp, tui,

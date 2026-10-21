@@ -7,6 +7,7 @@
     <ProjectReference Include="..\MachineDataBrowser.Driver.Modbus\MachineDataBrowser.Driver.Modbus.csproj" />
     <ProjectReference Include="..\MachineDataBrowser.Driver.Pccc\MachineDataBrowser.Driver.Pccc.csproj" />
     <ProjectReference Include="..\MachineDataBrowser.Driver.S7\MachineDataBrowser.Driver.S7.csproj" />
+    <ProjectReference Include="..\MachineDataBrowser.Driver.MtConnect\MachineDataBrowser.Driver.MtConnect.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

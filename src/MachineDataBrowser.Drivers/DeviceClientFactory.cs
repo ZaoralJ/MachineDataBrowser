@@ -2,6 +2,7 @@ using MachineDataBrowser.Core;
 using MachineDataBrowser.Driver.Cip;
 using MachineDataBrowser.Driver.Modbus;
 using MachineDataBrowser.Driver.Mqtt;
+using MachineDataBrowser.Driver.MtConnect;
 using MachineDataBrowser.Driver.OpcUa;
 using MachineDataBrowser.Driver.Pccc;
 using MachineDataBrowser.Driver.S7;
@@ -18,6 +19,7 @@ public sealed class DeviceClientFactory : IDeviceClientFactory
             : DeviceClient.IsModbus(endpointUrl) ? new ModbusClient()
             : DeviceClient.IsS7(endpointUrl) ? new S7Client()
             : DeviceClient.IsMqtt(endpointUrl) ? new MqttDeviceClient()
+            : DeviceClient.IsMtConnect(endpointUrl) ? new MtConnectClient()
             : new OpcUaClient();
     }
 
@@ -28,6 +30,7 @@ public sealed class DeviceClientFactory : IDeviceClientFactory
         ModbusClient => DeviceClient.IsModbus(endpointUrl),
         S7Client => DeviceClient.IsS7(endpointUrl),
         MqttDeviceClient => DeviceClient.IsMqtt(endpointUrl),
-        _ => !DeviceClient.IsAllenBradley(endpointUrl) && !DeviceClient.IsModbus(endpointUrl) && !DeviceClient.IsS7(endpointUrl) && !DeviceClient.IsMqtt(endpointUrl),
+        MtConnectClient => DeviceClient.IsMtConnect(endpointUrl),
+        _ => DeviceClient.IsOpcUa(endpointUrl),
     };
 }

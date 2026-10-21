@@ -4,7 +4,7 @@
 Cursor, …) can explore and read machines: find a signal, read values, check how they behave over a few seconds. They
 can also read [recordings in SQLite files](user-manual.md#recording-to-sqlite): what was recorded, statistics, and
 samples over any time range. It is part of the [command line](cli.md) and speaks OPC UA, EtherNet/IP (Logix and
-PCCC), Modbus TCP, S7 (Siemens) and MQTT.
+PCCC), Modbus TCP, S7 (Siemens), MQTT and MTConnect.
 
 **Read-only by default:** without `--allow-writes` no tool can write values or call methods, and none ever
 acknowledges alarms. With it, every change is confirmed by you first (see [Changes](#changes-allow-writes)).
@@ -95,7 +95,7 @@ Logins: `--user` with the password in `MDBROWSER_PASSWORD` (set it in the agent'
 | `history` | what an OPC UA server stored over a time range, raw or per `bucketSeconds` (count, min, max, average, not Good) |
 | `alarms` | the server's current alarms, most severe first: source, name, severity, active, acknowledged, message |
 | `events` | events and alarm changes collected for 1–300 s, newest first, optionally only above a severity |
-| `diagnostics` | connection health: state; OPC UA security, keep-alive, reconnects, server state and clock offset, subscriptions; MQTT message rate, topics, Sparkplug nodes online; Modbus and S7 requests, failures and poll cycles; EtherNet/IP read rate, failures, poll cycle times |
+| `diagnostics` | connection health: state; OPC UA security, keep-alive, reconnects, server state and clock offset, subscriptions; MQTT message rate, topics, Sparkplug nodes online; Modbus and S7 requests, failures and poll cycles; EtherNet/IP read rate, failures, poll cycle times; MTConnect agent version, buffer and sequences, polling |
 | `generate_code` | C# records or classes mirroring a structure (like *Copy as C#* in the app), or a JSON snapshot of its values |
 | `wait_for` | waits up to 10 min until a value meets a condition (`> 80`, `== Run`, `contains Error`, `changes`) and says when |
 | `start_recording`, `stop_recording`, `active_recordings` | with `--allow-recording`: records items in the background into a SQLite file (≤ 24 h, ≤ 5 at a time, ≤ 500 items), to analyse with the recording tools |
