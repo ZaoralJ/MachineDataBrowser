@@ -30,6 +30,7 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
         var tui = new TuiApp(app, model, layouts: new TuiLayouts(_layoutsPath));
         tui.Start();
         app.Begin(tui.Window);
+        Assert.Equal(CursorStyle.SteadyBlock, TextField.DefaultCursorStyle);
         _session = new IDeviceClientHolder(client, model, app, tui);
     }
 
@@ -49,6 +50,14 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
     private IApplication App => _session!.App;
 
     private string Screen => App.Driver!.ToString() ?? string.Empty;
+
+    [Fact]
+    public void Prompt_selected_text_uses_a_high_contrast_background()
+    {
+        var selected = TuiApp.PromptScheme().Active;
+        Assert.Equal(Theme.Bright, selected.Background);
+        Assert.Equal(Theme.Background, selected.Foreground);
+    }
 
     /// <summary>Runs timers and the callbacks device work posted back, then draws, until the screen shows what's expected.</summary>
     private async Task<string> UntilScreen(Func<string, bool> condition, int seconds = 20)

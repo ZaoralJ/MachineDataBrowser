@@ -46,6 +46,15 @@ internal static class PathCompletion
         };
     }
 
+    /// <summary>Combines a matching entry with the directory the user typed.</summary>
+    public static string Select(string text, string match)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(match);
+        var directoryEnd = text.LastIndexOf('/') + 1;
+        return text[..directoryEnd] + match;
+    }
+
     /// <summary>The longest start all names share, keeping what was typed when the case differs.</summary>
     private static string CommonStart(List<string> names, string typed)
     {

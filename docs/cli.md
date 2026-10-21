@@ -193,7 +193,9 @@ per endpoint URL (in `tui-layouts.json` in the data folder, not in the session f
   for this run, `t` and `l` switch while running. Status is green, amber or red; stale values are dimmed.
 - **Writes** follow the session: a read-only session never writes. Names keep their underscores (`Bulk_0014`).
 - The display can pause (`p`) while monitoring and any recording go on; `-`/`+` change the rate at the device.
-- Dialogs take their buttons' letters (`c` Close, `g` Go to, `y` / `n`); file prompts complete paths with `Tab`.
+- Dialogs take their buttons' letters (`c` Close, `g` Go to, `y` / `n`); text prompts use a steady block cursor. In
+  file prompts, `Tab` completes paths and `↑` / `↓` select among multiple matches. The *Write* prompt selects the
+  current value, so typing replaces it; move the cursor to edit only part of it.
 - It needs an interactive terminal; scripts use `browse`, `read` and `monitor`.
 
 ### Connection options
