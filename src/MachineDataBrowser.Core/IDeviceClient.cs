@@ -123,6 +123,26 @@ public static class DeviceClient
     public static bool IsModbus(string endpointUrl) =>
         endpointUrl.TrimStart().StartsWith(ModbusScheme + "://", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// URL scheme of PCCC endpoints (SLC 500, MicroLogix, PLC-5 over EtherNet/IP):
+    /// <c>pccc://host[:port][?plc=slc500|micrologix|plc5][&amp;files=N10,F11]</c>.
+    /// </summary>
+    public const string PcccScheme = "pccc";
+
+    public static bool IsPccc(string endpointUrl) =>
+        endpointUrl.TrimStart().StartsWith(PcccScheme + "://", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Allen-Bradley controllers over EtherNet/IP: Logix (<c>eip://</c>) or PCCC (<c>pccc://</c>). No security or credentials.</summary>
+    public static bool IsAllenBradley(string endpointUrl) => IsEip(endpointUrl) || IsPccc(endpointUrl);
+
+    /// <summary>Protocol name for people, from the endpoint URL.</summary>
+    public static string ProtocolName(string endpointUrl) =>
+        IsEip(endpointUrl) ? "EtherNet/IP (Logix)"
+        : IsPccc(endpointUrl) ? "EtherNet/IP (PCCC)"
+        : IsModbus(endpointUrl) ? "Modbus TCP"
+        : IsMqtt(endpointUrl) ? "MQTT"
+        : "OPC UA";
+
     /// <summary>MQTT endpoints: <c>mqtt://</c>, <c>mqtts://</c>, <c>ws://</c>, <c>wss://</c>.</summary>
     public static bool IsMqtt(string endpointUrl)
     {

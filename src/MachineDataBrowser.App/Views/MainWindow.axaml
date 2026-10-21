@@ -35,7 +35,7 @@
                  PlaceholderText="opc.tcp://host:4840" VerticalContentAlignment="Center"
                  FontFamily="{StaticResource MonoFont}"
                  AutomationProperties.Name="Server endpoint URL"
-                 ToolTip.Tip="Endpoint URL: opc.tcp://host:port, eip://host[:port]/1,0, modbus://host[:port][/unit] or mqtt://host[:port][/topic/#] (mqtts://, ws://, wss://). Enter connects, ↓ shows recent endpoints.">
+                 ToolTip.Tip="Endpoint URL: opc.tcp://host:port, eip://host[:port]/1,0, pccc://host[:port]?plc=slc500|micrologix|plc5, modbus://host[:port][/unit] or mqtt://host[:port][/topic/#] (mqtts://, ws://, wss://). Enter connects, ↓ shows recent endpoints.">
           <TextBox.InnerLeftContent>
             <Border Classes="endpoint-label">
               <TextBlock Text="Endpoint" />

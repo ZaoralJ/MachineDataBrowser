@@ -1,5 +1,5 @@
 site_name: Machine Data Browser
-site_description: Cross-platform viewer for machine data over OPC UA, EtherNet/IP and MQTT
+site_description: Cross-platform viewer for machine data over OPC UA, EtherNet/IP (Logix, PCCC) and MQTT
 site_url: https://zaoralj.github.io/MachineDataBrowser/
 site_author: ZaoralJ
 repo_url: https://github.com/ZaoralJ/MachineDataBrowser

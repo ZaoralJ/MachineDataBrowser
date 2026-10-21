@@ -149,7 +149,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             }
         });
 
-    /// <summary>The protocol follows the endpoint URL (<c>opc.tcp://</c> or <c>eip://</c>); swap clients when it changes.</summary>
+    /// <summary>The protocol follows the endpoint URL (<c>opc.tcp://</c>, <c>eip://</c>, <c>pccc://</c>, <c>mqtt://</c>); swap clients when it changes.</summary>
     private async Task EnsureClientForAsync(string endpointUrl)
     {
         if (_clientFactory.Supports(_client, endpointUrl))
@@ -279,12 +279,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     [NotifyCanExecuteChangedFor(nameof(ImportTagMapCommand))]
     public partial string EndpointUrl { get; set; } = "opc.tcp://localhost:50000";
 
-    /// <summary>Security, credentials and certificate trust only apply to OPC UA, not to EtherNet/IP (<c>eip://</c>) or Modbus.</summary>
-    public bool IsOpcUaEndpoint => !DeviceClient.IsEip(EndpointUrl ?? string.Empty) && !DeviceClient.IsModbus(EndpointUrl ?? string.Empty)
+    /// <summary>Security, credentials and certificate trust only apply to OPC UA, not to EtherNet/IP (<c>eip://</c>, <c>pccc://</c>) or Modbus.</summary>
+    public bool IsOpcUaEndpoint => !DeviceClient.IsAllenBradley(EndpointUrl ?? string.Empty) && !DeviceClient.IsModbus(EndpointUrl ?? string.Empty)
         && !DeviceClient.IsMqtt(EndpointUrl ?? string.Empty);
 
     /// <summary>User name, password and certificate trust apply to OPC UA and MQTT (mqtts://, wss://), not to EtherNet/IP or Modbus.</summary>
-    public bool HasCredentials => !DeviceClient.IsEip(EndpointUrl ?? string.Empty) && !DeviceClient.IsModbus(EndpointUrl ?? string.Empty);
+    public bool HasCredentials => !DeviceClient.IsAllenBradley(EndpointUrl ?? string.Empty) && !DeviceClient.IsModbus(EndpointUrl ?? string.Empty);
 
     /// <summary>The last connected endpoint, or localhost when there is no history.</summary>
     private string DefaultEndpointUrl => Settings.RecentEndpoints.Count > 0 ? Settings.RecentEndpoints[0] : "opc.tcp://localhost:50000";
@@ -382,6 +382,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         if (DeviceClient.IsEip(EndpointUrl ?? string.Empty))
         {
             return $"EtherNet/IP · {refresh}";
+        }
+
+        if (DeviceClient.IsPccc(EndpointUrl ?? string.Empty))
+        {
+            return $"PCCC · {refresh}";
         }
 
         if (DeviceClient.IsModbus(EndpointUrl ?? string.Empty))

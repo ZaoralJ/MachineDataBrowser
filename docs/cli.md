@@ -2,7 +2,7 @@
 
 `mdbrowser` does the browsing and monitoring of the app from a terminal or a script: list endpoints, browse the
 address space, read and write values, stream live values, and create and run the app's sessions. It speaks the same
-protocols as the app: **OPC UA**, **EtherNet/IP (Logix)**, **Modbus TCP** and **MQTT** (Sparkplug B, CloudEvents).
+protocols as the app: **OPC UA**, **EtherNet/IP (Logix and PCCC)**, **Modbus TCP** and **MQTT** (Sparkplug B, CloudEvents).
 
 ## Install
 
@@ -55,8 +55,8 @@ A node is either a **path** of display names from the root, starting with `/`, o
 
 - `/Objects/OpcPlc/Telemetry/Basic/StepUp`, `"/Controller Tags/Motor1/Speed"` (quote paths with spaces),
   `/Topics/machines/m1/status`;
-- `ns=3;s=StepUp` or the portable `nsu=http://…;s=StepUp` (OPC UA), a tag name like `Motor1.Speed` (Logix), an MQTT id
-  as the app shows it, e.g. `t:plant/hall1/press1/temperature` or `t:machines/m1/status#/speed` for a JSON field,
+- `ns=3;s=StepUp` or the portable `nsu=http://…;s=StepUp` (OPC UA), a tag name like `Motor1.Speed` (Logix), a
+  data-table address like `N7:0` or `T4:0.ACC` (PCCC), an MQTT id as the app shows it, e.g. `t:plant/hall1/press1/temperature` or `t:machines/m1/status#/speed` for a JSON field,
   or `"m:Plant1|Edge1|Press1|Temperature"` for a Sparkplug B metric (group, edge node, device, metric; quote the `|`).
   A fresh connection learns Sparkplug metric names from the next birth, so use these ids rather than paths for them
   ([example](cli-examples.md#monitor-sparkplug-b-metrics));

@@ -2,8 +2,8 @@
 
 Short record of the choices behind the current stack. Facts were checked at the time (September 2026).
 
-The app started as an OPC UA browser and is now a machine data viewer for OPC UA, EtherNet/IP (Logix), Modbus TCP
-and MQTT.
+The app started as an OPC UA browser and is now a machine data viewer for OPC UA, EtherNet/IP (Logix and PCCC),
+Modbus TCP and MQTT.
 ## Name: Machine Data Browser (renamed from OPC UA Browser after 0.8)
 
 - Everything carries the new name: repository, projects and namespaces, app bundle (`Machine Data Browser.app`,
@@ -53,6 +53,18 @@ and MQTT.
   (`simulators/cip`, pure Python, see [simulators.md](simulators.md)) that the CIP integration tests run against.
 - Tags are created with the synchronous `Initialize` on a pool thread: libplctag.NET 1.5 `InitializeAsync` leaks the
   native tag and its callback when creation fails, which crashed the process on a later libplctag event.
+
+## PCCC (SLC 500, MicroLogix, PLC-5): libplctag.NET, own driver
+
+- Same library as Logix (`PlcType.Slc500`, `MicroLogix`, `Plc5`), but its own driver project and URL scheme
+  (`pccc://`): the address model (data-table files, no symbols, no templates) shares nothing with Logix tags.
+- One scheme with `?plc=` rather than one per family: the families differ only in libplctag's command set.
+- No file directory: libplctag offers no raw PCCC, and reading the SLC directory (system file 0) differs between
+  processors. Standard files are probed and `?files=` names the rest; any address can be watched or read directly.
+- Bit writes are read-modify-write of the word (two requests) instead of libplctag's masked-write bit tags, which
+  behaved differently between libplctag versions; documented as not atomic.
+- Own simulator (`simulators/pccc`): `ab_server` can't address sub-elements (`T4:0.ACC`) and runs one PLC type per
+  process; ours serves SLC and PLC-5 commands from one data table.
 
 ## MQTT: MQTTnet, with Sparkplug B
 

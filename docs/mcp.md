@@ -3,8 +3,8 @@
 `mdbrowser mcp` runs an [MCP](https://modelcontextprotocol.io) server, so AI agents (GitHub Copilot, Claude, opencode,
 Cursor, …) can explore and read machines: find a signal, read values, check how they behave over a few seconds. They
 can also read [recordings in SQLite files](user-manual.md#recording-to-sqlite): what was recorded, statistics, and
-samples over any time range. It is part of the [command line](cli.md) and speaks OPC UA, EtherNet/IP (Logix),
-Modbus TCP and MQTT.
+samples over any time range. It is part of the [command line](cli.md) and speaks OPC UA, EtherNet/IP (Logix and
+PCCC), Modbus TCP and MQTT.
 
 **Read-only by default:** without `--allow-writes` no tool can write values or call methods, and none ever
 acknowledges alarms. With it, every change is confirmed by you first (see [Changes](#changes-allow-writes)).

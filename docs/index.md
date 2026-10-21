@@ -16,6 +16,7 @@ them and export them.
 | **OPC UA** | `opc.tcp://127.0.0.1:4841` | secure endpoints, user login, custom structures, history, events & alarms, methods |
 | **EtherNet/IP** (Allen-Bradley Logix) | `eip://127.0.0.1:44818/1,0` | controller and program tags, UDTs, arrays of UDTs |
 | **Modbus TCP** | `modbus://127.0.0.1:5020/1` | coils, inputs and registers by address, typed values (float32, int32, strings, word order), register maps naming them |
+| **PCCC** (SLC 500, MicroLogix, PLC-5) | `pccc://127.0.0.1:44819?plc=slc500` | data files, timers, counters, controls, bits |
 | **MQTT** | `mqtt://127.0.0.1:1883[/topic/#]`, `mqtts://`, `ws://`, `wss://` | topic tree, JSON fields, Sparkplug B, CloudEvents |
 
 ## Install (macOS)
@@ -32,6 +33,6 @@ like any other Mac app.
 - [User manual](user-manual.md): every feature, with screenshots and shortcuts.
 - [MCP server](mcp.md): let AI agents (Copilot, Claude, opencode) browse and read machines, read-only.
 - [Command line](cli.md): `mdbrowser` to browse, read and monitor from a terminal or script (macOS, Linux).
-- [Test servers](simulators.md): OPC UA, Logix and MQTT simulators to try it without hardware.
+- [Test servers](simulators.md): OPC UA, Logix, PCCC and MQTT simulators to try it without hardware.
 - [Architecture](architecture.md) and [design decisions](decisions.md): for contributors.
 - [Source, releases and issues on GitHub](https://github.com/ZaoralJ/MachineDataBrowser).
