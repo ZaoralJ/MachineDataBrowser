@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Text.Json.Nodes;
 using MachineDataBrowser.Core;
 using Terminal.Gui.App;
+using Terminal.Gui.Configuration;
 using Terminal.Gui.Drawing;
 using Terminal.Gui.Drivers;
 using Attribute = Terminal.Gui.Drawing.Attribute;
@@ -105,6 +107,13 @@ internal sealed class TuiApp : IDisposable
         _model = model;
         _openSession = openSession;
         _layouts = layouts ?? new TuiLayouts();
+        var configuration = TuiConfigurationBuilder.Shared;
+        var runtimeConfig = JsonNode.Parse(configuration.RuntimeConfig ?? "{}")?.AsObject() ?? new JsonObject();
+        var textFieldConfig = runtimeConfig["TextField"] as JsonObject ?? new JsonObject();
+        textFieldConfig["DefaultCursorStyle"] = nameof(CursorStyle.SteadyBlock);
+        runtimeConfig["TextField"] = textFieldConfig;
+        configuration.RuntimeConfig = runtimeConfig.ToJsonString();
+        configuration.ApplyToStaticFacades();
         Theme.Apply(theme ?? ColorThemeCatalog.Find(null), light);
 
         _window = new Window { BorderStyle = global::Terminal.Gui.Drawing.LineStyle.None };
@@ -193,6 +202,13 @@ internal sealed class TuiApp : IDisposable
         _app.ScreenChanged += (_, _) => LayoutPanes();
         _app.AddTimeout(RefreshInterval, () =>
         {
+            // The modal prompts have their own focused cursor. Redrawing the browser behind them every 250 ms makes
+            // the terminal move its visible cursor through the dirty cells before it is repositioned in the field.
+            if (_app.TopRunnableView != _window)
+            {
+                return true;
+            }
+
             RefreshWatch();
             RefreshChart();
             RefreshLog();
@@ -1174,7 +1190,7 @@ internal sealed class TuiApp : IDisposable
         var now = "…";
         var nodeId = id.Value;
         var nodeName = name ?? string.Empty;
-        if (Ask($"Write {nodeName}", "New value:", string.Empty, async () => now = await _model.ReadValueTextAsync(nodeId).ConfigureAwait(false)) is not { } text)
+        if (Ask($"Write {nodeName}", "New value:", string.Empty, async () => now = await _model.ReadValueTextAsync(nodeId).ConfigureAwait(false), selectLoadedValue: true) is not { } text)
         {
             return;
         }
@@ -1611,11 +1627,11 @@ internal sealed class TuiApp : IDisposable
     /// A text prompt; null when cancelled. <paramref name="load"/> fetches the initial text while the prompt is open
     /// (filled in unless something was typed already).
     /// </summary>
-    private string? Ask(string title, string label, string initial, Func<Task<string>>? load = null, bool path = false)
+    private string? Ask(string title, string label, string initial, Func<Task<string>>? load = null, bool path = false, bool selectLoadedValue = false)
     {
         var text = Text(label);
         var field = new TextField { Text = initial, X = 1, Y = Pos.Bottom(text) + 1, Width = Dim.Fill(1) };
-        field.SetScheme(new Scheme(Theme.Base) { Normal = new Attribute(Theme.Bright, Theme.Selection), Focus = new Attribute(Theme.Bright, Theme.Selection), Editable = new Attribute(Theme.Bright, Theme.Selection) });
+        field.SetScheme(PromptScheme());
         using var dialog = NewDialog(title, Dim.Percent(70), null, [text, field], "_Cancel", "_OK");
         if (load is not null)
         {
@@ -1629,6 +1645,10 @@ internal sealed class TuiApp : IDisposable
                     if (string.IsNullOrEmpty(field.Text))
                     {
                         field.Text = value;
+                        if (selectLoadedValue)
+                        {
+                            field.SelectAll();
+                        }
                     }
                 });
             }, $"reading {title}");
@@ -1636,27 +1656,47 @@ internal sealed class TuiApp : IDisposable
 
         if (path)
         {
-            // Tab completes the path like a shell; several matches are listed under the field.
+            // Tab completes the path; arrow keys choose between multiple matches.
             var matches = Text(string.Empty, Pos.Bottom(field) + 1);
             matches.SetScheme(new Scheme(Theme.Base) { Normal = new Attribute(Theme.Muted, Theme.Surface) });
             dialog.Add(matches);
+            IReadOnlyList<string> candidates = [];
+            string completionInput = string.Empty;
+            var selectedCandidate = -1;
             field.KeyDown += (_, key) =>
             {
-                if (key != Key.Tab)
+                if (key == Key.Tab)
                 {
+                    completionInput = field.Text ?? string.Empty;
+                    var (completed, found) = PathCompletion.Complete(completionInput);
+                    field.Text = completed;
+                    field.MoveEnd();
+                    candidates = found;
+                    selectedCandidate = -1;
+                    matches.Text = RenderMatches(candidates, selectedCandidate);
+                    key.Handled = true;
                     return;
                 }
 
-                var (completed, found) = PathCompletion.Complete(field.Text ?? string.Empty);
-                field.Text = completed;
-                field.MoveEnd();
-                matches.Text = found.Count switch
+                if (candidates.Count > 1 && (key == Key.CursorUp || key == Key.CursorDown))
                 {
-                    0 => "no match",
-                    1 => string.Empty,
-                    _ => string.Join("  ", found.Take(12)) + (found.Count > 12 ? $"  … {found.Count - 12} more" : string.Empty),
-                };
-                key.Handled = true;
+                    var moveDown = key == Key.CursorDown;
+                    selectedCandidate = selectedCandidate < 0
+                        ? moveDown ? 0 : candidates.Count - 1
+                        : (selectedCandidate + (moveDown ? 1 : -1) + candidates.Count) % candidates.Count;
+                    field.Text = PathCompletion.Select(completionInput, candidates[selectedCandidate]);
+                    field.MoveEnd();
+                    matches.Text = RenderMatches(candidates, selectedCandidate);
+                    key.Handled = true;
+                    return;
+                }
+
+                if (key != Key.Enter && key != Key.Tab && candidates.Count > 0)
+                {
+                    candidates = [];
+                    selectedCandidate = -1;
+                    matches.Text = string.Empty;
+                }
             };
         }
 
@@ -1669,6 +1709,36 @@ internal sealed class TuiApp : IDisposable
 
         var answer = field.Text?.Trim() ?? string.Empty;
         return path ? PathCompletion.Expand(answer) : answer;
+    }
+
+    internal static Scheme PromptScheme() => new(Theme.Base)
+    {
+        Normal = new Attribute(Theme.Bright, Theme.Selection),
+        Focus = new Attribute(Theme.Bright, Theme.Selection),
+        Editable = new Attribute(Theme.Bright, Theme.Selection),
+        Active = new Attribute(Theme.Background, Theme.Bright, TextStyle.Bold),
+    };
+
+    private static string RenderMatches(IReadOnlyList<string> candidates, int selectedCandidate)
+    {
+        if (candidates.Count == 0)
+        {
+            return "no match";
+        }
+
+        if (candidates.Count == 1)
+        {
+            return string.Empty;
+        }
+
+        const int visibleCount = 12;
+        var start = selectedCandidate < 0 ? 0 : Math.Clamp(selectedCandidate - visibleCount / 2, 0, Math.Max(0, candidates.Count - visibleCount));
+        var visible = candidates.Skip(start).Take(visibleCount)
+            .Select((candidate, index) => (start + index == selectedCandidate ? "› " : "  ") + candidate);
+        var before = start > 0 ? $"↑ {start} more{Environment.NewLine}" : string.Empty;
+        var afterCount = candidates.Count - start - visibleCount;
+        var after = afterCount > 0 ? $"{Environment.NewLine}↓ {afterCount} more" : string.Empty;
+        return before + string.Join(Environment.NewLine, visible) + after + $"{Environment.NewLine}Use ↑ / ↓ to choose";
     }
 
     /// <summary>A yes/no question; No is the default, so Enter alone changes nothing.</summary>

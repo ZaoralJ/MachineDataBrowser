@@ -30,6 +30,7 @@ public sealed class PathCompletionTests : IDisposable
         var (text, matches) = PathCompletion.Complete(Path.Combine(_dir, "l"));
         Assert.Equal(Path.Combine(_dir, "line"), text);
         Assert.Equal(["line1.mdbsession", "line2.mdbsession"], matches);
+        Assert.Equal(Path.Combine(_dir, "line2.mdbsession"), PathCompletion.Select(Path.Combine(_dir, "line"), matches[1]));
     }
 
     [Fact]
