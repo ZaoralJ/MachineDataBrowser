@@ -283,7 +283,7 @@ flowchart TB
 
 - **Discovery:** MQTT has no browse service. The client subscribes to one topic filter and builds the tree from the
   messages it receives.
-  - The filter is `#` by default. Narrow it with the endpoint path (`mqtt://broker/plant/#`) or with
+  - The filter is `#` by default. Narrow it with the endpoint path (`mqtt://127.0.0.1:1883/plant/#`) or with
     `?topic=`.
   - Retained messages show up straight away; other topics appear when they publish.
   - At most 20 000 topics are kept (`MaxTopics`); messages on new topics beyond that are counted as dropped.

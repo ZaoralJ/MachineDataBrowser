@@ -2,16 +2,18 @@
 # requires-python = ">=3.11"
 # dependencies = ["pyte>=0.8", "pillow>=10", "fonttools>=4"]
 # ///
-"""Renders `mdbrowser tui` to docs/images/tui.png: the real TUI in a pseudo-terminal, driven by keys, drawn to a PNG.
+"""Renders `mdbrowser tui` screenshots to docs/images/tui*.png: the real TUI in a pseudo-terminal, driven by keys.
 
-Needs the MQTT simulator (`just mqtt` or `just all`) and builds the CLI first (see `just docs-tui-screenshot`).
-Usage: uv run scripts/tui-screenshot.py <mdbrowser> <output.png>
+Needs the MQTT and Logix simulators (`just all`) and builds the CLI first (see `just docs-tui-screenshot`).
+Nothing is written to the simulators: the write prompt is cancelled.
+Usage: uv run scripts/tui-screenshot.py <mdbrowser> <images folder>
 """
 
 import fcntl
 import io
 import os
 import pty
+import re
 import select
 import signal
 import struct
@@ -29,7 +31,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 COLS, ROWS = 150, 45
 FONT_SIZE = 15
-ENDPOINT = "mqtt://localhost:1883"
+MQTT = "mqtt://127.0.0.1:1883"
+LOGIX = "eip://127.0.0.1:44818/1,0"
+SHIFT_DOWN, RIGHT, DOWN, TAB, ESC = "\x1b[1;2B", "\x1b[C", "\x1b[B", "\t", "\x1b"
 CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "mdbrowser-docs-fonts"
 FONTS = {
     # Regular, bold; DejaVu has the braille dots of the trend chart that JetBrains Mono lacks.
@@ -59,7 +63,7 @@ def fonts() -> list[tuple[ImageFont.FreeTypeFont, ImageFont.FreeTypeFont, set[in
 class Terminal:
     """The TUI in a pseudo-terminal of COLS x ROWS, its output kept in a pyte screen."""
 
-    def __init__(self, mdbrowser: str):
+    def __init__(self, mdbrowser: str, endpoint: str):
         self.screen = pyte.Screen(COLS, ROWS)
         self.stream = pyte.ByteStream(self.screen)
         env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor", LANG="en_US.UTF-8",
@@ -67,7 +71,7 @@ class Terminal:
                    MACHINEDATABROWSER_DATA_DIR=tempfile.mkdtemp(prefix="mdb-docs-"))
         self.pid, self.fd = pty.fork()
         if self.pid == 0:
-            os.execve(mdbrowser, [mdbrowser, "tui", ENDPOINT, "--theme", "Indigo"], env)
+            os.execve(mdbrowser, [mdbrowser, "tui", endpoint, "--theme", "Indigo"], env)
         fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack("HHHH", ROWS, COLS, 0, 0))
 
     def pump(self, seconds: float) -> None:
@@ -98,6 +102,13 @@ class Terminal:
         os.write(self.fd, keys.encode())
         self.pump(pause)
 
+    def search(self, text: str, expect: str) -> None:
+        """s, the text, then Enter on the first match: the tree goes to it."""
+        self.keys("s", 0.8)
+        self.keys(text + "\r", 2.0)
+        self.wait_for(expect)
+        self.keys("\r", 1.5)
+
     def close(self) -> None:
         os.kill(self.pid, signal.SIGKILL)
 
@@ -107,7 +118,7 @@ def color(value: str, fallback: str) -> tuple[int, int, int]:
     return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
 
 
-def render(screen: pyte.Screen, path: str) -> None:
+def render(screen: pyte.Screen, path: Path) -> None:
     faces = fonts()
     regular = faces[0][0]
     left, top, right, bottom = regular.getbbox("M")
@@ -170,31 +181,103 @@ def draw_braille(draw: ImageDraw.ImageDraw, bits: int, box: tuple[int, int, int,
             draw.ellipse((cx - r, cy - r, cx + r - 1, cy + r - 1), fill=fill)
 
 
-def main() -> None:
-    mdbrowser, output = sys.argv[1], sys.argv[2]
-    terminal = Terminal(mdbrowser)
+def theme_names() -> list[str]:
+    """The colour themes in the order t steps through them, from the catalog the app and the TUI share."""
+    catalog = Path(__file__).resolve().parent.parent / "src/MachineDataBrowser.Core/ColorThemeCatalog.cs"
+    return re.findall(r'^\s*new\("(\w+)", "', catalog.read_text(encoding="utf-8"), re.MULTILINE)
+
+
+def mqtt_scenes(mdbrowser: str, images: Path) -> None:
+    """The main view on MQTT machine data, then the same with panes hidden, one pane alone, and the help."""
+    terminal = Terminal(mdbrowser, MQTT)
     try:
         terminal.wait_for("Connected")
         terminal.wait_for("Topics")
         # The status topic of machine m1 and its parts, with status/speed selected for the trend.
-        terminal.keys("s", 0.8)
-        terminal.keys("m1\r", 2.0)
-        # Search results are in the modal table; background log refresh pauses while a dialog is open.
-        terminal.wait_for("temperature")
-        terminal.keys("\r", 1.5)
+        terminal.search("m1", "temperature")
         terminal.wait_for("NodeId")
-        terminal.keys("\x1b[C", 1.0)
-        terminal.keys("\x1b[B", 0.5)
+        terminal.keys(RIGHT, 1.0)
+        terminal.keys(DOWN, 0.5)
         terminal.keys("m", 2.0)
         terminal.wait_for("Monitored Items (")
-        terminal.keys("\t", 0.5)
-        terminal.keys("\t", 0.5)
-        terminal.keys("\x1b[B", 0.5)
+        terminal.keys(TAB, 0.5)
+        terminal.keys(TAB, 0.5)
+        terminal.keys(DOWN, 0.5)
         # Enough samples for the trend to show its shape.
         terminal.pump(20)
-        render(terminal.screen, output)
+        render(terminal.screen, images / "tui.png")
+
+        # 2 and 4 hide Attributes and Trend; the others take their room.
+        terminal.keys("2", 0.5)
+        terminal.keys("4", 1.5)
+        render(terminal.screen, images / "tui-panes.png")
+        terminal.keys("2", 0.5)
+        terminal.keys("4", 0.5)
+
+        # Shift+3: Monitored Items alone on the screen.
+        terminal.keys("#", 2.0)
+        render(terminal.screen, images / "tui-zoom.png")
+        terminal.keys("#", 1.0)
+
+        terminal.keys("h", 1.5)
+        terminal.wait_for("Keys")
+        render(terminal.screen, images / "tui-help.png")
+        terminal.keys(ESC, 0.8)
+
+        # Every colour theme, dark and light: t goes to the next theme (catalog order), l switches light and dark.
+        (images / "themes").mkdir(exist_ok=True)
+        for index, name in enumerate(theme_names()):
+            if index > 0:  # the first is the one it started with (--theme Indigo), not logged
+                terminal.wait_for(f"Theme {name}, dark")
+            render(terminal.screen, images / "themes" / f"tui-{name.lower()}-dark.png")
+            terminal.keys("l", 1.5)
+            terminal.wait_for(f"Theme {name}, light")
+            render(terminal.screen, images / "themes" / f"tui-{name.lower()}-light.png")
+            terminal.keys("l", 1.0)
+            terminal.keys("t", 1.5)
     finally:
         terminal.close()
+
+
+def logix_scenes(mdbrowser: str, images: Path) -> None:
+    """Several array tags selected and monitored, the full value of a large array, and the write prompt."""
+    terminal = Terminal(mdbrowser, LOGIX)
+    try:
+        terminal.wait_for("Connected")
+        terminal.wait_for("Controller Tags")
+        terminal.search("Arrays", "Arrays")
+        terminal.keys(RIGHT, 2.0)
+        terminal.wait_for("Bools")
+        terminal.keys(DOWN, 0.5)
+        for _ in range(5):
+            terminal.keys(SHIFT_DOWN, 0.3)
+        terminal.keys("m", 3.0)
+        terminal.wait_for("Monitored Items (6)")
+        terminal.pump(2)
+        render(terminal.screen, images / "tui-multiselect.png")
+
+        # v on a tag in the tree: its whole value, here 5000 numbers, in a scrollable popup.
+        terminal.search("BigDintArray", "BigDintArray")
+        terminal.keys("v", 3.0)
+        terminal.wait_for("500, ")
+        render(terminal.screen, images / "tui-value.png")
+        terminal.keys(ESC, 1.0)
+
+        # w shows the current value and asks for the new one; Esc cancels, so nothing is written.
+        terminal.search("TestDint", "TestDint")
+        terminal.keys("w", 2.0)
+        terminal.wait_for("Now:")
+        terminal.keys("12345", 1.0)
+        render(terminal.screen, images / "tui-write.png")
+        terminal.keys(ESC, 1.0)
+    finally:
+        terminal.close()
+
+
+def main() -> None:
+    mdbrowser, images = sys.argv[1], Path(sys.argv[2])
+    mqtt_scenes(mdbrowser, images)
+    logix_scenes(mdbrowser, images)
 
 
 if __name__ == "__main__":

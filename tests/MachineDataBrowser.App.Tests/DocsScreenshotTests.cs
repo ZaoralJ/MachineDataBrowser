@@ -128,6 +128,42 @@ public sealed class DocsScreenshotTests(OpcPlcFixture plc, CustomTypesServerFixt
         window.Close();
     }
 
+    /// <summary>The same window in every colour theme, light and dark, for docs/themes.md.</summary>
+    [AvaloniaFact]
+    public async Task Color_themes()
+    {
+        var (vm, window) = await OpenAsync(broker.EndpointUrl);
+        await using var connection = vm;
+        window.Width = 1200;
+        window.Height = 720;
+        await WatchAsync(vm, "Topics", "machines", "m1", "status", "speed");
+        await WatchAsync(vm, "Topics", "machines", "m1", "status", "state");
+        await WatchAsync(vm, "Sparkplug B", "Plant1", "Edge1", "Press1", "Temperature");
+        vm.SelectedNode = await Navigate(vm, "Topics", "machines", "m1", "status");
+        await Until(() => vm.HasAttributes && vm.WatchItems.All(w => w.UpdateCount > 1));
+
+        var folder = Path.Combine(OutputDir, "themes");
+        Directory.CreateDirectory(folder);
+        foreach (var theme in ColorThemeCatalog.All)
+        {
+            MainWindowViewModel.ApplyColorTheme(theme.Name);
+            foreach (var (variant, suffix) in new[] { (ThemeVariant.Dark, "dark"), (ThemeVariant.Light, "light") })
+            {
+                Application.Current!.RequestedThemeVariant = variant;
+                Dispatcher.UIThread.RunJobs();
+                window.CaptureRenderedFrame()?.Dispose();
+                Dispatcher.UIThread.RunJobs();
+                using var frame = window.CaptureRenderedFrame();
+                var dark = MeanLuminance(frame!) < 90;
+                Assert.True(dark == (suffix == "dark"), $"{theme.Name} {suffix} rendered the other appearance.");
+                frame!.Save(Path.Combine(folder, $"app-{theme.Name.ToLowerInvariant()}-{suffix}.png"),
+                    Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+            }
+        }
+
+        window.Close();
+    }
+
     // ---- Watch dialogs, snapshots, writing ----
 
     [AvaloniaFact]

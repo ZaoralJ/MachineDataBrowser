@@ -38,12 +38,12 @@ For the interactive browser, `mdbrowser <url>` is shorthand for `mdbrowser tui <
 `mdbrowser <command> --help` lists every option.
 
 ```sh
-mdbrowser opc.tcp://plc:4840
-mdbrowser endpoints opc.tcp://plc:4840
-mdbrowser browse opc.tcp://plc:4840 /Objects/Line1 --depth 2
-mdbrowser read eip://10.0.0.5/1,0 "/Controller Tags/Motor.Speed"
-mdbrowser monitor mqtt://broker/plant/# /Topics/plant/line1/status/speed --duration 10m
-mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1 --recursive --depth 3
+mdbrowser opc.tcp://127.0.0.1:4841
+mdbrowser endpoints opc.tcp://127.0.0.1:50000
+mdbrowser browse opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines --depth 2
+mdbrowser read eip://127.0.0.1:44818/1,0 "/Controller Tags/Motor1/Speed"
+mdbrowser monitor "mqtt://127.0.0.1:1883/machines/#" /Topics/machines/m1/status/speed --duration 10m
+mdbrowser monitor opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines --recursive --depth 3
 mdbrowser run line1.mdbsession --format csv > shift.csv
 ```
 
@@ -51,12 +51,20 @@ mdbrowser run line1.mdbsession --format csv > shift.csv
 
 A node is either a **path** of display names from the root, starting with `/`, or an **id**:
 
-- `/Objects/OpcPlc/Telemetry/Basic/StepUp`, `/Controller Tags/Motor.Speed`, `/Topics/plant/line1/status`,
-  `"/Sparkplug B/Plant1/Edge1/Press1/Temperature"` (quote paths with spaces);
-- `ns=3;s=StepUp` or the portable `nsu=http://…;s=StepUp` (OPC UA), a tag name (Logix), an MQTT id as the app shows
-  it, e.g. `t:plant/line1/status/speed` or `t:plant/line1/status#/speed` for a JSON field.
+- `/Objects/OpcPlc/Telemetry/Basic/StepUp`, `"/Controller Tags/Motor1/Speed"` (quote paths with spaces),
+  `/Topics/machines/m1/status`;
+- `ns=3;s=StepUp` or the portable `nsu=http://…;s=StepUp` (OPC UA), a tag name like `Motor1.Speed` (Logix), an MQTT id
+  as the app shows it, e.g. `t:plant/hall1/press1/temperature` or `t:machines/m1/status#/speed` for a JSON field,
+  or `"m:Plant1|Edge1|Press1|Temperature"` for a Sparkplug B metric (group, edge node, device, metric; quote the `|`).
+  A fresh connection learns Sparkplug metric names from the next birth, so use these ids rather than paths for them
+  ([example](cli-examples.md#monitor-sparkplug-b-metrics)).
 
 `browse` prints full paths, so its output can be passed to `read` and `monitor` as it is.
+
+**JSON on MQTT topics:** each property of a JSON payload is a node below its topic, nested objects too, read and
+monitored with its own type: `/Topics/machines/m1/status/speed` or `/Topics/machines/m1/status/temperature/motor`
+(id `t:machines/m1/status#/temperature/motor`); the topic itself gives the whole payload. `-R` on the topic covers
+every property. See the [examples](cli-examples.md#read-properties-from-the-json-on-a-topic).
 The app's MQTT tree is a live cache of messages it has received; a non-retained topic can still be visible there after a
 fresh CLI connection cannot browse it. `monitor` accepts an uncached `/Topics/...` path as a literal MQTT topic and
 subscribes for future messages. The app's **Copy mdbrowser command** uses the MQTT id (including JSON pointers) so it
@@ -84,11 +92,18 @@ it, like *Monitor folder* in the app:
 A session file (`.mdbsession`) is what the app saves with File ▸ Save: the endpoint, its options and the watch list.
 The command line reads and writes the same files, so a watch list can go both ways between the app and scripts.
 
+!!! tip "One session, kept in sync everywhere"
+    Every running instance that has a session open follows its file: the app, `mdbrowser tui` and `mdbrowser run`.
+    Change the session in any of them — save in the app or the TUI (`Ctrl+S`), `mdbrowser session add` / `remove`,
+    or an editor — and the others pick it up at once: the app and the TUI reload it, `run` switches to the new watch
+    list without reconnecting. Only when reloading would drop unsaved changes or stop a recording do the app and the
+    TUI ask first.
+
 ```sh
-mdbrowser session create line1.mdbsession opc.tcp://plc:4840 /Objects/Line1 -R -r 1000 --trust-all
-mdbrowser session add line1.mdbsession /Objects/Line2/Speed "ns=3;s=Pressure"
-mdbrowser session remove line1.mdbsession /Objects/Line2/Speed                          # -R removes a whole folder
-mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1/Speed --save quick.mdbsession     # watch now, keep it for later
+mdbrowser session create line1.mdbsession opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines/Machine1 -R -r 1000 --trust-all
+mdbrowser session add line1.mdbsession /Objects/Custom/Machines/Machine2/Speed "ns=2;i=29"
+mdbrowser session remove line1.mdbsession /Objects/Custom/Machines/Machine2/Speed      # -R removes a whole folder
+mdbrowser monitor opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines/Machine1/Speed --save quick.mdbsession
 mdbrowser run line1.mdbsession                                                         # or File ▸ Open in the app
 ```
 
@@ -112,16 +127,16 @@ mdbrowser run line1.mdbsession                                                  
 `monitor` and `run` record every sample with `--record <file>`, alongside what they show:
 
 ```sh
-mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1 -R -r 500 --record line1.db       # SQLite
+mdbrowser monitor opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines -R -r 500 --record line1.db     # SQLite
 mdbrowser run line1.mdbsession --duration 8h --record shift.db
-mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1/Speed --record speed.csv            # CSV
+mdbrowser monitor opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines/Machine1/Speed --record speed.csv  # CSV
 ```
 
 `--retention 30d` (SQLite only) deletes samples older than that from the file while recording, so an always-on
 recording doesn't grow without end:
 
 ```sh
-mdbrowser run plant.mdbsession --record plant.db --retention 30d
+mdbrowser run line1.mdbsession --record plant.db --retention 30d
 ```
 
 It is the same file the app writes with *Also write to file*: SQLite for `.db` / `.sqlite` (one more recording in the
@@ -131,9 +146,9 @@ app's recording viewer opens either. The file is the store, so a recording can r
 ### Writing values
 
 ```sh
-mdbrowser write opc.tcp://plc:4840 /Objects/Line1/Setpoint 42.5
-mdbrowser write eip://10.0.0.5/1,0 Program:Main.Recipe "[1, 2, 3]"
-mdbrowser write opc.tcp://plc:4840 --set /Objects/Line1/Mode=AUTO --set /Objects/Line1/Setpoint=42.5 --yes
+mdbrowser write opc.tcp://127.0.0.1:4841 /Objects/Custom/DataTypes/Double 42.5
+mdbrowser write eip://127.0.0.1:44818/1,0 Arrays.Lreals "[1.5, 2.5, 3.5, 4.5]"
+mdbrowser write opc.tcp://127.0.0.1:4841 --set /Objects/Custom/DataTypes/Int16=-321 --set /Objects/Custom/DataTypes/Double=42.5 --yes
 ```
 
 - The value is text, converted to the variable's data type like *Write value…* in the app: numbers, `true`/`false`,
@@ -144,7 +159,7 @@ mdbrowser write opc.tcp://plc:4840 --set /Objects/Line1/Mode=AUTO --set /Objects
 - After writing it reads the values back and prints *before*, *after* and the result per item, so a write the device
   accepted but didn't apply is visible. MQTT values come back through the broker; `write` waits up to 2 s for them.
 - `--set node=value` writes several in one go. Paths split at the first `=` (values may contain `=`), ids at the last
-  (`--set "ns=3;s=Mode=AUTO"`); for a value with `=` on an id, use `write <url> <id> <value>`.
+  (`--set "ns=2;i=48=-321"`); for a value with `=` on an id, use `write <url> <id> <value>`.
 - Exit code 1 when any value was not written; the reason is in the *result* column (`-f json`: `written`, `error`).
 
 ### Full-screen browser (`tui`)
@@ -153,9 +168,9 @@ mdbrowser write opc.tcp://plc:4840 --set /Objects/Line1/Mode=AUTO --set /Objects
 when a window is one too many.
 
 ```sh
-mdbrowser tui opc.tcp://plc:4840
-mdbrowser tui eip://10.0.0.5/1,0
-mdbrowser tui mqtt://broker:1883
+mdbrowser tui opc.tcp://127.0.0.1:4841
+mdbrowser tui eip://127.0.0.1:44818/1,0
+mdbrowser tui mqtt://127.0.0.1:1883
 mdbrowser tui line1.mdbsession          # the session's endpoint, options and watch list, monitored at once
 ```
 
@@ -195,14 +210,43 @@ Attributes, Monitored Items, Trend and Info show vertical scrollbars when their 
 | `g` / `t` / `l` | connection diagnostics / next colour theme / light or dark |
 | `q` | quit |
 
-- **Colours** are the app's themes, the one chosen in the app by default; `--theme Nord` and `--light` pick another
-  for this run, `t` and `l` switch while running. Status is green, amber or red; stale values are dimmed.
+- **Colours** are the app's themes ([all of them](themes.md)), the one chosen in the app by default; `--theme Nord`
+  and `--light` pick another for this run, `t` and `l` switch while running. Status is green, amber or red; stale
+  values are dimmed.
 - **Writes** follow the session: a read-only session never writes. Names keep their underscores (`Bulk_0014`).
 - The display can pause (`p`) while monitoring and any recording go on; `-`/`+` change the rate at the device.
 - Dialogs take their buttons' letters (`c` Close, `g` Go to, `y` / `n`); text prompts use a steady block cursor. In
   file prompts, `Tab` completes paths and `↑` / `↓` select among multiple matches. The *Write* prompt selects the
   current value, so typing replaces it; move the cursor to edit only part of it.
 - It needs an interactive terminal; scripts use `browse`, `read` and `monitor`.
+
+#### In pictures
+
+Panes come and go with `1` … `5`; here Attributes (`2`) and Trend (`4`) are hidden and the others take their room.
+
+![Attributes and Trend hidden: address space, monitored items and info](images/tui-panes.png)
+
+`Shift+3` shows Monitored Items alone on the full screen; again restores the layout.
+
+![Monitored Items alone on the full screen](images/tui-zoom.png)
+
+Several tags selected with `Shift+↓` (or Shift-click, drag, Ctrl-click) and monitored at once with `m`.
+
+![Six Logix array tags selected in the address space and monitored](images/tui-multiselect.png)
+
+`v` shows the whole value — here a Logix array of 5000 numbers — in a scrollable popup; `C` copies it.
+
+![The full value of a large array in a scrollable popup](images/tui-value.png)
+
+`w` writes: the prompt shows the current value and asks for the new one; it asks again before writing.
+
+![The write prompt with the current value of a tag](images/tui-write.png)
+
+`h` lists every key.
+
+![The keys help](images/tui-help.png)
+
+See the [command line examples](cli-examples.md) for the other commands with their output.
 
 ### Connection options
 
@@ -237,8 +281,8 @@ Text and CSV show names only; add `--ids` (`read`, `write`, `monitor`, `run`) fo
 When two items have the same name, ids are shown anyway. JSON always includes `id`, and `monitor`/`run` CSV too.
 
 ```sh
-mdbrowser read opc.tcp://plc:4840 /Objects/Line1/Speed -f json | jq '.[0].value'
-mdbrowser monitor opc.tcp://plc:4840 /Objects/Line1/Speed -f json | jq -c 'select(.status != "Good")'
+mdbrowser read opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines/Machine1/Speed -f json | jq '.[0].value'
+mdbrowser monitor opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines -R -f json | jq -c 'select(.status != "Good")'
 ```
 
 ### Stopping and exit codes

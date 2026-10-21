@@ -29,7 +29,8 @@ dotnet test tests/MachineDataBrowser.App.Tests -- --filter-class "*WatchFilterTe
 dotnet test tests/MachineDataBrowser.Core.Tests -- --filter-method "*Collect_variables*"
 dotnet test                                                 # everything; needs Docker, takes several minutes
 just docs-screenshots                                       # regenerate docs/images (needs Docker + pngquant)
-just docs-tui-screenshot                                    # regenerate docs/images/tui.png (MQTT simulator, uv, pngquant)
+just docs-tui-screenshot                                    # regenerate docs/images/tui*.png (MQTT + Logix simulators, uv, pngquant)
+just docs-cli-examples                                      # regenerate docs/cli-examples.md (all simulators, uv)
 just docs-serve                                             # preview the docs site (MkDocs Material, needs uv)
 ```
 
@@ -48,7 +49,8 @@ Run the narrowest test class that covers your change first, then the affected pr
   `OPCUABROWSER_DATA_DIR`, migration of the `OpcUaBrowser` data folder, Homebrew cask rename. See `docs/decisions.md`.
 - **Tests:** new behaviour needs a test: Core against opc-plc or `simulators/`, UI with Avalonia.Headless.
 - **Docs:** user-visible changes update `docs/user-manual.md` (keep lines ≤ 120 chars). Visible UI changes: rerun
-  `just docs-screenshots` and commit the PNGs (`just docs-tui-screenshot` for the TUI). Architecture changes update
+  `just docs-screenshots` and commit the PNGs (`just docs-tui-screenshot` for the TUI; `just docs-cli-examples` when
+  CLI output changes). Architecture changes update
   `docs/architecture.md`. `docs/` is also the website (`mkdocs.yml`): new pages go in its `nav`, and
   `mkdocs build --strict` must pass.
 - **Comments** explain *why*, not *what*; match the surrounding density.
