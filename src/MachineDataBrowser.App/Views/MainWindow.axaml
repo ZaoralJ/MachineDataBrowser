@@ -43,14 +43,39 @@
           </TextBox.InnerLeftContent>
           <TextBox.InnerRightContent>
             <Button x:Name="EndpointHistoryButton" Classes="icon-only" Margin="0,0,4,0"
-                    IsVisible="{Binding HasRecentEndpoints}"
-                    AutomationProperties.Name="Recent endpoints"
-                    ToolTip.Tip="Recent endpoints (↓)">
+                    IsVisible="{Binding HasRecentHistory}"
+                    AutomationProperties.Name="Recent connections and sessions"
+                    ToolTip.Tip="Recent sessions and endpoints (↓)">
               <PathIcon Data="{StaticResource IconChevronDown}" />
               <Button.Flyout>
                 <Flyout Placement="BottomEdgeAlignedRight">
                   <StackPanel MinWidth="320" Spacing="2">
-                    <TextBlock Classes="pane-title" Text="RECENT ENDPOINTS" Margin="8,0,0,6" />
+                    <TextBlock Classes="pane-title" Text="RECENT SESSIONS" Margin="8,0,0,6" IsVisible="{Binding HasRecentSessions}" />
+                    <ItemsControl x:Name="SessionHistoryList" ItemsSource="{Binding RecentSessions}" IsVisible="{Binding HasRecentSessions}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <Button Classes="history-entry" HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).OpenRecentSessionCommand}"
+                                    CommandParameter="{Binding}" ToolTip.Tip="{Binding}">
+                              <TextBlock Text="{Binding Converter={x:Static conv:SessionConverters.FileName}}" TextTrimming="CharacterEllipsis" />
+                            </Button>
+                            <Button Grid.Column="1" Classes="icon-only"
+                                    Command="{Binding $parent[ItemsControl].((vm:MainWindowViewModel)DataContext).RemoveRecentSessionCommand}"
+                                    CommandParameter="{Binding}"
+                                    AutomationProperties.Name="Remove session from history" ToolTip.Tip="Remove from history">
+                              <PathIcon Data="{StaticResource IconClose}" />
+                            </Button>
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Classes="history-entry" Content="Clear session history" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left" Command="{Binding ClearRecentSessionsCommand}"
+                            IsVisible="{Binding HasRecentSessions}" />
+                    <Separator IsVisible="{Binding HasRecentSessionsAndEndpoints}" />
+                    <TextBlock Classes="pane-title" Text="RECENT ENDPOINTS" Margin="8,0,0,6" IsVisible="{Binding HasRecentEndpoints}" />
                     <ItemsControl x:Name="EndpointHistoryList" ItemsSource="{Binding RecentEndpoints}">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="x:String">
@@ -71,9 +96,9 @@
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <Separator />
-                    <Button Classes="history-entry" Content="Clear history" HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Left" Command="{Binding ClearRecentEndpointsCommand}" />
+                    <Button Classes="history-entry" Content="Clear endpoint history" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left" Command="{Binding ClearRecentEndpointsCommand}"
+                            IsVisible="{Binding HasRecentEndpoints}" />
                   </StackPanel>
                 </Flyout>
               </Button.Flyout>

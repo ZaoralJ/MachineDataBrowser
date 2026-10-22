@@ -14,13 +14,22 @@ public sealed partial class MainWindow : Window
 
         EndpointHistoryList.AddHandler(Button.ClickEvent, (_, e) =>
         {
-            if (e.Source is Button button && button.Classes.Contains("history-entry"))
-            {
-                // Button raises Click before executing its Command; closing the flyout right away detaches the
-                // entry and drops its $parent-bound Command, so the pick was lost. Close after the command ran.
-                Avalonia.Threading.Dispatcher.UIThread.Post(() => EndpointHistoryButton.Flyout?.Hide());
-            }
+            HideHistoryFlyoutAfterCommand(e.Source);
         });
+        SessionHistoryList.AddHandler(Button.ClickEvent, (_, e) =>
+        {
+            HideHistoryFlyoutAfterCommand(e.Source);
+        });
+    }
+
+    private void HideHistoryFlyoutAfterCommand(object? source)
+    {
+        if (source is Button button && button.Classes.Contains("history-entry"))
+        {
+            // Button raises Click before executing its Command; closing the flyout right away detaches the
+            // entry and drops its $parent-bound Command, so the pick was lost. Close after the command ran.
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => EndpointHistoryButton.Flyout?.Hide());
+        }
     }
 
     protected override void OnDataContextChanged(EventArgs e)
