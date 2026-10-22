@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.34.0...v0.35.0) (2026-10-22)
+
+
+### Features
+
+* **app:** open full watch values in dialog ([#187](https://github.com/ZaoralJ/MachineDataBrowser/issues/187)) ([63ce689](https://github.com/ZaoralJ/MachineDataBrowser/commit/63ce689cadc99647e5824869e454bbaa6e127cc0))
+
 ## [0.34.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.33.0...v0.34.0) (2026-10-22)
 
 
