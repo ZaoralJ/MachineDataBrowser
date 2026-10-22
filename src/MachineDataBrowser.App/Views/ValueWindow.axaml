@@ -16,7 +16,8 @@
     <Grid Margin="16" RowDefinitions="Auto,*" RowSpacing="10">
       <TextBlock x:Name="ValueTitle" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
       <TextBox Grid.Row="1" x:Name="ValueText" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
-               ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto"
+               VerticalContentAlignment="Top" ScrollViewer.VerticalScrollBarVisibility="Auto"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                FontFamily="{StaticResource MonoFont}" AutomationProperties.Name="Full value" />
     </Grid>
   </DockPanel>
