@@ -19,7 +19,7 @@ public sealed partial class MainWindowViewModel
     public IDialogService? Dialogs { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RecentSessions), nameof(RecentEndpoints), nameof(HasRecentEndpoints), nameof(Theme), nameof(ColorTheme), nameof(UiScale))]
+    [NotifyPropertyChangedFor(nameof(RecentSessions), nameof(RecentEndpoints), nameof(HasRecentSessions), nameof(HasRecentEndpoints), nameof(HasRecentHistory), nameof(HasRecentSessionsAndEndpoints), nameof(Theme), nameof(ColorTheme), nameof(UiScale))]
     public partial AppSettings Settings { get; private set; }
 
     [ObservableProperty]
@@ -38,7 +38,13 @@ public sealed partial class MainWindowViewModel
 
     public IReadOnlyList<string> RecentEndpoints => Settings.RecentEndpoints;
 
+    public bool HasRecentSessions => Settings.RecentSessions.Count > 0;
+
     public bool HasRecentEndpoints => Settings.RecentEndpoints.Count > 0;
+
+    public bool HasRecentHistory => HasRecentSessions || HasRecentEndpoints;
+
+    public bool HasRecentSessionsAndEndpoints => HasRecentSessions && HasRecentEndpoints;
 
     public ThemePreference Theme => Settings.Theme;
 
@@ -130,6 +136,12 @@ public sealed partial class MainWindowViewModel
         }
 
         await LoadSessionAsync(path);
+        // A session without watch items returns from LoadSessionAsync before connecting. Choosing it from history
+        // should still restore its endpoint as a live connection.
+        if (CurrentSessionPath == path && WatchItems.Count == 0 && IsDisconnected)
+        {
+            await ConnectAsync();
+        }
     }
 
     public async Task LoadSessionAsync(string path)
@@ -406,6 +418,18 @@ public sealed partial class MainWindowViewModel
             UpdateSettings(Settings with { RecentEndpoints = [.. Settings.RecentEndpoints.Where(e => e != url)] });
         }
     }
+
+    [RelayCommand]
+    private void RemoveRecentSession(string? path)
+    {
+        if (!string.IsNullOrEmpty(path))
+        {
+            UpdateSettings(Settings with { RecentSessions = [.. Settings.RecentSessions.Where(p => p != path)] });
+        }
+    }
+
+    [RelayCommand]
+    private void ClearRecentSessions() => UpdateSettings(Settings with { RecentSessions = [] });
 
     [RelayCommand]
     private void ClearRecentEndpoints() => UpdateSettings(Settings with { RecentEndpoints = [] });

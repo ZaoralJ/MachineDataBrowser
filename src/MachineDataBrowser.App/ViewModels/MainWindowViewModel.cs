@@ -524,7 +524,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         StatusMessage = "Disconnecting…";
         try
         {
-            await StopAllMonitorsAsync();
+            // Stopping live monitors clears the runtime watch rows, but that cleanup does not change the saved
+            // session. Preserve the pre-existing dirty state while the rows are removed.
+            var wasSuppressDirty = _suppressDirty;
+            _suppressDirty = true;
+            try
+            {
+                await StopAllMonitorsAsync();
+            }
+            finally
+            {
+                _suppressDirty = wasSuppressDirty;
+            }
+
             await CloseEventViewersAsync();
             var client = _client;
             await Task.Run(client.DisconnectAsync);

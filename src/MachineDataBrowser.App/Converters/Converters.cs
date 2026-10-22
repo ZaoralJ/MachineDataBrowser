@@ -10,6 +10,12 @@ public static class TreeConverters
     public static readonly IValueConverter Indent = new FuncValueConverter<int, Avalonia.Thickness>(depth => new Avalonia.Thickness(depth * 16, 0, 0, 0));
 }
 
+public static class SessionConverters
+{
+    public static readonly IValueConverter FileName = new FuncValueConverter<string, string>(
+        path => Path.GetFileNameWithoutExtension(path ?? string.Empty) ?? string.Empty);
+}
+
 public static class NodeClassConverters
 {
     private static readonly Geometry Folder = StreamGeometry.Parse("M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z");

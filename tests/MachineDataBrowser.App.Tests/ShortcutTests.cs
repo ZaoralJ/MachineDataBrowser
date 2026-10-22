@@ -45,6 +45,8 @@ public sealed class ShortcutTests
         Dispatcher.UIThread.RunJobs();
         var menuItems = grid.ContextMenu.Items.OfType<MenuItem>().ToList();
         Assert.Equal(new KeyGesture(Key.B), menuItems.Single(m => m.Header is "Select").Items.OfType<MenuItem>().Single(m => m.Header is "Bad values").InputGesture);
+        Assert.Contains(menuItems, m => Equals(m.Header, "Copy mdbrowser monitor command") && m.Command == vm.CopyWatchCliMonitorCommand);
+        Assert.Contains(menuItems, m => Equals(m.Header, "Copy mdbrowser read command") && m.Command == vm.CopyWatchCliReadCommand);
         Assert.Contains(Shortcuts.Registry.Keys, k => k == "Watch");
         Assert.Contains("Select bad values", Shortcuts.Overview(), StringComparison.Ordinal);
         grid.ContextMenu.Close();

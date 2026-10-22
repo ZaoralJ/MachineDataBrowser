@@ -81,6 +81,10 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
             reopened.WatchItems.Select(w => w.DisplayName).Order());
         Assert.False(reopened.IsDirty);
         await WaitUntil(() => reopened.WatchItems.All(w => w.Status == "Good"));
+
+        await reopened.DisconnectCommand.ExecuteAsync(null);
+        Assert.Empty(reopened.WatchItems);
+        Assert.False(reopened.IsDirty, "Disconnecting only stops runtime monitoring; it must not dirty the saved session.");
     }
 
     [AvaloniaFact]
@@ -567,6 +571,43 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
         Assert.False(vm.HasRecentEndpoints);
         Dispatcher.UIThread.RunJobs();
         Assert.False(window.GetVisualDescendants().OfType<Avalonia.Controls.Button>().Single(b => b.Name == "EndpointHistoryButton").IsVisible);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Session_history_shows_reopens_and_can_be_removed_from_the_toolbar_flyout()
+    {
+        var path = Path.Combine(_dir, "line1.mdbsession");
+        await new SessionDocument { EndpointUrl = plc.EndpointUrl }.SaveAsync(path);
+        var store = new SettingsStore(Path.Combine(_dir, "settings.json"));
+        store.Save(new AppSettings { RecentSessions = [path] });
+        await using var vm = new MainWindowViewModel(store);
+        var window = new MainWindow { DataContext = vm };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var historyButton = window.GetVisualDescendants().OfType<Avalonia.Controls.Button>().Single(b => b.Name == "EndpointHistoryButton");
+        Assert.True(historyButton.IsVisible);
+        var flyout = Assert.IsAssignableFrom<Avalonia.Controls.Primitives.FlyoutBase>(historyButton.Flyout);
+        flyout.ShowAt(historyButton);
+        Dispatcher.UIThread.RunJobs();
+
+        var content = ((Avalonia.Controls.Flyout)flyout).Content as Avalonia.Visual ?? throw new InvalidOperationException();
+        var entry = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(content)
+            .OfType<Avalonia.Controls.Button>().First(b => b.Classes.Contains("history-entry") && Equals(b.CommandParameter, path));
+        typeof(Avalonia.Controls.Button).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(entry, null);
+        await WaitUntil(() => vm.CurrentSessionPath == path);
+        await WaitUntil(() => vm.IsConnected);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal("line1", vm.DocumentName);
+        Assert.Equal(plc.EndpointUrl, vm.EndpointUrl);
+        Assert.False(flyout.IsOpen);
+        vm.RemoveRecentSessionCommand.Execute(path);
+        Assert.Empty(vm.RecentSessions);
+        Assert.True(vm.HasRecentHistory); // Connecting added the session endpoint to endpoint history.
+        vm.ClearRecentEndpointsCommand.Execute(null);
+        Assert.False(vm.HasRecentHistory);
         window.Close();
     }
 
