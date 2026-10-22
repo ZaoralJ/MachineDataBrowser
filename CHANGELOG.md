@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.33.0...v0.34.0) (2026-10-22)
+
+
+### Features
+
+* **app:** improve session history and context menus ([#185](https://github.com/ZaoralJ/MachineDataBrowser/issues/185)) ([35f9d20](https://github.com/ZaoralJ/MachineDataBrowser/commit/35f9d20eacec9bc6203489983248a2d0bdc3d564))
+
 ## [0.33.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.32.1...v0.33.0) (2026-10-21)
 
 
