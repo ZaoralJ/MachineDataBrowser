@@ -1,16 +1,6 @@
 name: ci
 
 on:
-  push:
-    branches: [main]
-    # Release commits (changelog + version) and docs-only changes have nothing to build: the code was tested in its
-    # pull request, the release workflow tests the tagged commit again, and docs are built by the pages workflow.
-    paths-ignore:
-      - CHANGELOG.md
-      - .release-please-manifest.json
-      - "**/*.md"
-      - docs/**
-      - mkdocs.yml
   pull_request:
 
 permissions:
@@ -21,8 +11,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: detect build changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check for changes that need a build
+        id: filter
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          changed_files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          build_exclusions='(^docs/|(^|/)[^/]*\.md$|^mkdocs\.yml$|^\.release-please-manifest\.json$)'
+          build_files=$(printf '%s\n' "$changed_files" | grep -Ev "$build_exclusions" || true)
+          if [[ -n "$build_files" ]]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   test:
     name: build & test (linux)
+    needs: changes
+    # A skipped job reports success, so metadata-only PRs still satisfy this required check.
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +61,8 @@ jobs:
 
   macos:
     name: build & package (macOS)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
