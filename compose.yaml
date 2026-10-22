@@ -1,0 +1,81 @@
+name: machine-data-browser
+
+services:
+  cip:
+    image: machinedatabrowser-cip-simulator:dev
+    build: ./simulators/cip
+    ports:
+      - "${CIP_HOST_PORT:-44818}:44818"
+    environment:
+      CIP_SIM_FAST_TICK_MS: ${CIP_SIM_FAST_TICK_MS:-10}
+      CIP_SIM_BULK_TAGS: ${CIP_SIM_BULK_TAGS:-3000}
+      CIP_SIM_PROGRAMS: ${CIP_SIM_PROGRAMS:-20}
+      CIP_SIM_LOG: ${CIP_SIM_LOG:-INFO}
+
+  pccc:
+    image: machinedatabrowser-pccc-simulator:dev
+    build: ./simulators/pccc
+    ports:
+      - "${PCCC_HOST_PORT:-44819}:44818"
+    environment:
+      PCCC_SIM_TICK_MS: ${PCCC_SIM_TICK_MS:-100}
+      PCCC_SIM_LOG: ${PCCC_SIM_LOG:-INFO}
+
+  opcua:
+    image: machinedatabrowser-opcua-simulator:dev
+    build: ./simulators/opcua
+    ports:
+      - "${OPCUA_PORT:-50000}:${OPCUA_PORT:-50000}"
+      - "8080:8080"
+    environment:
+      OPCUA_SIM_PORT: ${OPCUA_PORT:-50000}
+      OPCUA_SIM_FAST_MS: ${OPCUA_SIM_FAST_MS:-10}
+      OPCUA_SIM_FAST_NODES: ${OPCUA_SIM_FAST_NODES:-20}
+      OPCUA_SIM_SLOW_NODES: ${OPCUA_SIM_SLOW_NODES:-10}
+
+  opcua-custom:
+    image: machinedatabrowser-opcua-custom:dev
+    build: ./simulators/opcua-custom
+    ports:
+      - "${OPCUA_CUSTOM_HOST_PORT:-4841}:${OPCUA_CUSTOM_PORT:-4841}"
+    environment:
+      OPCUA_CUSTOM_PORT: ${OPCUA_CUSTOM_PORT:-4841}
+      OPCUA_CUSTOM_FAST_MS: ${OPCUA_CUSTOM_FAST_MS:-10}
+      OPCUA_CUSTOM_LARGE: ${OPCUA_CUSTOM_LARGE:-10,10,50}
+      OPCUA_CUSTOM_FLAT: ${OPCUA_CUSTOM_FLAT:-10000}
+
+  mqtt:
+    image: machinedatabrowser-mqtt-simulator:dev
+    build: ./simulators/mqtt
+    ports:
+      - "${MQTT_HOST_PORT:-1883}:1883"
+      - "9001:9001"
+    environment:
+      MQTT_SIM_FAST_MS: ${MQTT_SIM_FAST_MS:-10}
+      MQTT_SIM_BULK: ${MQTT_SIM_BULK:-500}
+      MQTT_SIM_DEATH_PERIOD_S: ${MQTT_SIM_DEATH_PERIOD_S:-30}
+
+  modbus:
+    image: machinedatabrowser-modbus-simulator:dev
+    build: ./simulators/modbus
+    ports:
+      - "${MODBUS_HOST_PORT:-5020}:502"
+    environment:
+      MODBUS_SIM_TICK_MS: ${MODBUS_SIM_TICK_MS:-100}
+
+  s7:
+    image: machinedatabrowser-s7-simulator:dev
+    build: ./simulators/s7
+    ports:
+      - "${S7_HOST_PORT:-102}:102"
+    environment:
+      S7_SIM_TICK_MS: ${S7_SIM_TICK_MS:-50}
+
+  mtconnect:
+    image: machinedatabrowser-mtconnect-simulator:dev
+    build: ./simulators/mtconnect
+    ports:
+      - "${MTCONNECT_HOST_PORT:-5050}:5000"
+    environment:
+      MTCONNECT_SIM_TICK_MS: ${MTCONNECT_SIM_TICK_MS:-100}
+      MTCONNECT_SIM_BUFFER: ${MTCONNECT_SIM_BUFFER:-131072}

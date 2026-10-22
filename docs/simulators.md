@@ -1,7 +1,8 @@
 # Test servers (simulators)
 
 Eight containers under `simulators/` cover local development, manual/user testing and the integration tests.
-Start them with [`just`](https://github.com/casey/just) from the repository root:
+Start them with [`just`](https://github.com/casey/just) from the repository root. Docker Compose groups the local
+containers under the `machine-data-browser` project in Docker Desktop:
 
 ```sh
 just cip            # Logix / EtherNet/IP   -> eip://127.0.0.1:44818/1,0
@@ -13,6 +14,7 @@ just modbus         # Modbus TCP device      -> modbus://127.0.0.1:5020/1
 just s7             # Siemens S7 (snap7)     -> s7://127.0.0.1:102/0,1, tag list simulators/s7/tags.csv
 just mtconnect      # MTConnect agent        -> mtconnect://127.0.0.1:5050
 just all            # all eight in the background (replaces running ones); `just stop` removes them
+docker compose ps   # show containers in the machine-data-browser project
 just logs cip       # follow a background container's log
 just cip-debug      # log every CIP request (service, path, sizes)
 just pccc-debug     # log every PCCC request
