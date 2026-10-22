@@ -1,4 +1,7 @@
+using Avalonia.Controls;
+using Avalonia.VisualTree;
 using MachineDataBrowser.App.ViewModels;
+using MachineDataBrowser.App.Views;
 using MachineDataBrowser.Core;
 using Opc.Ua;
 using Xunit;
@@ -8,15 +11,29 @@ namespace MachineDataBrowser.App.Tests;
 public sealed class WatchItemToolTipTests
 {
     [Fact]
-    public void Complex_values_show_pretty_json_in_the_value_tooltip()
+    public void Complex_value_tooltip_is_a_short_summary_and_full_value_stays_available()
     {
         var item = new WatchItemViewModel(new DeviceNodeId("BoilerStatus", 2), "BoilerStatus");
         var value = new ExtensionObject(new BuildInfo { ProductName = "PLC", BuildNumber = "7" });
         item.Apply(new ValueUpdate(item.NodeId, value.ToString()!, DeviceStatusCodes.Good, DateTime.UtcNow, DateTime.UtcNow, Raw: value));
 
-        Assert.Contains("\n", item.ValueToolTip, StringComparison.Ordinal);
-        Assert.Contains("  \"ProductName\": \"PLC\"", item.ValueToolTip, StringComparison.Ordinal);
-        Assert.Contains("  \"BuildNumber\": \"7\"", item.ValueToolTip, StringComparison.Ordinal);
+        Assert.StartsWith("Object · ", item.ValueToolTip, StringComparison.Ordinal);
+        Assert.Contains(" properties", item.ValueToolTip, StringComparison.Ordinal);
+        Assert.Contains("Double-click to view full value", item.ValueToolTip, StringComparison.Ordinal);
+        Assert.Contains("\"ProductName\": \"PLC\"", item.FullValueText, StringComparison.Ordinal);
+        Assert.Contains("\"BuildNumber\": \"7\"", item.FullValueText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Long_array_tooltip_does_not_expand_all_items()
+    {
+        var item = new WatchItemViewModel(new DeviceNodeId("Samples", 2), "Samples");
+        var values = Enumerable.Range(0, 200).ToArray();
+        item.Apply(new ValueUpdate(item.NodeId, "[200 items]", DeviceStatusCodes.Good, DateTime.UtcNow, DateTime.UtcNow, Raw: values));
+
+        Assert.Equal("Array · 200 items\nDouble-click to view full value", item.ValueToolTip);
+        Assert.StartsWith("[0, 1, 2, 3", item.FullValueText, StringComparison.Ordinal);
+        Assert.EndsWith("197, 198, 199]", item.FullValueText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -29,5 +46,21 @@ public sealed class WatchItemToolTipTests
         item.Apply(new ValueUpdate(item.NodeId, "42", DeviceStatusCodes.Good, DateTime.UtcNow, DateTime.UtcNow, Raw: 42));
 
         Assert.Equal("42 as sent · shown hex", item.ValueToolTip);
+    }
+
+    [Avalonia.Headless.XUnit.AvaloniaFact]
+    public void Full_value_dialog_close_button_closes_the_window()
+    {
+        var window = new ValueWindow("Value — Samples", "[0, 1, 2]");
+        window.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var close = window.GetVisualDescendants()
+            .OfType<Button>()
+            .Single(button => button.Content?.ToString() == "Close");
+        close.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        Assert.False(window.IsVisible);
     }
 }

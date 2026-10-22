@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using MachineDataBrowser.App.ViewModels;
 
 namespace MachineDataBrowser.App.Views;
@@ -181,6 +182,23 @@ public sealed partial class WatchView : UserControl
         else
         {
             vm.RevealInTreeCommand.Execute(item);
+        }
+    }
+
+    private async void OnValueDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is TextBlock { DataContext: WatchItemViewModel item } && TopLevel.GetTopLevel(this) is Window owner)
+        {
+            await new ValueWindow($"Value — {item.DisplayName}", item.FullValueText).ShowDialog(owner);
+        }
+    }
+
+    private async void OnShowFullValue(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel { SelectedWatchItem: { } item } && TopLevel.GetTopLevel(this) is Window owner)
+        {
+            await new ValueWindow($"Value — {item.DisplayName}", item.FullValueText).ShowDialog(owner);
         }
     }
 
