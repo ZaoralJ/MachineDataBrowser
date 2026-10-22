@@ -1,0 +1,23 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MachineDataBrowser.App.Views.ValueWindow"
+        Title="Full value"
+        Icon="/Assets/AppIcon.png"
+        Width="760" Height="560" MinWidth="440" MinHeight="300"
+        ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Padding="12,8"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Content="Copy" Click="OnCopy" MinWidth="84" />
+        <Button Content="Close" Click="OnClose" MinWidth="84" />
+      </StackPanel>
+    </Border>
+    <Grid Margin="16" RowDefinitions="Auto,*" RowSpacing="10">
+      <TextBlock x:Name="ValueTitle" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+      <TextBox Grid.Row="1" x:Name="ValueText" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+               ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto"
+               FontFamily="{StaticResource MonoFont}" AutomationProperties.Name="Full value" />
+    </Grid>
+  </DockPanel>
+</Window>

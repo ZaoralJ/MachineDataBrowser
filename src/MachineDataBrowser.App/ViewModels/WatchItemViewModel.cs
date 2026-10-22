@@ -74,12 +74,12 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
 
     /// <summary>The device's value as text; filters, snapshots, recordings and exports use this one.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DisplayValue), nameof(ValueToolTip))]
+    [NotifyPropertyChangedFor(nameof(DisplayValue), nameof(ValueToolTip), nameof(FullValueText))]
     public partial string Value { get; private set; } = "…";
 
     /// <summary>Format, scaling and unit for <see cref="DisplayValue"/>.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DisplayValue), nameof(ValueToolTip))]
+    [NotifyPropertyChangedFor(nameof(DisplayValue), nameof(ValueToolTip), nameof(FullValueText))]
     public partial ValueDisplay Display { get; set; } = ValueDisplay.Default;
 
     /// <summary>The variable's engineering unit from the server (OPC UA), if it has one.</summary>
@@ -90,14 +90,34 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
     /// <summary>The value as shown in the Value column.</summary>
     public string DisplayValue => Display.Apply(RawValue, Value, ServerUnit);
 
+    /// <summary>The full, untruncated value shown in the value dialog.</summary>
+    public string FullValueText
+    {
+        get
+        {
+            var json = ValueJson.ToJson(RawValue);
+            return json switch
+            {
+                JsonObject => json.ToJsonString(PrettyJson),
+                JsonArray => ValueFormatter.FormatFull(RawValue),
+                _ => LastUpdate is null ? Value : ValueFormatter.FormatFull(RawValue),
+            };
+        }
+    }
+
     public string ValueToolTip
     {
         get
         {
             var json = ValueJson.ToJson(RawValue);
-            if (json is JsonObject or JsonArray)
+            if (json is JsonArray array)
             {
-                return json.ToJsonString(PrettyJson);
+                return $"Array · {array.Count:N0} items\nDouble-click to view full value";
+            }
+
+            if (json is JsonObject obj)
+            {
+                return $"Object · {obj.Count:N0} properties\nDouble-click to view full value";
             }
 
             return Display.IsDefault ? Value : $"{Value} as sent · shown {Display.Describe()}";

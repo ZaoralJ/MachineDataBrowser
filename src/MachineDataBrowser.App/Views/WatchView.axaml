@@ -116,6 +116,7 @@
             <MenuItem Header="Show recorded values" Command="{Binding ViewItemRecordingCommand}">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconChart}" /></MenuItem.Icon>
             </MenuItem>
+            <MenuItem Header="Show full value" Click="OnShowFullValue" />
             <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Show history{0}'}" IsVisible="{Binding SupportsHistory}"
                       ToolTip.Tip="Values the server stored for these items (OPC UA HistoryRead), as a table and chart">
               <MenuItem Header="Last 15 minutes" Command="{Binding ShowWatchHistoryCommand}"><MenuItem.CommandParameter><x:Int32>15</x:Int32></MenuItem.CommandParameter></MenuItem>
@@ -230,7 +231,8 @@
           </DataGridTemplateColumn>
           <DataGridTemplateColumn Header="Value" views:GridCopy.Member="DisplayValue" Width="280" MinWidth="120">
             <DataTemplate DataType="vm:WatchItemViewModel">
-              <TextBlock Classes="cell mono" Text="{Binding DisplayValue}" ToolTip.Tip="{Binding ValueToolTip}" />
+              <TextBlock Classes="cell mono" Text="{Binding DisplayValue}" ToolTip.Tip="{Binding ValueToolTip}"
+                         DoubleTapped="OnValueDoubleTapped" />
             </DataTemplate>
           </DataGridTemplateColumn>
         </DataGrid.Columns>
