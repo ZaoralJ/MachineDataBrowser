@@ -79,7 +79,7 @@
                 SelectionMode="Extended" SelectionChanged="OnWatchSelectionChanged"
                 AutomationProperties.Name="Watch list">
         <DataGrid.ContextMenu>
-          <ContextMenu>
+          <ContextMenu MinWidth="640">
               <MenuItem Header="{Binding WatchSelectionLabel, StringFormat='Refresh time{0}'}" IsEnabled="{Binding IsConnected}">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconTimer}" /></MenuItem.Icon>
               <MenuItem Header="100 ms" Command="{Binding SetRefreshCommand}"><MenuItem.CommandParameter><x:Int32>100</x:Int32></MenuItem.CommandParameter></MenuItem>

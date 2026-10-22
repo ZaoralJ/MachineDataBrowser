@@ -109,7 +109,7 @@
                SelectionMode="Multiple" SelectionChanged="OnTreeSelectionChanged" Classes="address-tree"
                x:Name="AddressTree" Tapped="OnTreeTapped" AutomationProperties.Name="Address space">
         <ListBox.ContextMenu>
-          <ContextMenu>
+          <ContextMenu MinWidth="640">
             <MenuItem Header="Monitor selected variables" Command="{Binding AddToWatchCommand}">
               <MenuItem.Icon><PathIcon Data="{StaticResource IconMonitor}" /></MenuItem.Icon>
             </MenuItem>
