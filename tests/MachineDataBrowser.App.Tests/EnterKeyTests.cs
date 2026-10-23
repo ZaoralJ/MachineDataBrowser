@@ -125,6 +125,8 @@ public sealed class MessageDialogLayoutTests
 
         dialog.Close();
         vm.ZoomResetCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
         main.Close();
+        Dispatcher.UIThread.RunJobs();
     }
 }
