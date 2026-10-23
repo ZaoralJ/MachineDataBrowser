@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.35.1...v0.36.0) (2026-10-23)
+
+
+### Features
+
+* **mcp:** preflight variable writes against device metadata ([#157](https://github.com/ZaoralJ/MachineDataBrowser/issues/157)) ([8cf0b14](https://github.com/ZaoralJ/MachineDataBrowser/commit/8cf0b1462a21d28ea69606df693340d80f0bcf9e))
+
 ## [0.35.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.35.0...v0.35.1) (2026-10-23)
 
 
