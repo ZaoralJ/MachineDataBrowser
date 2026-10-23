@@ -95,11 +95,10 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
     {
         get
         {
-            var json = ValueJson.ToJson(RawValue);
+            var json = ValueJsonForDisplay(RawValue);
             return json switch
             {
-                JsonObject => json.ToJsonString(PrettyJson),
-                JsonArray => ValueFormatter.FormatFull(RawValue),
+                JsonObject or JsonArray => json.ToJsonString(PrettyJson),
                 _ => LastUpdate is null ? Value : ValueFormatter.FormatFull(RawValue),
             };
         }
@@ -109,7 +108,7 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
     {
         get
         {
-            var json = ValueJson.ToJson(RawValue);
+            var json = ValueJsonForDisplay(RawValue);
             if (json is JsonArray array)
             {
                 return $"Array · {array.Count:N0} items\nDouble-click to view full value";
@@ -121,6 +120,35 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
             }
 
             return Display.IsDefault ? Value : $"{Value} as sent · shown {Display.Describe()}";
+        }
+    }
+
+    private static JsonNode? ValueJsonForDisplay(object? value)
+    {
+        if (value is string text && TryParseJsonContainer(text) is { } parsed)
+        {
+            return parsed;
+        }
+
+        return ValueJson.ToJson(value);
+    }
+
+    private static JsonNode? TryParseJsonContainer(string text)
+    {
+        var trimmed = text.TrimStart();
+        if (trimmed.Length == 0 || (trimmed[0] != '{' && trimmed[0] != '['))
+        {
+            return null;
+        }
+
+        try
+        {
+            var parsed = JsonNode.Parse(trimmed);
+            return parsed is JsonObject or JsonArray ? parsed : null;
+        }
+        catch (JsonException)
+        {
+            return null;
         }
     }
 
