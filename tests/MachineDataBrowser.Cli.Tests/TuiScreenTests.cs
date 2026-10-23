@@ -409,7 +409,7 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
         Assert.Equal([0, 1], selectedRows);
 
         Press(Key.U);
-        await UntilScreen(_ => model.Watch.Count == 1);
+        await UntilScreen(_ => model.Watch.Count == 1 && watch.Value is { Regions.Count: 0 });
         Assert.Single(model.Watch);
         Assert.Empty(watch.Value!.Regions);
         Assert.Equal([0], watch.GetAllSelectedCells().Select(cell => cell.Y).Distinct().ToArray());
