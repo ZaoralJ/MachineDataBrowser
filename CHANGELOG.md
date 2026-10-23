@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.36.0...v0.36.1) (2026-10-23)
+
+
+### Fixes
+
+* stabilize timing-sensitive CI assertions ([#196](https://github.com/ZaoralJ/MachineDataBrowser/issues/196)) ([7cbfcd4](https://github.com/ZaoralJ/MachineDataBrowser/commit/7cbfcd400891ccb9245e7caa32ab2339f4dfca65))
+
 ## [0.36.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.35.1...v0.36.0) (2026-10-23)
 
 
