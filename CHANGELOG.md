@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.35.0...v0.35.1) (2026-10-23)
+
+
+### Fixes
+
+* **app:** format full values and wrap text ([#191](https://github.com/ZaoralJ/MachineDataBrowser/issues/191)) ([0c3d59f](https://github.com/ZaoralJ/MachineDataBrowser/commit/0c3d59ff2e7fa80ce019129f68f2fcf796876cc8))
+
 ## [0.35.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.34.0...v0.35.0) (2026-10-22)
 
 
