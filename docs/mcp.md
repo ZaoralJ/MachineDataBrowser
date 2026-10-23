@@ -162,7 +162,7 @@ Besides tools, the server offers **resources** an agent (or you, in clients that
 | Tool | |
 |---|---|
 | `write` | writes a value (text converted to the variable's type) and returns it before and after |
-| `restore_snapshot` | writes a snapshot's values back (≤ 200 items): only items that differ now and were Good in the snapshot; returns before, written and after (read back) per item |
+| `restore_snapshot` | writes a snapshot's values back (≤ 200 items): only items that differ now and were Good in the snapshot; checks device metadata for every item before asking; returns before, written and after (read back) per item |
 | `call_method` | calls an OPC UA method on its object with the given inputs and returns the outputs |
 
 - **You confirm every change.** The server asks through MCP *elicitation*: your agent shows a dialog like *"Write 42.5 to
@@ -178,6 +178,12 @@ Besides tools, the server offers **resources** an agent (or you, in clients that
   - `--write-limit '/Objects/Line1/Speed=0..1500'` (repeatable; `=..100` or `=0..` for one bound): numbers written
     to matching variables must be in range; anything else is refused, including text.
   - Refused changes never reach you or the machine; the agent's instructions list the rules.
+- **Write preflight:** before asking for confirmation, `write` and `restore_snapshot` check each variable's reported node
+  class, effective write access (where the protocol reports it) and data type; typed values must parse before any write
+  is attempted. Where the OPC UA server exposes an `EURange`, numeric values (including each array element) must be
+  inside it. A `restore_snapshot` is refused as a whole if any selected item is read-only, has an invalid type/value or
+  is outside its range; no other item is written. Unknown data types and unreadable access metadata are refused rather
+  than guessed. A protocol with no access attribute remains subject to its driver's write check.
 - **Audit log:** every change the agent asks for (written, declined, refused or failed) is a JSON line in
   `logs/mcp-audit.jsonl` in the data folder, or `--audit-log file`: time, tool, endpoint, node, id, value, before,
   after and the reason.

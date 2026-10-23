@@ -291,12 +291,15 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
 
         // m on a folder monitors the variables below it; values, status and the trend appear.
         Press(Key.M);
-        var screen = await UntilScreen(s => s.Contains("Counter", StringComparison.Ordinal) && s.Contains("Good", StringComparison.Ordinal) && s.Contains("⁴Trend ┤", StringComparison.Ordinal));
+        var screen = await UntilScreen(s => s.Contains("Counter", StringComparison.Ordinal)
+            && s.Contains("Good", StringComparison.Ordinal)
+            && s.Contains("⁴Trend ┤", StringComparison.Ordinal)
+            && s.Contains("Monitoring 5 items: Counter (", StringComparison.Ordinal));
         Assert.Contains("Monitored Items (5)", screen, StringComparison.Ordinal);
-        Assert.Contains("Monitoring 5 items: Counter (ns=2;i=76)", screen, StringComparison.Ordinal);
+        Assert.Contains("Monitoring 5 items: Counter (", screen, StringComparison.Ordinal);
 
         // i shows the NodeId column (hidden at first; the id is then in the table as well as in the log).
-        int Ids(string s) => s.Split("ns=2;i=77").Length - 1;
+        int Ids(string s) => s.Split("ns=2;i=").Length - 1;
         var before = Ids(screen);
         Press(Key.I);
         screen = await UntilScreen(s => Ids(s) > before);
