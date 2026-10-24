@@ -66,6 +66,8 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         }
     }
 
+    public bool IsReadOnly => false;
+
     public string? ServerUri => _endpoint is { } e ? $"Logix {e.Gateway} (path {e.Path})" : null;
 
     public BrowseItem Root { get; } = new(RootId, "Controller", "Root", NodeClass.Object);

@@ -16,6 +16,12 @@ public sealed partial class MainWindowViewModel
 
     partial void OnIsReadOnlyChanged(bool value)
     {
+        if (!value && IsReadOnlyDriver)
+        {
+            IsReadOnly = true;
+            return;
+        }
+
         MarkDirty();
         foreach (var events in _eventViewers)
         {

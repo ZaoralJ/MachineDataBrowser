@@ -60,6 +60,8 @@ public sealed class ModbusClient : IDeviceClient, IConnectionDiagnosticsSource, 
         }
     }
 
+    public bool IsReadOnly => false;
+
     public string? ServerUri => _transport is { } t ? $"Modbus {t.Host}:{t.Port.ToString(CultureInfo.InvariantCulture)} (unit {t.UnitId.ToString(CultureInfo.InvariantCulture)})" : null;
 
     public BrowseItem Root { get; } = new(RootId, "Device", "Root", NodeClass.Object);

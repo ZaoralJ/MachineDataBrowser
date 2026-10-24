@@ -65,6 +65,8 @@ public sealed class PcccClient : IDeviceClient, IConnectionDiagnosticsSource
         }
     }
 
+    public bool IsReadOnly => false;
+
     public string? ServerUri => _endpoint is { } e ? $"{e.FamilyName} {e.Gateway}" : null;
 
     public BrowseItem Root { get; } = new(RootId, "Data Files", "Root", NodeClass.Object);

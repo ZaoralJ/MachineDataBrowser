@@ -50,8 +50,30 @@ public sealed partial class MainWindowViewModel
 
     public string ColorTheme => ColorThemes.Find(Settings.ColorTheme).Name;
 
+    private bool IsReadOnlyDriver => IsConnected && _client.IsReadOnly
+        || (_clientFactory.Supports(_client, EndpointUrl ?? string.Empty)
+            ? _client.IsReadOnly
+            : MachineDataBrowser.Core.DeviceClient.IsMtConnect(EndpointUrl ?? string.Empty));
+
+    /// <summary>Whether the protocol supports changing the read-only session setting.</summary>
+    public bool CanToggleReadOnly => !IsReadOnlyDriver;
+
     partial void OnEndpointUrlChanged(string oldValue, string newValue)
     {
+        OnPropertyChanged(nameof(CanToggleReadOnly));
+        if (_writeAccess.Count > 0)
+        {
+            _writeAccess.Clear();
+            WriteAttributeValueCommand.NotifyCanExecuteChanged();
+            WriteWatchValueCommand.NotifyCanExecuteChanged();
+        }
+
+        // MTConnect is a read-only protocol; new connections to it start in the same safe mode as saved sessions.
+        if (IsReadOnlyDriver && !IsReadOnly)
+        {
+            IsReadOnly = true;
+        }
+
         // MQTT defaults to every message (0); the other protocols to the configured default. Only a refresh time that
         // is still the other protocol's default is switched, so an explicit choice survives editing the endpoint.
         var wasMqtt = MachineDataBrowser.Core.DeviceClient.IsMqtt(oldValue ?? string.Empty);
@@ -162,7 +184,7 @@ public sealed partial class MainWindowViewModel
         _suppressDirty = true;
         EndpointUrl = document.EndpointUrl;
         UseSecurity = document.UseSecurity;
-        IsReadOnly = document.ReadOnly;
+        IsReadOnly = document.ReadOnly || MachineDataBrowser.Core.DeviceClient.IsMtConnect(document.EndpointUrl);
         Bookmarks.Clear();
         foreach (var bookmark in document.Bookmarks)
         {

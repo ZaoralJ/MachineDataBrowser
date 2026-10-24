@@ -88,6 +88,15 @@ public sealed class MtConnectClientTests(MtConnectSimulatorFixture agent) : IAsy
     }
 
     [Fact]
+    public async Task Writes_are_rejected_by_the_mtconnect_driver()
+    {
+        Assert.True(_client.IsReadOnly);
+        var error = await Assert.ThrowsAsync<DeviceClientException>(() => _client.WriteValueAsync(Item("vmc_x_pos"), "1", Ct));
+
+        Assert.Equal(DeviceStatusCodes.BadNotWritable, error.StatusCode);
+    }
+
+    [Fact]
     public async Task Values_decode_by_category_and_representation()
     {
         Assert.IsType<double>(await ReadAsync("vmc_x_pos"));

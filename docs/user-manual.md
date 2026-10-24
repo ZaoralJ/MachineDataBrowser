@@ -83,6 +83,10 @@ Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ but
 
 <img src="images/connection-options.png" alt="Connection options" width="49%"> <img src="images/certificate-prompt.png" alt="Untrusted server certificate prompt" width="49%">
 
+MTConnect is always read-only; its connection option is checked and locked:
+
+<img src="images/mtconnect-connection-options.png" alt="MTConnect connection options with read-only locked on" width="60%">
+
 **Diagnostics:** Connection ▸ **Diagnostics…** (⇧⌘I) shows the connection live, refreshed every second. Use it when
 values seem to stop:
 - *Session*: how the connection is doing, per protocol:
@@ -425,6 +429,8 @@ The app writes to a device only when you ask it to.
   everything that changes the device: writing values, calling methods and acknowledging alarms. Browsing, Watch,
   history, events and recordings work as usual; a method's form still opens to show its arguments. The header shows
   *read-only*, and the setting is saved with the session, so a session for a production machine can stay read-only.
+- **Read-only variables:** the write action is disabled when the device reports an access level without `Write`.
+  MTConnect connections are always read-only and start with the session's read-only mode enabled.
 - **Where:** right-click a variable in Attributes (on the *Value* row) or one or more rows in Watch ▸ **Write value…**.
 - **Format:** type the value as text; it is converted to the variable's data type. Arrays are comma-separated,
   optionally in brackets: `[1, 2, 3]`.

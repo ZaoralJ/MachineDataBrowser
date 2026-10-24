@@ -67,6 +67,8 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
         }
     }
 
+    public bool IsReadOnly => false;
+
     public string? ServerUri => _endpoint is { } e ? $"MQTT {e.Host}:{e.Port} · {e.TopicFilter}" : null;
 
     public BrowseItem Root { get; } = new(MqttModel.Node(MqttModel.RootId), "Broker", "Broker", NodeClass.Object);

@@ -126,8 +126,8 @@
                                  FormatString="0"
                                  ToolTip.Tip="Sampling and publishing interval for items monitored in this session. Saved with the session; individual items can be changed by right-click." />
                 </StackPanel>
-                <CheckBox IsChecked="{Binding IsReadOnly}"
-                          ToolTip.Tip="Nothing that changes the device: no writing values, calling methods or acknowledging alarms. Saved with the session.">
+                <CheckBox IsChecked="{Binding IsReadOnly}" IsEnabled="{Binding CanToggleReadOnly}"
+                          ToolTip.Tip="Nothing that changes the device: no writing values, calling methods or acknowledging alarms. Saved with the session. MTConnect is always read-only.">
                   <TextBlock Text="Read-only (no writes, method calls or acknowledgements)" TextWrapping="Wrap" />
                 </CheckBox>
                 <StackPanel Spacing="4" IsVisible="{Binding IsMqttEndpoint}">

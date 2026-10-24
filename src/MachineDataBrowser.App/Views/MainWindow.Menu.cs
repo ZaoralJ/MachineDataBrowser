@@ -67,9 +67,11 @@ public sealed partial class MainWindow
             RefreshDynamicMenuItems();
         }
 
-        if (e.PropertyName is nameof(MainWindowViewModel.IsReadOnly) && _readOnlyItem is not null && sender is MainWindowViewModel readOnly)
+        if (e.PropertyName is nameof(MainWindowViewModel.IsReadOnly) or nameof(MainWindowViewModel.CanToggleReadOnly)
+            && _readOnlyItem is not null && sender is MainWindowViewModel readOnly)
         {
             _readOnlyItem.IsChecked = readOnly.IsReadOnly;
+            _readOnlyItem.IsEnabled = readOnly.CanToggleReadOnly;
         }
 
         if (e.PropertyName is nameof(MainWindowViewModel.IsDiscoveryPaused) && _discoveryItem is not null && sender is MainWindowViewModel discovery)
@@ -246,6 +248,7 @@ public sealed partial class MainWindow
         _readOnlyItem = Item("_Read-Only", vm.ToggleReadOnlyCommand, gesture);
         _readOnlyItem.ToggleType = MenuItemToggleType.CheckBox;
         _readOnlyItem.IsChecked = vm.IsReadOnly;
+        _readOnlyItem.IsEnabled = vm.CanToggleReadOnly;
         return _readOnlyItem;
     }
 

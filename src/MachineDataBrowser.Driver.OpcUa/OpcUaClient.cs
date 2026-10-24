@@ -59,6 +59,8 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
         }
     }
 
+    public bool IsReadOnly => false;
+
     public string? ServerUri => _session?.Endpoint?.Server?.ApplicationUri;
 
     public ServerCertificate? LastUntrustedCertificate { get; private set; }
@@ -597,8 +599,17 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             new ReadValueId { NodeId = nodeId, AttributeId = Attributes.Value },
             new ReadValueId { NodeId = nodeId, AttributeId = Attributes.DataType },
             new ReadValueId { NodeId = nodeId, AttributeId = Attributes.ValueRank },
+            new ReadValueId { NodeId = nodeId, AttributeId = Attributes.AccessLevel },
+            new ReadValueId { NodeId = nodeId, AttributeId = Attributes.UserAccessLevel },
         };
         var read = await session.ReadAsync(null, 0, TimestampsToReturn.Neither, toRead, cancellationToken).ConfigureAwait(false);
+
+        var userAccess = ReadAccessLevel(read.Results, 4);
+        var access = ReadAccessLevel(read.Results, 3);
+        if ((userAccess ?? access) is { } level && (level & AccessLevels.CurrentWrite) == 0)
+        {
+            throw new DeviceClientException(DeviceStatusCodes.BadNotWritable, "The server reports that this variable is read-only.");
+        }
 
         var current = read.Results[0];
         BuiltInType type;
@@ -629,6 +640,10 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             throw new ServiceResultException(response.Results[0]);
         }
     }
+
+    private static byte? ReadAccessLevel(ArrayOf<DataValue> results, int index) =>
+        results.Count > index && !StatusCode.IsBad(results[index].StatusCode)
+            && results[index].WrappedValue.AsBoxedObject() is byte access ? access : null;
 
     public async ValueTask DisposeAsync()
     {

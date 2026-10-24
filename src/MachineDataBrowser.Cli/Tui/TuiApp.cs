@@ -287,19 +287,43 @@ internal sealed class TuiApp : IDisposable
     private void ConfigureKeys()
     {
         var opcUa = _model.SupportsHistory || _model.SupportsEvents;
-        _status.SetItems(
-        [
-            ('m', "Monitor"), ('u', "Unmonitor"), ('w', "Write"), ('s', "Search"), ('f', "Filter"), ('p', "Pause"),
+        var writeTarget = _watch.HasFocus && SelectedRow is { } row
+            ? row.Node.Id
+            : Selected is { IsVariable: true } selected ? selected.Item.NodeId : (NodeId?)null;
+        var writeEnabled = !_model.Args.ReadOnly
+            && (writeTarget is not { } target || _model.WriteBlockedReasonFor(target) is null);
+        var keys = new List<(char Key, string Word)>
+        {
+            ('m', "Monitor"), ('u', "Unmonitor"), ('s', "Search"), ('f', "Filter"), ('p', "Pause"),
             ('o', "Sort"), ('r', "Record"),
-            .. opcUa ? new[] { ('a', "Alarms"), ('e', "Events"), ('y', "History") } : [],
-            .. _model.SupportsDiscoveryPause ? new[] { ('d', "Discovery") } : [],
-            .. _model.SupportsTagMap ? new[] { ('k', "Map") } : [],
             ('t', "Theme"), ('h', "Help"), ('q', "Quit"),
-        ]);
+        };
+        if (writeEnabled)
+        {
+            keys.Insert(2, ('w', "Write"));
+        }
+
+        if (opcUa)
+        {
+            keys.InsertRange(8, [('a', "Alarms"), ('e', "Events"), ('y', "History")]);
+        }
+
+        if (_model.SupportsDiscoveryPause)
+        {
+            keys.Insert(keys.Count - 3, ('d', "Discovery"));
+        }
+
+        if (_model.SupportsTagMap)
+        {
+            keys.Insert(keys.Count - 3, ('k', "Map"));
+        }
+
+        _status.SetItems(keys);
         _extraKeys.Clear();
         foreach (var (key, action) in new (Key, Action)[]
         {
-            (Key.M, Monitor), (Key.U, Unmonitor), (Key.W, Write), (Key.S, Search), (Key.F, Filter), (Key.P, TogglePause),
+            (Key.M, Monitor), (Key.U, Unmonitor),
+            (Key.S, Search), (Key.F, Filter), (Key.P, TogglePause),
             (Key.V, ShowValue), (Key.C.WithShift, CopyValue),
             (Key.O, NextSort), (Key.R, ToggleRecording), (Key.H, Help), (Key.T, NextTheme), (Key.L, ToggleLight),
             (Key.Q, Quit), (Key.I, ToggleIds), (Key.G, Diagnostics), (Key.S.WithCtrl, SaveSession),
@@ -308,6 +332,11 @@ internal sealed class TuiApp : IDisposable
         })
         {
             _extraKeys[key] = action;
+        }
+
+        if (writeEnabled)
+        {
+            _extraKeys[Key.W] = Write;
         }
 
         if (_model.SupportsEvents)
@@ -499,6 +528,7 @@ internal sealed class TuiApp : IDisposable
 
                 _attributeRows.SetRows([.. attributes.Select(a => new[] { a.Name, a.Value })]);
                 _attributes.Update();
+                ConfigureKeys();
             });
         }, $"reading attributes of {entry.Item.DisplayName}");
     }
@@ -1828,16 +1858,41 @@ internal sealed class TuiApp : IDisposable
             return;
         }
 
-        if (_model.WriteBlockedReason is { } reason)
+        var nodeId = id.Value;
+
+        if (_model.WriteBlockedReasonFor(nodeId) is { } reason)
         {
             _model.Log(reason);
             return;
         }
 
+        if (!_model.IsWriteAccessKnown(nodeId))
+        {
+            Run(async () =>
+            {
+                var reason = await _model.WriteBlockedReasonAsync(nodeId).ConfigureAwait(false);
+                Ui(() =>
+                {
+                    if (reason is { } blocked)
+                    {
+                        _model.Log(blocked);
+                    }
+                    else
+                    {
+                        PromptWrite(nodeId, name ?? string.Empty);
+                    }
+                });
+            }, $"checking write access for {name}");
+            return;
+        }
+
+        PromptWrite(nodeId, name ?? string.Empty);
+    }
+
+    private void PromptWrite(NodeId nodeId, string nodeName)
+    {
         // Dialogs open from the key press itself (see Load); the current value fills in as it arrives.
         var now = "…";
-        var nodeId = id.Value;
-        var nodeName = name ?? string.Empty;
         if (Ask($"Write {nodeName}", "New value:", string.Empty, async () => now = await _model.ReadValueTextAsync(nodeId).ConfigureAwait(false), selectLoadedValue: true) is not { } text)
         {
             return;
