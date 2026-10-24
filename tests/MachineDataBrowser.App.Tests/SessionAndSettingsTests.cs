@@ -595,6 +595,8 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
         var content = ((Avalonia.Controls.Flyout)flyout).Content as Avalonia.Visual ?? throw new InvalidOperationException();
         var entry = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(content)
             .OfType<Avalonia.Controls.Button>().First(b => b.Classes.Contains("history-entry") && Equals(b.CommandParameter, path));
+        Assert.Contains(Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(entry)
+            .OfType<Avalonia.Controls.TextBlock>(), text => text.Text == $"line1 · {plc.EndpointUrl}");
         typeof(Avalonia.Controls.Button).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(entry, null);
         await WaitUntil(() => vm.CurrentSessionPath == path);
         await WaitUntil(() => vm.IsConnected);

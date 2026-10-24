@@ -15,6 +15,7 @@ public sealed partial class MainWindowViewModel
 
     private readonly SettingsStore? _settingsStore;
     private bool _suppressDirty;
+    private IReadOnlyList<RecentSessionEntry>? _recentSessionEntries;
 
     public IDialogService? Dialogs { get; set; }
 
@@ -36,6 +37,10 @@ public sealed partial class MainWindowViewModel
 
     public IReadOnlyList<string> RecentSessions => Settings.RecentSessions;
 
+    public IReadOnlyList<RecentSessionEntry> RecentSessionEntries => _recentSessionEntries ??= Settings.RecentSessions
+        .Select(path => new RecentSessionEntry(path, Path.GetFileNameWithoutExtension(path), SessionDocument.ReadEndpoint(path)))
+        .ToArray();
+
     public IReadOnlyList<string> RecentEndpoints => Settings.RecentEndpoints;
 
     public bool HasRecentSessions => Settings.RecentSessions.Count > 0;
@@ -45,6 +50,12 @@ public sealed partial class MainWindowViewModel
     public bool HasRecentHistory => HasRecentSessions || HasRecentEndpoints;
 
     public bool HasRecentSessionsAndEndpoints => HasRecentSessions && HasRecentEndpoints;
+
+    partial void OnSettingsChanged(AppSettings value)
+    {
+        _recentSessionEntries = null;
+        OnPropertyChanged(nameof(RecentSessionEntries));
+    }
 
     public ThemePreference Theme => Settings.Theme;
 
@@ -553,4 +564,9 @@ public sealed partial class MainWindowViewModel
             };
         }
     }
+}
+
+public sealed record RecentSessionEntry(string Path, string FileName, string? EndpointUrl)
+{
+    public string DisplayText => string.IsNullOrEmpty(EndpointUrl) ? FileName : $"{FileName} · {EndpointUrl}";
 }

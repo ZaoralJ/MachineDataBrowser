@@ -57,6 +57,19 @@ public sealed record SessionDocument
         return document with { Watch = document.Watch ?? [], Bookmarks = document.Bookmarks ?? [] };
     }
 
+    public static string? ReadEndpoint(string path)
+    {
+        try
+        {
+            using var stream = File.OpenRead(path);
+            return JsonSerializer.Deserialize(stream, AppJsonContext.Default.SessionDocument)?.EndpointUrl;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
     public async Task SaveAsync(string path, CancellationToken cancellationToken = default)
     {
         var temp = path + ".tmp";
