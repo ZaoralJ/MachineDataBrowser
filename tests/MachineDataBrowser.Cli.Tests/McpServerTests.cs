@@ -55,7 +55,7 @@ public sealed class McpServerTests(OpcPlcFixture plc) : IAsyncDisposable
     {
         var client = await StartAsync("--endpoint", plc.EndpointUrl, "--trust-all");
 
-        Assert.Equal("mdbrowser", client.ServerInfo.Name);
+        Assert.Equal("mdbrowser", client.ServerInfo!.Name);
         Assert.Contains("read-only", client.ServerInstructions, StringComparison.OrdinalIgnoreCase);
         var tools = await client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(["alarms", "attributes", "browse", "compare_snapshot", "diagnostics", "events", "generate_code", "history", "list_endpoints", "list_snapshots", "read", "sample", "search", "wait_for"], tools.Select(t => t.Name).Order());
