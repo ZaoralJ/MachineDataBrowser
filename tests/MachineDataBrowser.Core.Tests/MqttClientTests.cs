@@ -253,6 +253,7 @@ public sealed class MqttClientTests(MqttSimulatorFixture broker) : IAsyncLifetim
     [Fact]
     public async Task Monitoring_delivers_fast_values_and_the_current_value_at_once()
     {
+        await Until(async () => await ReadAsync("t:config/line1#/cycleMs") is not null);
         var updates = new ConcurrentQueue<ValueUpdate>();
         await using (await _client.MonitorAsync(Id("t:config/line1#/cycleMs"), updates.Enqueue, 250, Ct))
         {
@@ -261,9 +262,14 @@ public sealed class MqttClientTests(MqttSimulatorFixture broker) : IAsyncLifetim
 
         // Require a stream of distinct values, but don't compare the received count with the publisher's counter
         // range: 10 ms is a maximum update rate, and scheduler delays legitimately coalesce samples on busy CI.
-        var fast = new ConcurrentQueue<ValueUpdate>();
-        await using var monitor = await _client.MonitorAsync(Id("t:fast/10ms/counter"), fast.Enqueue, 10, Ct);
-        await Until(() => Task.FromResult(fast.Select(u => u.Value).Distinct().Count() >= 20), seconds: 15);
+        // A slower refresh time only ever spaces updates further apart, so one gap well under the default 250 ms
+        // shows the 10 ms refresh time is used, however late a busy runner delivers.
+        var fast = new ConcurrentQueue<(ValueUpdate Update, long At)>();
+        await using var monitor = await _client.MonitorAsync(Id("t:fast/10ms/counter"), u => fast.Enqueue((u, Environment.TickCount64)), 10, Ct);
+        await Until(() => Task.FromResult(fast.Select(f => f.Update.Value).Distinct().Count() >= 20), seconds: 15);
+        var times = fast.Select(f => f.At).ToList();
+        var shortest = times.Zip(times.Skip(1), (a, b) => b - a).Min();
+        Assert.True(shortest < 200, $"updates at least {shortest} ms apart");
     }
 
     [Fact]
