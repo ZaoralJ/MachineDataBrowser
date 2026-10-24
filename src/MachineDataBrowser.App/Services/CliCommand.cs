@@ -13,7 +13,7 @@ public static class CliCommand
     public const string Executable = "mdbrowser";
 
     /// <summary>The connection part every command shares.</summary>
-    public sealed record Connection(string EndpointUrl, string? UserName, bool UseSecurity, bool TrustAll);
+    public sealed record Connection(string EndpointUrl, string? UserName, bool UseSecurity, bool TrustAll, string? TagMap = null);
 
     public static string Browse(Connection connection, string? node, int depth = 1) =>
         Build("browse", connection, node is null ? [] : [node], depth > 1 ? ["--depth", depth.ToString(CultureInfo.InvariantCulture)] : []);
@@ -66,6 +66,11 @@ public static class CliCommand
         foreach (var option in options)
         {
             line.Append(' ').Append(option);
+        }
+
+        if (!string.IsNullOrWhiteSpace(connection.TagMap))
+        {
+            line.Append(" --map ").Append(Quote(connection.TagMap.Trim()));
         }
 
         if (!string.IsNullOrWhiteSpace(connection.UserName))

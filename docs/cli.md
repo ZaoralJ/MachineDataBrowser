@@ -18,7 +18,7 @@ self-contained file; no .NET installation is needed.
 ## Commands
 
 Tip: in the app, right-click nodes in the Address Space or rows in Watch ▸ **Copy mdbrowser command** to get a ready
-command line for them, with the endpoint and options of the connection.
+command line for them, with the endpoint and connection options, including an active Modbus map or S7 tag list.
 
 | Command | Does |
 |---|---|
