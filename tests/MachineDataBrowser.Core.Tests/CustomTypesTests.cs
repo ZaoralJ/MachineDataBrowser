@@ -40,6 +40,17 @@ public sealed class CustomTypesTests(CustomTypesServerFixture server) : IAsyncLi
         Assert.True(ex.StatusCode.IsBad);
     }
 
+    [Fact]
+    public async Task Write_to_a_read_only_variable_is_rejected_by_the_opc_ua_driver()
+    {
+        var temperature = await FindAsync("Custom", "History", "Temperature");
+
+        Assert.False(_client.IsReadOnly);
+        var error = await Assert.ThrowsAsync<DeviceClientException>(() => _client.WriteValueAsync(temperature.NodeId, "21", Ct));
+
+        Assert.Equal(DeviceStatusCodes.BadNotWritable, error.StatusCode);
+    }
+
     private async Task<object?> ReadAsync(params string[] path) =>
         (await _client.ReadValuesAsync([(await FindAsync(path)).NodeId], Ct))[0];
 

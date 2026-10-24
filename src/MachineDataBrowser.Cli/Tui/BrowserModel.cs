@@ -139,7 +139,7 @@ internal sealed class BrowserModel : IAsyncDisposable
     {
         _ownsClient = ownsClient;
         Client = client;
-        Args = args;
+        Args = args with { ReadOnly = args.ReadOnly || client.IsReadOnly };
         DefaultRefreshMs = defaultRefreshMs;
         SessionPath = sessionPath;
         Root = new TreeEntry(client.Root, null);
@@ -271,8 +271,12 @@ internal sealed class BrowserModel : IAsyncDisposable
         return entry;
     }
 
-    public Task<IReadOnlyList<AttributeValue>> ReadAttributesAsync(TreeEntry entry, CancellationToken cancellationToken = default) =>
-        Client.ReadAttributesAsync(entry.Item.NodeId, cancellationToken);
+    public async Task<IReadOnlyList<AttributeValue>> ReadAttributesAsync(TreeEntry entry, CancellationToken cancellationToken = default)
+    {
+        var attributes = await Client.ReadAttributesAsync(entry.Item.NodeId, cancellationToken).ConfigureAwait(false);
+        CacheWriteAccess(entry.Item.NodeId, DeviceWriteAccess.IsWritable(attributes));
+        return attributes;
+    }
 
     public Task<SearchResult> SearchAsync(string text, TreeEntry? under = null, CancellationToken cancellationToken = default) =>
         Client.SearchAsync((under ?? Root).Item, text, maxResults: 200, cancellationToken: cancellationToken);
@@ -461,6 +465,41 @@ internal sealed class BrowserModel : IAsyncDisposable
     /// <summary>Why a write must not happen here, or null when it may.</summary>
     public string? WriteBlockedReason => Args.ReadOnly ? "The session is read-only (Connection ▸ Read-Only in the app)." : null;
 
+    public string? WriteBlockedReasonFor(NodeId id) => WriteBlockedReason
+        ?? (_writeAccess.TryGetValue(id, out var writable) && !writable ? "This variable is read-only; nothing was written." : null);
+
+    public bool IsWriteAccessKnown(NodeId id) => _writeAccess.ContainsKey(id);
+
+    private readonly Dictionary<NodeId, bool> _writeAccess = [];
+
+    private void CacheWriteAccess(NodeId id, bool? writable)
+    {
+        if (writable is { } value)
+        {
+            _writeAccess[id] = value;
+        }
+        else
+        {
+            _writeAccess.Remove(id);
+        }
+    }
+
+    public async Task<string?> WriteBlockedReasonAsync(NodeId id, CancellationToken cancellationToken = default)
+    {
+        if (WriteBlockedReasonFor(id) is { } reason)
+        {
+            return reason;
+        }
+
+        if (!_writeAccess.ContainsKey(id))
+        {
+            var attributes = await Client.ReadAttributesAsync(id, cancellationToken).ConfigureAwait(false);
+            CacheWriteAccess(id, DeviceWriteAccess.IsWritable(attributes));
+        }
+
+        return WriteBlockedReasonFor(id);
+    }
+
     public async Task<string> ReadValueTextAsync(NodeId id, CancellationToken cancellationToken = default)
     {
         var values = await Client.ReadValuesAsync([id], cancellationToken).ConfigureAwait(false);
@@ -477,7 +516,7 @@ internal sealed class BrowserModel : IAsyncDisposable
     /// <summary>Writes a value and reads it back, so a write the device accepted but didn't apply shows.</summary>
     public async Task<WriteOutcome> WriteAsync(NodeId id, string name, string text, CancellationToken cancellationToken = default)
     {
-        if (WriteBlockedReason is { } reason)
+        if (await WriteBlockedReasonAsync(id, cancellationToken).ConfigureAwait(false) is { } reason)
         {
             throw new CliException(reason);
         }

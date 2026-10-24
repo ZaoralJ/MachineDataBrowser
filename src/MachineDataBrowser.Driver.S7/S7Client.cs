@@ -72,6 +72,8 @@ public sealed class S7Client : IDeviceClient, IConnectionDiagnosticsSource
         }
     }
 
+    public bool IsReadOnly => false;
+
     public string? ServerUri => _endpoint is { } e ? $"{CpuName(e.Cpu)} {e.Host}:{e.Port.ToString(CultureInfo.InvariantCulture)} (rack {e.Rack.ToString(CultureInfo.InvariantCulture)}, slot {e.Slot.ToString(CultureInfo.InvariantCulture)})" : null;
 
     public BrowseItem Root { get; } = new(RootId, "PLC", "Root", NodeClass.Object);

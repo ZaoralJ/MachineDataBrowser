@@ -70,6 +70,11 @@ public sealed class TuiModelTests(CustomTypesServerFixture custom, OpcPlcFixture
         await using (var model = await OpenAsync(custom.EndpointUrl))
         await using (model.Client)
         {
+            var readOnlyVariable = await FindAsync(model, "Temperature");
+            Assert.Contains(await model.ReadAttributesAsync(readOnlyVariable, Ct), a => a.Name == "AccessLevel" && a.Value == "Read, HistoryRead");
+            Assert.NotNull(await model.WriteBlockedReasonAsync(readOnlyVariable.Item.NodeId, Ct));
+            await Assert.ThrowsAsync<CliException>(() => model.WriteAsync(readOnlyVariable.Item.NodeId, "Temperature", "10", Ct));
+
             // Int64: a variable no other test class writes (they run in parallel against the same server).
             var int64 = await FindAsync(model, "Int64");
             var written = await model.WriteAsync(int64.Item.NodeId, "Int64", "-4242", Ct);
@@ -86,6 +91,18 @@ public sealed class TuiModelTests(CustomTypesServerFixture custom, OpcPlcFixture
         var target = await FindAsync(readOnly, "Int64");
         Assert.NotNull(readOnly.WriteBlockedReason);
         await Assert.ThrowsAsync<CliException>(() => readOnly.WriteAsync(target.Item.NodeId, "Int64", "1", Ct));
+    }
+
+    [Fact]
+    public async Task MTConnect_sessions_default_to_read_only_and_do_not_prompt_for_writes()
+    {
+        await using var model = await OpenAsync(mtconnect.EndpointUrl);
+        await using var client = model.Client;
+
+        Assert.True(model.Args.ReadOnly);
+        Assert.NotNull(model.WriteBlockedReason);
+        var target = await FindAsync(model, "Xpos");
+        await Assert.ThrowsAsync<CliException>(() => model.WriteAsync(target.Item.NodeId, "Xpos", "1", Ct));
     }
 
     [Theory]

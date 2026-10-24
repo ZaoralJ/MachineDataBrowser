@@ -151,7 +151,7 @@ public sealed partial class MainWindowViewModel
     /// </summary>
     private sealed class SnapshotDevice(MainWindowViewModel owner) : ISnapshotDevice
     {
-        public bool CanWrite => owner.IsConnected && !owner.IsReadOnly;
+        public bool CanWrite => owner.IsConnected && !owner.IsReadOnly && !owner._client.IsReadOnly;
 
         public string EndpointUrl => owner.EndpointUrl;
 

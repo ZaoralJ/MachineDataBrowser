@@ -12,6 +12,9 @@ public interface IDeviceClient : IAsyncDisposable
 
     ConnectionState State { get; }
 
+    /// <summary>Whether this protocol connection is read-only regardless of the selected node.</summary>
+    bool IsReadOnly { get; }
+
     /// <summary>Identity of the connected device, for display.</summary>
     string? ServerUri { get; }
 

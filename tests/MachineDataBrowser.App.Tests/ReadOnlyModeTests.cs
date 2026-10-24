@@ -67,6 +67,35 @@ public sealed class ReadOnlyModeTests(CustomTypesServerFixture server) : IDispos
     }
 
     [AvaloniaFact]
+    public async Task Read_only_variable_disables_write_commands_in_attributes_and_watch()
+    {
+        await using var vm = new MainWindowViewModel { EndpointUrl = server.EndpointUrl };
+        await vm.ConnectCommand.ExecuteAsync(null);
+        var temperature = await FindAsync(vm, "Objects", "Custom", "History", "Temperature");
+        vm.SelectedNode = temperature;
+
+        await Until(() => vm.Attributes.Any(a => a.Name == "AccessLevel"));
+        vm.SelectedAttribute = vm.Attributes.Single(a => a.Name == "Value");
+        Assert.False(vm.WriteAttributeValueCommand.CanExecute(null));
+
+        await vm.AddToWatchCommand.ExecuteAsync(null);
+        vm.SelectedWatchItem = vm.WatchItems.Single();
+        await Until(() => !vm.WriteWatchValueCommand.CanExecute(null));
+        Assert.False(vm.WriteWatchValueCommand.CanExecute(null));
+    }
+
+    private static async Task Until(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "condition not met");
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+        }
+    }
+
+    [AvaloniaFact]
     public async Task Read_only_events_window_shows_alarms_but_does_not_acknowledge()
     {
         var alarm = new EventNotification(DateTime.UtcNow, 800, "Tank", "high", "TripAlarmType", [1, 2, 3],

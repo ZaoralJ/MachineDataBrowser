@@ -87,6 +87,22 @@ public sealed class DocsScreenshotTests(OpcPlcFixture plc, CustomTypesServerFixt
         window.Close();
     }
 
+    [AvaloniaFact]
+    public async Task MTConnect_connection_options_show_read_only_locked()
+    {
+        var (vm, window) = await OpenAsync(agent.EndpointUrl, connect: false);
+        await using var connection = vm;
+        var options = window.GetVisualDescendants().OfType<Button>().Single(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Connection options");
+        options.Flyout!.ShowAt(options);
+        Assert.True(vm.IsReadOnly);
+        Assert.False(vm.CanToggleReadOnly);
+        var readOnly = window.GetVisualDescendants().OfType<CheckBox>().Single(c => c.IsChecked == true && !c.IsEnabled);
+        Assert.True(readOnly.IsChecked);
+        Assert.False(readOnly.IsEnabled);
+        Save(window, "mtconnect-connection-options.png");
+        window.Close();
+    }
+
     // ---- Address Space ----
 
     [AvaloniaFact]
@@ -235,6 +251,8 @@ public sealed class DocsScreenshotTests(OpcPlcFixture plc, CustomTypesServerFixt
         settings.DeadbandValue = 0.5m;
         SaveDialog(window, "monitoring-settings.png", close: true);
 
+        // Temperature is deliberately read-only; use the writable UInt16 for the write dialog screenshot.
+        Select(vm, word);
         _ = vm.WriteWatchValueCommand.ExecuteAsync(null);
         await DialogAsync(window);
         SaveDialog(window, "write-value.png", close: true);

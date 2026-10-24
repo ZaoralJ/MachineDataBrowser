@@ -140,9 +140,10 @@ classDiagram
         +DisconnectAsync()
         +BrowseAsync(nodeId)
         +GetPathFromRootAsync(nodeId)
-        +ReadAttributesAsync(nodeId)
-        +ReadValuesAsync(nodeIds)
-        +MonitorManyAsync(nodeIds, onUpdate, refreshMs)
+         +ReadAttributesAsync(nodeId)
+         +ReadValuesAsync(nodeIds)
+         +bool IsReadOnly
+         +MonitorManyAsync(nodeIds, onUpdate, refreshMs)
         +ChangeRefreshAsync(handles, onUpdate, refreshMs)
         +ToPortableId(nodeId) / ParsePortableId(text)
         +StateChanged event
@@ -421,7 +422,8 @@ flowchart TB
   agent's buffer) or a new `instanceId` (agent restart) resynchronises from `/current`.
 - **History (`IHistorySource`):** scans the agent's buffer with `/sample` filtered to the item, oldest first, and keeps
   what falls in the time range. It is only as long as the buffer.
-- **Read-only:** MTConnect has no write service; `WriteValueAsync` keeps the interface's "not supported" default.
+- **Read-only:** MTConnect has no write service; its driver rejects `WriteValueAsync` with `BadNotWritable` without
+  sending a request.
 
 ## Session file changes (`Core/SessionFileWatcher.cs`)
 

@@ -15,13 +15,19 @@ public sealed class MtConnectAppTests(MtConnectSimulatorFixture agent)
         Assert.False(vm.IsOpcUaEndpoint);
         Assert.False(vm.IsMqttEndpoint);
         Assert.True(vm.HasCredentials);
+        Assert.False(vm.CanToggleReadOnly);
         Assert.StartsWith("MTConnect · Anonymous · ", vm.OptionsSummary, StringComparison.Ordinal);
 
         await vm.ConnectCommand.ExecuteAsync(null);
         Assert.True(vm.IsConnected);
+        Assert.True(vm.IsReadOnly);
+        vm.IsReadOnly = false;
+        Assert.True(vm.IsReadOnly);
 
         vm.SelectedNode = await Find(vm, "VMC", "base", "X", "Xpos");
         await vm.AddToWatchCommand.ExecuteAsync(null);
+        vm.SelectedWatchItem = vm.WatchItems.Single();
+        Assert.False(vm.WriteWatchValueCommand.CanExecute(null));
         vm.SelectedNode = await Find(vm, "VMC", "controller", "path", "execution");
         await vm.AddToWatchCommand.ExecuteAsync(null);
 

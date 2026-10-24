@@ -60,6 +60,8 @@ public sealed class MtConnectClient : IDeviceClient, IConnectionDiagnosticsSourc
         }
     }
 
+    public bool IsReadOnly => true;
+
     public string? ServerUri => _baseUri is { } uri
         ? $"MTConnect agent {uri}{(_model?.Header.Version is { } v ? $" (version {v})" : string.Empty)}"
         : null;
@@ -321,6 +323,12 @@ public sealed class MtConnectClient : IDeviceClient, IConnectionDiagnosticsSourc
             .Select(n => n.IdentifierAsString).Distinct(StringComparer.Ordinal).ToList();
         var current = await ReadCurrentAsync(ids, cancellationToken).ConfigureAwait(false);
         return [.. nodeIds.Select(n => n.NamespaceIndex == DataItemNamespace && current.TryGetValue(n.IdentifierAsString, out var o) && o.Status.IsGood ? o.Value : null)];
+    }
+
+    public Task WriteValueAsync(NodeId nodeId, string text, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return Task.FromException(new DeviceClientException(DeviceStatusCodes.BadNotWritable, "MTConnect data items are read-only."));
     }
 
     public Task<IReadOnlyList<string?>> ReadUnitsAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken cancellationToken = default)

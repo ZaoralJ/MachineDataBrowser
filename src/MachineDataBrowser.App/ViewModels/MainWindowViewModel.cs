@@ -19,6 +19,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     // Notifications arrive on SDK threads at any rate; keep only the latest per item and flush on a UI timer.
     private readonly ConcurrentDictionary<WatchItemViewModel, ValueUpdate> _pendingUpdates = new();
+    private readonly Dictionary<NodeId, bool> _writeAccess = [];
     private readonly DispatcherTimer _flushTimer;
 
     public MainWindowViewModel()
@@ -97,6 +98,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             EditDisplayCommand.NotifyCanExecuteChanged();
             ShowWatchHistoryCommand.NotifyCanExecuteChanged();
             TakeSelectionSnapshotCommand.NotifyCanExecuteChanged();
+            _ = LoadWriteAccessAsync(WatchSelectionOrCurrent());
         };
         WatchItems.CollectionChanged += (_, _) =>
         {
@@ -170,6 +172,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
 
         _client = _clientFactory.Create(endpointUrl);
+        OnPropertyChanged(nameof(CanToggleReadOnly));
+        if (_client.IsReadOnly && !IsReadOnly)
+        {
+            IsReadOnly = true;
+        }
+
         _client.StateChanged += OnClientStateChanged;
         if (_client is IDynamicAddressSpace dynamic)
         {
@@ -348,7 +356,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     [NotifyCanExecuteChangedFor(nameof(RemoveFromWatchCommand), nameof(CopyWatchValueCommand), nameof(CopyWatchNodeIdCommand), nameof(WriteWatchValueCommand), nameof(EditMonitoringCommand), nameof(EditDisplayCommand))]
     public partial WatchItemViewModel? SelectedWatchItem { get; set; }
 
-    partial void OnSelectedWatchItemChanged(WatchItemViewModel? value) => OnPropertyChanged(nameof(WatchSelectionLabel));
+    partial void OnSelectedWatchItemChanged(WatchItemViewModel? value)
+    {
+        OnPropertyChanged(nameof(WatchSelectionLabel));
+        _ = LoadWriteAccessAsync(WatchSelectionOrCurrent());
+    }
 
     public bool IsConnected => State == ConnectionState.Connected;
 
@@ -369,7 +381,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         get
         {
             var summary = OptionsSummaryCore();
-            return IsReadOnly ? summary + " · read-only" : summary;
+            return IsReadOnly || IsReadOnlyDriver ? summary + " · read-only" : summary;
         }
     }
 
@@ -1134,7 +1146,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     private Task CopyAttributeValueAsync() => CopyAsync(SelectedAttribute?.Value);
 
     private bool CanWriteAttributeValue() =>
-        IsConnected && !IsReadOnly && IsValueAttributeSelected && SelectedNode is { IsVariable: true };
+        IsConnected && !IsReadOnly && !_client.IsReadOnly && IsValueAttributeSelected
+        && SelectedNode is { IsVariable: true } node && IsNodeWritable(node.NodeId);
 
     [RelayCommand(CanExecute = nameof(CanWriteAttributeValue))]
     private async Task WriteAttributeValueAsync()
@@ -1150,7 +1163,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
     }
 
-    private bool CanWriteWatchValue() => IsConnected && !IsReadOnly && HasSelectedWatchItem();
+    private bool CanWriteWatchValue() => IsConnected && !IsReadOnly && !_client.IsReadOnly && HasSelectedWatchItem()
+        && WatchSelectionOrCurrent().All(item => IsNodeWritable(item.NodeId));
 
     [RelayCommand(CanExecute = nameof(CanWriteWatchValue))]
     private async Task WriteWatchValueAsync()
@@ -1171,10 +1185,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         }
 
         // The commands are disabled in read-only mode; this guards every other way in (shortcuts, future callers).
-        if (IsReadOnly)
+        if (IsReadOnly || _client.IsReadOnly)
         {
             StatusMessage = "Read-only mode: writing is turned off (Connection ▸ Read-Only)";
             return false;
+        }
+
+        foreach (var (nodeId, name) in targets)
+        {
+            if (!await LoadWriteAccessAsync(nodeId))
+            {
+                StatusMessage = $"{name} is read-only; nothing was written";
+                return false;
+            }
         }
 
         var label = targets.Count == 1 ? targets[0].Name : $"{targets.Count} items";
@@ -1238,6 +1261,51 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     private Task CopyWatchNodeIdAsync() => CopyAsync(string.Join(Environment.NewLine, WatchSelectionOrCurrent().Select(w => w.NodeIdText)));
 
     partial void OnSelectedNodeChanged(NodeViewModel? value) => _ = LoadAttributesAsync(value, debounce: true);
+
+    private bool IsNodeWritable(NodeId nodeId) => !_writeAccess.TryGetValue(nodeId, out var writable) || writable;
+
+    private void SetWriteAccess(NodeId nodeId, bool? writable)
+    {
+        if (writable is { } value)
+        {
+            _writeAccess[nodeId] = value;
+        }
+        else
+        {
+            _writeAccess.Remove(nodeId);
+        }
+
+        WriteAttributeValueCommand.NotifyCanExecuteChanged();
+        WriteWatchValueCommand.NotifyCanExecuteChanged();
+    }
+
+    private async Task<bool> LoadWriteAccessAsync(NodeId nodeId)
+    {
+        if (_writeAccess.TryGetValue(nodeId, out var known))
+        {
+            return known;
+        }
+
+        try
+        {
+            var attributes = await _client.ReadAttributesAsync(nodeId);
+            var writable = DeviceWriteAccess.IsWritable(attributes);
+            SetWriteAccess(nodeId, writable);
+            return writable != false;
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            return true; // Drivers without access metadata still decide whether their protocol accepts a write.
+        }
+    }
+
+    private async Task LoadWriteAccessAsync(IReadOnlyList<WatchItemViewModel> items)
+    {
+        foreach (var item in items)
+        {
+            _ = await LoadWriteAccessAsync(item.NodeId);
+        }
+    }
 
     private Task? _shutdown;
 
@@ -1472,6 +1540,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
             {
                 Attributes.Add(attribute);
             }
+
+            SetWriteAccess(node.NodeId, DeviceWriteAccess.IsWritable(attributes));
 
             if (node.IsVariable)
             {
