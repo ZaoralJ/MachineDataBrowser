@@ -80,8 +80,8 @@ Then connect to one of these:
 - `pccc://127.0.0.1:44819?plc=slc500` (also `micrologix`, `plc5`)
 - `mqtt://127.0.0.1:1883`
 - `modbus://127.0.0.1:5020/1` (import `simulators/modbus/simulator-map.csv` as its register map, or open
-  `simulators/modbus/simulator.mdbsession`)
-- `s7://127.0.0.1/0,1` (import `simulators/s7/tags.csv` as its tag list, or open `simulators/s7/simulator.mdbsession`)
+  `simulators/modbus/simulator-modbus.mdbsession`)
+- `s7://127.0.0.1/0,1` (import `simulators/s7/tags.csv` as its tag list, or open `simulators/s7/simulator-s7.mdbsession`)
 - `mtconnect://127.0.0.1:5050`
 
 [docs/simulators.md](docs/simulators.md) describes what each simulator contains.

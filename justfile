@@ -103,7 +103,7 @@ s7 port="102" tick_ms="50":
     -docker compose stop s7
     -docker compose rm -f s7
     -docker rm -f machinedatabrowser-s7
-    @echo "Tag map: simulators/s7/tags.csv (or open simulators/s7/simulator.mdbsession)"
+    @echo "Tag map: simulators/s7/tags.csv (or open simulators/s7/simulator-s7.mdbsession)"
     S7_HOST_PORT={{port}} S7_SIM_TICK_MS={{tick_ms}} docker compose run --build --rm --service-ports \
         --name machinedatabrowser-s7 s7
 

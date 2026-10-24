@@ -153,7 +153,7 @@ public sealed class ModbusClientTests(ModbusSimulatorFixture device) : IAsyncLif
         Assert.All(map.Tags.Zip(values), pair => Assert.True(pair.Second is not null, $"{pair.First.Path} ({pair.First.Address}) has no value"));
         Assert.Equal("MDB-SIM", values[map.Tags.ToList().FindIndex(t => t.Path == "Static/Name")]);
 
-        var session = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(folder, "simulator.mdbsession"), Ct))!;
+        var session = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(folder, "simulator-modbus.mdbsession"), Ct))!;
         Assert.Equal("simulator-map.csv", (string?)session["tagMap"]);
         Assert.All(session["watch"]!.AsArray(), w => Assert.Contains(map.Tags, t => t.Address.ToString() == (string?)w!["nodeId"]));
     }
