@@ -53,7 +53,8 @@ flowchart LR
 
 ## Connecting
 
-Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ button (or ↓) lists recent endpoints.
+Type the endpoint and press **Enter** or click **Connect** (⌘↩). The ▾ button (or ↓) lists recent sessions and
+endpoints. Recent sessions show the file name and its saved endpoint, separated by a middle dot.
 
 | Protocol | Endpoint | Notes |
 |---|---|---|
