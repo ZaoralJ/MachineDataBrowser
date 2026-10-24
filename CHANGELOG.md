@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.3](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.36.2...v0.36.3) (2026-10-24)
+
+
+### Fixes
+
+* **core:** expose driver read-only capability ([#201](https://github.com/ZaoralJ/MachineDataBrowser/issues/201)) ([cef1f98](https://github.com/ZaoralJ/MachineDataBrowser/commit/cef1f9830033d14407014352144604722b99e718))
+
 ## [0.36.2](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.36.1...v0.36.2) (2026-10-24)
 
 
