@@ -5,7 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Avalonia.Headless.XUnit 12.1.x is compiled against xunit.v3 3.2.x; 4.x breaks its discoverer. -->
-    <PackageReference Include="xunit.v3" VersionOverride="4.0.2" />
+    <PackageReference Include="xunit.v3" VersionOverride="3.2.2" />
     <PackageReference Include="Avalonia.Headless.XUnit" />
     <PackageReference Include="Testcontainers" />
   </ItemGroup>
