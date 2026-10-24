@@ -2529,7 +2529,17 @@ internal sealed class TuiApp : IDisposable
 
     // ------------------------------------------------------------------ plumbing
 
-    private void Ui(Action action) => _app.Invoke(action);
+    /// <summary>
+    /// Runs <paramref name="action"/> on the UI loop, always queued. <see cref="IApplication.Invoke(Action)"/> runs it
+    /// inline when called on the thread that initialised the application; when that is a pool thread (as in the tests,
+    /// which drive the loop from whichever thread their awaits resume on), device work on that same thread would
+    /// change rows and selection while another thread draws.
+    /// </summary>
+    private void Ui(Action action) => _app.AddTimeout(TimeSpan.Zero, () =>
+    {
+        action();
+        return false;
+    });
 
     /// <summary>Device work off the UI thread; failures go to the info log instead of ending the program.</summary>
     private void Run(Func<Task> work, string what) =>

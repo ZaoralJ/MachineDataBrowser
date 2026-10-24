@@ -10,7 +10,8 @@ namespace MachineDataBrowser.Cli.Tests;
 /// <summary>write and call_method through a real <c>mdbrowser mcp</c> process, with the user's answer simulated by the client.</summary>
 public sealed class McpWriteToolsTests(CustomTypesServerFixture custom) : IDisposable
 {
-    private const string Int32Node = "/Objects/Custom/DataTypes/Int32";
+    // UInt64: a variable no other test class writes (they run in parallel against the same server).
+    private const string UInt64Node = "/Objects/Custom/DataTypes/UInt64";
     private readonly string _dir = Directory.CreateTempSubdirectory("mdbrowser-mcp-writes").FullName;
     private readonly List<McpClient> _clients = [];
 
@@ -66,10 +67,10 @@ public sealed class McpWriteToolsTests(CustomTypesServerFixture custom) : IDispo
         return (result.IsError ?? false, Assert.IsType<TextContentBlock>(Assert.Single(result.Content)).Text);
     }
 
-    private async Task<long> ReadInt32Async()
+    private async Task<long> ReadUInt64Async()
     {
         var client = await StartAsync(null, "--endpoint", custom.EndpointUrl);
-        var (_, text) = await CallAsync(client, "read", new() { ["nodes"] = new[] { Int32Node } });
+        var (_, text) = await CallAsync(client, "read", new() { ["nodes"] = new[] { UInt64Node } });
         return (long)JsonNode.Parse(text)!["values"]![0]!["value"]!;
     }
 
@@ -88,30 +89,30 @@ public sealed class McpWriteToolsTests(CustomTypesServerFixture custom) : IDispo
         var tools = await yes.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken);
         Assert.True(tools.Single(t => t.Name == "write").ProtocolTool.Annotations?.DestructiveHint);
 
-        var (error, text) = await CallAsync(yes, "write", new() { ["node"] = Int32Node, ["value"] = "4711" });
+        var (error, text) = await CallAsync(yes, "write", new() { ["node"] = UInt64Node, ["value"] = "4711" });
         Assert.False(error, text);
         Assert.Equal(4711, (long)JsonNode.Parse(text)!["after"]!);
-        Assert.Contains(Questions, q => q.Contains("Write 4711 to Int32", StringComparison.Ordinal));
+        Assert.Contains(Questions, q => q.Contains("Write 4711 to UInt64", StringComparison.Ordinal));
 
         var no = await StartAsync(false, "--endpoint", custom.EndpointUrl, "--allow-writes");
-        (error, text) = await CallAsync(no, "write", new() { ["node"] = Int32Node, ["value"] = "1" });
+        (error, text) = await CallAsync(no, "write", new() { ["node"] = UInt64Node, ["value"] = "1" });
         Assert.True(error);
         Assert.Contains("did not confirm", text, StringComparison.Ordinal);
-        Assert.Equal(4711, await ReadInt32Async());
+        Assert.Equal(4711, await ReadUInt64Async());
     }
 
     [Fact]
     public async Task Clients_that_cannot_ask_are_refused_unless_confirmation_is_skipped()
     {
         var cannotAsk = await StartAsync(null, "--endpoint", custom.EndpointUrl, "--allow-writes");
-        var (error, text) = await CallAsync(cannotAsk, "write", new() { ["node"] = Int32Node, ["value"] = "5" });
+        var (error, text) = await CallAsync(cannotAsk, "write", new() { ["node"] = UInt64Node, ["value"] = "5" });
         Assert.True(error);
         Assert.Contains("--skip-write-confirmation", text, StringComparison.Ordinal);
 
         var skipping = await StartAsync(null, "--endpoint", custom.EndpointUrl, "--allow-writes", "--skip-write-confirmation");
-        (error, text) = await CallAsync(skipping, "write", new() { ["node"] = Int32Node, ["value"] = "6" });
+        (error, text) = await CallAsync(skipping, "write", new() { ["node"] = UInt64Node, ["value"] = "6" });
         Assert.False(error, text);
-        Assert.Equal(6, await ReadInt32Async());
+        Assert.Equal(6, await ReadUInt64Async());
     }
 
     [Fact]
@@ -135,12 +136,12 @@ public sealed class McpWriteToolsTests(CustomTypesServerFixture custom) : IDispo
         var session = Path.Combine(_dir, "readonly.mdbsession");
         await File.WriteAllTextAsync(session, $$"""{"endpointUrl":"{{custom.EndpointUrl}}","readOnly":true,"watch":[]}""", TestContext.Current.CancellationToken);
         var readOnly = await StartAsync(true, "--session", session, "--allow-writes");
-        var (error, text) = await CallAsync(readOnly, "write", new() { ["node"] = Int32Node, ["value"] = "1" });
+        var (error, text) = await CallAsync(readOnly, "write", new() { ["node"] = UInt64Node, ["value"] = "1" });
         Assert.True(error);
         Assert.Contains("read-only", text, StringComparison.Ordinal);
 
         var named = await StartAsync(true, "--endpoint", "opc.tcp://localhost:1", "--allow", "opc.tcp://localhost:*", "--allow-writes");
-        (error, text) = await CallAsync(named, "write", new() { ["node"] = Int32Node, ["value"] = "1", ["endpoint"] = custom.EndpointUrl });
+        (error, text) = await CallAsync(named, "write", new() { ["node"] = UInt64Node, ["value"] = "1", ["endpoint"] = custom.EndpointUrl });
         Assert.True(error);
         Assert.Contains("allow pattern", text, StringComparison.Ordinal);
         Assert.Empty(Questions);   // refused before anyone was asked

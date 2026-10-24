@@ -107,8 +107,9 @@ Nodes are the same paths and ids as on the command line (`/Objects/Line1/Speed`,
 `sample` exists because an agent can't watch a live stream; a summary answers questions like *is it moving*, *how much
 does it fluctuate*, *did it go bad*. With `correlate` it also lists the changes in time order and pairs where one value
 changed within `withinMs` (default 1000) after most of another's changes, with the median lag: *the pressure drops
-200 ms after the valve opens*. These are candidates for cause and effect, not proof; lags are only as exact as the
-refresh time.
+200 ms after the valve opens*. These are candidates for cause and effect, not proof. For correlation an OPC UA server is
+asked for every change it sees (sampling as fast as it can, queued between refreshes), so lags come from the device's
+timestamps; elsewhere they are only as exact as the refresh time.
 
 ### Snapshots
 
