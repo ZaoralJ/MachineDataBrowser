@@ -14,11 +14,12 @@ public sealed class ModbusAppTests(ModbusSimulatorFixture device)
         var dir = Directory.CreateTempSubdirectory("mdb-modbus-").FullName;
         try
         {
+            string? copied = null;
             var map = Path.Combine(dir, "line1.csv");
             await File.WriteAllTextAsync(map, "name,address,unit\nLine1/Speed,hr:20:float32,rpm\n", TestContext.Current.CancellationToken);
             var session = Path.Combine(dir, "line1.mdbsession");
             var dialogs = new TestDialogs { TagMapAnswer = map };
-            await using (var vm = new MainWindowViewModel { EndpointUrl = device.EndpointUrl, Dialogs = dialogs })
+            await using (var vm = new MainWindowViewModel { EndpointUrl = device.EndpointUrl, Dialogs = dialogs, CopyToClipboard = text => { copied = text; return Task.CompletedTask; } })
             {
                 Assert.True(vm.IsModbusEndpoint);
                 Assert.False(vm.HasCredentials);
@@ -36,6 +37,8 @@ public sealed class ModbusAppTests(ModbusSimulatorFixture device)
                 Assert.True(vm.IsConnected);
                 var speed = await Find(vm, "Tags", "Line1", "Speed");
                 vm.SelectedNode = speed;
+                await vm.CopyCliReadCommand.ExecuteAsync(null);
+                Assert.Equal($"mdbrowser read {device.EndpointUrl} /Tags/Line1/Speed --map {map} --trust-all", copied);
                 await vm.AddToWatchCommand.ExecuteAsync(null);
                 await Until(() => vm.WatchItems.Single().Value == "3.5", vm);
                 Assert.Equal("hr:20:float32", vm.WatchItems.Single().PortableId);

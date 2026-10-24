@@ -34,6 +34,14 @@ public sealed class CliCommandTests(OpcPlcFixture plc)
         Assert.Equal("mdbrowser browse eip://10.0.0.5/1,0", CliCommand.Browse(new("eip://10.0.0.5/1,0", null, UseSecurity: true, TrustAll: false), null));
     }
 
+    [Fact]
+    public void Tag_map_is_carried_over_and_shell_quoted()
+    {
+        var connection = new CliCommand.Connection("s7://plc/0,1", null, UseSecurity: false, TrustAll: false, "/maps/line 1.csv");
+
+        Assert.Equal("mdbrowser read s7://plc/0,1 MW2 --map '/maps/line 1.csv'", CliCommand.Read(connection, ["MW2"], recursive: false));
+    }
+
     [AvaloniaFact]
     public async Task Address_space_and_watch_selections_become_commands_on_the_clipboard()
     {

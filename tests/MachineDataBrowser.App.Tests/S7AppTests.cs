@@ -16,11 +16,12 @@ public sealed class S7AppTests(S7SimulatorFixture plc)
         var dir = Directory.CreateTempSubdirectory("mdb-s7-app-").FullName;
         try
         {
+            string? copied = null;
             var tags = Path.Combine(dir, "tags.csv");
             File.Copy(S7SimulatorFixture.TagFile, tags);
             var dialogs = new TestDialogs { TagMapAnswer = tags };
             var path = Path.Combine(dir, "plc.mdbsession");
-            await using (var vm = new MainWindowViewModel { EndpointUrl = Url, Dialogs = dialogs })
+            await using (var vm = new MainWindowViewModel { EndpointUrl = Url, Dialogs = dialogs, CopyToClipboard = text => { copied = text; return Task.CompletedTask; } })
             {
                 Assert.True(vm.SupportsTagMap);
                 Assert.False(vm.HasCredentials);
@@ -38,6 +39,9 @@ public sealed class S7AppTests(S7SimulatorFixture plc)
                 Assert.Equal("Tag list", vm.TagMapLabel);
                 await Until(() => vm.RootNodes[0].Children.Any(c => c.DisplayName == "Tags"));
                 Assert.StartsWith("S7 · tags.csv", vm.OptionsSummary, StringComparison.Ordinal);
+                vm.SelectedNode = vm.RootNodes[0];
+                await vm.CopyCliBrowseCommand.ExecuteAsync(null);
+                Assert.Equal($"mdbrowser browse {Url} --map {tags} --trust-all", copied);
                 Assert.True(vm.IsDirty);
                 await vm.WriteSessionAsync(path);
             }

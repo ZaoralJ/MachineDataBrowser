@@ -11,7 +11,7 @@ namespace MachineDataBrowser.App.ViewModels;
 /// </summary>
 public sealed partial class MainWindowViewModel
 {
-    private CliCommand.Connection CliConnection() => new(EndpointUrl, UserName, UseSecurity, AutoAcceptCertificates);
+    private CliCommand.Connection CliConnection() => new(EndpointUrl, UserName, UseSecurity, AutoAcceptCertificates, TagMapForConnect);
 
     private bool CanCopyNodeCommand() => IsConnected && HasSelectedNode();
 
