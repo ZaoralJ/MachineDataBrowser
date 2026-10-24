@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.2](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.36.1...v0.36.2) (2026-10-24)
+
+
+### Fixes
+
+* remove the races behind flaky CI and release runs ([#198](https://github.com/ZaoralJ/MachineDataBrowser/issues/198)) ([1cab6d2](https://github.com/ZaoralJ/MachineDataBrowser/commit/1cab6d23248aa76617396e5f3321c955c13f85a2))
+
 ## [0.36.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.36.0...v0.36.1) (2026-10-23)
 
 
