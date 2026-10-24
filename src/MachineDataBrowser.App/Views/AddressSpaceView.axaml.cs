@@ -89,8 +89,15 @@ public sealed partial class AddressSpaceView : UserControl
         Avalonia.Threading.Dispatcher.UIThread.Post(
             () =>
             {
-                AddressTree.SelectedItems?.Clear();
-                AddressTree.SelectedItem = node;
+                // The view model has already selected the node. Clearing pushes null into SelectedNode through the
+                // binding, so only do it when the row can be selected again right after.
+                var alreadySelected = AddressTree.SelectedItems is { Count: 1 } selected && ReferenceEquals(selected[0], node);
+                if (!alreadySelected && AddressTree.Items.IndexOf(node) >= 0)
+                {
+                    AddressTree.SelectedItems?.Clear();
+                    AddressTree.SelectedItem = node;
+                }
+
                 FocusRow(node);
             },
             Avalonia.Threading.DispatcherPriority.Loaded);

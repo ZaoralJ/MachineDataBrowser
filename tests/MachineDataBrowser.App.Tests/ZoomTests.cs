@@ -79,4 +79,28 @@ public sealed class ZoomTests : IDisposable
         dialog.Close();
         window.Close();
     }
+
+    [AvaloniaFact]
+    public void Zoom_leaves_closed_windows_and_those_of_an_earlier_application_alone()
+    {
+        var closed = new Window { Width = 400, Content = new TextBlock { Text = "Closed" } };
+        closed.Show();
+        Dispatcher.UIThread.RunJobs();
+        closed.Close();
+
+        // The headless tests start a new application per test; windows a test left open belong to the old one.
+        var leftOver = new Window { Width = 400, Content = new TextBlock { Text = "Left over" } };
+        leftOver.Show();
+        Dispatcher.UIThread.RunJobs();
+        UiZoom.Install();
+
+        UiZoom.SetScale(1.5);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(400, closed.Width, 3);
+        Assert.Equal(400, leftOver.Width, 3);
+        Assert.Null(Assert.IsType<LayoutTransformControl>(leftOver.Content).LayoutTransform);
+
+        UiZoom.SetScale(1.0);
+        leftOver.Close();
+    }
 }

@@ -46,7 +46,7 @@ public sealed class BookmarkTests(OpcPlcFixture plc) : IDisposable
             vm.CollapseAllCommand.Execute(null);
             vm.SelectedNode = vm.RootNodes[0];
             await vm.GoToBookmarkCommand.ExecuteAsync(bookmark);
-            await WaitUntil(() => vm.SelectedNode?.DisplayName == "StepUp");
+            await WaitUntil(() => vm.SelectedNode?.DisplayName == "StepUp", vm);
             Assert.Equal("StepUp", vm.SelectedNode?.DisplayName);
 
             // Toggling on the bookmarked node removes it; add it back for the session.
@@ -68,18 +68,19 @@ public sealed class BookmarkTests(OpcPlcFixture plc) : IDisposable
         }
 
         await reopened.GoToBookmarkCommand.ExecuteAsync(restored);
-        await WaitUntil(() => reopened.SelectedNode?.DisplayName == "StepUp");
+        await WaitUntil(() => reopened.SelectedNode?.DisplayName == "StepUp", reopened);
         Assert.Equal("StepUp", reopened.SelectedNode?.DisplayName);
         reopened.RemoveBookmarkCommand.Execute(restored);
         Assert.Empty(reopened.Bookmarks);
     }
 
-    private static async Task WaitUntil(Func<bool> condition)
+    private static async Task WaitUntil(Func<bool> condition, MainWindowViewModel vm)
     {
         var deadline = DateTime.UtcNow.AddSeconds(10);
         while (!condition())
         {
-            Assert.True(DateTime.UtcNow < deadline, "Timed out waiting for the bookmark navigation to finish.");
+            Assert.True(DateTime.UtcNow < deadline,
+                $"Timed out waiting for the bookmark navigation to finish: selected '{vm.SelectedNode?.Path}', status '{vm.StatusMessage}', error '{vm.ErrorMessage}'.");
             Dispatcher.UIThread.RunJobs();
             await Task.Delay(50, TestContext.Current.CancellationToken);
         }

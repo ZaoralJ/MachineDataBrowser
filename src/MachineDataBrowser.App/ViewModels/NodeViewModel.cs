@@ -13,6 +13,7 @@ public sealed partial class NodeViewModel : ObservableObject
     private readonly Func<NodeId, string>? _formatId;
     private NodeViewModel? _placeholder;
     private bool _loaded;
+    private bool _probedLeaf;
     private Task? _loading;
     private DateTime _collapsedAt = DateTime.MaxValue;
 
@@ -252,7 +253,8 @@ public sealed partial class NodeViewModel : ObservableObject
     /// </summary>
     public async Task RefreshExpandedAsync()
     {
-        if (_browse is null || !_loaded || !IsExpanded || !HasChildren)
+        // Not HasChildren: a live folder browsed before its first topic arrived was loaded empty and must fill up.
+        if (_browse is null || !_loaded || !IsExpanded)
         {
             return;
         }
@@ -281,8 +283,13 @@ public sealed partial class NodeViewModel : ObservableObject
         var wanted = items.Select(item =>
         {
             if (existing.TryGetValue(item.NodeId, out var keep) && keep.NodeClass == item.NodeClass
-                && (_probe is not null || keep.HasChildren == item.HasChildren))
+                && (_probe is not null || keep.HasChildren == item.HasChildren || item.HasChildren))
             {
+                if (item.HasChildren && !keep.HasChildren)
+                {
+                    keep.Reopen();
+                }
+
                 return keep;
             }
 
@@ -322,6 +329,11 @@ public sealed partial class NodeViewModel : ObservableObject
             }
         }
 
+        if (wanted.Count > 0)
+        {
+            HasChildren = true;
+        }
+
         _ = ProbeAsync(added);
         foreach (var child in wanted.Where(c => c.IsExpanded))
         {
@@ -330,6 +342,24 @@ public sealed partial class NodeViewModel : ObservableObject
     }
 
     private NodeViewModel Create(BrowseItem item) => new(item, _browse!, _onError!, _formatId, this, _probe);
+
+    /// <summary>
+    /// A collapsed leaf the live address space now reports children for (a topic got a subtopic or a JSON payload, a
+    /// folder browsed before its first topic arrived): show the expander again and browse when it is expanded.
+    /// Expanded nodes fill up in their own refresh; leaves the probe resolved stay, their browse flag is provisional.
+    /// </summary>
+    private void Reopen()
+    {
+        if (_browse is null || _probedLeaf || IsExpanded)
+        {
+            return;
+        }
+
+        _loaded = false;
+        _loading = null;
+        HasChildren = true;
+        Children.ReplaceAll([Placeholder]);
+    }
 
     private async Task LoadChildrenAsync()
     {
@@ -389,6 +419,7 @@ public sealed partial class NodeViewModel : ObservableObject
             if (!result[i] && !node._loaded)
             {
                 node._loaded = true;
+                node._probedLeaf = true;
                 node.HasChildren = false;
                 node.Children.Clear();
             }

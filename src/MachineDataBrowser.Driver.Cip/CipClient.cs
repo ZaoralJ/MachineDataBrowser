@@ -29,12 +29,20 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
     private static readonly NodeId ControllerId = new("Controller", FolderNamespace);
     private static readonly NodeId ProgramsId = new("Programs", FolderNamespace);
 
+    /// <summary>
+    /// libplctag (2.6) lists a new session before it creates the session's mutex, so a tag created at that moment can
+    /// join it and have its request silently dropped: the read times out. Each connection therefore holds one tag,
+    /// created alone, that keeps its session alive; every other tag joins a session that is already set up.
+    /// </summary>
+    private static readonly Lock SessionCreation = new();
+
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Lock _lock = new();
     private readonly Dictionary<string, IReadOnlyList<LogixSymbol>> _scopes = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ushort, LogixTemplate> _templates = [];
     private readonly Dictionary<int, PollGroup> _groups = [];
     private CipEndpoint? _endpoint;
+    private Tag? _sessionTag;
     private ConnectionState _state = ConnectionState.Disconnected;
     private DateTime? _connectedAt;
     private DateTime? _lastLinkLoss;
@@ -93,6 +101,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
                 throw new DeviceClientException(DeviceStatusCodes.BadTcpEndpointUrlInvalid, ex.Message);
             }
 
+            _sessionTag = await OpenSessionAsync(_endpoint, cancellationToken).ConfigureAwait(false);
 
             // Listing the controller tags proves the connection and fills the first browse level.
             _scopes[string.Empty] = await ReadTagListAsync("@tags", cancellationToken).ConfigureAwait(false);
@@ -105,6 +114,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         catch
         {
             _endpoint = null;
+            CloseSession();
             State = ConnectionState.Disconnected;
             throw;
         }
@@ -429,11 +439,45 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
             await group.StopAsync().ConfigureAwait(false);
         }
 
+        CloseSession();
         _scopes.Clear();
         _templates.Clear();
         _endpoint = null;
         _connectedAt = null;
         State = ConnectionState.Disconnected;
+    }
+
+    private void CloseSession()
+    {
+        _sessionTag?.Dispose();
+        _sessionTag = null;
+    }
+
+    /// <summary>The tag that holds the connection's libplctag session (see <see cref="SessionCreation"/>); never read.</summary>
+    private static async Task<Tag> OpenSessionAsync(CipEndpoint endpoint, CancellationToken cancellationToken)
+    {
+        var tag = CreateTag(endpoint, "@tags", null);
+        try
+        {
+            await Task.Run(() =>
+            {
+                lock (SessionCreation)
+                {
+                    tag.Initialize();
+                }
+            }, cancellationToken).ConfigureAwait(false);
+            return tag;
+        }
+        catch (LibPlcTagException ex)
+        {
+            tag.Dispose();
+            throw new DeviceClientException(ToStatus(ex), $"{endpoint.Gateway}: {ex.Message}");
+        }
+        catch
+        {
+            tag.Dispose();
+            throw;
+        }
     }
 
     private void RemoveGroup(PollGroup group)

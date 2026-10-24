@@ -160,6 +160,7 @@ internal sealed partial class MachineDataTools(EndpointPool pool)
             warnings.Add($"cannot monitor {stats[rejected.NodeId].Node.Name}: {rejected.Error}");
         }
 
+        var everyChange = correlate && await SampleEveryChangeAsync(client, results, cancellationToken).ConfigureAwait(false);
         var started = DateTime.UtcNow;
         try
         {
@@ -184,7 +185,7 @@ internal sealed partial class MachineDataTools(EndpointPool pool)
             var changes = stats.Values.ToDictionary(s => duplicate.Contains(s.Node.Name) ? $"{s.Node.Name} ({s.Node.DisplayId})" : s.Node.Name, s => s.Changes());
             result["sequence"] = Sequence(changes);
             result["correlations"] = Correlations(changes, within);
-            if (interval > within.TotalMilliseconds / 2)
+            if (!everyChange && interval > within.TotalMilliseconds / 2)
             {
                 warnings.Add($"refreshMs {interval} is coarse for withinMs {within.TotalMilliseconds}: lags are only as exact as the refresh time.");
             }
@@ -195,6 +196,32 @@ internal sealed partial class MachineDataTools(EndpointPool pool)
 
     public const int MaxSequence = 100;
     public const int MaxCorrelations = 20;
+    public const uint CorrelationQueueSize = 100;
+
+    /// <summary>
+    /// For correlation, asks the server for every change it sees, queued between publishes, instead of only the last
+    /// value per refresh. With one value per refresh, two values that change in the same update can arrive a refresh
+    /// apart (the publish fell between the two changes), which would show as a lag of a whole refresh time. False when
+    /// the client can't tune monitoring or the server refused; then lags are only as exact as the refresh time.
+    /// </summary>
+    private static async Task<bool> SampleEveryChangeAsync(IDeviceClient client, IReadOnlyList<MonitorResult> results, CancellationToken cancellationToken)
+    {
+        var monitors = results.Select(r => r.Handle).OfType<IAsyncDisposable>().ToList();
+        if (client is not IMonitoringSettings settings || monitors.Count == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            var applied = await settings.ApplyMonitoringOptionsAsync(monitors, new MonitoringOptions { SamplingIntervalMs = 0, QueueSize = CorrelationQueueSize }, cancellationToken).ConfigureAwait(false);
+            return applied.All(e => e.StatusCode.IsGood);
+        }
+        catch (DeviceClientException)
+        {
+            return false;
+        }
+    }
 
     /// <summary>Every change in time order (the first changes, up to <see cref="MaxSequence"/>).</summary>
     private static JsonObject Sequence(Dictionary<string, IReadOnlyList<(DateTime Time, JsonNode? Value)>> changes)
