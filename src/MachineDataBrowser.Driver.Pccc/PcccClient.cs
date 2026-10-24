@@ -28,12 +28,20 @@ public sealed class PcccClient : IDeviceClient, IConnectionDiagnosticsSource
 
     private static readonly string[] StandardFiles = ["O0", "I1", "S2", "B3", "T4", "C5", "R6", "N7", "F8"];
 
+    /// <summary>
+    /// libplctag (2.6) lists a new session before it creates the session's mutex, so a tag created at that moment can
+    /// join it and have its request silently dropped: the read times out. Each connection therefore holds one tag,
+    /// created alone, that keeps its session alive; every other tag joins a session that is already set up.
+    /// </summary>
+    private static readonly Lock SessionCreation = new();
+
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Lock _lock = new();
     private readonly Dictionary<string, Task<int>> _fileSizes = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<int, PollGroup> _groups = [];
     private IReadOnlyList<PcccAddress> _files = [];
     private PcccEndpoint? _endpoint;
+    private Tag? _sessionTag;
     private ConnectionState _state = ConnectionState.Disconnected;
     private DateTime? _connectedAt;
     private DateTime? _lastLinkLoss;
@@ -96,6 +104,8 @@ public sealed class PcccClient : IDeviceClient, IConnectionDiagnosticsSource
                 throw new DeviceClientException(DeviceStatusCodes.BadTcpEndpointUrlInvalid, ex.Message);
             }
 
+            _sessionTag = await OpenSessionAsync(_endpoint, cancellationToken).ConfigureAwait(false);
+
             // Probing the files proves the connection and fills the first browse level.
             var candidates = StandardFiles.Concat(_endpoint.ExtraFiles)
                 .Select(f => PcccAddress.TryParse(f, out var a) ? a : null)
@@ -131,6 +141,7 @@ public sealed class PcccClient : IDeviceClient, IConnectionDiagnosticsSource
         catch
         {
             _endpoint = null;
+            CloseSession();
             State = ConnectionState.Disconnected;
             throw;
         }
@@ -489,10 +500,44 @@ public sealed class PcccClient : IDeviceClient, IConnectionDiagnosticsSource
             await group.StopAsync().ConfigureAwait(false);
         }
 
+        CloseSession();
         _files = [];
         _endpoint = null;
         _connectedAt = null;
         State = ConnectionState.Disconnected;
+    }
+
+    private void CloseSession()
+    {
+        _sessionTag?.Dispose();
+        _sessionTag = null;
+    }
+
+    /// <summary>The tag that holds the connection's libplctag session (see <see cref="SessionCreation"/>); never read.</summary>
+    private static async Task<Tag> OpenSessionAsync(PcccEndpoint endpoint, CancellationToken cancellationToken)
+    {
+        var tag = CreateTag(endpoint, "N7:0");
+        try
+        {
+            await Task.Run(() =>
+            {
+                lock (SessionCreation)
+                {
+                    tag.Initialize();
+                }
+            }, cancellationToken).ConfigureAwait(false);
+            return tag;
+        }
+        catch (LibPlcTagException ex)
+        {
+            tag.Dispose();
+            throw new DeviceClientException(ToStatus(ex), $"{endpoint.Gateway}: {ex.Message}");
+        }
+        catch
+        {
+            tag.Dispose();
+            throw;
+        }
     }
 
     private void RemoveGroup(PollGroup group)
