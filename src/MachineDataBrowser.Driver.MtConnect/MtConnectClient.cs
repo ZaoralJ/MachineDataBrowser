@@ -328,7 +328,7 @@ public sealed class MtConnectClient : IDeviceClient, IConnectionDiagnosticsSourc
     public Task WriteValueAsync(NodeId nodeId, string text, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(text);
-        return Task.FromException(new DeviceClientException(DeviceStatusCodes.BadNotWritable, "MTConnect data items are read-only."));
+        return Task.FromException(new DeviceClientException(DeviceStatusCodes.BadNotWritable, "Writing values is not supported for MTConnect data items; they are read-only."));
     }
 
     public Task<IReadOnlyList<string?>> ReadUnitsAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken cancellationToken = default)
