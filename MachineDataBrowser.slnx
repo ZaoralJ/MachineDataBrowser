@@ -21,11 +21,55 @@
     <Project Path="src/MachineDataBrowser.Recording.Json/MachineDataBrowser.Recording.Json.csproj" />
     <Project Path="src/MachineDataBrowser.Recording.Sqlite/MachineDataBrowser.Recording.Sqlite.csproj" />
   </Folder>
+  <Folder Name="/simulators/cip/">
+    <File Path="simulators/cip/.dockerignore" />
+    <File Path="simulators/cip/Dockerfile" />
+    <File Path="simulators/cip/controller.py" />
+    <File Path="simulators/cip/logix_model.py" />
+    <File Path="simulators/cip/logix_server.py" />
+    <File Path="simulators/cip/simulator-cip.mdbsession" />
+  </Folder>
+  <Folder Name="/simulators/modbus/">
+    <File Path="simulators/modbus/Dockerfile" />
+    <File Path="simulators/modbus/modbus_server.py" />
+    <File Path="simulators/modbus/simulator-map.csv" />
+    <File Path="simulators/modbus/simulator-modbus.mdbsession" />
+  </Folder>
+  <Folder Name="/simulators/mqtt/">
+    <File Path="simulators/mqtt/.dockerignore" />
+    <File Path="simulators/mqtt/Dockerfile" />
+    <File Path="simulators/mqtt/entrypoint.sh" />
+    <File Path="simulators/mqtt/mosquitto.conf" />
+    <File Path="simulators/mqtt/publisher.py" />
+    <File Path="simulators/mqtt/simulator-mqtt.mdbsession" />
+  </Folder>
+  <Folder Name="/simulators/mtconnect/">
+    <File Path="simulators/mtconnect/Dockerfile" />
+    <File Path="simulators/mtconnect/agent.py" />
+    <File Path="simulators/mtconnect/simulator-mtconnect.mdbsession" />
+  </Folder>
+  <Folder Name="/simulators/opcua-custom/">
+    <File Path="simulators/opcua-custom/.dockerignore" />
+    <File Path="simulators/opcua-custom/Dockerfile" />
+    <File Path="simulators/opcua-custom/server.py" />
+    <File Path="simulators/opcua-custom/simulator-opcua-custom.mdbsession" />
+  </Folder>
+  <Folder Name="/simulators/opcua/">
+    <File Path="simulators/opcua/.dockerignore" />
+    <File Path="simulators/opcua/Dockerfile" />
+    <File Path="simulators/opcua/nodesfile.json" />
+    <File Path="simulators/opcua/simulator-opcua.mdbsession" />
+  </Folder>
+  <Folder Name="/simulators/pccc/">
+    <File Path="simulators/pccc/Dockerfile" />
+    <File Path="simulators/pccc/pccc_server.py" />
+    <File Path="simulators/pccc/simulator-pccc.mdbsession" />
+  </Folder>
   <Folder Name="/simulators/s7/">
-    <File Path="simulators/s7/tags.csv" />
-    <File Path="simulators/s7/simulator.mdbsession" />
-    <File Path="simulators/s7/s7_server.py" />
     <File Path="simulators/s7/Dockerfile" />
+    <File Path="simulators/s7/s7_server.py" />
+    <File Path="simulators/s7/simulator-s7.mdbsession" />
+    <File Path="simulators/s7/tags.csv" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MachineDataBrowser.App.Tests/MachineDataBrowser.App.Tests.csproj" />

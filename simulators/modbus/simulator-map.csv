@@ -1,6 +1,6 @@
 # Register map for the Modbus simulator (modbus_server.py): names for its addresses.
 # Use it with: mdbrowser tui modbus://127.0.0.1:5020/1 --map simulators/modbus/simulator-map.csv
-# or open simulators/modbus/simulator.mdbsession in the app or the TUI. Addresses are 0-based.
+# or open simulators/modbus/simulator-modbus.mdbsession in the app or the TUI. Addresses are 0-based.
 name,address,unit,description
 Simulator/PauseSimulation,co:0,,Write true to freeze every changing value
 Simulator/Counter,hr:0,,Counts up every tick (wraps at 65535)

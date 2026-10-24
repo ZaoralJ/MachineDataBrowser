@@ -29,19 +29,19 @@ Each simulator has a ready-to-open session with representative live values in it
 `just all`, then open a session from **File ▸ Open** in the app or run it in the terminal:
 
 ```sh
-mdbrowser tui simulators/cip/simulator.mdbsession
+mdbrowser tui simulators/cip/simulator-cip.mdbsession
 ```
 
 | Simulator | Example session |
 |---|---|
-| Logix / EtherNet/IP | [`simulators/cip/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/cip/simulator.mdbsession) |
-| PCCC | [`simulators/pccc/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/pccc/simulator.mdbsession) |
-| opc-plc | [`simulators/opcua/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/opcua/simulator.mdbsession) |
-| Custom OPC UA types | [`simulators/opcua-custom/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/opcua-custom/simulator.mdbsession) |
-| MQTT | [`simulators/mqtt/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/mqtt/simulator.mdbsession) |
-| Modbus TCP | [`simulators/modbus/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/modbus/simulator.mdbsession) |
-| Siemens S7 | [`simulators/s7/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/s7/simulator.mdbsession) |
-| MTConnect | [`simulators/mtconnect/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/mtconnect/simulator.mdbsession) |
+| Logix / EtherNet/IP | [`simulators/cip/simulator-cip.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/cip/simulator-cip.mdbsession) |
+| PCCC | [`simulators/pccc/simulator-pccc.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/pccc/simulator-pccc.mdbsession) |
+| opc-plc | [`simulators/opcua/simulator-opcua.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/opcua/simulator-opcua.mdbsession) |
+| Custom OPC UA types | [`simulators/opcua-custom/simulator-opcua-custom.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/opcua-custom/simulator-opcua-custom.mdbsession) |
+| MQTT | [`simulators/mqtt/simulator-mqtt.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/mqtt/simulator-mqtt.mdbsession) |
+| Modbus TCP | [`simulators/modbus/simulator-modbus.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/modbus/simulator-modbus.mdbsession) |
+| Siemens S7 | [`simulators/s7/simulator-s7.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/s7/simulator-s7.mdbsession) |
+| MTConnect | [`simulators/mtconnect/simulator-mtconnect.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/mtconnect/simulator-mtconnect.mdbsession) |
 
 The Modbus and S7 sessions also load their adjacent register map/tag list by a relative path.
 
@@ -256,12 +256,12 @@ the ranges below answer with exception 2 (illegal data address).
 
 **Register map:** `simulators/modbus/simulator-map.csv` names all of these (Simulator, Inputs, Static, Scratch
 folders, with units and descriptions). Import it in the app (⚙ ▸ Register map ▸ Import…, or Connection ▸ Import
-Register Map…), pass it to the CLI with `--map`, or press `k` in the TUI. `simulators/modbus/simulator.mdbsession`
+Register Map…), pass it to the CLI with `--map`, or press `k` in the TUI. `simulators/modbus/simulator-modbus.mdbsession`
 uses it (by relative path) with a watch list of the changing values:
 
 ```sh
 just modbus
-mdbrowser tui simulators/modbus/simulator.mdbsession
+mdbrowser tui simulators/modbus/simulator-modbus.mdbsession
 mdbrowser read modbus://127.0.0.1:5020/1 /Tags/Static -R --map simulators/modbus/simulator-map.csv
 ```
 
@@ -281,8 +281,8 @@ range. Values change every 50 ms (`S7_SIM_TICK_MS`).
 **Tag map:** [`simulators/s7/tags.csv`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/s7/tags.csv)
 is the symbol table for every address below, in the TIA Portal CSV layout (Name, Path, Data Type, Logical Address,
 Comment). Import it in the app (Connection ▸ Import Register Map / Tag List…) or pass it with `--map`.
-[`simulators/s7/simulator.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/s7/simulator.mdbsession)
-is a session with the tag map and a watch list: File ▸ Open in the app, or `mdbrowser tui simulators/s7/simulator.mdbsession`.
+[`simulators/s7/simulator-s7.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/s7/simulator-s7.mdbsession)
+is a session with the tag map and a watch list: File ▸ Open in the app, or `mdbrowser tui simulators/s7/simulator-s7.mdbsession`.
 Both are in the solution under *simulators/s7*.
 
 | Area | Content |
