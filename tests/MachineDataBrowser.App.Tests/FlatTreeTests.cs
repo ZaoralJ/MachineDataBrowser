@@ -55,6 +55,33 @@ public sealed class FlatTreeTests
     }
 
     [Fact]
+    public async Task Live_refresh_fills_folders_that_were_empty_or_leaves_when_browsed()
+    {
+        // A live address space (MQTT) right after connecting: A is expanded before its first topic arrives, B is
+        // still a leaf topic and later gets a subtopic. Both must pick up their children on the next refresh.
+        _children[1] = [Folder(2, "A"), Leaf(3, "B")];
+        _children[2] = [];
+        var root = new NodeViewModel(Folder(1, "Root"), Browse, _ => { }, probe: _ => Task.FromResult<IReadOnlyList<bool>?>(null));
+        await root.EnsureChildrenLoadedAsync();
+        var (a, b) = (root.Children[0], root.Children[1]);
+        await a.EnsureChildrenLoadedAsync();
+        Assert.False(a.HasChildren);
+        Assert.False(b.HasChildren);
+
+        _children[1] = [Folder(2, "A"), new(new NodeId(3u), "B", "B", NodeClass.Variable, true)];
+        _children[2] = [Leaf(4, "A1")];
+        _children[3] = [Leaf(6, "B1")];
+        await root.RefreshExpandedAsync();
+        Assert.Same(a, root.Children[0]);
+        Assert.Same(b, root.Children[1]);
+        Assert.True(a.HasChildren);
+        Assert.Equal(["A1"], a.Children.Select(c => c.DisplayName));
+        Assert.True(b.HasChildren);
+        await b.EnsureChildrenLoadedAsync();
+        Assert.Equal(["B1"], b.Children.Select(c => c.DisplayName));
+    }
+
+    [Fact]
     public void Each_unloaded_node_shows_its_own_placeholder_row()
     {
         var pending = new TaskCompletionSource<IReadOnlyList<BrowseItem>>();

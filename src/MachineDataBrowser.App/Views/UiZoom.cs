@@ -15,19 +15,28 @@ internal static class UiZoom
     private sealed record Hosted(LayoutTransformControl Host, double Width, double Height, double MinWidth, double MinHeight, double MaxWidth, double MaxHeight);
 
     private static readonly ConditionalWeakTable<Window, Hosted> Windows = [];
+    private static IDisposable? _installed;
 
     public static double Scale { get; private set; } = 1.0;
 
     // Show() sets IsVisible before it reads Width/Height for the initial size and runs the first layout: the right
     // moment to wrap the content and scale the size (the template is applied later, during that layout).
-    public static void Install() =>
-        Visual.IsVisibleProperty.Changed.AddClassHandler<Window>((window, e) =>
+    // The class handler and the window list are static, but belong to one Application: the headless tests start a new
+    // one per test, and rescaling a window left over from an earlier one lays it out again with text resources that
+    // may already be released (ObjectDisposedException on its cached glyph runs).
+    public static void Install()
+    {
+        _installed?.Dispose();
+        Windows.Clear();
+        Scale = 1.0;
+        _installed = Visual.IsVisibleProperty.Changed.AddClassHandler<Window>((window, e) =>
         {
             if (e.NewValue is true)
             {
                 Attach(window);
             }
         });
+    }
 
     public static void SetScale(double scale)
     {
@@ -56,6 +65,8 @@ internal static class UiZoom
         window.Content = host;
         var hosted = new Hosted(host, window.Width, window.Height, window.MinWidth, window.MinHeight, window.MaxWidth, window.MaxHeight);
         Windows.Add(window, hosted);
+        // A closed window keeps its controls until it is collected; zooming must not lay them out again.
+        window.Closed += (_, _) => Windows.Remove(window);
         Apply(window, hosted);
     }
 
