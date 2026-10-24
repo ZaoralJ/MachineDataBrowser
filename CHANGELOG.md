@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.37.0...v0.37.1) (2026-10-24)
+
+
+### Fixes
+
+* **app:** include S7 and Modbus maps in copied CLI commands ([#206](https://github.com/ZaoralJ/MachineDataBrowser/issues/206)) ([87b35e5](https://github.com/ZaoralJ/MachineDataBrowser/commit/87b35e5f59402e9dce0085159fbd6745ed743d5f))
+
 ## [0.37.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.36.3...v0.37.0) (2026-10-24)
 
 
