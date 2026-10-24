@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.36.3...v0.37.0) (2026-10-24)
+
+
+### Features
+
+* **app:** show endpoints in recent sessions ([#204](https://github.com/ZaoralJ/MachineDataBrowser/issues/204)) ([edeb4bb](https://github.com/ZaoralJ/MachineDataBrowser/commit/edeb4bb982a0c3cb25f0f02fac53905061c39499))
+
 ## [0.36.3](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.36.2...v0.36.3) (2026-10-24)
 
 
