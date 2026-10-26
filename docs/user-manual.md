@@ -73,6 +73,7 @@ endpoints. Recent sessions show the file name and its saved endpoint, separated 
 - The default refresh time for new watch items.
 - For OPC UA, MQTT and MTConnect: user name and password (MTConnect: HTTP basic authentication, for agents behind a
   proxy).
+- Opening a saved session with a user name asks for its password; passwords are never stored in `.mdbsession` files.
 - For OPC UA only: "Use secure endpoint".
 - For Modbus only: the **register map** (see [Modbus](#modbus)). **Import…** picks a CSV file, **Remove** drops it.
 - For S7 only: the **tag list** (see [S7 tag lists](#s7-tag-lists)), with the same Import… and Remove.

@@ -65,6 +65,11 @@ public sealed partial class MainWindow : IDialogService
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }
 
+    public Task<string?> AskSessionPasswordAsync(string userName, string endpointUrl) =>
+        AskTextAsync("Session password", $"Password for {userName}",
+            $"The session for {endpointUrl} does not store its password. It will be used for this connection only.",
+            string.Empty, "Connect", monospace: false, requireText: true, password: true);
+
     public async Task<string?> PickSessionSaveTargetAsync(string suggestedName)
     {
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
@@ -148,9 +153,9 @@ public sealed partial class MainWindow : IDialogService
             $"Saves the current values of {itemCount} watch item(s), e.g. as a parameter set to write back later.", suggestedName, "Take Snapshot",
             monospace: false, requireText: true);
 
-    private async Task<string?> AskTextAsync(string title, string heading, string hint, string value, string okText, bool monospace, bool requireText = false)
+    private async Task<string?> AskTextAsync(string title, string heading, string hint, string value, string okText, bool monospace, bool requireText = false, bool password = false)
     {
-        var input = new TextBox { Text = value, MinWidth = 320, AcceptsReturn = false };
+        var input = new TextBox { Text = value, MinWidth = 320, AcceptsReturn = false, PasswordChar = password ? '•' : '\0' };
         if (monospace)
         {
             input.FontFamily = new Avalonia.Media.FontFamily("Menlo, Consolas, monospace");

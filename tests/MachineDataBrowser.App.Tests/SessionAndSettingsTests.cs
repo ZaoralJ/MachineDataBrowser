@@ -49,6 +49,32 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Opening_an_authenticated_session_prompts_for_a_password_without_saving_it()
+    {
+        var path = Path.Combine(_dir, "authenticated.mdbsession");
+        const string endpoint = "opc.tcp://127.0.0.1:1";
+        await new SessionDocument
+        {
+            EndpointUrl = endpoint,
+            UserName = "pack",
+            Watch = [new WatchEntry("i=2258", "CurrentTime")],
+        }.SaveAsync(path, TestContext.Current.CancellationToken);
+        var dialogs = new TestDialogs { SessionPasswordAnswer = "supplied-secret" };
+
+        await using var vm = new MainWindowViewModel { Dialogs = dialogs };
+        await vm.LoadSessionAsync(path);
+
+        Assert.Equal(("pack", endpoint), dialogs.SessionPasswordAsked);
+        Assert.Equal("supplied-secret", vm.Password);
+        Assert.DoesNotContain("supplied-secret", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken), StringComparison.Ordinal);
+
+        // A reload after saving or an external file change should reuse the in-memory credentials for this endpoint.
+        await vm.LoadSessionAsync(path);
+        Assert.Equal(1, dialogs.SessionPasswordAskCount);
+        Assert.Equal("supplied-secret", vm.Password);
+    }
+
+    [AvaloniaFact]
     public async Task Session_round_trip_restores_endpoint_and_watch_list_with_namespace_uris()
     {
         var path = Path.Combine(_dir, "line1.mdbsession");

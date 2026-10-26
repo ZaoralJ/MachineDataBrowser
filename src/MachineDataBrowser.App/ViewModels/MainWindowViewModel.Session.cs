@@ -183,7 +183,6 @@ public sealed partial class MainWindowViewModel
         try
         {
             document = await SessionDocument.LoadAsync(path);
-            AcceptSessionFile();
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
         {
@@ -191,6 +190,19 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
+        var sameConnection = string.Equals(EndpointUrl.Trim(), document.EndpointUrl.Trim(), StringComparison.Ordinal)
+            && string.Equals(UserName, document.UserName, StringComparison.Ordinal);
+        string? sessionPassword = sameConnection && !string.IsNullOrEmpty(Password) ? Password : null;
+        if (document.Watch.Count > 0 && !string.IsNullOrWhiteSpace(document.UserName) && sessionPassword is null && Dialogs is not null)
+        {
+            sessionPassword = await Dialogs.AskSessionPasswordAsync(document.UserName, document.EndpointUrl);
+            if (sessionPassword is null)
+            {
+                return;
+            }
+        }
+
+        AcceptSessionFile();
         await ResetAsync();
         _suppressDirty = true;
         EndpointUrl = document.EndpointUrl;
@@ -210,7 +222,7 @@ public sealed partial class MainWindowViewModel
         WatchColumns.SetSort(document.WatchSortColumn, document.WatchSortDescending);
         WatchColumns.Apply(document.WatchColumns);
         GroupWatchByPath = document.GroupWatchByPath;
-        Password = string.Empty;
+        Password = sessionPassword ?? string.Empty;
         _suppressDirty = false;
 
         CurrentSessionPath = path;
