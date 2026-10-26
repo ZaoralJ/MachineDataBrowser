@@ -12,7 +12,8 @@ cask "machine-data-browser" do
 
   depends_on macos: :monterey
 
-  app "Machine Data Browser.app"
+  # Per-user install: writing to /Applications makes brew ask for sudo.
+  app "Machine Data Browser.app", target: "~/Applications/Machine Data Browser.app"
 
   zap trash: [
     "~/Library/Application Support/MachineDataBrowser",

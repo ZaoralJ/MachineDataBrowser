@@ -590,7 +590,7 @@ Each tab is a full connection with its own endpoint, address space, Watch list, 
 
 File ▸ **New Instance** (⇧⌘N) starts another copy of the app. Each copy has its own connection, watch list and
 recordings, so you can look at several devices side by side. On macOS the Dock only brings the running app to the
-front, so use this menu item, or `open -n "/Applications/Machine Data Browser.app"` from a terminal.
+front, so use this menu item, or `open -n ~/Applications/"Machine Data Browser.app"` from a terminal.
 
 All copies share settings, certificates, the layout and the log. When two copies change settings, the last save
 wins.
