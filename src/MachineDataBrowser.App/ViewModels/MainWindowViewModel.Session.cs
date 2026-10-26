@@ -190,8 +190,10 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
-        string? sessionPassword = null;
-        if (document.Watch.Count > 0 && !string.IsNullOrWhiteSpace(document.UserName) && Dialogs is not null)
+        var sameConnection = string.Equals(EndpointUrl.Trim(), document.EndpointUrl.Trim(), StringComparison.Ordinal)
+            && string.Equals(UserName, document.UserName, StringComparison.Ordinal);
+        string? sessionPassword = sameConnection && !string.IsNullOrEmpty(Password) ? Password : null;
+        if (document.Watch.Count > 0 && !string.IsNullOrWhiteSpace(document.UserName) && sessionPassword is null && Dialogs is not null)
         {
             sessionPassword = await Dialogs.AskSessionPasswordAsync(document.UserName, document.EndpointUrl);
             if (sessionPassword is null)

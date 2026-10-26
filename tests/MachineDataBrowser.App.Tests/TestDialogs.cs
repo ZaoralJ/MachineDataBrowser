@@ -17,9 +17,12 @@ public class TestDialogs : IDialogService
 
     public (string UserName, string EndpointUrl)? SessionPasswordAsked { get; private set; }
 
+    public int SessionPasswordAskCount { get; private set; }
+
     public Task<string?> AskSessionPasswordAsync(string userName, string endpointUrl)
     {
         SessionPasswordAsked = (userName, endpointUrl);
+        SessionPasswordAskCount++;
         return Task.FromResult(SessionPasswordAnswer);
     }
 

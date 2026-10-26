@@ -67,6 +67,11 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
         Assert.Equal(("pack", endpoint), dialogs.SessionPasswordAsked);
         Assert.Equal("supplied-secret", vm.Password);
         Assert.DoesNotContain("supplied-secret", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken), StringComparison.Ordinal);
+
+        // A reload after saving or an external file change should reuse the in-memory credentials for this endpoint.
+        await vm.LoadSessionAsync(path);
+        Assert.Equal(1, dialogs.SessionPasswordAskCount);
+        Assert.Equal("supplied-secret", vm.Password);
     }
 
     [AvaloniaFact]
