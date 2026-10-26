@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.37.2...v0.38.0) (2026-10-26)
+
+
+### Features
+
+* **app:** prompt for missing session passwords ([#210](https://github.com/ZaoralJ/MachineDataBrowser/issues/210)) ([3af060d](https://github.com/ZaoralJ/MachineDataBrowser/commit/3af060da4c9a8f617394b30e9583c68dde4ae7bd))
+
 ## [0.37.2](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.37.1...v0.37.2) (2026-10-26)
 
 
