@@ -13,6 +13,16 @@ public class TestDialogs : IDialogService
 
     public Task<string?> PickSessionToOpenAsync() => Task.FromResult<string?>(null);
 
+    public string? SessionPasswordAnswer { get; set; }
+
+    public (string UserName, string EndpointUrl)? SessionPasswordAsked { get; private set; }
+
+    public Task<string?> AskSessionPasswordAsync(string userName, string endpointUrl)
+    {
+        SessionPasswordAsked = (userName, endpointUrl);
+        return Task.FromResult(SessionPasswordAnswer);
+    }
+
     public Task<string?> PickSessionSaveTargetAsync(string suggestedName) => Task.FromResult<string?>(null);
 
     public Task<string?> PickCsvSaveTargetAsync(string suggestedName) => Task.FromResult<string?>(null);

@@ -4,6 +4,9 @@ public interface IDialogService
 {
     Task<string?> PickSessionToOpenAsync();
 
+    /// <summary>Asks for the password omitted from an authenticated session file; null when cancelled.</summary>
+    Task<string?> AskSessionPasswordAsync(string userName, string endpointUrl);
+
     Task<string?> PickSessionSaveTargetAsync(string suggestedName);
 
     Task<string?> PickCsvSaveTargetAsync(string suggestedName);
