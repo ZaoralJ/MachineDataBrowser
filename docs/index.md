@@ -27,6 +27,8 @@ them and export them.
 brew install --cask zaoralj/tap/machine-data-browser
 ```
 
+The app is installed in `~/Applications`, so no administrator password is needed.
+
 The app is self-contained (no .NET needed). It is signed with a Developer ID and notarized by Apple, so it opens
 like any other Mac app.
 
