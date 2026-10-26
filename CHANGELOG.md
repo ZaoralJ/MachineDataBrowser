@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.2](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.37.1...v0.37.2) (2026-10-26)
+
+
+### Fixes
+
+* **packaging:** install the Homebrew cask to ~/Applications ([#208](https://github.com/ZaoralJ/MachineDataBrowser/issues/208)) ([879ce79](https://github.com/ZaoralJ/MachineDataBrowser/commit/879ce79438d08628403ceaa2e898426467f10f41))
+
 ## [0.37.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.37.0...v0.37.1) (2026-10-24)
 
 
