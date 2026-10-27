@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.38.1...v0.39.0) (2026-10-27)
+
+
+### Features
+
+* **redis:** add Redis and Valkey browser support ([#214](https://github.com/ZaoralJ/MachineDataBrowser/issues/214)) ([57b6407](https://github.com/ZaoralJ/MachineDataBrowser/commit/57b6407dc1e5cc052220af674886c45d7d60cdb1))
+
 ## [0.38.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.38.0...v0.38.1) (2026-10-27)
 
 
