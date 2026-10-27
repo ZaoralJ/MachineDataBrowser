@@ -11,6 +11,7 @@
     <Project Path="src/MachineDataBrowser.Driver.MtConnect/MachineDataBrowser.Driver.MtConnect.csproj" />
     <Project Path="src/MachineDataBrowser.Driver.Mqtt/MachineDataBrowser.Driver.Mqtt.csproj" />
     <Project Path="src/MachineDataBrowser.Driver.Pccc/MachineDataBrowser.Driver.Pccc.csproj" />
+    <Project Path="src/MachineDataBrowser.Driver.Redis/MachineDataBrowser.Driver.Redis.csproj" />
     <Project Path="src/MachineDataBrowser.Driver.OpcUa/MachineDataBrowser.Driver.OpcUa.csproj" />
     <Project Path="src/MachineDataBrowser.Driver.S7/MachineDataBrowser.Driver.S7.csproj" />
   </Folder>

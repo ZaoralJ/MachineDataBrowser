@@ -7,8 +7,9 @@ Machine Data Browser (repository `MachineDataBrowser`) is a machine data viewer.
 - an Allen-Bradley SLC 500, MicroLogix or PLC-5 over EtherNet/IP (PCCC),
 - a Modbus TCP device,
 - a Siemens S7 controller over ISO-on-TCP (S7comm),
-- an MQTT broker, including Sparkplug B, or
-- an MTConnect agent (read-only).
+- an MQTT broker, including Sparkplug B;
+- an MTConnect agent (read-only); or
+- a Redis or Valkey server.
 
 Whichever device it is, you browse its address space, inspect attributes, watch live values, record them and export
 them. It writes to a device only on an explicit user action (Write value…), through `IDeviceClient.WriteValueAsync`.
@@ -52,7 +53,8 @@ flowchart LR
         Mqtt["MachineDataBrowser.Driver.Mqtt<br/>MqttDeviceClient"]
         Modbus["MachineDataBrowser.Driver.Modbus<br/>ModbusClient"]
         S7["MachineDataBrowser.Driver.S7<br/>S7Client"]
-        Mtc["MachineDataBrowser.Driver.MtConnect<br/>MtConnectClient"]
+         Mtc["MachineDataBrowser.Driver.MtConnect<br/>MtConnectClient"]
+         Redis["MachineDataBrowser.Driver.Redis<br/>RedisClient"]
     end
     Composition["MachineDataBrowser.Drivers<br/>DeviceClientFactory"]
     Composition --> Ua
@@ -62,6 +64,7 @@ flowchart LR
     Composition --> Modbus
     Composition --> S7
     Composition --> Mtc
+    Composition --> Redis
     Ua -. implements .-> IDC
     Cip -. implements .-> IDC
     Pccc -. implements .-> IDC
@@ -69,6 +72,7 @@ flowchart LR
     Modbus -. implements .-> IDC
     S7 -. implements .-> IDC
     Mtc -. implements .-> IDC
+    Redis -. implements .-> IDC
     VM --> IDC
     VM --> Rec
     VM --> Engine
@@ -84,6 +88,7 @@ flowchart LR
     Modbus -- "modbus:// (own Modbus TCP client)" --> S4[(Modbus device)]
     S7 -- "s7:// (S7netplus)" --> S5[(S7 controller)]
     Mtc -- "mtconnect:// http:// https:// (HttpClient, XML)" --> S5[(MTConnect agent)]
+    Redis -- "redis:// rediss:// (StackExchange.Redis)" --> S6[(Redis / Valkey)]
 ```
 
 | Project | Role |
@@ -101,10 +106,11 @@ flowchart LR
 | `src/MachineDataBrowser.Driver.S7` | Siemens S7 client on S7netplus: address and type codec, tag lists (TIA Portal / STEP 7 exports). References Core. |
 | `src/MachineDataBrowser.Driver.Mqtt` | MQTT client, topic model and Sparkplug B support. References Core. |
 | `src/MachineDataBrowser.Driver.MtConnect` | MTConnect agent client (`/probe`, `/current`, `/sample` over HTTP), no packages beyond the BCL. References Core. |
+| `src/MachineDataBrowser.Driver.Redis` | Redis/Valkey client with incremental key scans, string/hash reads, and writes to existing string values or hash fields. References Core. |
 | `src/MachineDataBrowser.Drivers` | Composition project selecting a driver from an endpoint URL; referenced by app and CLI. |
 | `src/MachineDataBrowser.App` | Avalonia 12 desktop app (MVVM with CommunityToolkit.Mvvm, docking with Dock.Avalonia); uses the driver composition project. |
 | `src/MachineDataBrowser.Cli` | `mdbrowser` command line ([cli.md](cli.md)): System.CommandLine parsing, Spectre.Console output in a terminal; `Tui/` is the full-screen browser on Terminal.Gui (a UI-free `BrowserModel` behind a `TuiApp` view). References Core and the driver composition project; colour themes come from Core's `ColorThemeCatalog`, shared with the app. |
-| `tests/MachineDataBrowser.Core.Tests` | Integration tests against containers (opc-plc and the `simulators/` images, via Testcontainers) plus unit tests. |
+| `tests/MachineDataBrowser.Core.Tests` | Integration tests against containers (opc-plc, `simulators/` images and Valkey, via Testcontainers) plus unit tests. |
 | `tests/MachineDataBrowser.App.Tests` | Headless Avalonia UI tests with real rendering (screenshots) against the same containers. |
 | `tests/MachineDataBrowser.Cli.Tests` | The CLI's commands end to end against opc-plc and the simulators, plain and terminal output; the TUI's model against every protocol and its screen headlessly (ANSI driver, virtual time). |
 | `simulators/` | Test servers for development and tests: Logix, PCCC, opc-plc, OPC UA custom types, MQTT, Modbus, S7, MTConnect. See [simulators.md](simulators.md). |
@@ -188,15 +194,15 @@ classDiagram
     RecordingSession --> IDeviceClient
 ```
 
-| | OPC UA (`opc.tcp://`) | EtherNet/IP (`eip://host[:port]/1,0`) | MQTT (`mqtt://host[:port][/filter]`) | Modbus TCP (`modbus://host[:port][/unit]`) | S7 (`s7://host[:port]/rack,slot`) | MTConnect (`mtconnect://host[:5000][/device]`) |
+| | OPC UA (`opc.tcp://`) | EtherNet/IP (`eip://host[:port]/1,0`) | MQTT (`mqtt://host[:port][/filter]`) | Modbus TCP (`modbus://host[:port][/unit]`) | S7 (`s7://host[:port]/rack,slot`) | MTConnect (`mtconnect://host[:5000][/device]`) | Redis/Valkey (`redis://host[:6379][/db]`) |
 |---|---|---|---|---|---|---|
-| Library | OPC Foundation UA-.NETStandard | libplctag.NET | MQTTnet | own client (`ModbusTcpTransport`) | S7netplus | HttpClient + System.Xml.Linq |
-| Tree | server address space (forward hierarchical references) | Controller tags / Programs ▸ tags ▸ UDT members, array elements | Topics (topic levels, JSON fields) and Sparkplug B (group ▸ edge node ▸ device ▸ metrics) | generated: Tags (register map) and the four areas in blocks of 100 addresses | Tags (tag list, folders from dots in names) and the DB/I/Q/M areas ▸ bytes ▸ bits | devices ▸ components ▸ data items, from `/probe` |
-| Node ids | `nsu=<namespace URI>;…` | Logix tag path, e.g. `Program:Main.Motor[2].Speed` | `t:<topic>[#<JSON pointer>]`, `m:<group>\|<edge>\|<device>\|<metric>` | `area:address[:type][:swap]`, e.g. `hr:20:float32` | address with type `DB1.DBD4:REAL`, symbol `"Machine.Speed"` | data item id; components `@<id>` |
-| Values | read and subscriptions (server pushes) | polled per refresh time, only changes are reported | pushed per message; the refresh time is a maximum update rate (0 = every message) | polled per refresh time, neighbouring addresses in one request, only changes are reported | polled per refresh time, neighbouring addresses in one request, only changes are reported | `/current` reads; `/sample` from the last sequence per refresh time, every buffered observation is reported |
-| Subscriptions | per refresh time | none (polling) | the topic filter; with discovery paused (`IPausableDiscovery`) only the monitored topics, and for Sparkplug metrics their edge node and device | none (polling) | none (polling) | none (polling `/sample`) |
-| Structures | decoded with the server's type definitions | UDT templates (`@udt/<id>`) | JSON payloads, Sparkplug B protobuf | none; multi-register types from the id | none; elementary types and arrays | data sets and tables as `key=value; …`, 3D and time series as arrays |
-| Status | server status codes | `Bad…` from libplctag errors | `BadNoCommunication` while a Sparkplug node or device is dead | `Bad…` from Modbus exceptions (2: `BadNodeIdUnknown`) and timeouts | PLC answers (`BadNodeIdUnknown`, `BadOutOfRange`, `BadNotWritable`) and link errors | `BadNoData` for `UNAVAILABLE` |
+| Library | OPC Foundation UA-.NETStandard | libplctag.NET | MQTTnet | own client (`ModbusTcpTransport`) | S7netplus | HttpClient + System.Xml.Linq | StackExchange.Redis |
+| Tree | server address space (forward hierarchical references) | Controller tags / Programs ▸ tags ▸ UDT members, array elements | Topics (topic levels, JSON fields) and Sparkplug B (group ▸ edge node ▸ device ▸ metrics) | generated: Tags (register map) and the four areas in blocks of 100 addresses | Tags (tag list, folders from dots in names) and the DB/I/Q/M areas ▸ bytes ▸ bits | devices ▸ components ▸ data items, from `/probe` | database ▸ colon-separated key prefixes ▸ strings and hash fields |
+| Node ids | `nsu=<namespace URI>;…` | Logix tag path, e.g. `Program:Main.Motor[2].Speed` | `t:<topic>[#<JSON pointer>]`, `m:<group>\|<edge>\|<device>\|<metric>` | `area:address[:type][:swap]`, e.g. `hr:20:float32` | address with type `DB1.DBD4:REAL`, symbol `"Machine.Speed"` | data item id; components `@<id>` | portable `key/<base64url>` or `field/<key>/<field>` ids |
+| Values | read and subscriptions (server pushes) | polled per refresh time, only changes are reported | pushed per message; the refresh time is a maximum update rate (0 = every message) | polled per refresh time, neighbouring addresses in one request, only changes are reported | polled per refresh time, neighbouring addresses in one request, only changes are reported | `/current` reads; `/sample` from the last sequence per refresh time, every buffered observation is reported | polled reads; write is limited to existing strings and hash fields |
+| Subscriptions | per refresh time | none (polling) | the topic filter; with discovery paused (`IPausableDiscovery`) only the monitored topics, and for Sparkplug metrics their edge node and device | none (polling) | none (polling) | none (polling `/sample`) | none (polling) |
+| Structures | decoded with the server's type definitions | UDT templates (`@udt/<id>`) | JSON payloads, Sparkplug B protobuf | none; multi-register types from the id | none; elementary types and arrays | data sets and tables as `key=value; …`, 3D and time series as arrays | strings and hashes; other types are identified but not expanded |
+| Status | server status codes | `Bad…` from libplctag errors | `BadNoCommunication` while a Sparkplug node or device is dead | `Bad…` from Modbus exceptions (2: `BadNodeIdUnknown`) and timeouts | PLC answers (`BadNodeIdUnknown`, `BadOutOfRange`, `BadNotWritable`) and link errors | `BadNoData` for `UNAVAILABLE` | `BadNodeIdUnknown` when a key or hash field disappears |
 
 Shared helpers live in `DeviceClientExtensions`: `MonitorAsync`, `CollectVariablesAsync` and `ReadTreeAsync`.
 Stopping monitors is part of `IDeviceClient`, allowing drivers to batch teardown without Core knowing their concrete types.
@@ -256,6 +262,8 @@ stateDiagram-v2
   and recordings resume.
 - **MTConnect:** failed `/sample` requests switch the state to `Reconnecting` until one succeeds; HTTP needs no
   session, so nothing else is restored.
+- **Redis/Valkey:** StackExchange.Redis maintains its reconnecting connection; a successful poll restores the state to
+  `Connected`.
 
 ## OPC UA (`Ua.OpcUaClient`)
 
@@ -400,6 +408,21 @@ flowchart TB
 - **Connection:** MQTT 5 over TCP, TLS (`mqtts://`) or WebSocket (`ws://`, `wss://`).
   - User name and password come from the connection options or the URL.
   - "Auto-trust server certificates" also applies to TLS brokers.
+
+## Redis and Valkey (`Redis.RedisClient`)
+
+- **Endpoint:** `redis://host[:6379][/database]` or `rediss://…` (TLS). The schemes select transport, and the optional
+  path selects a logical database. ACL credentials come from URL user information or connection options.
+- **Browse:** `IServer.KeysAsync` performs incremental key scans, never `KEYS`. Colon-separated key names are mapped to
+  virtual folders. Each browse returns at most 500 children and scans at most 10,000 keys; a sentinel explains when to
+  narrow a large prefix. This is intentionally eventual, not a consistent snapshot.
+- **Types:** string keys are variables; hash keys are objects with their fields as variable children. List, set, sorted
+  set and stream keys are identified in attributes but are not expanded yet. Values are capped at 64 KiB.
+- **Writes:** an explicit `WriteValueAsync` updates only a string key or hash field that still exists. Fixed Lua scripts
+  validate type and existence atomically; string updates use `KEEPTTL`. No command input, key/field creation, or deletion.
+- **Monitoring:** selected string keys and hash fields are polled; no keyspace notification configuration is required.
+- **Portable ids:** `key/<base64url>` and `field/<base64url-key>/<base64url-field>` keep arbitrary Redis names stable in
+  sessions without exposing them as path syntax.
 
 ## MTConnect (`MtConnect.MtConnectClient`)
 

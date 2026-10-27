@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.App.Services;
 
@@ -26,6 +27,9 @@ public sealed record SessionDocument
     public bool AutoAcceptCertificates { get; init; }
 
     public string? UserName { get; init; }
+
+    /// <summary>The saved endpoint required a credential that is intentionally not stored in the session.</summary>
+    public bool CredentialsRequired { get; init; }
 
     public int? DefaultRefreshMs { get; init; }
 
@@ -128,7 +132,7 @@ public sealed record AppSettings
         this with { RecentSessions = PushRecent(RecentSessions, path) };
 
     public AppSettings WithRecentEndpoint(string url) =>
-        this with { RecentEndpoints = PushRecent(RecentEndpoints, url) };
+        this with { RecentEndpoints = PushRecent(RecentEndpoints, EndpointUrlTools.WithoutPassword(url)) };
 
     private static string[] PushRecent(IEnumerable<string> list, string value) =>
         [value, .. list.Where(v => !string.Equals(v, value, StringComparison.Ordinal)).Take(MaxRecent - 1)];

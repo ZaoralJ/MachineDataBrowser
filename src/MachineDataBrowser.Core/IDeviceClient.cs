@@ -174,6 +174,7 @@ public static class DeviceClient
         : IsS7(endpointUrl) ? "S7 (Siemens)"
         : IsMqtt(endpointUrl) ? "MQTT"
         : IsMtConnect(endpointUrl) ? "MTConnect"
+        : IsRedis(endpointUrl) ? "Redis / Valkey"
         : "OPC UA";
 
     /// <summary>MQTT endpoints: <c>mqtt://</c>, <c>mqtts://</c>, <c>ws://</c>, <c>wss://</c>.</summary>
@@ -195,9 +196,17 @@ public static class DeviceClient
             || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>Redis-compatible servers (Redis and Valkey): <c>redis://</c> and TLS <c>rediss://</c>.</summary>
+    public static bool IsRedis(string endpointUrl)
+    {
+        var trimmed = endpointUrl.TrimStart();
+        return trimmed.StartsWith("redis://", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("rediss://", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>Everything that is not another protocol is OPC UA (<c>opc.tcp://</c>, <c>opc.https://</c>, …).</summary>
     public static bool IsOpcUa(string endpointUrl) =>
-        !IsAllenBradley(endpointUrl) && !UsesTagMap(endpointUrl) && !IsMqtt(endpointUrl) && !IsMtConnect(endpointUrl);
+        !IsAllenBradley(endpointUrl) && !UsesTagMap(endpointUrl) && !IsMqtt(endpointUrl) && !IsMtConnect(endpointUrl) && !IsRedis(endpointUrl);
 }
 
 public interface IDeviceClientFactory

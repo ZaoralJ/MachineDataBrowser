@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "endpointUrl": "redis://127.0.0.1:6379/0",
+  "useSecurity": false,
+  "readOnly": false,
+  "autoAcceptCertificates": false,
+  "userName": null,
+  "defaultRefreshMs": null,
+  "tagMap": null,
+  "watch": [
+    {
+      "nodeId": "key/cGxhbnQ6bGluZTE6dGVtcGVyYXR1cmU",
+      "displayName": "temperature",
+      "path": "plant/line1"
+    },
+    {
+      "nodeId": "key/cGxhbnQ6bGluZTE6cHJlc3N1cmU",
+      "displayName": "pressure",
+      "path": "plant/line1"
+    },
+    {
+      "nodeId": "key/cGxhbnQ6bGluZTE6Y3ljbGVfY291bnQ",
+      "displayName": "cycle_count",
+      "path": "plant/line1"
+    },
+    {
+      "nodeId": "key/cGxhbnQ6bGluZTE6c3RhdGU",
+      "displayName": "state",
+      "path": "plant/line1"
+    },
+    {
+      "nodeId": "key/cGxhbnQ6bGluZTE6ZHJpdmU6bWFpbjpzcGVlZA",
+      "displayName": "speed",
+      "path": "plant/line1/drive/main"
+    },
+    {
+      "nodeId": "field/cGxhbnQ6bGluZTE6ZHJpdmU6bWFpbjpzdGF0dXM/Y3VycmVudA",
+      "displayName": "current",
+      "path": "plant/line1/drive/main/status"
+    },
+    {
+      "nodeId": "field/cGxhbnQ6bGluZTE6cXVhbGl0eQ/cmVqZWN0ZWRfY291bnQ",
+      "displayName": "rejected_count",
+      "path": "plant/line1/quality"
+    }
+  ],
+  "bookmarks": [],
+  "groupWatchByPath": false
+}

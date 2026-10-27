@@ -12,14 +12,14 @@ Avalonia 12, Dock.Avalonia, CommunityToolkit.Mvvm, OPC Foundation UA-.NETStandar
 | Path | Contents |
 |---|---|
 | `src/MachineDataBrowser.Core` | protocol-neutral contracts behind `IDeviceClient`, recordings, value formatting/JSON. **No UI references.** |
-| `src/MachineDataBrowser.Driver.*` | OPC UA, EtherNet/IP (Logix, PCCC), Modbus, S7, MQTT and MTConnect implementations of `IDeviceClient`, each in its own project. |
+| `src/MachineDataBrowser.Driver.*` | OPC UA, EtherNet/IP (Logix, PCCC), Modbus, S7, MQTT, MTConnect and Redis/Valkey implementations of `IDeviceClient`, each in its own project. |
 | `src/MachineDataBrowser.Drivers` | Composition/factory project referenced by the app and CLI. |
 | `src/MachineDataBrowser.App` | Avalonia app: `ViewModels/` (MVVM, `MainWindowViewModel.*.cs` partials per feature), `Views/`, `Services/` |
 | `src/MachineDataBrowser.Cli` | `mdbrowser` command line ([docs/cli.md](docs/cli.md)): System.CommandLine + Spectre.Console, references Core only; `Mcp/` is the MCP server ([docs/mcp.md](docs/mcp.md)) |
 | `tests/MachineDataBrowser.Cli.Tests` | the CLI end to end against opc-plc and the MQTT simulator |
-| `tests/MachineDataBrowser.Core.Tests` | integration tests against containers (opc-plc, `simulators/`) via Testcontainers, plus unit tests |
+| `tests/MachineDataBrowser.Core.Tests` | integration tests against containers (opc-plc, `simulators/`, Valkey) via Testcontainers, plus unit tests |
 | `tests/MachineDataBrowser.App.Tests` | headless Avalonia UI tests (`[AvaloniaFact]`) against the same containers |
-| `simulators/` | local test servers (custom OPC UA, Logix, PCCC, MQTT, Modbus, S7, MTConnect); `just` recipes start them |
+| `simulators/` | local test servers (custom OPC UA, Logix, PCCC, MQTT, Modbus, S7, MTConnect, Valkey); `just` recipes start them |
 | `docs/` | `user-manual.md`, `architecture.md`, `decisions.md`, `simulators.md`, `images/` |
 
 ## Commands

@@ -1,4 +1,5 @@
-# Local test servers for MachineDataBrowser. Individual recipes run in the foreground; `just all` runs them in the background.
+# Local test servers for MachineDataBrowser. Individual recipes run in the foreground except the stateful Valkey server;
+# `just all` runs them all in the background.
 # Details: docs/simulators.md
 
 default:
@@ -94,6 +95,16 @@ mtconnect port="5050" tick_ms="100" buffer="131072":
 mtconnect-local port="5050":
     cd simulators/mtconnect && MTCONNECT_SIM_PORT={{port}} python3 agent.py
 
+# Valkey server with machine-like strings and hashes -> redis://127.0.0.1:PORT/0
+valkey port="6379":
+    VALKEY_HOST_PORT={{port}} docker compose up --detach --wait valkey
+    just valkey-seed
+    @echo "redis://127.0.0.1:{{port}}/0 (Redis-compatible Valkey)"
+
+# Reseed the running Valkey instance with deterministic machine-like values
+valkey-seed:
+    docker compose exec -T valkey sh -s < simulators/valkey/seed.sh
+
 # Pause (true) or continue (false) the MTConnect simulator; MTConnect is read-only, so it has no pause tag
 mtconnect-pause value="true" port="5050":
     curl -fsS -X PUT 'http://127.0.0.1:{{port}}/simulator/pause?value={{value}}'
@@ -109,21 +120,22 @@ s7 port="102" tick_ms="50":
 
 # Start all simulators in the background
 all: stop
-    docker compose up --build --detach
-    @echo "eip://127.0.0.1:44818/1,0  pccc://127.0.0.1:44819?plc=slc500  opc.tcp://127.0.0.1:50000  opc.tcp://127.0.0.1:4841/  mqtt://127.0.0.1:1883  modbus://127.0.0.1:5020/1  s7://127.0.0.1:102/0,1  mtconnect://127.0.0.1:5050"
+    docker compose up --build --detach --wait
+    just valkey-seed
+    @echo "eip://127.0.0.1:44818/1,0  pccc://127.0.0.1:44819?plc=slc500  opc.tcp://127.0.0.1:50000  opc.tcp://127.0.0.1:4841/  mqtt://127.0.0.1:1883  modbus://127.0.0.1:5020/1  s7://127.0.0.1:102/0,1  mtconnect://127.0.0.1:5050  redis://127.0.0.1:6379/0"
 
 # Stop all simulator containers
 stop:
     -docker compose down --remove-orphans
     -docker rm -f machinedatabrowser-cip machinedatabrowser-pccc machinedatabrowser-opcua machinedatabrowser-opcua-custom machinedatabrowser-mqtt machinedatabrowser-modbus machinedatabrowser-s7 machinedatabrowser-mtconnect
 
-# Follow a simulator's log (cip | pccc | opcua | opcua-custom | mqtt | modbus | s7 | mtconnect)
+# Follow a simulator's log (cip | pccc | opcua | opcua-custom | mqtt | modbus | s7 | mtconnect | valkey)
 logs name="cip":
     docker compose logs --follow {{name}}
 
 # Core tests against the simulators (needs Docker)
 test-sim:
-    dotnet test tests/MachineDataBrowser.Core.Tests -- --filter-class "*CipClientTests" --filter-class "*CustomTypesTests" --filter-class "*MqttClientTests" --filter-class "*CipConnectionLossTests" --filter-class "*ModbusClientTests" --filter-class "*PcccClientTests" --filter-class "*S7*" --filter-class "*MtConnectClientTests"
+    dotnet test tests/MachineDataBrowser.Core.Tests -- --filter-class "*CipClientTests" --filter-class "*CustomTypesTests" --filter-class "*MqttClientTests" --filter-class "*CipConnectionLossTests" --filter-class "*ModbusClientTests" --filter-class "*PcccClientTests" --filter-class "*S7*" --filter-class "*MtConnectClientTests" --filter-class "*RedisClientTests"
 
 # Regenerate the dark-theme screenshots in docs/images (needs Docker; compresses them with pngquant)
 docs-screenshots:

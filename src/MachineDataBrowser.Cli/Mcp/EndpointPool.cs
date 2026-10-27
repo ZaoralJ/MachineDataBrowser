@@ -61,9 +61,9 @@ internal sealed class EndpointPool(IReadOnlyList<ConnectionArgs> endpoints, IRea
             throw new McpException($"'{url}' is not {string.Join(" or ", new[] { configuredText, allowedPatterns }.OfType<string>())}.");
         }
 
-        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("opc.tcp" or "eip" or "pccc" or "modbus" or "s7" or "mqtt" or "mqtts" or "ws" or "wss" or "mtconnect" or "http" or "https"))
+        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("opc.tcp" or "eip" or "pccc" or "modbus" or "s7" or "mqtt" or "mqtts" or "ws" or "wss" or "mtconnect" or "redis" or "rediss" or "http" or "https"))
         {
-            throw new McpException($"'{url}' is not an endpoint URL (opc.tcp://, eip://, pccc://, modbus://, s7://, mqtt://, mqtts://, ws://, wss://, mtconnect://, http://, https://).");
+            throw new McpException($"'{url}' is not an endpoint URL (opc.tcp://, eip://, pccc://, modbus://, s7://, mqtt://, mtconnect://, redis://, rediss://, http://, https://).");
         }
 
         lock (_named)

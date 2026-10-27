@@ -8,6 +8,7 @@
     <ProjectReference Include="..\MachineDataBrowser.Driver.Pccc\MachineDataBrowser.Driver.Pccc.csproj" />
     <ProjectReference Include="..\MachineDataBrowser.Driver.S7\MachineDataBrowser.Driver.S7.csproj" />
     <ProjectReference Include="..\MachineDataBrowser.Driver.MtConnect\MachineDataBrowser.Driver.MtConnect.csproj" />
+    <ProjectReference Include="..\MachineDataBrowser.Driver.Redis\MachineDataBrowser.Driver.Redis.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

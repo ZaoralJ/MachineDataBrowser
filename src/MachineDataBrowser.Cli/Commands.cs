@@ -26,9 +26,9 @@ internal static class Commands
 
     public static RootCommand Build(TextWriter stdout, TextWriter stderr, IAnsiConsole? terminal = null)
     {
-        var url = new Argument<string>("url") { Description = "Endpoint: opc.tcp://host:4840, eip://host/1,0, pccc://host?plc=slc500, modbus://host[:502][/unit], s7://host[/rack,slot], mqtt://broker[/topic/#], mtconnect://agent[:5000][/device]" };
-        var user = new Option<string?>("--user", "-u") { Description = "User name (OPC UA, MQTT, MTConnect)" };
-        var password = new Option<string?>("--password", "-p") { Description = $"Password; or set {PasswordVariable}" };
+        var url = new Argument<string>("url") { Description = "Endpoint: opc.tcp://host:4840, eip://host/1,0, pccc://host?plc=slc500, modbus://host[:502][/unit], s7://host[/rack,slot], mqtt://broker[/topic/#], mtconnect://agent[:5000][/device], redis://host[:6379][/db]" };
+        var user = new Option<string?>("--user", "-u") { Description = "User name (OPC UA, MQTT, MTConnect, Redis/Valkey)" };
+        var password = new Option<string?>("--password", "-p") { Description = $"Password (including Redis/Valkey); or set {PasswordVariable}" };
         var secure = new Option<bool>("--secure") { Description = "OPC UA: use the most secure endpoint the server offers" };
         var trustAll = new Option<bool>("--trust-all") { Description = "Accept untrusted server certificates (lab networks only)" };
         var format = new Option<OutputFormat>("--format", "-f") { Description = "Output: text, json or csv", DefaultValueFactory = _ => OutputFormat.Text };
@@ -210,7 +210,7 @@ internal static class Commands
                 await stderr.WriteLineAsync($"mdbrowser: saved {saved.Total} watch item(s) to {sessionFile}.").ConfigureAwait(false);
             }
 
-            await using var recording = await RecordAsync(r.GetValue(record), r.GetValue(retention), client, resolved, interval, target.Url, "mdbrowser monitor", stderr, ct).ConfigureAwait(false);
+            await using var recording = await RecordAsync(r.GetValue(record), r.GetValue(retention), client, resolved, interval, EndpointUrlTools.WithoutPassword(target.Url), "mdbrowser monitor", stderr, ct).ConfigureAwait(false);
             await using var sink = Sink(r, resolved);
             return await StreamAsync(client, [.. resolved.Select(n => (n, interval))], sink, stderr, r.GetValue(duration), r.GetValue(count), ct).ConfigureAwait(false);
         }));
@@ -304,7 +304,7 @@ internal static class Commands
                     try
                     {
                         var recordRefresh = items.Count == 0 ? fallback : items.Min(i => i.Item2);
-                        await using var recording = await RecordAsync(r.GetValue(record), r.GetValue(retention), client, [.. items.Select(i => i.Item1)], recordRefresh, session.EndpointUrl,
+                        await using var recording = await RecordAsync(r.GetValue(record), r.GetValue(retention), client, [.. items.Select(i => i.Item1)], recordRefresh, EndpointUrlTools.WithoutPassword(session.EndpointUrl),
                             Path.GetFileNameWithoutExtension(path), stderr, ct).ConfigureAwait(false);
                         IReadOnlyList<Node> nodes = [.. items.Select(i => i.Item1)];
                         if (sink is null)
@@ -550,7 +550,7 @@ internal static class Commands
             var resolved = await NodesAsync(client, r, ct).ConfigureAwait(false);
             var file = r.GetValue(sessionFile)!;
             var saved = await SessionWriter.CreateAsync(file, target, r.GetValue(refresh), client, [.. resolved.Select(n => new SessionWriter.Item(n, null))], r.GetValue(force), ct).ConfigureAwait(false);
-            await stdout.WriteLineAsync($"Saved {saved.Total} watch item(s) to {file} ({target.Url}).").ConfigureAwait(false);
+            await stdout.WriteLineAsync($"Saved {saved.Total} watch item(s) to {file} ({EndpointUrlTools.WithoutPassword(target.Url)}).").ConfigureAwait(false);
             return 0;
         }));
 
@@ -650,13 +650,13 @@ internal static class Commands
 
             if (first)
             {
-                await stderr.WriteLineAsync($"mdbrowser: connecting to {target.Url}…").ConfigureAwait(false);
+                await stderr.WriteLineAsync($"mdbrowser: connecting to {EndpointUrlTools.WithoutPassword(target.Url)}…").ConfigureAwait(false);
             }
 
             var client = await Cli.Connection.ConnectAsync(target, ct).ConfigureAwait(false);
             var refreshMs = (first ? r.GetValue(refresh) : null) ?? file?.DefaultRefreshMs ?? (DeviceClient.IsMqtt(target.Url) ? 0 : 250);
             var model = new Tui.BrowserModel(client, target, refreshMs, file is null ? null : text, ownsClient: true);
-            model.Log($"Connected to {target.Url}.");
+            model.Log($"Connected to {EndpointUrlTools.WithoutPassword(target.Url)}.");
             if (file?.Watch is { Count: > 0 } watch)
             {
                 var items = new List<(Node, int)>();
@@ -681,7 +681,7 @@ internal static class Commands
         }
 
         return new RootCommand(
-            "Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix), Modbus TCP, S7 (Siemens), MQTT and MTConnect. " +
+            "Machine Data Browser on the command line: OPC UA, EtherNet/IP (Logix), Modbus TCP, S7 (Siemens), MQTT, MTConnect and Redis/Valkey. " +
             "Pass a URL to open the full-screen browser.")
         {
             endpoints, browse, read, monitor, run, write, session, mcp, tui,

@@ -287,10 +287,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     [NotifyCanExecuteChangedFor(nameof(ImportTagMapCommand))]
     public partial string EndpointUrl { get; set; } = "opc.tcp://localhost:50000";
 
-    /// <summary>Security mode choice only applies to OPC UA, not to EtherNet/IP, PCCC, Modbus, S7, MQTT or MTConnect.</summary>
+    /// <summary>Security mode choice only applies to OPC UA, not to EtherNet/IP, PCCC, Modbus, S7, MQTT, MTConnect or Redis.</summary>
     public bool IsOpcUaEndpoint => DeviceClient.IsOpcUa(EndpointUrl ?? string.Empty);
 
-    /// <summary>User name, password and certificate trust apply to OPC UA, MQTT (mqtts://, wss://) and MTConnect (HTTP basic auth, https://), not to EtherNet/IP, Modbus or S7.</summary>
+    /// <summary>User name and password also apply to Redis; certificate trust applies to OPC UA, MQTT and MTConnect.</summary>
     public bool HasCredentials => !DeviceClient.IsAllenBradley(EndpointUrl ?? string.Empty) && !DeviceClient.UsesTagMap(EndpointUrl ?? string.Empty);
 
     /// <summary>The last connected endpoint, or localhost when there is no history.</summary>
@@ -414,6 +414,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         {
             var mtconnect = $"MTConnect · {user} · {refresh}";
             return AutoAcceptCertificates ? mtconnect + " · auto-trust" : mtconnect;
+        }
+
+        if (DeviceClient.IsRedis(EndpointUrl ?? string.Empty))
+        {
+            return $"Redis / Valkey · {user} · {refresh}";
         }
 
         if (DeviceClient.IsMqtt(EndpointUrl ?? string.Empty))

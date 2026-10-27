@@ -123,6 +123,18 @@ Modbus TCP, MQTT and MTConnect.
 - The simulator (`simulators/mtconnect`) is a small stdlib-Python agent instead of cppagent plus an SHDR adapter: one
   process, deterministic content (conditions, time series, data sets, `UNAVAILABLE`), and quick to start in tests.
 
+## Redis and Valkey: bounded browsing and value writes
+
+- One driver uses StackExchange.Redis for Redis and Valkey's shared protocol. `redis://` and `rediss://` make the
+  transport explicit; the URL path selects a logical database.
+- Key discovery uses incremental `SCAN`, never `KEYS`. Colon-delimited keys are projected as virtual folders, with
+  explicit result caps because SCAN is not a snapshot and large databases should not create huge UI trees.
+- The first implementation reads strings and hash fields, and permits explicit writes only to an existing string key
+  or existing hash field. Atomic type/existence checks prevent stale selections from changing a different key type or
+  creating a key/field. String writes preserve TTL. There is no arbitrary command console or delete operation.
+- Pub/Sub and keyspace notifications are not part of this driver; Redis already has a separate MQTT integration for
+  broker-style streams, and notifications require server configuration.
+
 ## Resilience and threading
 
 - A global handler (`AppErrors`) logs every unhandled exception to `logs/machinedatabrowser.log` and shows it in the error
