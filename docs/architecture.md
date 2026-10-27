@@ -413,6 +413,7 @@ flowchart TB
 
 - **Endpoint:** `redis://host[:6379][/database]` or `rediss://…` (TLS). The schemes select transport, and the optional
   path selects a logical database. ACL credentials come from URL user information or connection options.
+- **Deployment:** connects directly to one standalone server. Redis Cluster and Sentinel discovery are out of scope.
 - **Browse:** `IServer.KeysAsync` performs incremental key scans, never `KEYS`. Colon-separated key names are mapped to
   virtual folders. Each browse returns at most 500 children and scans at most 10,000 keys; a sentinel explains when to
   narrow a large prefix. This is intentionally eventual, not a consistent snapshot.

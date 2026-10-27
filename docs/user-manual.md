@@ -97,6 +97,7 @@ capped. Colon-separated key names are shown as folders. String keys and hash fie
 Redis types show their type but are not yet browsable. String values and hash fields are limited to 64 KiB when
 displayed. **Write value…** updates only existing strings and hash fields; it cannot create or delete entries, or run
 arbitrary commands. String writes preserve the key's expiry.
+Connections target one standalone Redis or Valkey server; Redis Cluster and Sentinel modes are not supported.
 
 **Diagnostics:** Connection ▸ **Diagnostics…** (⇧⌘I) shows the connection live, refreshed every second. Use it when
 values seem to stop:
