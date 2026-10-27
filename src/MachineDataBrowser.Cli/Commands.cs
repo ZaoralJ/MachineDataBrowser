@@ -157,7 +157,7 @@ internal static class Commands
         {
             await using var client = await Cli.Connection.ConnectAsync(Connection(r), ct).ConfigureAwait(false);
             var resolved = await NodesAsync(client, r, ct).ConfigureAwait(false);
-            var values = await client.ReadValuesAsync([.. resolved.Select(n => n.Id)], ct).ConfigureAwait(false);
+            var values = await client.ReadValueUpdatesAsync([.. resolved.Select(n => n.Id)], ct).ConfigureAwait(false);
             var fmt = r.GetValue(format);
             if (fmt == OutputFormat.Json)
             {
@@ -165,8 +165,8 @@ internal static class Commands
                 {
                     ["name"] = n.Name,
                     ["id"] = n.DisplayId,
-                    ["type"] = ValueJson.TypeName(values[i]),
-                    ["value"] = ValueJson.ToJson(values[i]),
+                    ["type"] = ValueJson.TypeName(values[i].Raw),
+                    ["value"] = ValueJson.ToJson(values[i].Raw),
                 })]);
                 await stdout.WriteLineAsync(array.ToJsonString(Output.Indented)).ConfigureAwait(false);
                 await stdout.FlushAsync(ct).ConfigureAwait(false);
@@ -175,10 +175,10 @@ internal static class Commands
             {
                 var showIds = ShowIds(r, resolved);
                 await RowsAsync(r, WithId(showIds, ["name", "type", "value"]),
-                    resolved.Select((n, i) => WithId(showIds, [n.Name, values[i] is null ? "-" : ValueJson.TypeName(values[i]), values[i] is null ? "(read failed)" : UaValueFormatter.Format(values[i])], n.DisplayId))).ConfigureAwait(false);
+                    resolved.Select((n, i) => WithId(showIds, [n.Name, values[i].Status.IsGood ? ValueJson.TypeName(values[i].Raw) : "-", values[i].Status.IsGood ? UaValueFormatter.Format(values[i].Raw) : "(read failed)"], n.DisplayId))).ConfigureAwait(false);
             }
 
-            return values.Any(v => v is null) ? 1 : 0;
+            return values.Any(v => !v.Status.IsGood) ? 1 : 0;
         }));
 
         // monitor

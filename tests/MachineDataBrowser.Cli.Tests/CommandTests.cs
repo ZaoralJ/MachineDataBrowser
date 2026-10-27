@@ -229,11 +229,12 @@ public sealed class CommandTests(OpcPlcFixture plc, MqttSimulatorFixture broker)
     [Fact]
     public async Task Recursive_on_mqtt_includes_json_fields()
     {
-        // The simulator's payload has "operator": null, which read reports as unreadable (exit 1); the fields are there.
-        var (_, output, _) = await RunAsync("read", broker.EndpointUrl, "/Topics/machines/m1/status", "-R", "-f", "csv");
+        var (exit, output, _) = await RunAsync("read", broker.EndpointUrl, "/Topics/machines/m1/status", "-R", "-f", "csv");
 
+        Assert.Equal(0, exit);
         Assert.Contains(output.Split('\n'), l => l.StartsWith("speed,Double,", StringComparison.Ordinal));
         Assert.Contains(output.Split('\n'), l => l.StartsWith("temperature/bearing,Double,", StringComparison.Ordinal));
+        Assert.Contains(output.Split('\n'), l => l.StartsWith("operator,Null,null", StringComparison.Ordinal));
     }
 
     [Theory]

@@ -297,6 +297,13 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
         return Task.FromResult<IReadOnlyList<object?>>([.. nodeIds.Select(id => _model.Current(Id(id)) is { } u && u.Status.IsGood ? u.Raw : null)]);
     }
 
+    public Task<IReadOnlyList<ValueUpdate>> ReadValueUpdatesAsync(IReadOnlyList<NodeId> nodeIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(nodeIds);
+        return Task.FromResult<IReadOnlyList<ValueUpdate>>([.. nodeIds.Select(id => _model.Current(Id(id)) ??
+            new ValueUpdate(id, DeviceStatusCodes.BadNoData.ToString(), DeviceStatusCodes.BadNoData, DateTime.MinValue, DateTime.MinValue))]);
+    }
+
     public async Task<IReadOnlyList<MonitorResult>> MonitorManyAsync(
         IReadOnlyList<NodeId> nodeIds,
         Action<ValueUpdate> onUpdate,
