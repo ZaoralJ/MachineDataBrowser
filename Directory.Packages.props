@@ -11,6 +11,7 @@
     <!-- Siemens S7 -->
     <PackageVersion Include="S7netplus" Version="0.20.0" />
     <PackageVersion Include="MQTTnet" Version="5.2.0.1603" />
+    <PackageVersion Include="StackExchange.Redis" Version="2.13.17" />
     <!-- Recordings in SQLite files -->
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.13" />
     <!-- CLI -->

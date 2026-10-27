@@ -4,6 +4,7 @@ using MachineDataBrowser.Driver.Modbus;
 using MachineDataBrowser.Driver.Mqtt;
 using MachineDataBrowser.Driver.MtConnect;
 using MachineDataBrowser.Driver.OpcUa;
+using MachineDataBrowser.Driver.Redis;
 using MachineDataBrowser.Driver.S7;
 using MachineDataBrowser.Drivers;
 using Xunit;
@@ -21,6 +22,8 @@ public sealed class DeviceClientFactoryTests
     [InlineData("S7://plc?tags=tags.csv", typeof(S7Client))]
     [InlineData("mtconnect://localhost", typeof(MtConnectClient))]
     [InlineData("http://localhost:5000/VMC", typeof(MtConnectClient))]
+    [InlineData("redis://localhost:6379/0", typeof(RedisClient))]
+    [InlineData("rediss://localhost/2", typeof(RedisClient))]
     public async Task Create_selects_client_for_endpoint(string endpoint, Type expectedType)
     {
         var client = new DeviceClientFactory().Create(endpoint);
@@ -44,6 +47,7 @@ public sealed class DeviceClientFactoryTests
         Assert.False(factory.Supports(client, "eip://localhost/1,0"));
         Assert.False(factory.Supports(client, "opc.tcp://localhost:4840"));
         Assert.False(factory.Supports(client, "mtconnect://localhost"));
+        Assert.False(factory.Supports(client, "redis://localhost"));
     }
 
     [Fact]

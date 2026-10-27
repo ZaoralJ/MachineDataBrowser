@@ -5,6 +5,7 @@ using MachineDataBrowser.Driver.Mqtt;
 using MachineDataBrowser.Driver.MtConnect;
 using MachineDataBrowser.Driver.OpcUa;
 using MachineDataBrowser.Driver.Pccc;
+using MachineDataBrowser.Driver.Redis;
 using MachineDataBrowser.Driver.S7;
 
 namespace MachineDataBrowser.Drivers;
@@ -20,6 +21,7 @@ public sealed class DeviceClientFactory : IDeviceClientFactory
             : DeviceClient.IsS7(endpointUrl) ? new S7Client()
             : DeviceClient.IsMqtt(endpointUrl) ? new MqttDeviceClient()
             : DeviceClient.IsMtConnect(endpointUrl) ? new MtConnectClient()
+            : DeviceClient.IsRedis(endpointUrl) ? new RedisClient()
             : new OpcUaClient();
     }
 
@@ -31,6 +33,7 @@ public sealed class DeviceClientFactory : IDeviceClientFactory
         S7Client => DeviceClient.IsS7(endpointUrl),
         MqttDeviceClient => DeviceClient.IsMqtt(endpointUrl),
         MtConnectClient => DeviceClient.IsMtConnect(endpointUrl),
+        RedisClient => DeviceClient.IsRedis(endpointUrl),
         _ => DeviceClient.IsOpcUa(endpointUrl),
     };
 }

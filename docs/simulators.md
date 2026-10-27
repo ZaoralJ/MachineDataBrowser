@@ -1,6 +1,6 @@
 # Test servers (simulators)
 
-Eight containers under `simulators/` cover local development, manual/user testing and the integration tests.
+Nine containers under `simulators/` cover local development, manual/user testing and the integration tests.
 Start them with [`just`](https://github.com/casey/just) from the repository root. Docker Compose groups the local
 containers under the `machine-data-browser` project in Docker Desktop:
 
@@ -13,7 +13,8 @@ just mqtt           # MQTT broker + traffic  -> mqtt://127.0.0.1:1883 (ws://127.
 just modbus         # Modbus TCP device      -> modbus://127.0.0.1:5020/1
 just s7             # Siemens S7 (snap7)     -> s7://127.0.0.1:102/0,1, tag list simulators/s7/tags.csv
 just mtconnect      # MTConnect agent        -> mtconnect://127.0.0.1:5050
-just all            # all eight in the background (replaces running ones); `just stop` removes them
+just valkey         # Valkey with machine-like strings and hashes -> redis://127.0.0.1:6379/0
+just all            # all nine in the background (replaces running ones); `just stop` removes them
 docker compose ps   # show containers in the machine-data-browser project
 just logs cip       # follow a background container's log
 just cip-debug      # log every CIP request (service, path, sizes)
@@ -42,8 +43,27 @@ mdbrowser tui simulators/cip/simulator-cip.mdbsession
 | Modbus TCP | [`simulators/modbus/simulator-modbus.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/modbus/simulator-modbus.mdbsession) |
 | Siemens S7 | [`simulators/s7/simulator-s7.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/s7/simulator-s7.mdbsession) |
 | MTConnect | [`simulators/mtconnect/simulator-mtconnect.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/mtconnect/simulator-mtconnect.mdbsession) |
+| Redis / Valkey | [`simulators/valkey/simulator-valkey.mdbsession`](https://github.com/ZaoralJ/MachineDataBrowser/blob/main/simulators/valkey/simulator-valkey.mdbsession) |
 
 The Modbus and S7 sessions also load their adjacent register map/tag list by a relative path.
+
+## Redis / Valkey simulator (`simulators/valkey`)
+
+`just valkey` starts a disposable Valkey 8 server on port 6379 and seeds a small plant namespace. Use
+`just valkey-seed` to restore the initial values; keys are stored in database 0:
+
+| Key | Redis type | Initial value |
+|---|---|---|
+| `plant:line1:temperature` | string | `22.8` |
+| `plant:line1:pressure` | string | `5.4` |
+| `plant:line1:cycle_count` | string | `1842` |
+| `plant:line1:state` | string | `RUNNING` |
+| `plant:line1:drive:main:speed` | string | `1450` |
+| `plant:line1:drive:main:status` | hash | `running=true`, `mode=auto`, `current=3.2` |
+| `plant:line1:quality` | hash | `last_result=PASS`, `rejected_count=2` |
+
+The values are deterministic rather than animated, so edits are easy to verify. Existing string keys and hash fields can
+be changed through **Write value…** or `mdbrowser write`; no keys or fields are created by writes.
 
 ## Pausing the simulation
 

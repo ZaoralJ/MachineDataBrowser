@@ -13,7 +13,7 @@ internal static class McpServerHost
 {
     public const string Instructions = """
         Read-only access to industrial machines over OPC UA, EtherNet/IP (Allen-Bradley Logix; SLC 500, MicroLogix and
-        PLC-5 over PCCC), Modbus TCP, S7 (Siemens), MTConnect and MQTT (Sparkplug B, CloudEvents). Nothing can be
+        PLC-5 over PCCC), Modbus TCP, S7 (Siemens), MTConnect, Redis/Valkey and MQTT (Sparkplug B, CloudEvents). Nothing can be
         written or called.
 
         Start with list_endpoints, then browse from the root ("/") a level or two at a time, or search by name.

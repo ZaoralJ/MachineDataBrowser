@@ -27,11 +27,12 @@ internal static class SessionWriter
         var document = new JsonObject
         {
             ["version"] = 1,
-            ["endpointUrl"] = connection.Url,
+            ["endpointUrl"] = EndpointUrlTools.WithoutPassword(connection.Url),
             ["useSecurity"] = connection.Secure,
             ["readOnly"] = false,
             ["autoAcceptCertificates"] = connection.TrustAll,
-            ["userName"] = string.IsNullOrWhiteSpace(connection.User) ? null : connection.User,
+            ["userName"] = string.IsNullOrWhiteSpace(connection.User) ? EndpointUrlTools.UserName(connection.Url) : connection.User,
+            ["credentialsRequired"] = !string.IsNullOrEmpty(connection.Password) || EndpointUrlTools.HasPassword(connection.Url),
             ["defaultRefreshMs"] = defaultRefreshMs,
             ["tagMap"] = connection.TagMap is { } map ? TagMapReference.ToStored(map, path) : null,
             ["watch"] = new JsonArray(),

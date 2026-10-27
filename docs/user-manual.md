@@ -9,6 +9,7 @@ Machine Data Browser is a viewer for machine data. It connects to:
 - Siemens **S7** controllers (S7-300/400/1200/1500) over ISO-on-TCP (`s7://`), with an optional tag list,
 - **MQTT** brokers (`mqtt://`, `mqtts://`, `ws://`, `wss://`), including **Sparkplug B** and **CloudEvents**,
 - **MTConnect** agents (`mtconnect://`, `http://`, `https://`), read-only.
+- **Redis** and **Valkey** servers (`redis://`, `rediss://`), with writes to existing string keys and hash fields.
 
 It shows the address space and attributes, watches live values, records them and exports them. It can also write
 values to a device, but only when you ask it to (see [Writing values](#writing-values)).
@@ -29,7 +30,7 @@ flowchart LR
 
 | Pane | What it shows |
 |---|---|
-| **Address Space** (⌘1) | tree of the device: OPC UA nodes, Logix and S7 tags, Modbus addresses, MQTT topics, MTConnect devices |
+| **Address Space** (⌘1) | tree of tags, addresses, topics, MTConnect devices and Redis keys |
 | **Attributes** (⌘2) | attributes of the selected node; a variable's value updates live |
 | **Watch** (⌘3) | monitored values: status, refresh, last update, since, recorded samples, value |
 | **Recordings** (⌘4) | recordings with state, elapsed time, kept samples and details |
@@ -68,12 +69,14 @@ endpoints. Recent sessions show the file name and its saved endpoint, separated 
 | MQTT with login | `mqtt://user:password@127.0.0.1:1883` | or user name/password in the ⚙ options |
 | MTConnect | `mtconnect://127.0.0.1:5050` | the agent's HTTP address; port 5000 (the MTConnect default) when left out; `http://`, `https://` too |
 | MTConnect, one device | `mtconnect://127.0.0.1:5050/VMC` | only that device (the path is put before `/probe`, so proxy prefixes work) |
+| Redis | `redis://127.0.0.1:6379/0` | `/database`; defaults to port 6379 and database 0 |
+| Redis over TLS | `rediss://127.0.0.1:6380/0` | credentials may be entered in ⚙ connection options or in the URL |
 
 **Connection options (⚙):**
 - The default refresh time for new watch items.
-- For OPC UA, MQTT and MTConnect: user name and password (MTConnect: HTTP basic authentication, for agents behind a
-  proxy).
-- Opening a saved session with a user name asks for its password; passwords are never stored in `.mdbsession` files.
+- For OPC UA, MQTT, MTConnect and Redis/Valkey: user name and password (MTConnect: HTTP basic authentication, for
+  agents behind a proxy).
+- Opening a saved session that needs a password asks for it; passwords are never stored in `.mdbsession` files.
 - For OPC UA only: "Use secure endpoint".
 - For Modbus only: the **register map** (see [Modbus](#modbus)). **Import…** picks a CSV file, **Remove** drops it.
 - For S7 only: the **tag list** (see [S7 tag lists](#s7-tag-lists)), with the same Import… and Remove.
@@ -88,6 +91,13 @@ endpoints. Recent sessions show the file name and its saved endpoint, separated 
 MTConnect is always read-only; its connection option is checked and locked:
 
 <img src="images/mtconnect-connection-options.png" alt="MTConnect connection options with read-only locked on" width="60%">
+
+Browsing uses incremental `SCAN`; results can change while a folder is being explored, and very large folders are
+capped. Colon-separated key names are shown as folders. String keys and hash fields can be read and monitored; other
+Redis types show their type but are not yet browsable. String values and hash fields are limited to 64 KiB when
+displayed. **Write value…** updates only existing strings and hash fields; it cannot create or delete entries, or run
+arbitrary commands. String writes preserve the key's expiry.
+Connections target one standalone Redis or Valkey server; Redis Cluster and Sentinel modes are not supported.
 
 **Diagnostics:** Connection ▸ **Diagnostics…** (⇧⌘I) shows the connection live, refreshed every second. Use it when
 values seem to stop:
@@ -449,6 +459,8 @@ The app writes to a device only when you ask it to.
   - **MQTT:** a topic is republished with the same payload kind, retain flag and properties; a JSON field republishes
     the last document with the field changed; a Sparkplug B metric is sent as a command (NCMD/DCMD).
   - **MTConnect:** read-only by design; writing is not offered.
+  - **Redis / Valkey:** updates existing string keys and existing hash fields only. Writes preserve a string key's TTL;
+    they do not create keys or fields, delete keys, or offer arbitrary command access.
 - Several Watch rows get the same value; failures are listed per item.
 
 ![Write value dialog](images/write-value.png)

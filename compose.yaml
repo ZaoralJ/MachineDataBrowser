@@ -79,3 +79,14 @@ services:
     environment:
       MTCONNECT_SIM_TICK_MS: ${MTCONNECT_SIM_TICK_MS:-100}
       MTCONNECT_SIM_BUFFER: ${MTCONNECT_SIM_BUFFER:-131072}
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "${VALKEY_HOST_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 1s
+      timeout: 1s
+      retries: 30

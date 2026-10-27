@@ -6,6 +6,7 @@ using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MachineDataBrowser.App.Services;
+using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.App.ViewModels;
 
@@ -79,7 +80,7 @@ public sealed partial class MainWindowViewModel
             WriteWatchValueCommand.NotifyCanExecuteChanged();
         }
 
-        // MTConnect is a read-only protocol; new connections to it start in the same safe mode as saved sessions.
+        // MTConnect is read-only; new connections start in the same safe mode as saved sessions.
         if (IsReadOnlyDriver && !IsReadOnly)
         {
             IsReadOnly = true;
@@ -193,9 +194,10 @@ public sealed partial class MainWindowViewModel
         var sameConnection = string.Equals(EndpointUrl.Trim(), document.EndpointUrl.Trim(), StringComparison.Ordinal)
             && string.Equals(UserName, document.UserName, StringComparison.Ordinal);
         string? sessionPassword = sameConnection && !string.IsNullOrEmpty(Password) ? Password : null;
-        if (document.Watch.Count > 0 && !string.IsNullOrWhiteSpace(document.UserName) && sessionPassword is null && Dialogs is not null)
+        if (document.Watch.Count > 0 && (!string.IsNullOrWhiteSpace(document.UserName) || document.CredentialsRequired)
+            && sessionPassword is null && Dialogs is not null)
         {
-            sessionPassword = await Dialogs.AskSessionPasswordAsync(document.UserName, document.EndpointUrl);
+            sessionPassword = await Dialogs.AskSessionPasswordAsync(document.UserName ?? "default", document.EndpointUrl);
             if (sessionPassword is null)
             {
                 return;
@@ -317,12 +319,13 @@ public sealed partial class MainWindowViewModel
     {
         var document = new SessionDocument
         {
-            EndpointUrl = EndpointUrl.Trim(),
+            EndpointUrl = EndpointUrlTools.WithoutPassword(EndpointUrl),
             UseSecurity = UseSecurity,
             Bookmarks = [.. Bookmarks],
             ReadOnly = IsReadOnly,
             AutoAcceptCertificates = AutoAcceptCertificates,
-            UserName = string.IsNullOrWhiteSpace(UserName) ? null : UserName,
+            UserName = string.IsNullOrWhiteSpace(UserName) ? EndpointUrlTools.UserName(EndpointUrl) : UserName,
+            CredentialsRequired = !string.IsNullOrEmpty(Password) || EndpointUrlTools.HasPassword(EndpointUrl),
             DefaultRefreshMs = DefaultRefreshMs,
             AutoPauseDiscoverySeconds = AutoPauseDiscoverySeconds > 0 ? AutoPauseDiscoverySeconds : null,
             TagMap = HasTagMap ? MachineDataBrowser.Core.TagMapReference.ToStored(TagMapPath.Trim(), path) : null,

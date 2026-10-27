@@ -13,6 +13,8 @@ public sealed class DeviceClientReadOnlyTests
     [InlineData("s7://localhost/0,1", false)]
     [InlineData("mqtt://localhost:1883", false)]
     [InlineData("mtconnect://localhost:5000", true)]
+    [InlineData("redis://localhost:6379", false)]
+    [InlineData("rediss://localhost:6379", false)]
     public async Task Client_reports_protocol_read_only_capability(string endpointUrl, bool expected)
     {
         await using var client = new DeviceClientFactory().Create(endpointUrl);

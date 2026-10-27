@@ -14,6 +14,7 @@
     <Compile Include="..\MachineDataBrowser.Core.Tests\MqttSimulatorFixture.cs" Link="MqttSimulatorFixture.cs" />
     <Compile Include="..\MachineDataBrowser.Core.Tests\ModbusSimulatorFixture.cs" Link="ModbusSimulatorFixture.cs" />
     <Compile Include="..\MachineDataBrowser.Core.Tests\MtConnectSimulatorFixture.cs" Link="MtConnectSimulatorFixture.cs" />
+    <Compile Include="..\MachineDataBrowser.Core.Tests\RedisServerFixture.cs" Link="RedisServerFixture.cs" />
     <Compile Include="..\MachineDataBrowser.Core.Tests\CustomTypesServerFixture.cs" Link="CustomTypesServerFixture.cs" />
     <Compile Include="..\MachineDataBrowser.Core.Tests\S7SimulatorFixture.cs" Link="S7SimulatorFixture.cs" />
   </ItemGroup>

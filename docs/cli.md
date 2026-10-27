@@ -3,7 +3,7 @@
 `mdbrowser` does the browsing and monitoring of the app from a terminal or a script: list endpoints, browse the
 address space, read and write values, stream live values, and create and run the app's sessions. It speaks the same
 protocols as the app: **OPC UA**, **EtherNet/IP (Logix and PCCC)**, **Modbus TCP**, **S7 (Siemens)**, **MQTT**
-(Sparkplug B, CloudEvents) and **MTConnect** (read-only).
+(Sparkplug B, CloudEvents), **MTConnect** (read-only) and **Redis/Valkey** (existing string/hash values can be updated).
 
 ## Install
 
@@ -47,6 +47,7 @@ mdbrowser read modbus://127.0.0.1:5020/1 hr:20:float32 hr:50:string16 co:1
 mdbrowser monitor modbus://127.0.0.1:5020/1 /Tags/Simulator -R --map simulators/modbus/simulator-map.csv
 mdbrowser read s7://127.0.0.1/0,1 --map simulators/s7/tags.csv /Tags/Machine/Speed DB1.DBD2:REAL
 mdbrowser monitor "mqtt://127.0.0.1:1883/machines/#" /Topics/machines/m1/status/speed --duration 10m
+mdbrowser read redis://127.0.0.1:6379/0 /plant/line1/speed
 mdbrowser monitor opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines --recursive --depth 3
 mdbrowser run line1.mdbsession --format csv > shift.csv
 ```
@@ -68,6 +69,8 @@ A node is either a **path** of display names from the root, starting with `/`, o
 - an S7 address with an optional type, `DB1.DBD4:REAL`, `M0.0`, `MW2:INT`, `DB2.DBD0:REAL[10]`, or an S7 symbol from
   the tag list, `Machine.Speed` (see [S7](#s7));
 - an MTConnect data item id from the agent's probe, e.g. `vmc_x_pos`, or `@vmc_axes` for a component.
+- a Redis/Valkey key path such as `/plant/line1/speed`, or an opaque `key/...` / `field/...` id copied from the
+  browser. Strings and individual hash fields are readable; writes update existing values only.
 
 **Modbus register maps:** `--map file.csv` (`-m`) names the device's addresses for this command; the names appear
 under `/Tags`. The file has one line per value, `name,address[,unit][,description]`, with `/` in names for folders:
@@ -301,7 +304,7 @@ See the [command line examples](cli-examples.md) for the other commands with the
 
 | Option | |
 |---|---|
-| `-u, --user` / `-p, --password` | login (OPC UA, MQTT, MTConnect over HTTP basic auth); the password can also come from `MDBROWSER_PASSWORD` |
+| `-u, --user` / `-p, --password` | login (OPC UA, MQTT, MTConnect over HTTP basic auth, Redis/Valkey); the password can also come from `MDBROWSER_PASSWORD` |
 | `--secure` | OPC UA: the most secure endpoint the server offers |
 | `--trust-all` | accept untrusted server certificates; for lab networks only |
 | `-m, --map` | Modbus register map (CSV) or S7 tag list (TIA Portal CSV, STEP 7 `.sdf`) naming the device's addresses; overrides the session's |

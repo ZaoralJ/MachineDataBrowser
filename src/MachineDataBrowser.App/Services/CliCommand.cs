@@ -29,19 +29,7 @@ public static class CliCommand
 
     /// <summary>The endpoint without a password: <c>mqtt://user:secret@host</c> becomes <c>mqtt://user@host</c>.</summary>
     public static string WithoutPassword(string endpointUrl)
-    {
-        var url = endpointUrl.Trim();
-        var scheme = url.IndexOf("://", StringComparison.Ordinal);
-        var at = url.IndexOf('@', StringComparison.Ordinal);
-        if (scheme < 0 || at < scheme)
-        {
-            return url;
-        }
-
-        var userInfo = url[(scheme + 3)..at];
-        var colon = userInfo.IndexOf(':', StringComparison.Ordinal);
-        return colon < 0 ? url : $"{url[..(scheme + 3)]}{userInfo[..colon]}{url[at..]}";
-    }
+        => EndpointUrlTools.WithoutPassword(endpointUrl);
 
     /// <summary>Quotes an argument for POSIX shells (zsh, bash) when it contains anything but plainly safe characters.</summary>
     public static string Quote(string argument)

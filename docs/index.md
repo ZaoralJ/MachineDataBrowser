@@ -20,6 +20,7 @@ them and export them.
 | **S7** (Siemens S7-300/400/1200/1500) | `s7://127.0.0.1/0,1` | data blocks, inputs, outputs, memory by address, every elementary type, TIA Portal / STEP 7 tag lists naming them |
 | **MQTT** | `mqtt://127.0.0.1:1883[/topic/#]`, `mqtts://`, `ws://`, `wss://` | topic tree, JSON fields, Sparkplug B, CloudEvents |
 | **MTConnect** | `mtconnect://127.0.0.1:5050[/device]`, `http://`, `https://` | devices and components, samples, events, conditions, agent buffer as history; read-only |
+| **Redis / Valkey** | `redis://127.0.0.1:6379[/database]`, `rediss://` | key prefixes, strings and hash fields; update existing values |
 
 ## Install (macOS)
 
@@ -37,7 +38,7 @@ like any other Mac app.
 - [User manual](user-manual.md): every feature, with screenshots and shortcuts.
 - [MCP server](mcp.md): let AI agents (Copilot, Claude, opencode) browse and read machines, read-only.
 - [Command line](cli.md): `mdbrowser` to browse, read and monitor from a terminal or script (macOS, Linux).
-- [Test servers](simulators.md): OPC UA, Logix, PCCC, Modbus, S7, MQTT and MTConnect simulators to try it without
+- [Test servers](simulators.md): OPC UA, Logix, PCCC, Modbus, S7, MQTT, MTConnect and Valkey simulators to try it without
   hardware.
 - [Architecture](architecture.md) and [design decisions](decisions.md): for contributors.
 - [Source, releases and issues on GitHub](https://github.com/ZaoralJ/MachineDataBrowser).
