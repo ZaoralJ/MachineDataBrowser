@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.38.0...v0.38.1) (2026-10-27)
+
+
+### Fixes
+
+* **cli:** handle MQTT null reads ([#212](https://github.com/ZaoralJ/MachineDataBrowser/issues/212)) ([104d464](https://github.com/ZaoralJ/MachineDataBrowser/commit/104d46428a4e30c79329fa0389bccb8a9af32263))
+
 ## [0.38.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.37.2...v0.38.0) (2026-10-26)
 
 
