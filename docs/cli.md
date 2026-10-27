@@ -108,7 +108,8 @@ mdbrowser run line1.mdbsession                                                 #
 **JSON on MQTT topics:** each property of a JSON payload is a node below its topic, nested objects too, read and
 monitored with its own type: `/Topics/machines/m1/status/speed` or `/Topics/machines/m1/status/temperature/motor`
 (id `t:machines/m1/status#/temperature/motor`); the topic itself gives the whole payload. `-R` on the topic covers
-every property. See the [examples](cli-examples.md#read-properties-from-the-json-on-a-topic).
+every property. A JSON `null` field is a valid value and does not make `read` fail. See the
+[examples](cli-examples.md#read-properties-from-the-json-on-a-topic).
 The app's MQTT tree is a live cache of messages it has received; a non-retained topic can still be visible there after a
 fresh CLI connection cannot browse it. `monitor` accepts an uncached `/Topics/...` path as a literal MQTT topic and
 subscribes for future messages. The app's **Copy mdbrowser command** uses the MQTT id (including JSON pointers) so it

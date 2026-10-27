@@ -55,6 +55,19 @@ public interface IDeviceClient : IAsyncDisposable
     Task<IReadOnlyList<object?>> ReadValuesAsync(IReadOnlyList<DeviceNodeId> nodeIds, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Current values together with their status, so a good null value can be distinguished from a failed read.
+    /// Clients that cannot represent good null values may use the default implementation.
+    /// </summary>
+    async Task<IReadOnlyList<ValueUpdate>> ReadValueUpdatesAsync(IReadOnlyList<DeviceNodeId> nodeIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(nodeIds);
+        var values = await ReadValuesAsync(nodeIds, cancellationToken).ConfigureAwait(false);
+        return [.. values.Select((value, index) => new ValueUpdate(nodeIds[index], ValueFormatter.Format(value),
+            value is null ? DeviceStatusCodes.BadNoData : DeviceStatusCodes.Good, DateTime.MinValue, DateTime.MinValue,
+            ValueFormatter.ToNumeric(value), value))];
+    }
+
+    /// <summary>
     /// Writes the Value attribute of a variable, parsing <paramref name="text"/> into the variable's data type.
     /// Arrays are written as comma-separated elements, optionally in brackets.
     /// </summary>
