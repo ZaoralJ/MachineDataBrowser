@@ -305,13 +305,17 @@ See the [command line examples](cli-examples.md) for the other commands with the
 | Option | |
 |---|---|
 | `-u, --user` / `-p, --password` | login (OPC UA, MQTT, MTConnect over HTTP basic auth, Redis/Valkey); the password can also come from `MDBROWSER_PASSWORD` |
+| `--credential-store` | opt in to reading and saving passwords in the native OS credential store |
 | `--secure` | OPC UA: the most secure endpoint the server offers |
 | `--trust-all` | accept untrusted server certificates; for lab networks only |
 | `-m, --map` | Modbus register map (CSV) or S7 tag list (TIA Portal CSV, STEP 7 `.sdf`) naming the device's addresses; overrides the session's |
 
 `mdbrowser` shares the app's data folder: certificates trusted in the app are trusted here, and the OPC UA client
 identity is the same, so a server that trusts the app trusts the command line too. `run` takes the endpoint, login
-name and options from the session; passwords are never saved, so pass `--password` or set `MDBROWSER_PASSWORD`.
+name and options from the session; passwords are never saved in session files. Add `--credential-store` to use the
+same saved password as the app, or to save a supplied password after connecting. The same opt-in works for `tui`.
+To seed it from the CLI, provide `MDBROWSER_PASSWORD` rather than putting the password in shell history. On Linux,
+install `libsecret-tools` and unlock a Secret Service keyring. MCP deliberately never reads the credential store.
 
 ### Output
 

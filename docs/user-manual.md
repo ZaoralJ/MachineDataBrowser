@@ -77,6 +77,9 @@ endpoints. Recent sessions show the file name and its saved endpoint, separated 
 - For OPC UA, MQTT, MTConnect and Redis/Valkey: user name and password (MTConnect: HTTP basic authentication, for
   agents behind a proxy).
 - Opening a saved session that needs a password asks for it; passwords are never stored in `.mdbsession` files.
+  Select **Remember password in the OS credential store** to save it for this user and device. The app uses macOS
+  Keychain, Windows Credential Manager, or Linux Secret Service (`secret-tool` / `libsecret-tools`). Use **Forget
+  saved password** in connection options to remove it.
 - For OPC UA only: "Use secure endpoint".
 - For Modbus only: the **register map** (see [Modbus](#modbus)). **Import…** picks a CSV file, **Remove** drops it.
 - For S7 only: the **tag list** (see [S7 tag lists](#s7-tag-lists)), with the same Import… and Remove.

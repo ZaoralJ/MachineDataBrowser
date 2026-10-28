@@ -1,4 +1,5 @@
 using MachineDataBrowser.Core;
+using MachineDataBrowser.Credentials;
 using MachineDataBrowser.Drivers;
 
 namespace MachineDataBrowser.Cli;
@@ -10,8 +11,9 @@ internal sealed class CliException(string message) : Exception(message);
 /// How to connect to an endpoint. <paramref name="ReadOnly"/>: the session it came from is read-only in the app.
 /// <paramref name="Named"/>: the MCP agent named it under an allow pattern (no credentials, never written to).
 /// <paramref name="TagMap"/>: full path of a tag map naming the addresses (Modbus register map, S7 tag list).
+/// <paramref name="UseCredentialStore"/>: explicit CLI/TUI opt-in; MCP never enables it.
 /// </summary>
-internal sealed record ConnectionArgs(string Url, string? User, string? Password, bool Secure, bool TrustAll, bool ReadOnly = false, bool Named = false, string? TagMap = null);
+internal sealed record ConnectionArgs(string Url, string? User, string? Password, bool Secure, bool TrustAll, bool ReadOnly = false, bool Named = false, string? TagMap = null, bool UseCredentialStore = false);
 
 /// <summary>
 /// A resolved node: its id and the name to show for it. <paramref name="DisplayName"/> and <paramref name="ParentPath"/>
@@ -77,6 +79,14 @@ internal static class Connection
 
     public static async Task<IDeviceClient> ConnectAsync(ConnectionArgs args, CancellationToken cancellationToken)
     {
+        var password = args.Password;
+        var key = EndpointCredentialKey.Create(args.Url, args.User);
+        var credentials = args.UseCredentialStore ? new NativeEndpointCredentialStore() : null;
+        if (credentials is not null && string.IsNullOrEmpty(password) && !EndpointUrlTools.HasPassword(args.Url))
+        {
+            password = await credentials.GetAsync(key, cancellationToken).ConfigureAwait(false);
+        }
+
         var client = ClientFactory.Create(args.Url);
         try
         {
@@ -87,13 +97,18 @@ internal static class Connection
                     UseSecurity = args.Secure,
                     AutoAcceptUntrustedCertificates = args.TrustAll,
                     UserName = args.User,
-                    Password = args.Password,
+                    Password = password,
                     TagMapPath = args.TagMap,
                 },
                 cancellationToken).ConfigureAwait(false);
             if (client is IDynamicAddressSpace dynamic)
             {
                 await SettleAsync(dynamic, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (credentials is not null && !string.IsNullOrEmpty(password) && !EndpointUrlTools.HasPassword(args.Url))
+            {
+                await credentials.SetAsync(key, password, cancellationToken).ConfigureAwait(false);
             }
 
             return client;

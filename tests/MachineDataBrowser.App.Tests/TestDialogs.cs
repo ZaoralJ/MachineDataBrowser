@@ -13,13 +13,13 @@ public class TestDialogs : IDialogService
 
     public Task<string?> PickSessionToOpenAsync() => Task.FromResult<string?>(null);
 
-    public string? SessionPasswordAnswer { get; set; }
+    public CredentialPromptResult? SessionPasswordAnswer { get; set; }
 
     public (string UserName, string EndpointUrl)? SessionPasswordAsked { get; private set; }
 
     public int SessionPasswordAskCount { get; private set; }
 
-    public Task<string?> AskSessionPasswordAsync(string userName, string endpointUrl)
+    public Task<CredentialPromptResult?> AskSessionPasswordAsync(string userName, string endpointUrl)
     {
         SessionPasswordAsked = (userName, endpointUrl);
         SessionPasswordAskCount++;

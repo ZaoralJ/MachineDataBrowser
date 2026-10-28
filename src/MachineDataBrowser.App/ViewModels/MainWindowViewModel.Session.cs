@@ -6,6 +6,7 @@ using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MachineDataBrowser.App.Services;
+using MachineDataBrowser.Credentials;
 using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.App.ViewModels;
@@ -72,6 +73,7 @@ public sealed partial class MainWindowViewModel
 
     partial void OnEndpointUrlChanged(string oldValue, string newValue)
     {
+        RememberPassword = false;
         OnPropertyChanged(nameof(CanToggleReadOnly));
         if (_writeAccess.Count > 0)
         {
@@ -109,8 +111,11 @@ public sealed partial class MainWindowViewModel
 
     partial void OnAutoAcceptCertificatesChanged(bool value) => MarkDirty();
 
-    partial void OnUserNameChanged(string value) => MarkDirty();
-
+    partial void OnUserNameChanged(string value)
+    {
+        RememberPassword = false;
+        MarkDirty();
+    }
 
     [RelayCommand]
     private async Task NewSessionAsync()
@@ -134,6 +139,7 @@ public sealed partial class MainWindowViewModel
         GroupWatchByPath = false;
         WatchColumns.Reset();
         Password = string.Empty;
+        RememberPassword = false;
         _suppressDirty = false;
         CurrentSessionPath = null;
         IsDirty = false;
@@ -194,14 +200,31 @@ public sealed partial class MainWindowViewModel
         var sameConnection = string.Equals(EndpointUrl.Trim(), document.EndpointUrl.Trim(), StringComparison.Ordinal)
             && string.Equals(UserName, document.UserName, StringComparison.Ordinal);
         string? sessionPassword = sameConnection && !string.IsNullOrEmpty(Password) ? Password : null;
+        var rememberPassword = sameConnection && RememberPassword;
+        if (sessionPassword is null && (!string.IsNullOrWhiteSpace(document.UserName) || document.CredentialsRequired))
+        {
+            try
+            {
+                sessionPassword = await _credentialStore.GetAsync(EndpointCredentialKey.Create(document.EndpointUrl, document.UserName));
+                rememberPassword = sessionPassword is not null;
+            }
+            catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+            {
+                // Continue with the password prompt if the OS credential store is unavailable.
+            }
+        }
+
         if (document.Watch.Count > 0 && (!string.IsNullOrWhiteSpace(document.UserName) || document.CredentialsRequired)
             && sessionPassword is null && Dialogs is not null)
         {
-            sessionPassword = await Dialogs.AskSessionPasswordAsync(document.UserName ?? "default", document.EndpointUrl);
-            if (sessionPassword is null)
+            var answer = await Dialogs.AskSessionPasswordAsync(document.UserName ?? "default", document.EndpointUrl);
+            if (answer is null)
             {
                 return;
             }
+
+            sessionPassword = answer.Password;
+            rememberPassword = answer.Remember;
         }
 
         AcceptSessionFile();
@@ -218,6 +241,7 @@ public sealed partial class MainWindowViewModel
 
         AutoAcceptCertificates = document.AutoAcceptCertificates;
         UserName = document.UserName ?? string.Empty;
+        RememberPassword = rememberPassword;
         DefaultRefreshMs = document.DefaultRefreshMs ?? DefaultRefreshFor(document.EndpointUrl);
         AutoPauseDiscoverySeconds = document.AutoPauseDiscoverySeconds ?? 0;
         TagMapPath = string.IsNullOrWhiteSpace(document.TagMap) ? string.Empty : MachineDataBrowser.Core.TagMapReference.Resolve(document.TagMap, path);
