@@ -96,6 +96,23 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Changing_endpoint_clears_credentials_and_remember_choice()
+    {
+        await using var vm = new MainWindowViewModel
+        {
+            UserName = "operator",
+            Password = "secret",
+            RememberPassword = true,
+        };
+
+        vm.EndpointUrl = "opc.tcp://different-server:4840";
+
+        Assert.Empty(vm.UserName);
+        Assert.Empty(vm.Password);
+        Assert.False(vm.RememberPassword);
+    }
+
+    [AvaloniaFact]
     public async Task Successful_connection_saves_and_can_forget_a_password()
     {
         var credentialStore = new TestCredentialStore();

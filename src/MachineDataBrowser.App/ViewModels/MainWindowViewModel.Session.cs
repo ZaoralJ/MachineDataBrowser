@@ -73,6 +73,8 @@ public sealed partial class MainWindowViewModel
 
     partial void OnEndpointUrlChanged(string oldValue, string newValue)
     {
+        UserName = string.Empty;
+        Password = string.Empty;
         RememberPassword = false;
         OnPropertyChanged(nameof(CanToggleReadOnly));
         if (_writeAccess.Count > 0)
