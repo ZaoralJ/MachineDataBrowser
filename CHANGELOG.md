@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.40.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.39.0...v0.40.0) (2026-10-28)
+
+
+### Features
+
+* **app:** save endpoint passwords in native credential stores ([#216](https://github.com/ZaoralJ/MachineDataBrowser/issues/216)) ([71d5647](https://github.com/ZaoralJ/MachineDataBrowser/commit/71d5647df0a041114db8df66284462bd8ddf9912))
+
 ## [0.39.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.38.1...v0.39.0) (2026-10-27)
 
 
