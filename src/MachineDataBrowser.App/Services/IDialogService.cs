@@ -5,7 +5,7 @@ public interface IDialogService
     Task<string?> PickSessionToOpenAsync();
 
     /// <summary>Asks for the password omitted from an authenticated session file; null when cancelled.</summary>
-    Task<string?> AskSessionPasswordAsync(string userName, string endpointUrl);
+    Task<CredentialPromptResult?> AskSessionPasswordAsync(string userName, string endpointUrl);
 
     Task<string?> PickSessionSaveTargetAsync(string suggestedName);
 
@@ -69,6 +69,8 @@ public interface IDialogService
     /// <summary>Asks how to show values (format, scaling, unit), previewed on <paramref name="sample"/>; null when cancelled.</summary>
     Task<MachineDataBrowser.Core.ValueDisplay?> EditDisplayAsync(MachineDataBrowser.Core.ValueDisplay current, string target, ViewModels.WatchItemViewModel sample);
 }
+
+public sealed record CredentialPromptResult(string Password, bool Remember);
 
 public enum CertificateTrustChoice
 {

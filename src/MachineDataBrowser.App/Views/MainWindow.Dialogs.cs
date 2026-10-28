@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using MachineDataBrowser.App.Services;
 using MachineDataBrowser.App.ViewModels;
+using MachineDataBrowser.Credentials;
 using MachineDataBrowser.Core;
 using MachineDataBrowser.Driver.OpcUa;
 
@@ -65,10 +66,50 @@ public sealed partial class MainWindow : IDialogService
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }
 
-    public Task<string?> AskSessionPasswordAsync(string userName, string endpointUrl) =>
-        AskTextAsync("Session password", $"Password for {userName}",
-            $"The session for {endpointUrl} does not store its password. It will be used for this connection only.",
-            string.Empty, "Connect", monospace: false, requireText: true, password: true);
+    public async Task<CredentialPromptResult?> AskSessionPasswordAsync(string userName, string endpointUrl)
+    {
+        var input = new TextBox { MinWidth = 320, AcceptsReturn = false, PasswordChar = '•' };
+        var remember = new CheckBox
+        {
+            Content = "Remember password in the OS credential store",
+            IsEnabled = !EndpointUrlTools.HasPassword(endpointUrl),
+        };
+        ToolTip.SetTip(remember, "Saved for this user on this device; it is not added to the session file. Remove passwords from the endpoint URL first.");
+        var dialog = new Window
+        {
+            Title = "Session password",
+            Width = 440,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            ShowInTaskbar = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+        };
+        var connect = new Button { Content = "Connect", IsDefault = true, MinWidth = 80, IsEnabled = false };
+        connect.Classes.Add("accent");
+        var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 80 };
+        input.TextChanged += (_, _) => connect.IsEnabled = !string.IsNullOrWhiteSpace(input.Text);
+        connect.Click += (_, _) => dialog.Close(new CredentialPromptResult(input.Text ?? string.Empty, remember.IsChecked == true));
+        cancel.Click += (_, _) => dialog.Close(null);
+        dialog.Content = new StackPanel
+        {
+            Margin = new Avalonia.Thickness(20),
+            Spacing = 12,
+            Children =
+            {
+                new TextBlock { Text = $"Password for {userName}", FontWeight = Avalonia.Media.FontWeight.SemiBold },
+                new TextBlock
+                {
+                    Text = $"The session for {EndpointUrlTools.WithoutPassword(endpointUrl)} does not store its password. It will be used for this connection.",
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                },
+                input,
+                remember,
+                new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Spacing = 8, Children = { cancel, connect } },
+            },
+        };
+        dialog.Opened += (_, _) => input.Focus();
+        return await dialog.ShowDialog<CredentialPromptResult?>(this);
+    }
 
     public async Task<string?> PickSessionSaveTargetAsync(string suggestedName)
     {

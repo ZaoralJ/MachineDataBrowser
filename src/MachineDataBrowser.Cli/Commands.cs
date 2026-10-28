@@ -29,6 +29,7 @@ internal static class Commands
         var url = new Argument<string>("url") { Description = "Endpoint: opc.tcp://host:4840, eip://host/1,0, pccc://host?plc=slc500, modbus://host[:502][/unit], s7://host[/rack,slot], mqtt://broker[/topic/#], mtconnect://agent[:5000][/device], redis://host[:6379][/db]" };
         var user = new Option<string?>("--user", "-u") { Description = "User name (OPC UA, MQTT, MTConnect, Redis/Valkey)" };
         var password = new Option<string?>("--password", "-p") { Description = $"Password (including Redis/Valkey); or set {PasswordVariable}" };
+        var credentialStore = new Option<bool>("--credential-store") { Description = "Use the native credential store; saves a supplied password after connecting" };
         var secure = new Option<bool>("--secure") { Description = "OPC UA: use the most secure endpoint the server offers" };
         var trustAll = new Option<bool>("--trust-all") { Description = "Accept untrusted server certificates (lab networks only)" };
         var format = new Option<OutputFormat>("--format", "-f") { Description = "Output: text, json or csv", DefaultValueFactory = _ => OutputFormat.Text };
@@ -69,7 +70,8 @@ internal static class Commands
             r.GetValue(password) ?? Environment.GetEnvironmentVariable(PasswordVariable),
             r.GetValue(secure),
             r.GetValue(trustAll),
-            TagMap: MapPath(r));
+            TagMap: MapPath(r),
+            UseCredentialStore: r.GetValue(credentialStore));
 
         // Relative paths are resolved now: session files store the map relative to themselves, not to the working folder.
         string? MapPath(ParseResult r) => r.GetValue(tagMap) is { Length: > 0 } map ? Path.GetFullPath(map) : null;
@@ -77,7 +79,7 @@ internal static class Commands
         Command WithConnection(Command command)
         {
             command.Arguments.Insert(0, url);
-            foreach (var option in new Option[] { user, password, secure, trustAll, tagMap, format })
+            foreach (var option in new Option[] { user, password, credentialStore, secure, trustAll, tagMap, format })
             {
                 command.Options.Add(option);
             }
@@ -219,7 +221,7 @@ internal static class Commands
         var sessionPath = new Argument<string>("session") { Description = "Session file saved by the app (.mdbsession)" };
         var run = new Command("run", "Monitor the watch list of an app session file, without the app");
         run.Arguments.Add(sessionPath);
-        foreach (var option in new Option[] { password, trustAll, format, ids, duration, count, record, retention })
+        foreach (var option in new Option[] { password, credentialStore, trustAll, format, ids, duration, count, record, retention })
         {
             run.Options.Add(option);
         }
@@ -253,7 +255,8 @@ internal static class Commands
                         r.GetValue(password) ?? Environment.GetEnvironmentVariable(PasswordVariable),
                         session.UseSecurity,
                         session.AutoAcceptCertificates || r.GetValue(trustAll),
-                        TagMap: session.TagMapFor(path));
+                        TagMap: session.TagMapFor(path),
+                        UseCredentialStore: r.GetValue(credentialStore));
                     if (client is null || target != connected)
                     {
                         if (client is not null)
@@ -558,7 +561,7 @@ internal static class Commands
         add.Arguments.Add(sessionFile);
         add.Arguments.Add(nodes);
         AddRecursiveOptions(add);
-        foreach (var option in new Option[] { refresh, password, trustAll })
+        foreach (var option in new Option[] { refresh, password, credentialStore, trustAll })
         {
             add.Options.Add(option);
         }
@@ -574,7 +577,8 @@ internal static class Commands
                 r.GetValue(password) ?? Environment.GetEnvironmentVariable(PasswordVariable),
                 document["useSecurity"]?.GetValue<bool>() ?? false,
                 (document["autoAcceptCertificates"]?.GetValue<bool>() ?? false) || r.GetValue(trustAll),
-                TagMap: (string?)document["tagMap"] is { Length: > 0 } map ? TagMapReference.Resolve(map, file) : null);
+                TagMap: (string?)document["tagMap"] is { Length: > 0 } map ? TagMapReference.Resolve(map, file) : null,
+                UseCredentialStore: r.GetValue(credentialStore));
             await using var client = await Cli.Connection.ConnectAsync(target, ct).ConfigureAwait(false);
             var resolved = await NodesAsync(client, r, ct).ConfigureAwait(false);
             var result = await SessionWriter.AddAsync(file, document, client, [.. resolved.Select(n => new SessionWriter.Item(n, r.GetValue(refresh)))], ct).ConfigureAwait(false);
@@ -607,7 +611,7 @@ internal static class Commands
         var tuiLight = new Option<bool>("--light") { Description = "Light appearance of the theme (default: the app's; dark when it follows the system)" };
         var tui = new Command("tui", "Full-screen browser: address space, attributes, monitored items, write, record, alarms, history");
         tui.Arguments.Add(tuiTarget);
-        foreach (var option in new Option[] { user, password, secure, trustAll, tagMap, refresh, tuiTheme, tuiLight })
+        foreach (var option in new Option[] { user, password, credentialStore, secure, trustAll, tagMap, refresh, tuiTheme, tuiLight })
         {
             tui.Options.Add(option);
         }
@@ -641,7 +645,8 @@ internal static class Commands
                 file = await SessionFile.LoadAsync(text, ct).ConfigureAwait(false);
                 target = new ConnectionArgs(file.EndpointUrl, (first ? r.GetValue(user) : null) ?? file.UserName, secret,
                     file.UseSecurity || (first && r.GetValue(secure)), file.AutoAcceptCertificates || (first && r.GetValue(trustAll)), file.ReadOnly,
-                    TagMap: (first ? MapPath(r) : null) ?? file.TagMapFor(text));
+                    TagMap: (first ? MapPath(r) : null) ?? file.TagMapFor(text),
+                    UseCredentialStore: r.GetValue(credentialStore));
             }
             else
             {

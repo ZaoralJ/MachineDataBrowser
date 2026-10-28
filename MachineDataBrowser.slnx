@@ -3,6 +3,7 @@
     <Project Path="src/MachineDataBrowser.App/MachineDataBrowser.App.csproj" />
     <Project Path="src/MachineDataBrowser.Cli/MachineDataBrowser.Cli.csproj" />
     <Project Path="src/MachineDataBrowser.Core/MachineDataBrowser.Core.csproj" />
+    <Project Path="src/MachineDataBrowser.Credentials/MachineDataBrowser.Credentials.csproj" />
   </Folder>
   <Folder Name="/src/Drivers/">
     <Project Path="src/MachineDataBrowser.Drivers/MachineDataBrowser.Drivers.csproj" />

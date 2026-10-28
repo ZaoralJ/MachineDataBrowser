@@ -7,6 +7,7 @@ using Avalonia.VisualTree;
 using MachineDataBrowser.App.Services;
 using MachineDataBrowser.App.ViewModels;
 using MachineDataBrowser.App.Views;
+using MachineDataBrowser.Credentials;
 using MachineDataBrowser.Core.Tests;
 using MachineDataBrowser.Recording.Formats;
 using Xunit;
@@ -59,19 +60,90 @@ public sealed class SessionAndSettingsTests(OpcPlcFixture plc) : IDisposable
             UserName = "pack",
             Watch = [new WatchEntry("i=2258", "CurrentTime")],
         }.SaveAsync(path, TestContext.Current.CancellationToken);
-        var dialogs = new TestDialogs { SessionPasswordAnswer = "supplied-secret" };
+        var dialogs = new TestDialogs { SessionPasswordAnswer = new CredentialPromptResult("supplied-secret", Remember: true) };
 
         await using var vm = new MainWindowViewModel { Dialogs = dialogs };
         await vm.LoadSessionAsync(path);
 
         Assert.Equal(("pack", endpoint), dialogs.SessionPasswordAsked);
         Assert.Equal("supplied-secret", vm.Password);
+        Assert.True(vm.RememberPassword);
         Assert.DoesNotContain("supplied-secret", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken), StringComparison.Ordinal);
 
         // A reload after saving or an external file change should reuse the in-memory credentials for this endpoint.
         await vm.LoadSessionAsync(path);
         Assert.Equal(1, dialogs.SessionPasswordAskCount);
         Assert.Equal("supplied-secret", vm.Password);
+    }
+
+    [AvaloniaFact]
+    public async Task Opening_a_session_uses_a_password_from_the_credential_store()
+    {
+        const string endpoint = "opc.tcp://127.0.0.1:4840";
+        const string userName = "pack";
+        var path = Path.Combine(_dir, "remembered.mdbsession");
+        await new SessionDocument { EndpointUrl = endpoint, UserName = userName }.SaveAsync(path, TestContext.Current.CancellationToken);
+        var credentialStore = new TestCredentialStore();
+        await credentialStore.SetAsync(EndpointCredentialKey.Create(endpoint, userName), "saved-secret");
+        var dialogs = new TestDialogs();
+
+        await using var vm = new MainWindowViewModel(settingsStore: null, credentialStore: credentialStore) { Dialogs = dialogs };
+        await vm.LoadSessionAsync(path);
+
+        Assert.Equal("saved-secret", vm.Password);
+        Assert.True(vm.RememberPassword);
+        Assert.Equal(0, dialogs.SessionPasswordAskCount);
+    }
+
+    [AvaloniaFact]
+    public async Task Changing_endpoint_clears_credentials_and_remember_choice()
+    {
+        await using var vm = new MainWindowViewModel
+        {
+            UserName = "operator",
+            Password = "secret",
+            RememberPassword = true,
+        };
+
+        vm.EndpointUrl = "opc.tcp://different-server:4840";
+
+        Assert.Empty(vm.UserName);
+        Assert.Empty(vm.Password);
+        Assert.False(vm.RememberPassword);
+    }
+
+    [AvaloniaFact]
+    public async Task Successful_connection_saves_and_can_forget_a_password()
+    {
+        var credentialStore = new TestCredentialStore();
+        await using var vm = new MainWindowViewModel(settingsStore: null, credentialStore: credentialStore)
+        {
+            EndpointUrl = plc.EndpointUrl,
+            Password = "not-used-for-anonymous-login",
+            RememberPassword = true,
+        };
+
+        await vm.ConnectCommand.ExecuteAsync(null);
+
+        var key = EndpointCredentialKey.Create(plc.EndpointUrl, null);
+        Assert.True(vm.IsConnected);
+        Assert.Equal("not-used-for-anonymous-login", await credentialStore.GetAsync(key));
+
+        await vm.ForgetSavedPasswordCommand.ExecuteAsync(null);
+
+        Assert.Null(await credentialStore.GetAsync(key));
+        Assert.False(vm.RememberPassword);
+        await vm.DisconnectCommand.ExecuteAsync(null);
+    }
+
+    [Fact]
+    public void Credential_key_ignores_url_password_and_host_case()
+    {
+        var withPassword = EndpointCredentialKey.Create("opc.tcp://pack:secret@EXAMPLE.test:4840", "pack");
+        var withoutPassword = EndpointCredentialKey.Create("opc.tcp://pack@example.test:4840", "pack");
+
+        Assert.Equal(withoutPassword.Id, withPassword.Id);
+        Assert.DoesNotContain("secret", withPassword.Endpoint, StringComparison.Ordinal);
     }
 
     [AvaloniaFact]

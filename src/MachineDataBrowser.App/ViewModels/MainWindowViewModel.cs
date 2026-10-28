@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MachineDataBrowser.App.Services;
+using MachineDataBrowser.Credentials;
 using MachineDataBrowser.Core;
 using MachineDataBrowser.Driver.OpcUa;
 using MachineDataBrowser.Drivers;
@@ -15,6 +16,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     private readonly IDeviceClientFactory _clientFactory;
     private IDeviceClient _client;
     private readonly LayoutStore? _layoutStore;
+    private readonly IEndpointCredentialStore _credentialStore;
     private DockFactory? _dockFactory;
 
     // Notifications arrive on SDK threads at any rate; keep only the latest per item and flush on a UI timer.
@@ -27,11 +29,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     {
     }
 
-    public MainWindowViewModel(SettingsStore? settingsStore, LayoutStore? layoutStore = null, IDeviceClientFactory? clientFactory = null)
+    public MainWindowViewModel(SettingsStore? settingsStore, LayoutStore? layoutStore = null, IDeviceClientFactory? clientFactory = null, IEndpointCredentialStore? credentialStore = null)
     {
         _settingsStore = settingsStore;
         Settings = settingsStore?.Load() ?? new AppSettings();
         _clientFactory = clientFactory ?? new DeviceClientFactory();
+        _credentialStore = credentialStore ?? new NativeEndpointCredentialStore();
         _client = _clientFactory.Create(DefaultEndpointUrl);
         _layoutStore = layoutStore;
         EndpointUrl = DefaultEndpointUrl;
@@ -283,7 +286,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsOpcUaEndpoint), nameof(IsMqttEndpoint), nameof(IsModbusEndpoint), nameof(SupportsTagMap), nameof(TagMapLabel), nameof(HasCredentials), nameof(OptionsSummary))]
+    [NotifyPropertyChangedFor(nameof(IsOpcUaEndpoint), nameof(IsMqttEndpoint), nameof(IsModbusEndpoint), nameof(SupportsTagMap), nameof(TagMapLabel), nameof(HasCredentials), nameof(CanRememberPassword), nameof(OptionsSummary))]
     [NotifyCanExecuteChangedFor(nameof(ImportTagMapCommand))]
     public partial string EndpointUrl { get; set; } = "opc.tcp://localhost:50000";
 
@@ -292,6 +295,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     /// <summary>User name and password also apply to Redis; certificate trust applies to OPC UA, MQTT and MTConnect.</summary>
     public bool HasCredentials => !DeviceClient.IsAllenBradley(EndpointUrl ?? string.Empty) && !DeviceClient.UsesTagMap(EndpointUrl ?? string.Empty);
+
+    public bool CanRememberPassword => HasCredentials && !EndpointUrlTools.HasPassword(EndpointUrl ?? string.Empty);
 
     /// <summary>The last connected endpoint, or localhost when there is no history.</summary>
     private string DefaultEndpointUrl => Settings.RecentEndpoints.Count > 0 ? Settings.RecentEndpoints[0] : "opc.tcp://localhost:50000";
@@ -310,6 +315,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     [ObservableProperty]
     public partial string Password { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool RememberPassword { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OptionsSummary))]
@@ -466,6 +474,23 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         StatusMessage = $"Connecting to {EndpointUrl}…";
         try
         {
+            if (HasCredentials && string.IsNullOrEmpty(Password) && !EndpointUrlTools.HasPassword(EndpointUrl))
+            {
+                try
+                {
+                    var savedPassword = await _credentialStore.GetAsync(EndpointCredentialKey.Create(EndpointUrl, UserName));
+                    if (savedPassword is not null)
+                    {
+                        Password = savedPassword;
+                        RememberPassword = true;
+                    }
+                }
+                catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+                {
+                    // Credential-store availability must not prevent connecting with credentials entered in the UI.
+                }
+            }
+
             await EnsureClientForAsync(EndpointUrl);
             var options = new ConnectOptions
             {
@@ -519,6 +544,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
             State = _client.State;
             StatusMessage = $"Connected to {_client.ServerUri ?? EndpointUrl}";
+            if (RememberPassword && HasCredentials && !string.IsNullOrEmpty(Password) && !EndpointUrlTools.HasPassword(EndpointUrl))
+            {
+                try
+                {
+                    await _credentialStore.SetAsync(EndpointCredentialKey.Create(EndpointUrl, UserName), Password);
+                }
+                catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+                {
+                    StatusMessage += " · password could not be saved in the OS credential store";
+                }
+            }
+
             UpdateSettings(Settings.WithRecentEndpoint(EndpointUrl.Trim()));
         }
         catch (Exception ex) when (AppErrors.IsRecoverable(ex))
@@ -530,6 +567,21 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ForgetSavedPasswordAsync()
+    {
+        try
+        {
+            await _credentialStore.DeleteAsync(EndpointCredentialKey.Create(EndpointUrl, UserName));
+            RememberPassword = false;
+            StatusMessage = "Saved endpoint password removed from the OS credential store";
+        }
+        catch (Exception ex) when (AppErrors.IsRecoverable(ex))
+        {
+            ReportError(ex);
         }
     }
 

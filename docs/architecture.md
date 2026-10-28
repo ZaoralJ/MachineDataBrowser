@@ -94,6 +94,7 @@ flowchart LR
 | Project | Role |
 |---|---|
 | `src/MachineDataBrowser.Core` | Protocol-neutral device and recording contracts, value formatting, shared node tree, and snapshots (`Snapshots/`: the JSON store in the data folder, CSV, the diff and one-off device reads), shared by the app's *Compare with Snapshot* and the MCP snapshot tools. No UI, protocol SDK, or recording-format dependencies. |
+| `src/MachineDataBrowser.Credentials` | Shared native OS credential-store implementation used by the desktop app and CLI/TUI; secrets remain outside session files. |
 | `src/MachineDataBrowser.Recording` | Format-independent recording lifecycle, monitoring and bounded in-memory history. Depends on Core abstractions. |
 | `src/MachineDataBrowser.Recording.Csv` | CSV live writer, export and incremental reader. Depends on Core abstractions. |
 | `src/MachineDataBrowser.Recording.Json` | JSON recording export. Depends on Core abstractions. |
@@ -108,7 +109,7 @@ flowchart LR
 | `src/MachineDataBrowser.Driver.MtConnect` | MTConnect agent client (`/probe`, `/current`, `/sample` over HTTP), no packages beyond the BCL. References Core. |
 | `src/MachineDataBrowser.Driver.Redis` | Redis/Valkey client with incremental key scans, string/hash reads, and writes to existing string values or hash fields. References Core. |
 | `src/MachineDataBrowser.Drivers` | Composition project selecting a driver from an endpoint URL; referenced by app and CLI. |
-| `src/MachineDataBrowser.App` | Avalonia 12 desktop app (MVVM with CommunityToolkit.Mvvm, docking with Dock.Avalonia); uses the driver composition project. |
+| `src/MachineDataBrowser.App` | Avalonia 12 desktop app (MVVM with CommunityToolkit.Mvvm, docking with Dock.Avalonia); uses the driver composition and credential-store projects. |
 | `src/MachineDataBrowser.Cli` | `mdbrowser` command line ([cli.md](cli.md)): System.CommandLine parsing, Spectre.Console output in a terminal; `Tui/` is the full-screen browser on Terminal.Gui (a UI-free `BrowserModel` behind a `TuiApp` view). References Core and the driver composition project; colour themes come from Core's `ColorThemeCatalog`, shared with the app. |
 | `tests/MachineDataBrowser.Core.Tests` | Integration tests against containers (opc-plc, `simulators/` images and Valkey, via Testcontainers) plus unit tests. |
 | `tests/MachineDataBrowser.App.Tests` | Headless Avalonia UI tests with real rendering (screenshots) against the same containers. |

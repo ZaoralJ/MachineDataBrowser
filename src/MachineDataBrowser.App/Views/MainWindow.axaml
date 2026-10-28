@@ -160,6 +160,11 @@
                   <TextBlock Text="Password" />
                   <TextBox Text="{Binding Password}" PasswordChar="•" />
                 </StackPanel>
+                <CheckBox Content="Remember password in the OS credential store" IsChecked="{Binding RememberPassword}"
+                          IsEnabled="{Binding CanRememberPassword}"
+                          ToolTip.Tip="Saved for this user on this device; it is not added to the session file. Remove passwords from the endpoint URL first." />
+                <Button Content="Forget saved password" Command="{Binding ForgetSavedPasswordCommand}"
+                        HorizontalAlignment="Left" />
                 <Separator />
                 <CheckBox Classes="insecure" IsChecked="{Binding AutoAcceptCertificates}"
                           ToolTip.Tip="Server certificates are trusted without verification. Only use on isolated lab networks.">
