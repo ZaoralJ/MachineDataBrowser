@@ -16,9 +16,13 @@ Environment:
   MTCONNECT_SIM_TICK_MS    fast tick in ms (default 100); slow values change every 10 ticks
   MTCONNECT_SIM_BUFFER     ring buffer size (default 131072)
   MTCONNECT_SIM_LOG        log level (default INFO)
+  MTCONNECT_SIM_USERNAME   optional HTTP Basic username; requires MTCONNECT_SIM_PASSWORD
+  MTCONNECT_SIM_PASSWORD   optional HTTP Basic password; requires MTCONNECT_SIM_USERNAME
 """
 
+import base64
 import datetime
+import hmac
 import http.server
 import logging
 import math
@@ -234,6 +238,8 @@ class Agent:
         self.latest = {}
         self.lock = threading.Lock()
         self.paused = False
+        self.username = None
+        self.password = None
         self.creation = now_iso()
 
     # Values: str for events and samples; (level, native_code, text) for conditions.
@@ -475,18 +481,40 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         log.debug("%s %s", self.address_string(), format % args)
 
-    def send(self, status, body, content_type="application/xml"):
+    def send(self, status, body, content_type="application/xml", headers=None):
         data = body.encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", f"{content_type}; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
+        for name, value in (headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(data)
+
+    def authorize(self):
+        if self.agent.username is None:
+            return True
+
+        scheme, separator, credentials = self.headers.get("Authorization", "").partition(" ")
+        try:
+            supplied = base64.b64decode(credentials, validate=True).decode("utf-8") if separator else ""
+        except (ValueError, UnicodeDecodeError):
+            supplied = ""
+        expected = f"{self.agent.username}:{self.agent.password}"
+        if scheme.lower() == "basic" and hmac.compare_digest(supplied.encode("utf-8"), expected.encode("utf-8")):
+            return True
+
+        self.send(401, "authentication required\n", "text/plain", {
+            "WWW-Authenticate": 'Basic realm="MTConnect simulator"',
+        })
+        return False
 
     def do_PUT(self):
         self.do_POST()
 
     def do_POST(self):
+        if not self.authorize():
+            return
         url = urllib.parse.urlsplit(self.path)
         if url.path.rstrip("/") != "/simulator/pause":
             self.send(404, "not found\n", "text/plain")
@@ -499,6 +527,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send(200, f"{str(self.agent.paused).lower()}\n", "text/plain")
 
     def do_GET(self):
+        if not self.authorize():
+            return
         a = self.agent
         url = urllib.parse.urlsplit(self.path)
         query = {k: v[-1] for k, v in urllib.parse.parse_qs(url.query).items()}
@@ -574,7 +604,13 @@ def main():
     logging.basicConfig(level=os.environ.get("MTCONNECT_SIM_LOG", "INFO"), format="%(asctime)s %(name)s %(message)s")
     port = int(os.environ.get("MTCONNECT_SIM_PORT", "5000"))
     tick = float(os.environ.get("MTCONNECT_SIM_TICK_MS", "100"))
+    username = os.environ.get("MTCONNECT_SIM_USERNAME", "")
+    password = os.environ.get("MTCONNECT_SIM_PASSWORD", "")
+    if bool(username) != bool(password):
+        raise ValueError("MTCONNECT_SIM_USERNAME and MTCONNECT_SIM_PASSWORD must both be set")
     agent = Agent(int(os.environ.get("MTCONNECT_SIM_BUFFER", "131072")))
+    agent.username = username or None
+    agent.password = password or None
     simulation = Simulation(agent, tick)
     simulation.initial()
     threading.Thread(target=simulation.run, daemon=True).start()

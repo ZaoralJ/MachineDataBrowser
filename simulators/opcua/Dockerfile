@@ -4,7 +4,7 @@
 #                              slow nodes every second
 #   Boilers, alarms, simple events, stacklight, pumps, ReferenceTest (all data types)
 # Endpoint opc.tcp://localhost:50000 - anonymous, SecurityPolicy None allowed, client certs auto-accepted.
-# Users: admin / admin (SecurityAdmin), user1 / password.
+# Users: admin / admin (SecurityAdmin), configurable user1 / password defaults.
 # Pinned: `latest` differs between machines and older builds reject some of the flags below.
 FROM mcr.microsoft.com/iotedge/opc-plc:2.15.7
 
@@ -16,14 +16,15 @@ ENV OPCUA_SIM_PORT=50000 \
     OPCUA_SIM_CYCLE_MS=50 \
     OPCUA_SIM_FAST_NODES=20 \
     OPCUA_SIM_SLOW_NODES=10 \
-    OPCUA_SIM_GUID_NODES=5
+    OPCUA_SIM_GUID_NODES=5 \
+    OPCUA_SIM_DISABLE_ANONYMOUS=false
 
 EXPOSE 50000 8080
 
-ENTRYPOINT ["/bin/sh", "-c", "exec ./opcplc \
+ENTRYPOINT ["/bin/sh", "-c", "if [ \"$OPCUA_SIM_DISABLE_ANONYMOUS\" = \"true\" ]; then set -- \"$@\" --daa; fi; exec ./opcplc \
   --pn=\"$OPCUA_SIM_PORT\" --ph=\"$OPCUA_SIM_HOST\" \
   --autoaccept --ut --to \
-  --au=admin --ac=admin --du=user1 --dc=password \
+  --au=admin --ac=admin --du=\"${OPCUA_SIM_USERNAME:-user1}\" --dc=\"${OPCUA_SIM_PASSWORD:-password}\" \
   --nodesfile=/app/config/nodesfile.json \
   --ct=\"$OPCUA_SIM_CYCLE_MS\" \
   --fn=\"$OPCUA_SIM_FAST_NODES\" --ft=double --vfr=\"$OPCUA_SIM_FAST_MS\" \

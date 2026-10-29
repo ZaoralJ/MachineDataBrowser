@@ -121,6 +121,11 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
             {
                 await ConnectAndSubscribeAsync(cancellationToken).ConfigureAwait(false);
             }
+            catch (DeviceClientException)
+            {
+                await CloseCoreAsync().ConfigureAwait(false);
+                throw;
+            }
             catch (Exception ex) when (ex is not OperationCanceledException && Errors.IsRecoverable(ex))
             {
                 await CloseCoreAsync().ConfigureAwait(false);
@@ -417,6 +422,23 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
     private async Task ConnectAndSubscribeAsync(CancellationToken cancellationToken)
     {
         _connectResult = await _client!.ConnectAsync(_options!, cancellationToken).ConfigureAwait(false);
+        if (_connectResult.ResultCode != MqttClientConnectResultCode.Success)
+        {
+            var result = _connectResult.ResultCode.ToString();
+            var reason = result is "NotAuthorized" or "BadUserNameOrPassword" or "ConnectionRefusedNotAuthorized"
+                ? "The MQTT broker rejected the username or password. Check the credentials and try again."
+                : $"The MQTT broker rejected the connection ({result}).";
+            if (!string.IsNullOrWhiteSpace(_connectResult.ReasonString))
+            {
+                reason += $" Broker message: {_connectResult.ReasonString}";
+            }
+
+            var status = result is "NotAuthorized" or "BadUserNameOrPassword" or "ConnectionRefusedNotAuthorized"
+                ? DeviceStatusCodes.BadUserAccessDenied
+                : DeviceStatusCodes.BadCommunicationError;
+            throw new DeviceClientException(status, reason);
+        }
+
         await _subscriptionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -652,7 +674,9 @@ public sealed class MqttDeviceClient : IDeviceClient, IDynamicAddressSpace, ICon
 
     private Task OnDisconnectedAsync(MqttClientDisconnectedEventArgs e)
     {
-        if (_reconnect is not null || _client is null || State == ConnectionState.Disconnected)
+        // A broker can return a rejected CONNACK and then close the connection while ConnectAsync is still running.
+        // ConnectAndSubscribeAsync reports that as a terminal connection error; do not race it with reconnecting.
+        if (_reconnect is not null || _client is null || State is ConnectionState.Disconnected or ConnectionState.Connecting)
         {
             return Task.CompletedTask;
         }

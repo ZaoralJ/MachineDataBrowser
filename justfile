@@ -1,5 +1,5 @@
-# Local test servers for MachineDataBrowser. Individual recipes run in the foreground except the stateful Valkey server;
-# `just all` runs them all in the background.
+# Local test servers for MachineDataBrowser. Most recipes run in the foreground; Valkey and selected Compose recipes
+# run detached. `just all` runs every simulator in the background.
 # Details: docs/simulators.md
 
 default:
@@ -45,31 +45,56 @@ pccc-debug port="44819":
 pccc-local port="44819":
     cd simulators/pccc && PCCC_SIM_PORT={{port}} python3 pccc_server.py
 
-# OPC UA opc-plc simulator -> opc.tcp://127.0.0.1:PORT (Plant tree, boilers, alarms, fast nodes every FAST_MS)
-opcua port="50000" fast_ms="10" fast_nodes="20" slow_nodes="10":
+# OPC UA opc-plc simulator -> opc.tcp://127.0.0.1:PORT (optional trailing username/password override user1/password)
+opcua port="50000" fast_ms="10" fast_nodes="20" slow_nodes="10" username="" password="":
+    @if { [ -n "{{username}}" ] && [ -z "{{password}}" ]; } || { [ -z "{{username}}" ] && [ -n "{{password}}" ]; }; then echo "username and password must both be provided" >&2; exit 2; fi
     -docker compose stop opcua
     -docker compose rm -f opcua
     -docker rm -f machinedatabrowser-opcua
     OPCUA_PORT={{port}} OPCUA_SIM_FAST_MS={{fast_ms}} OPCUA_SIM_FAST_NODES={{fast_nodes}} \
-        OPCUA_SIM_SLOW_NODES={{slow_nodes}} docker compose run --build --rm --service-ports \
+        OPCUA_SIM_SLOW_NODES={{slow_nodes}} \
+        OPCUA_SIM_USERNAME="{{if username == "" { "user1" } else { username }}}" \
+        OPCUA_SIM_PASSWORD="{{if password == "" { "password" } else { password }}}" \
+        OPCUA_SIM_DISABLE_ANONYMOUS={{if username == "" { "false" } else { "true" }}} \
+        docker compose run --build --rm --service-ports \
         --name machinedatabrowser-opcua opcua
 
-# OPC UA server with custom structures/enums/unions and a large address space -> opc.tcp://127.0.0.1:PORT/
+# OPC UA with custom credentials and the default port/simulation settings
+opcua-auth username password port="50000":
+    -docker compose stop opcua
+    -docker compose rm -f opcua
+    -docker rm -f machinedatabrowser-opcua
+    OPCUA_PORT={{port}} OPCUA_SIM_FAST_MS=10 OPCUA_SIM_FAST_NODES=20 OPCUA_SIM_SLOW_NODES=10 \
+        OPCUA_SIM_USERNAME="{{username}}" OPCUA_SIM_PASSWORD="{{password}}" OPCUA_SIM_DISABLE_ANONYMOUS=true \
+        docker compose up --build --detach --wait opcua
+
+# OPC UA custom types server -> opc.tcp://127.0.0.1:PORT/ (starts in the machine-data-browser Compose project)
 opcua-custom port="4841" fast_ms="10" large="10,10,50" flat="10000":
     -docker compose stop opcua-custom
     -docker compose rm -f opcua-custom
     -docker rm -f machinedatabrowser-opcua-custom
     OPCUA_CUSTOM_HOST_PORT={{port}} OPCUA_CUSTOM_PORT={{port}} OPCUA_CUSTOM_FAST_MS={{fast_ms}} \
         OPCUA_CUSTOM_LARGE={{large}} OPCUA_CUSTOM_FLAT={{flat}} \
-        docker compose run --build --rm --service-ports --name machinedatabrowser-opcua-custom opcua-custom
+        docker compose up --build --detach --wait opcua-custom
+
+# OPC UA custom types server with credentials in the machine-data-browser Compose project
+opcua-custom-auth username password port="4841":
+    -docker compose stop opcua-custom
+    -docker compose rm -f opcua-custom
+    -docker rm -f machinedatabrowser-opcua-custom
+    OPCUA_CUSTOM_HOST_PORT={{port}} OPCUA_CUSTOM_PORT={{port}} OPCUA_CUSTOM_FAST_MS=10 \
+        OPCUA_CUSTOM_LARGE=10,10,50 OPCUA_CUSTOM_FLAT=10000 \
+        OPCUA_CUSTOM_USERNAME="{{username}}" OPCUA_CUSTOM_PASSWORD="{{password}}" \
+        docker compose up --build --detach --wait opcua-custom
 
 # MQTT broker (Mosquitto) with plain, JSON, retained, binary and Sparkplug B traffic -> mqtt://127.0.0.1:PORT (ws on 9001)
-mqtt port="1883" fast_ms="10" bulk="500" death_s="30":
+mqtt port="1883" fast_ms="10" bulk="500" death_s="30" username="" password="":
     -docker compose stop mqtt
     -docker compose rm -f mqtt
     -docker rm -f machinedatabrowser-mqtt
     MQTT_HOST_PORT={{port}} MQTT_SIM_FAST_MS={{fast_ms}} MQTT_SIM_BULK={{bulk}} \
-        MQTT_SIM_DEATH_PERIOD_S={{death_s}} docker compose run --build --rm --service-ports \
+        MQTT_SIM_DEATH_PERIOD_S={{death_s}} MQTT_SIM_USERNAME={{username}} MQTT_SIM_PASSWORD={{password}} \
+        docker compose run --build --rm --service-ports \
         --name machinedatabrowser-mqtt mqtt
 
 # Modbus TCP simulator -> modbus://127.0.0.1:PORT/1 (typed, static and changing registers; coil 0 pauses)
@@ -83,13 +108,22 @@ modbus port="5020" tick_ms="100":
 # Run the Modbus simulator without Docker (Python 3.11+, no packages needed)
 modbus-local port="5020":
     cd simulators/modbus && MODBUS_SIM_PORT={{port}} python3 modbus_server.py
-# MTConnect agent (3-axis mill, lathe) -> mtconnect://127.0.0.1:PORT (pause: just mtconnect-pause)
+# MTConnect agent -> mtconnect://127.0.0.1:PORT (detached in Compose; pause: just mtconnect-pause)
 mtconnect port="5050" tick_ms="100" buffer="131072":
     -docker compose stop mtconnect
     -docker compose rm -f mtconnect
     -docker rm -f machinedatabrowser-mtconnect
     MTCONNECT_HOST_PORT={{port}} MTCONNECT_SIM_TICK_MS={{tick_ms}} MTCONNECT_SIM_BUFFER={{buffer}} \
-        docker compose run --build --rm --service-ports --name machinedatabrowser-mtconnect mtconnect
+        docker compose up --build --detach --wait mtconnect
+
+# MTConnect agent with Basic authentication in the machine-data-browser Compose project
+mtconnect-auth username password port="5050":
+    -docker compose stop mtconnect
+    -docker compose rm -f mtconnect
+    -docker rm -f machinedatabrowser-mtconnect
+    MTCONNECT_HOST_PORT={{port}} MTCONNECT_SIM_TICK_MS=100 MTCONNECT_SIM_BUFFER=131072 \
+        MTCONNECT_SIM_USERNAME="{{username}}" MTCONNECT_SIM_PASSWORD="{{password}}" \
+        docker compose up --build --detach --wait mtconnect
 
 # Run the MTConnect agent simulator without Docker (Python 3.11+, no packages needed)
 mtconnect-local port="5050":
@@ -101,13 +135,23 @@ valkey port="6379":
     just valkey-seed
     @echo "redis://127.0.0.1:{{port}}/0 (Redis-compatible Valkey)"
 
+# Valkey with a custom ACL user/password in the machine-data-browser Compose project
+valkey-auth username password port="6379":
+    -docker compose stop valkey
+    -docker compose rm -f valkey
+    VALKEY_HOST_PORT={{port}} VALKEY_SIM_USERNAME="{{username}}" VALKEY_SIM_PASSWORD="{{password}}" \
+        docker compose up --detach --wait valkey
+    just valkey-seed
+    @echo "redis://{{username}}@127.0.0.1:{{port}}/0 (Redis-compatible Valkey; password stored in the OS credential store when used by mdbrowser)"
+
 # Reseed the running Valkey instance with deterministic machine-like values
 valkey-seed:
     docker compose exec -T valkey sh -s < simulators/valkey/seed.sh
 
 # Pause (true) or continue (false) the MTConnect simulator; MTConnect is read-only, so it has no pause tag
-mtconnect-pause value="true" port="5050":
-    curl -fsS -X PUT 'http://127.0.0.1:{{port}}/simulator/pause?value={{value}}'
+mtconnect-pause value="true" port="5050" username="" password="":
+    @if { [ -n "{{username}}" ] && [ -z "{{password}}" ]; } || { [ -z "{{username}}" ] && [ -n "{{password}}" ]; }; then echo "username and password must both be provided" >&2; exit 2; fi
+    @if [ -n "{{username}}" ]; then curl -fsS --user "{{username}}:{{password}}" -X PUT 'http://127.0.0.1:{{port}}/simulator/pause?value={{value}}'; else curl -fsS -X PUT 'http://127.0.0.1:{{port}}/simulator/pause?value={{value}}'; fi
 
 # Siemens S7 simulator (python-snap7) -> s7://127.0.0.1:PORT/0,1 with tag map simulators/s7/tags.csv
 s7 port="102" tick_ms="50":
