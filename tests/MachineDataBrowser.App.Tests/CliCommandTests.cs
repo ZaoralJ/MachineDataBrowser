@@ -29,8 +29,10 @@ public sealed class CliCommandTests(OpcPlcFixture plc)
     public void Options_carry_over_except_what_the_protocol_does_not_use()
     {
         Assert.Equal("mdbrowser read opc.tcp://plc-01:4840 'ns=3;s=A' 'ns=3;s=B' --trust-all", CliCommand.Read(Lab, ["ns=3;s=A", "ns=3;s=B"], recursive: false));
-        Assert.Equal("mdbrowser monitor opc.tcp://plc:4840 'ns=3;s=Line1' -R -r 1000 --user op --secure",
-            CliCommand.Monitor(new("opc.tcp://plc:4840", "op", UseSecurity: true, TrustAll: false), ["ns=3;s=Line1"], recursive: true, refreshMs: 1000));
+        Assert.Equal("mdbrowser monitor opc.tcp://plc:4840 'ns=3;s=Line1' -R -r 1000 -u op --credential-store --secure",
+            CliCommand.Monitor(new("opc.tcp://plc:4840", "op", UseSecurity: true, TrustAll: false, UseCredentialStore: true), ["ns=3;s=Line1"], recursive: true, refreshMs: 1000));
+        Assert.Equal("mdbrowser read opc.tcp://plc:4840 'ns=3;s=A'",
+            CliCommand.Read(new("opc.tcp://plc:4840", "op", UseSecurity: false, TrustAll: false), ["ns=3;s=A"], recursive: false));
         Assert.Equal("mdbrowser browse eip://10.0.0.5/1,0", CliCommand.Browse(new("eip://10.0.0.5/1,0", null, UseSecurity: true, TrustAll: false), null));
     }
 

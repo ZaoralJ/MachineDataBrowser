@@ -34,6 +34,8 @@ from paho.mqtt.packettypes import PacketTypes
 from paho.mqtt.properties import Properties
 
 HOST = "127.0.0.1"
+USERNAME = os.environ.get("MQTT_SIM_USERNAME")
+PASSWORD = os.environ.get("MQTT_SIM_PASSWORD")
 TICK_MS = int(os.environ.get("MQTT_SIM_FAST_MS", "10"))
 BULK = int(os.environ.get("MQTT_SIM_BULK", "500"))
 DEATH_PERIOD_S = float(os.environ.get("MQTT_SIM_DEATH_PERIOD_S", "30"))
@@ -296,6 +298,8 @@ def main():
 
     # MQTT 5, so binary-mode CloudEvents can carry their attributes as user properties.
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="machinedatabrowser-sim", protocol=mqtt.MQTTv5)
+    if USERNAME:
+        client.username_pw_set(USERNAME, PASSWORD)
     client.will_set(f"spBv1.0/{group}/NDEATH/{edge1}", ndeath, qos=0, retain=False)
     for _ in range(100):
         try:

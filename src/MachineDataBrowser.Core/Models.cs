@@ -43,6 +43,7 @@ public static class DeviceStatusCodes
     public static DeviceStatusCode BadNodeIdUnknown => Code("BadNodeIdUnknown");
     public static DeviceStatusCode BadTcpEndpointUrlInvalid => Code("BadTcpEndpointUrlInvalid");
     public static DeviceStatusCode BadCommunicationError => Code("BadCommunicationError");
+    public static DeviceStatusCode BadUserAccessDenied => Code("BadUserAccessDenied");
     public static DeviceStatusCode BadNotConnected => Code("BadNotConnected");
     public static DeviceStatusCode BadNodeIdInvalid => Code("BadNodeIdInvalid");
     public static DeviceStatusCode BadAttributeIdInvalid => Code("BadAttributeIdInvalid");
@@ -64,6 +65,7 @@ public static class DeviceStatusCodes
                 "Bad" => 0x80000000,
                 "BadUnexpectedError" => 0x80010000,
                 "BadCommunicationError" => 0x80050000,
+                "BadUserAccessDenied" => 0x801F0000,
                 "BadDecodingError" => 0x80070000,
                 "BadTimeout" => 0x800A0000,
                 "BadNoCommunication" => 0x80310000,

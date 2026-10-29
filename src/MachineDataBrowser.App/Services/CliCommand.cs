@@ -13,7 +13,13 @@ public static class CliCommand
     public const string Executable = "mdbrowser";
 
     /// <summary>The connection part every command shares.</summary>
-    public sealed record Connection(string EndpointUrl, string? UserName, bool UseSecurity, bool TrustAll, string? TagMap = null);
+    public sealed record Connection(
+        string EndpointUrl,
+        string? UserName,
+        bool UseSecurity,
+        bool TrustAll,
+        string? TagMap = null,
+        bool UseCredentialStore = false);
 
     public static string Browse(Connection connection, string? node, int depth = 1) =>
         Build("browse", connection, node is null ? [] : [node], depth > 1 ? ["--depth", depth.ToString(CultureInfo.InvariantCulture)] : []);
@@ -61,9 +67,9 @@ public static class CliCommand
             line.Append(" --map ").Append(Quote(connection.TagMap.Trim()));
         }
 
-        if (!string.IsNullOrWhiteSpace(connection.UserName))
+        if (connection.UseCredentialStore && !string.IsNullOrWhiteSpace(connection.UserName))
         {
-            line.Append(" --user ").Append(Quote(connection.UserName.Trim()));
+            line.Append(" -u ").Append(Quote(connection.UserName.Trim())).Append(" --credential-store");
         }
 
         if (connection.UseSecurity && DeviceClient.IsOpcUa(url))

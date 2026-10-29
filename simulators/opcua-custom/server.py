@@ -13,6 +13,8 @@ Environment:
   OPCUA_CUSTOM_FAST_MS      base tick in ms (default 10; 0 disables value changes)
   OPCUA_CUSTOM_LARGE        "areas,lines,tags" of the deep Large tree (default 10,10,50 = 5000 variables)
   OPCUA_CUSTOM_FLAT         number of variables in the single Flat folder (default 10000)
+  OPCUA_CUSTOM_USERNAME     optional username; requires OPCUA_CUSTOM_PASSWORD and disables anonymous access
+  OPCUA_CUSTOM_PASSWORD     optional password; requires OPCUA_CUSTOM_USERNAME
 """
 
 import asyncio
@@ -21,13 +23,34 @@ import logging
 import math
 import os
 import random
+import secrets
 import time
 
 from asyncua import Server, ua, uamethod
 from asyncua.common.structures104 import new_enum, new_struct, new_struct_field
+from asyncua.crypto.cert_gen import dump_private_key_as_pem, generate_private_key, generate_self_signed_app_certificate
+from asyncua.crypto.permission_rules import User, UserRole
+from cryptography import x509
+from cryptography.hazmat.primitives.serialization import Encoding
+from cryptography.x509.oid import ExtendedKeyUsageOID
 
 NAMESPACE = "urn:machinedatabrowser:simulator:custom"
 log = logging.getLogger("opcua-custom")
+
+
+class FixedCredentialUserManager:
+    def __init__(self, username, password):
+        self.username = username.encode("utf-8")
+        self.password = password.encode("utf-8")
+
+    def get_user(self, iserver, username=None, password=None, certificate=None):
+        if username is None or password is None:
+            return None
+        if secrets.compare_digest(username.encode("utf-8"), self.username) and secrets.compare_digest(
+            password.encode("utf-8"), self.password
+        ):
+            return User(role=UserRole.User, name=username)
+        return None
 
 
 async def create_types(server, idx):
@@ -341,7 +364,30 @@ async def main():
     await server.init()
     server.set_endpoint("opc.tcp://0.0.0.0:{}/".format(port))
     server.set_server_name("MachineDataBrowser Custom Types Simulator")
-    server.set_security_policy([ua.SecurityPolicyType.NoSecurity])
+    username = os.environ.get("OPCUA_CUSTOM_USERNAME", "")
+    password = os.environ.get("OPCUA_CUSTOM_PASSWORD", "")
+    if bool(username) != bool(password):
+        raise ValueError("OPCUA_CUSTOM_USERNAME and OPCUA_CUSTOM_PASSWORD must both be set")
+    if username:
+        private_key = generate_private_key()
+        certificate = generate_self_signed_app_certificate(
+            private_key,
+            "MachineDataBrowser Custom Types Simulator",
+            {},
+            [x509.DNSName(host), x509.UniformResourceIdentifier(server.get_application_uri())],
+            [ExtendedKeyUsageOID.SERVER_AUTH],
+        )
+        await server.load_certificate(certificate.public_bytes(Encoding.PEM), format="pem")
+        await server.load_private_key(dump_private_key_as_pem(private_key), format="pem")
+        server.set_security_policy([
+            ua.SecurityPolicyType.NoSecurity,
+            ua.SecurityPolicyType.Basic256Sha256_SignAndEncrypt,
+        ])
+        server.iserver.set_user_manager(FixedCredentialUserManager(username, password))
+        server.set_identity_tokens([ua.UserNameIdentityToken])
+    else:
+        server.set_security_policy([ua.SecurityPolicyType.NoSecurity])
+
     idx = await server.register_namespace(NAMESPACE)
     types = await create_types(server, idx)
     await server.load_data_type_definitions()

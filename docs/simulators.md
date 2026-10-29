@@ -5,24 +5,34 @@ Start them with [`just`](https://github.com/casey/just) from the repository root
 containers under the `machine-data-browser` project in Docker Desktop:
 
 ```sh
-just cip            # Logix / EtherNet/IP   -> eip://127.0.0.1:44818/1,0
-just pccc           # SLC 500 / MicroLogix / PLC-5 -> pccc://127.0.0.1:44819?plc=slc500
-just opcua          # opc-plc               -> opc.tcp://127.0.0.1:50000
-just opcua-custom   # custom types (asyncua) -> opc.tcp://127.0.0.1:4841/
-just mqtt           # MQTT broker + traffic  -> mqtt://127.0.0.1:1883 (ws://127.0.0.1:9001)
-just modbus         # Modbus TCP device      -> modbus://127.0.0.1:5020/1
-just s7             # Siemens S7 (snap7)     -> s7://127.0.0.1:102/0,1, tag list simulators/s7/tags.csv
-just mtconnect      # MTConnect agent        -> mtconnect://127.0.0.1:5050
-just valkey         # Valkey with machine-like strings and hashes -> redis://127.0.0.1:6379/0
-just all            # all nine in the background (replaces running ones); `just stop` removes them
-docker compose ps   # show containers in the machine-data-browser project
-just logs cip       # follow a background container's log
-just cip-debug      # log every CIP request (service, path, sizes)
-just pccc-debug     # log every PCCC request
-just test-sim       # Core tests against the simulators
+just cip                          # Logix / EtherNet/IP   -> eip://127.0.0.1:44818/1,0
+just pccc                         # SLC 500 / MicroLogix / PLC-5 -> pccc://127.0.0.1:44819?plc=slc500
+just opcua                        # opc-plc               -> opc.tcp://127.0.0.1:50000
+just opcua-auth user pass         # OPC UA with custom credentials; anonymous disabled, starts in the Compose project
+just opcua-custom                 # custom types (asyncua) -> opc.tcp://127.0.0.1:4841/ (Compose project)
+just opcua-custom-auth user pass  # custom types with secure credentials; anonymous disabled, starts in Compose
+just mqtt                         # MQTT broker + traffic  -> mqtt://127.0.0.1:1883 (ws://127.0.0.1:9001)
+just modbus                       # Modbus TCP device      -> modbus://127.0.0.1:5020/1
+just s7                           # Siemens S7 (snap7)     -> s7://127.0.0.1:102/0,1, tag list simulators/s7/tags.csv
+just mtconnect                    # MTConnect agent        -> mtconnect://127.0.0.1:5050 (Compose project)
+just mtconnect-auth user pass     # MTConnect with Basic auth; starts in Compose project
+just valkey                       # Valkey with machine-like strings and hashes -> redis://127.0.0.1:6379/0
+just valkey-auth user pass        # Valkey with ACL credentials; starts in Compose project
+just all                          # all nine in the background (replaces running ones); `just stop` removes them
+docker compose ps                 # show containers in the machine-data-browser project
+just logs cip                     # follow a background container's log
+just cip-debug                    # log every CIP request (service, path, sizes)
+just pccc-debug                   # log every PCCC request
+just test-sim                     # Core tests against the simulators
 ```
 
-Recipe parameters are positional, e.g. `just cip 44900 20` (port 44900, 20 ms base tick).
+Recipe parameters are positional, e.g. `just cip 44900 20` (port 44900, 20 ms base tick). The `opcua` recipe accepts
+optional username and password as its fifth and sixth arguments, after port and simulation settings; for example,
+`just opcua 50000 10 20 10 testuser testpass` starts the OPC UA simulator with those credentials and disables
+anonymous access. With no credentials, it retains the default `user1`/`password` account and allows anonymous access;
+the `admin`/`admin` account is unchanged. For the default port and simulation settings, use
+`just opcua-auth testuser testpass` (an optional third argument overrides the port). This starts the service detached
+under the `machine-data-browser` Compose project; use `just logs opcua` to follow it and `just stop` to stop the stack.
 
 ## Example sessions
 
@@ -50,7 +60,10 @@ The Modbus and S7 sessions also load their adjacent register map/tag list by a r
 ## Redis / Valkey simulator (`simulators/valkey`)
 
 `just valkey` starts a disposable Valkey 8 server on port 6379 and seeds a small plant namespace. Use
-`just valkey-seed` to restore the initial values; keys are stored in database 0:
+`just valkey-seed` to restore the initial values; keys are stored in database 0. For an authenticated server, use
+`just valkey-auth user pass` (optional third argument: port). It creates an ACL user and disables the default
+unauthenticated account. ACL usernames may contain letters, digits, dot, underscore and hyphen; the password is
+stored as a hash in Valkey's ACL file. The seed values are restored after startup:
 
 | Key | Redis type | Initial value |
 |---|---|---|
@@ -202,7 +215,9 @@ Microsoft's [opc-plc](https://github.com/Azure-Samples/iot-edge-opc-plc), pinned
 - Alarms (`--alm`) live under *Objects ▸ Server* (e.g. *Green ▸ East ▸ Blue ▸ WestTank ▸ Gold*); simple events
   (`--ses`) are raised on the Server object. Its alarm notifications carry an all-zero EventId, so they cannot be
   acknowledged.
-- Security None and anonymous allowed, certificates auto-accepted; users `admin`/`admin` and `user1`/`password`.
+- Security None and anonymous allowed by default, certificates auto-accepted; users `admin`/`admin` and
+  `user1`/`password` (customize the latter with `just opcua`'s fifth and sixth arguments; supplying them disables
+  anonymous access).
 - Extra opc-plc arguments go after the image name: `docker run --rm -p 50000:50000 machinedatabrowser-opcua-simulator:dev --chaos`.
 
 ## Custom types server (`simulators/opcua-custom`)
@@ -224,11 +239,17 @@ An [asyncua](https://github.com/FreeOpcUa/opcua-asyncio) server for what opc-plc
 
 `OPCUA_CUSTOM_FAST_MS` (10) sets the base tick (`0` freezes values), `OPCUA_CUSTOM_PORT` (4841) the port and
 `OPCUA_CUSTOM_HOST` (`localhost`) the host in the advertised endpoint URL. Startup takes 20-30 s with the
-default address space. Security is None only.
+default address space. `just opcua-custom` starts it detached in the `machine-data-browser` Compose project; follow
+startup with `just logs opcua-custom`. Anonymous SecurityPolicy None is enabled by default. `just opcua-custom-auth
+user pass` configures one username/password, enables Basic256Sha256 Sign & Encrypt, and disables anonymous access
+(optional third argument: port). Connect with `--secure --trust-all`. Use `just stop` to stop the stack.
 
 ## MQTT simulator (`simulators/mqtt`)
 
-Mosquitto (anonymous; MQTT on 1883, MQTT over WebSocket on 9001) plus a Python publisher (`publisher.py`, MQTT 5):
+Mosquitto (anonymous by default; MQTT on 1883, MQTT over WebSocket on 9001) plus a Python publisher
+(`publisher.py`, MQTT 5). To enable username/password authentication, pass both credentials as the fifth and sixth
+positional arguments to `just mqtt`; the simulator publisher uses the same credentials. For example,
+`just mqtt 1883 10 500 30 test test`.
 
 | Topics | Content |
 |--------|---------|
@@ -334,7 +355,12 @@ and `MTConnectError` answers (`OUT_OF_RANGE`, `NO_DEVICE`, `INVALID_XPATH`). The
 | `Lathe` | 2-axis turning centre: `X`/`Z` positions, `C` spindle speed and chuck state, path with execution, program, part count and a recurring tailstock *Warning* |
 
 The container listens on 5000, the MTConnect default; `just` publishes it on 5050 because macOS uses 5000 for the
-AirPlay Receiver. A part takes 60 s (the mill cuts for 80 % of it). Every two minutes the spindle reports a *Fault* (`SP-OT`) for 5 s.
+AirPlay Receiver. The `just mtconnect` recipe starts the agent detached in the `machine-data-browser` Compose project;
+use `just logs mtconnect` to follow it. Anonymous access is enabled by default. `just mtconnect-auth user pass`
+requires HTTP Basic credentials (optional third argument: port) and protects the probe, current, sample and pause
+endpoints. To pause an authenticated agent, pass both credentials to `just mtconnect-pause`, for example
+`just mtconnect-pause true 5050 user pass`. A part takes 60 s (the mill cuts for 80 % of it). Every two minutes the
+spindle reports a *Fault* (`SP-OT`) for 5 s.
 
 | Variable | Default | Effect |
 |----------|---------|--------|
@@ -342,6 +368,7 @@ AirPlay Receiver. A part takes 60 s (the mill cuts for 80 % of it). Every two mi
 | `MTCONNECT_SIM_TICK_MS` | `100` | fast tick; slow values change every 10 ticks |
 | `MTCONNECT_SIM_BUFFER` | `131072` | observations kept for `/sample` and history |
 | `MTCONNECT_SIM_LOG` | `INFO` | `DEBUG` logs every request |
+| `MTCONNECT_SIM_USERNAME` / `MTCONNECT_SIM_PASSWORD` | empty | enable HTTP Basic authentication when both are set |
 
 ```sh
 curl -s http://127.0.0.1:5050/probe                                        # the device model

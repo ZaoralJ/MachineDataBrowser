@@ -32,6 +32,9 @@ services:
       OPCUA_SIM_FAST_MS: ${OPCUA_SIM_FAST_MS:-10}
       OPCUA_SIM_FAST_NODES: ${OPCUA_SIM_FAST_NODES:-20}
       OPCUA_SIM_SLOW_NODES: ${OPCUA_SIM_SLOW_NODES:-10}
+      OPCUA_SIM_USERNAME: ${OPCUA_SIM_USERNAME:-user1}
+      OPCUA_SIM_PASSWORD: ${OPCUA_SIM_PASSWORD:-password}
+      OPCUA_SIM_DISABLE_ANONYMOUS: ${OPCUA_SIM_DISABLE_ANONYMOUS:-false}
 
   opcua-custom:
     image: machinedatabrowser-opcua-custom:dev
@@ -43,6 +46,8 @@ services:
       OPCUA_CUSTOM_FAST_MS: ${OPCUA_CUSTOM_FAST_MS:-10}
       OPCUA_CUSTOM_LARGE: ${OPCUA_CUSTOM_LARGE:-10,10,50}
       OPCUA_CUSTOM_FLAT: ${OPCUA_CUSTOM_FLAT:-10000}
+      OPCUA_CUSTOM_USERNAME: ${OPCUA_CUSTOM_USERNAME:-}
+      OPCUA_CUSTOM_PASSWORD: ${OPCUA_CUSTOM_PASSWORD:-}
 
   mqtt:
     image: machinedatabrowser-mqtt-simulator:dev
@@ -54,6 +59,8 @@ services:
       MQTT_SIM_FAST_MS: ${MQTT_SIM_FAST_MS:-10}
       MQTT_SIM_BULK: ${MQTT_SIM_BULK:-500}
       MQTT_SIM_DEATH_PERIOD_S: ${MQTT_SIM_DEATH_PERIOD_S:-30}
+      MQTT_SIM_USERNAME: ${MQTT_SIM_USERNAME:-}
+      MQTT_SIM_PASSWORD: ${MQTT_SIM_PASSWORD:-}
 
   modbus:
     image: machinedatabrowser-modbus-simulator:dev
@@ -79,14 +86,22 @@ services:
     environment:
       MTCONNECT_SIM_TICK_MS: ${MTCONNECT_SIM_TICK_MS:-100}
       MTCONNECT_SIM_BUFFER: ${MTCONNECT_SIM_BUFFER:-131072}
+      MTCONNECT_SIM_USERNAME: ${MTCONNECT_SIM_USERNAME:-}
+      MTCONNECT_SIM_PASSWORD: ${MTCONNECT_SIM_PASSWORD:-}
 
   valkey:
     image: valkey/valkey:8-alpine
+    entrypoint: ["/bin/sh", "/sim/entrypoint.sh"]
     command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    volumes:
+      - ./simulators/valkey/entrypoint.sh:/sim/entrypoint.sh:ro
     ports:
       - "${VALKEY_HOST_PORT:-6379}:6379"
+    environment:
+      VALKEY_SIM_USERNAME: ${VALKEY_SIM_USERNAME:-}
+      VALKEY_SIM_PASSWORD: ${VALKEY_SIM_PASSWORD:-}
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: ["CMD-SHELL", "if [ -n \"$$VALKEY_SIM_USERNAME\" ]; then REDISCLI_AUTH=\"$$VALKEY_SIM_PASSWORD\" valkey-cli --user \"$$VALKEY_SIM_USERNAME\" ping; else valkey-cli ping; fi"]
       interval: 1s
       timeout: 1s
       retries: 30

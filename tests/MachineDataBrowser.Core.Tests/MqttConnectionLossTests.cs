@@ -11,6 +11,38 @@ namespace MachineDataBrowser.Core.Tests;
 public sealed class MqttConnectionLossTests
 {
     [Fact]
+    public async Task Broker_rejecting_credentials_fails_connection_with_clear_error()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var image = new ImageFromDockerfileBuilder()
+            .WithDockerfileDirectory(CommonDirectoryPath.GetGitDirectory(), "simulators/mqtt")
+            .WithName("machinedatabrowser-mqtt-simulator:test-auth-rejection")
+            .WithDeleteIfExists(false)
+            .WithCleanUp(false)
+            .Build();
+        await image.CreateAsync(ct);
+        await using var container = new ContainerBuilder(image)
+            .WithPortBinding(0, 1883)
+            .WithEnvironment("MQTT_SIM_USERNAME", "test")
+            .WithEnvironment("MQTT_SIM_PASSWORD", "test")
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("MQTT simulator ready"))
+            .Build();
+        await container.StartAsync(ct);
+
+        await using var client = new MqttDeviceClient();
+        var error = await Assert.ThrowsAsync<DeviceClientException>(() => client.ConnectAsync(new ConnectOptions
+        {
+            EndpointUrl = $"mqtt://localhost:{container.GetMappedPublicPort(1883)}",
+            UserName = "test",
+            Password = "wrong",
+        }, ct));
+
+        Assert.Equal(DeviceStatusCodes.BadUserAccessDenied, error.StatusCode);
+        Assert.Contains("rejected the username or password", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(ConnectionState.Disconnected, client.State);
+    }
+
+    [Fact]
     public async Task Broker_restart_reconnects_and_values_flow_again()
     {
         var ct = TestContext.Current.CancellationToken;
