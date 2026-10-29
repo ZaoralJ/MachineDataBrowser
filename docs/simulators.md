@@ -26,6 +26,10 @@ just pccc-debug                   # log every PCCC request
 just test-sim                     # Core tests against the simulators
 ```
 
+Each Compose-backed simulator recipe starts its service detached in the same project; use `docker compose ps` to see
+what is running and `just logs <service>` to follow its output. The explicitly named `*-local` recipes run directly in
+the foreground without Docker.
+
 Recipe parameters are positional, e.g. `just cip 44900 20` (port 44900, 20 ms base tick). The `opcua` recipe accepts
 optional username and password as its fifth and sixth arguments, after port and simulation settings; for example,
 `just opcua 50000 10 20 10 testuser testpass` starts the OPC UA simulator with those credentials and disables
