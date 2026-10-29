@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.41.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.40.0...v0.41.0) (2026-10-29)
+
+
+### Features
+
+* **simulators:** add optional authentication ([#218](https://github.com/ZaoralJ/MachineDataBrowser/issues/218)) ([b82f811](https://github.com/ZaoralJ/MachineDataBrowser/commit/b82f811276e662960794d5b7e0ad83120a071498))
+
+
+### Fixes
+
+* **simulators:** start individual services in background ([#220](https://github.com/ZaoralJ/MachineDataBrowser/issues/220)) ([6b5e5ad](https://github.com/ZaoralJ/MachineDataBrowser/commit/6b5e5ad15d9a03971b186bd99520bede8ac4505d))
+
 ## [0.40.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.39.0...v0.40.0) (2026-10-28)
 
 
