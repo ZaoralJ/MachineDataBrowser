@@ -11,12 +11,14 @@ Avalonia 12, Dock.Avalonia, CommunityToolkit.Mvvm, OPC Foundation UA-.NETStandar
 
 | Path | Contents |
 |---|---|
-| `src/MachineDataBrowser.Core` | protocol-neutral contracts behind `IDeviceClient`, recordings, value formatting/JSON. **No UI references.** |
+| `src/MachineDataBrowser.Core` | protocol-neutral device and recording contracts, snapshots, value formatting/JSON. **No UI or protocol SDK references.** |
+| `src/MachineDataBrowser.Recording*` | recording engine, CSV/JSON/SQLite formats and format composition. |
+| `src/MachineDataBrowser.Credentials` | shared native OS credential store for app and CLI/TUI. |
 | `src/MachineDataBrowser.Driver.*` | OPC UA, EtherNet/IP (Logix, PCCC), Modbus, S7, MQTT, MTConnect and Redis/Valkey implementations of `IDeviceClient`, each in its own project. |
 | `src/MachineDataBrowser.Drivers` | Composition/factory project referenced by the app and CLI. |
 | `src/MachineDataBrowser.App` | Avalonia app: `ViewModels/` (MVVM, `MainWindowViewModel.*.cs` partials per feature), `Views/`, `Services/` |
-| `src/MachineDataBrowser.Cli` | `mdbrowser` command line ([docs/cli.md](docs/cli.md)): System.CommandLine + Spectre.Console, references Core only; `Mcp/` is the MCP server ([docs/mcp.md](docs/mcp.md)) |
-| `tests/MachineDataBrowser.Cli.Tests` | the CLI end to end against opc-plc and the MQTT simulator |
+| `src/MachineDataBrowser.Cli` | `mdbrowser` CLI/TUI ([docs/cli.md](docs/cli.md)): System.CommandLine, Spectre.Console, Terminal.Gui; uses Core, Drivers, Credentials and Recording.Formats; `Mcp/` is the MCP server ([docs/mcp.md](docs/mcp.md)) |
+| `tests/MachineDataBrowser.Cli.Tests` | CLI/MCP integration tests against opc-plc and the simulators, plus TUI model and headless tests. |
 | `tests/MachineDataBrowser.Core.Tests` | integration tests against containers (opc-plc, `simulators/`, Valkey) via Testcontainers, plus unit tests |
 | `tests/MachineDataBrowser.App.Tests` | headless Avalonia UI tests (`[AvaloniaFact]`) against the same containers |
 | `simulators/` | local test servers (custom OPC UA, Logix, PCCC, MQTT, Modbus, S7, MTConnect, Valkey); `just` recipes start them |
@@ -39,12 +41,14 @@ Run the narrowest test class that covers your change first, then the affected pr
 
 ## Rules
 
-- **Layering:** protocol logic goes in Core behind `IDeviceClient`; the App never talks to a protocol SDK directly.
+- **Layering:** protocol-neutral contracts go in Core; protocol logic goes in `MachineDataBrowser.Driver.*` behind
+  `IDeviceClient`. The App never talks to a protocol SDK directly.
 - **Build clean:** `TreatWarningsAsErrors` with `AnalysisLevel latest-recommended`; fix analyzer findings (e.g. CA1826),
   don't suppress them without a reason.
 - **Packages:** versions only in `Directory.Packages.props`.
-- **Persistence:** NodeIds are saved in the portable `nsu=` form (`ToPortableId`), never namespace indexes. Never
-  persist passwords or secrets. New session/settings fields must be optional so older files still open
+- **Persistence:** save ids through `ToPortableId`: OPC UA uses `nsu=`, never namespace indexes; other drivers use their
+  own portable syntax. Never persist passwords or secrets in session/settings files. New fields must be optional so
+  older files still open
   (`SessionDocument.LoadAsync` normalises missing lists).
 - **Renamed product:** the app was *OPC UA Browser*. Keep the compatibility paths: `.opcsession` files,
   `OPCUABROWSER_DATA_DIR`, migration of the `OpcUaBrowser` data folder, Homebrew cask rename. See `docs/decisions.md`.
@@ -60,6 +64,33 @@ Run the narrowest test class that covers your change first, then the affected pr
   Branch from `main` (`feat/…`, `fix/…`, `docs/…`); never push to `main`. Merging: see "Releases" in
   CONTRIBUTING.md (release-please PRs: allow their CI run, then approve; admin-merge own PRs only once every check is
   green).
+
+## Documentation maintenance
+
+For every implementation change, check which documentation claims it affects and update those files in the same PR.
+Documentation is part of completing the change. Use this map to find all affected places:
+
+| Change | Check and update |
+|---|---|
+| Driver added or capabilities changed | Protocol lists in `README.md`, `docs/index.md`, `docs/user-manual.md`, `docs/cli.md`, `docs/mcp.md`; tables **and Mermaid diagrams** in `docs/architecture.md` and README; `mkdocs.yml` site description |
+| CLI options, defaults, output or TUI keys | `docs/cli.md`; `scripts/cli-examples.py` and regenerated `docs/cli-examples.md`; README install/usage snippets; TUI screenshots when visible output changes |
+| MCP tools, limits, permissions or authentication | `docs/mcp.md`; MCP summaries in README, `docs/index.md`, `docs/cli.md` and `docs/decisions.md` |
+| Desktop behavior, menu names or shortcuts | `docs/user-manual.md`, relevant screenshots; `docs/themes.md` for appearance changes |
+| Project boundaries, dependencies or persistence | `docs/architecture.md`, `docs/decisions.md`, `CONTRIBUTING.md` and this file; `THIRD-PARTY-NOTICES.md` for bundled dependencies |
+| Simulators, ports, credentials, recipes or sample values | `docs/simulators.md`, README/CLI examples, `CONTRIBUTING.md` and this file's simulator notes; example sessions/maps |
+| Build, packaging or release workflow | README, `CONTRIBUTING.md`, architecture packaging section and relevant decisions |
+
+- Verify facts against the current source, not another doc: option registrations, driver capabilities, menu/key
+  bindings, constants, project references, `compose.yaml`, `justfile` and packaging workflows. Keep defaults,
+  limits and examples exact. Remove implemented features from **Deferred** lists and supersede obsolete decisions.
+- Run documented examples against the bundled simulators when changing them. Quote shell-sensitive addresses and
+  URLs. Edit the generator for generated pages, then regenerate; do not hand-edit captured output.
+- Check local links, image paths, anchors and Markdown table column counts. Give distinct Mermaid nodes unique ids;
+  render changed diagrams with Mermaid CLI, since a successful MkDocs build does not validate Mermaid syntax.
+- Build the docs with the repository's dependencies:
+  `uv run --with-requirements .github/mkdocs-requirements.txt mkdocs build --strict`.
+- In the PR description, name the docs updated. If no documentation is affected, state why; do not make unrelated
+  doc edits merely to satisfy the checklist.
 
 ## Gotchas
 

@@ -7,7 +7,8 @@ samples over any time range. It is part of the [command line](cli.md) and speaks
 PCCC), Modbus TCP, S7 (Siemens), MQTT, MTConnect and Redis/Valkey.
 
 **Read-only by default:** without `--allow-writes` no tool can write values or call methods, and none ever
-acknowledges alarms. With it, every change is confirmed by you first (see [Changes](#changes-allow-writes)).
+acknowledges alarms. With it, changes require confirmation unless `--skip-write-confirmation` is also set
+(see [Changes](#changes-allow-writes)).
 
 ## Setup
 
@@ -20,8 +21,8 @@ recordings or both: the agent only gets the tools for what is configured.
 |---|---|
 | `--endpoint url`, `--session file` | use these machines, with their login and trust options (and a session's Modbus register map or S7 tag list) |
 | `--map file.csv` | Modbus register map or S7 tag list for the `--endpoint` machines, so the agent sees names under `/Tags` |
-| `--allow "opc.tcp://127.0.0.1:*"` (repeatable) | connect to endpoints it names that match the pattern (`*`, `?`), **without** credentials or auto-trust |
-| `--allow-any` | connect to any endpoint it names, without credentials (lab use) |
+| `--allow "opc.tcp://127.0.0.1:*"` (repeatable) | connect read-only to endpoints it names that match the pattern (`*`, `?`), without inheriting configured credentials or auto-trust |
+| `--allow-any` | connect read-only to any endpoint it names, without inheriting configured credentials (lab use) |
 | `--recording file.db`, `--recordings-dir folder` | read these recordings |
 | `--allow-recording folder` | start background recordings into that folder (and read them) |
 | `--allow-writes` | write values, restore snapshots and call methods on `--endpoint` / `--session` machines, each change confirmed by you |
@@ -72,7 +73,7 @@ recordings or both: the agent only gets the tools for what is configured.
       "mcpServers": {
         "machine-data": {
           "command": "mdbrowser",
-          "args": ["mcp", "--endpoint", "mqtt://127.0.0.1:1883"],
+          "args": ["mcp", "--endpoint", "mqtt://127.0.0.1:1883", "--user", "operator"],
           "env": { "MDBROWSER_PASSWORD": "…" }
         }
       }
@@ -92,10 +93,10 @@ Logins: `--user` with the password in `MDBROWSER_PASSWORD` (set it in the agent'
 | `read` | current values with data type and engineering unit (when the server has one); `recursive` expands a folder or structure to every variable below it |
 | `sample` | watches values for 1–300 s and summarises each: samples, changes, first/last value, min/max/mean, statuses; with `correlate`, also the order of changes and which values change shortly after which |
 | `attributes` | all attributes of a node (data type, description, access level, …) and its engineering unit |
-| `history` | what an OPC UA server stored over a time range, raw or per `bucketSeconds` (count, min, max, average, not Good) |
+| `history` | stored OPC UA values or observations still in an MTConnect agent's buffer, raw or per `bucketSeconds` (count, min, max, average, not Good) |
 | `alarms` | the server's current alarms, most severe first: source, name, severity, active, acknowledged, message |
 | `events` | events and alarm changes collected for 1–300 s, newest first, optionally only above a severity |
-| `diagnostics` | connection health: state; OPC UA security, keep-alive, reconnects, server state and clock offset, subscriptions; MQTT message rate, topics, Sparkplug nodes online; Modbus and S7 requests, failures and poll cycles; EtherNet/IP read rate, failures, poll cycle times; MTConnect agent version, buffer and sequences, polling |
+| `diagnostics` | connection health: state; OPC UA security, keep-alive, reconnects, server state and clock offset, subscriptions; MQTT message rate, topics, Sparkplug nodes online; Modbus and S7 requests, failures and poll cycles; EtherNet/IP read rate, failures, poll cycle times; MTConnect agent version, buffer and sequences, polling; Redis/Valkey server, database, request and monitor counts |
 | `generate_code` | C# records or classes mirroring a structure (like *Copy as C#* in the app), or a JSON snapshot of its values |
 | `wait_for` | waits up to 10 min until a value meets a condition (`> 80`, `== Run`, `contains Error`, `changes`) and says when |
 | `start_recording`, `stop_recording`, `active_recordings` | with `--allow-recording`: records items in the background into a SQLite file (≤ 24 h, ≤ 5 at a time, ≤ 500 items), to analyse with the recording tools |
@@ -194,19 +195,22 @@ Besides tools, the server offers **resources** an agent (or you, in clients that
 
 ## Limits and safety
 
-- **Only listed machines.** A tool call naming any other endpoint is refused; with one machine configured the agent
-  doesn't need to name it.
-- **Read-only.** All tools are marked read-only for the agent, and nothing in them writes. `take_snapshot`
-  (`--allow-snapshots`) only saves a file into the snapshot folder.
+- **Only allowed machines.** Endpoints must be explicitly configured or match `--allow` / `--allow-any`. With exactly
+  one configured machine and no allow patterns, the agent doesn't need to name it.
+- **Read-only by default.** Device-changing tools are offered only with `--allow-writes` and are marked destructive.
+  `take_snapshot` (`--allow-snapshots`) only saves a file into the snapshot folder; background recording tools also
+  write local files, not device values.
 - **Bounded results:** `browse` returns at most 500 items, `read` 200 values, `sample` 100 items for at most 300 s,
   `history` 1000 raw values in total (20 000 per item for buckets), `events` 500; results say when they were truncated.
 - **Events and alarms are only read:** nothing is acknowledged.
-- **Named endpoints** (`--allow`, `--allow-any`) connect without any login or automatic certificate trust; logins and
-  `--trust-all` apply only to `--endpoint` / `--session`.
+- **Named endpoints** (`--allow`, `--allow-any`) do not inherit `--user`, `--password`, `MDBROWSER_PASSWORD` or
+  `--trust-all`; those apply only to `--endpoint` / `--session`. Credentials embedded in a named endpoint URL are
+  still interpreted by the protocol driver.
 - **Background recordings** write only into the `--allow-recording` folder (the name becomes a safe file name there),
   stop by themselves after their duration, and are stopped when the server exits.
 - **Connections** are opened on first use and kept for later calls, so a server sees one session, not one per question.
-- **No credentials pass through tools:** logins come from the server's own options and environment.
+- **Credential store:** MCP never reads the native OS credential store. Configure logins through the server's own
+  options and environment rather than passing passwords in tool-call endpoint URLs.
 - **Only listed recording files,** opened read-only. A file outside `--recording` / `--recordings-dir` is refused, and
   there is no free SQL: SQLite could otherwise attach and read other database files on the disk.
 

@@ -1,9 +1,9 @@
 # Decisions
 
-Short record of the choices behind the current stack. Facts were checked at the time (September 2026).
+Short record of the choices behind the current stack, updated as the implementation evolves.
 
 The app started as an OPC UA browser and is now a machine data viewer for OPC UA, EtherNet/IP (Logix and PCCC),
-Modbus TCP, MQTT and MTConnect.
+Modbus TCP, S7, MQTT, MTConnect and Redis/Valkey.
 
 ## Name: Machine Data Browser (renamed from OPC UA Browser after 0.8)
 
@@ -45,9 +45,9 @@ Modbus TCP, MQTT and MTConnect.
 - `libplctag` (MPL-2.0) wraps the mature C libplctag and ships native binaries for macOS (x64/arm64), Windows and Linux.
 - Scope: Logix only (tag listing via `@tags` / `@udt/<id>` exists only there). Writes cover atomics, atomic arrays
   and STRINGs.
-- The OPC UA information model (`NodeId`, `NodeClass`, `StatusCode`) is kept as the shared vocabulary behind
-  `IDeviceClient` instead of a new neutral model: the App, recordings and exports work unchanged and the refactor
-  stays small. Tags map to `ns=1;s=<tag path>`, folders to `ns=2`.
+- The original implementation reused OPC UA SDK types; the current boundary uses protocol-neutral `DeviceNodeId`,
+  `DeviceNodeKind` and `DeviceStatusCode` in Core. Each driver owns its SDK dependencies. Logix portable ids are tag
+  paths; OPC UA keeps namespace-URI-based ids for existing sessions.
 - The protocol is chosen by the endpoint URL scheme (`eip://`), so session files need no new field.
 - CIP has no subscriptions: monitoring polls per refresh time and reports only changes.
 - `ab_server` (libplctag's simulator) does not implement tag listing, so the repository has its own Logix simulator
@@ -132,8 +132,8 @@ Modbus TCP, MQTT and MTConnect.
 - The first implementation reads strings and hash fields, and permits explicit writes only to an existing string key
   or existing hash field. Atomic type/existence checks prevent stale selections from changing a different key type or
   creating a key/field. String writes preserve TTL. There is no arbitrary command console or delete operation.
-- Pub/Sub and keyspace notifications are not part of this driver; Redis already has a separate MQTT integration for
-  broker-style streams, and notifications require server configuration.
+- Pub/Sub and keyspace notifications are not part of this driver. Machine Data Browser has a separate MQTT driver for
+  broker-style streams; Redis keyspace notifications require server configuration.
 
 ## Resilience and threading
 
@@ -144,11 +144,11 @@ Modbus TCP, MQTT and MTConnect.
 
 ## UI: Avalonia 12
 
-- Only mature .NET UI framework that runs natively on macOS (incl. Apple Silicon), Windows and Linux.
+- A mature .NET UI framework that runs natively on macOS (incl. Apple Silicon), Windows and Linux.
 - .NET MAUI has no official Linux support; a web UI cannot open `opc.tcp` sockets without a gateway;
   Qt's OPC UA module is GPL-only in the open-source tier.
-- `Avalonia.Controls.TreeDataGrid` 12.x requires a paid license key, so the tree is a `TreeView` and the tables use
-  the MIT `DataGrid`.
+- `Avalonia.Controls.TreeDataGrid` 12.x requires a paid license key. The address space uses a flattened, virtualized
+  `ListBox` (`FlatTree`) and the tables use the MIT `DataGrid`.
 
 ## Docking: Dock.Avalonia (MIT)
 
@@ -175,9 +175,10 @@ No .NET installation required on the target Mac.
 
 ## Command line: `mdbrowser`
 
-- A separate project (`MachineDataBrowser.Cli`) on top of Core only, so the protocols, ids and value formatting are the
-  app's: `endpoints`, `browse`, `read`, `monitor`, and `run` for a session saved in the app (the session file is read
-  with its own small model, ignoring unknown fields, so the CLI doesn't depend on the App).
+- A separate project (`MachineDataBrowser.Cli`) using Core, driver composition, recording formats and the credential
+  store, with no App dependency. The protocols, ids and value formatting are shared with the app: `endpoints`,
+  `browse`, `read`, `write`, `monitor`, `session`, `run`, `tui` and `mcp`. Session files are read with a small CLI model
+  that ignores unknown fields.
 - Named `mdbrowser`, not `mdb`: short names clash with other tools (e.g. `mdbtools`) on `PATH` and in Homebrew.
 - Parsing with **System.CommandLine** 2 (Microsoft, stable, generated help, no reflection). Output with
   **Spectre.Console** (tables, a tree, a live watch table) only when stdout is a terminal and the format is text;
@@ -194,10 +195,10 @@ No .NET installation required on the target Mac.
 - Part of the CLI binary, not a separate program: it reuses the connections, node paths, `--recursive` expansion and
   typed JSON values, and installs with the same formula.
 - Official C# SDK, `ModelContextProtocol.Core` only (no hosting/DI packages), stdio transport; tools are plain methods.
-- Read-only first: agents explore machines that often run production, so writes and method calls are left out until
-  they can be opted into explicitly. Tools are annotated read-only so clients can show that.
-- Allowlist: the agent reaches only the endpoints given with `--endpoint`/`--session`; logins come from the server's
-  options and environment, never from tool arguments.
+- Read-only by default: `--allow-writes` enables writes, snapshot restore and method calls on configured endpoints,
+  with confirmation, optional write rules and an audit log. Read-only and destructive tools are annotated separately.
+- Allowlist: `--endpoint`/`--session` configure machines and their options. `--allow` patterns and `--allow-any` admit
+  agent-named endpoints, always read-only and without inheriting configured credentials or auto-trust settings.
 - `sample` returns a summary (changes, min/max/mean, statuses) instead of a stream: agents work in request/response,
   and a summary fits their context. Result sizes are capped (browse 500, read 200, sample 100 items / 300 s).
 - Connections stay open between tool calls, so a device sees one session per server, not one per question.
@@ -223,7 +224,4 @@ No .NET installation required on the target Mac.
 ## Deferred
 
 - Windows/Linux packages – the app builds for `win-x64`, but no release artifacts yet.
-- CLI write: `mdbrowser write` asks before writing unless `--yes`, refuses without a terminal and without `--yes`,
-  and reads back what was written.
 - CLI follow-ups: `call`, `history`/`events`, `check`/`wait` for scripts, a Prometheus or MQTT bridge.
-- MCP follow-ups: `history` and `events` tools; `write`/`call_method` behind an explicit `--allow-writes`.

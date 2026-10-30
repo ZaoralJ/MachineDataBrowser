@@ -32,7 +32,7 @@ command line for them, with the endpoint and connection options, including an ac
 | `mdbrowser session remove <file> <node>...` | removes items from a session's watch list (`rm`; `-R` for a folder), offline |
 | `mdbrowser run <session>` | the watch list of a session file saved by the app (`.mdbsession`), each item at its refresh time |
 | `mdbrowser tui <url or session>` | a full-screen browser in the terminal: tree, attributes, live values, trend, write, record; see [below](#full-screen-browser-tui) |
-| `mdbrowser mcp --endpoint <url>... --recording <file.db>...` | an MCP server for AI agents (machines and SQLite recordings), read-only; see [MCP server](mcp.md) |
+| `mdbrowser mcp --endpoint <url>... --recording <file.db>...` | an MCP server for AI agents (machines and SQLite recordings), read-only by default; see [MCP server](mcp.md) |
 
 For the interactive browser, `mdbrowser <url>` is shorthand for `mdbrowser tui <url>`.
 
@@ -47,7 +47,7 @@ mdbrowser read modbus://127.0.0.1:5020/1 hr:20:float32 hr:50:string16 co:1
 mdbrowser monitor modbus://127.0.0.1:5020/1 /Tags/Simulator -R --map simulators/modbus/simulator-map.csv
 mdbrowser read s7://127.0.0.1/0,1 --map simulators/s7/tags.csv /Tags/Machine/Speed DB1.DBD2:REAL
 mdbrowser monitor "mqtt://127.0.0.1:1883/machines/#" /Topics/machines/m1/status/speed --duration 10m
-mdbrowser read redis://127.0.0.1:6379/0 /plant/line1/speed
+mdbrowser read redis://127.0.0.1:6379/0 /plant/line1/drive/main/speed
 mdbrowser monitor opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines --recursive --depth 3
 mdbrowser run line1.mdbsession --format csv > shift.csv
 ```
@@ -69,7 +69,7 @@ A node is either a **path** of display names from the root, starting with `/`, o
 - an S7 address with an optional type, `DB1.DBD4:REAL`, `M0.0`, `MW2:INT`, `DB2.DBD0:REAL[10]`, or an S7 symbol from
   the tag list, `Machine.Speed` (see [S7](#s7));
 - an MTConnect data item id from the agent's probe, e.g. `vmc_x_pos`, or `@vmc_axes` for a component.
-- a Redis/Valkey key path such as `/plant/line1/speed`, or an opaque `key/...` / `field/...` id copied from the
+- a Redis/Valkey key path such as `/plant/line1/drive/main/speed`, or an opaque `key/...` / `field/...` id copied from the
   browser. Strings and individual hash fields are readable; writes update existing values only.
 
 **Modbus register maps:** `--map file.csv` (`-m`) names the device's addresses for this command; the names appear
@@ -95,7 +95,7 @@ addresses (`DB1.DBD4:REAL`, `M0.0`, `IW2:INT`) or the *Data blocks* / *Inputs* /
 ```sh
 mdbrowser browse s7://192.168.0.1/0,1 --map plc-tags.csv /Tags
 mdbrowser monitor s7://192.168.0.1/0,1 --map plc-tags.csv /Tags/Machine -R
-mdbrowser read "s7://192.168.0.1/0,2?cpu=300" MW10:INT DB5.DBB0:STRING[20]     # S7-300 in slot 2
+mdbrowser read "s7://192.168.0.1/0,2?cpu=300" MW10:INT 'DB5.DBB0:STRING[20]'   # S7-300 in slot 2
 mdbrowser session create line1.mdbsession s7://192.168.0.1/0,1 --map plc-tags.csv /Tags/Machine -R
 mdbrowser run line1.mdbsession                                                 # uses the saved tag list
 ```
@@ -106,7 +106,8 @@ mdbrowser run line1.mdbsession                                                 #
 - The tag list is stored in session files like a Modbus register map (`tagMap`); `k` in `tui` loads or removes it.
   `simulators/s7/tags.csv` is the tag list of the [S7 simulator](simulators.md#s7-simulator-simulatorss7).
 
-`browse` prints full paths, so its output can be passed to `read` and `monitor` as it is.
+When started at the root or a `/path`, `browse` prints full paths that can be passed to `read` and `monitor` as they are.
+When started by id, its paths are relative to that node; use the output's ids for subsequent commands.
 
 **JSON on MQTT topics:** each property of a JSON payload is a node below its topic, nested objects too, read and
 monitored with its own type: `/Topics/machines/m1/status/speed` or `/Topics/machines/m1/status/temperature/motor`
@@ -156,10 +157,11 @@ mdbrowser monitor opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines/Machine1/Spe
 mdbrowser run line1.mdbsession                                                         # or File ▸ Open in the app
 ```
 
-- Nodes are saved like the app saves them: portable ids (`nsu=…`, stable across server restarts) with their name and
+- Nodes are saved like the app saves them: portable ids (OPC UA: `nsu=…`, stable across server restarts) with their name and
   path, so Watch can group them by path. `-R`, `--depth` and `--max-items` work as for `read`.
 - Options are saved (user name, `--secure`, `--trust-all`, `--map`, `-r` as the session's default refresh); **never a
-  password**. `session add` and `run` take it from `--password` or `MDBROWSER_PASSWORD`.
+  password**. `session add` and `run` take it from `--password`, `MDBROWSER_PASSWORD`, or the native credential store
+  when `--credential-store` is enabled.
 - `session create` and `--save` don't overwrite an existing file without `--force`. `session add` connects with the
   file's endpoint, skips nodes already in the watch list and keeps everything else (bookmarks, columns, display
   formats, monitoring settings).
@@ -188,7 +190,7 @@ recording doesn't grow without end:
 mdbrowser run line1.mdbsession --record plant.db --retention 30d
 ```
 
-It is the same file the app writes with *Also write to file*: SQLite for `.db` / `.sqlite` (one more recording in the
+It is the same file the app writes with *Also write to file*: SQLite for `.db` / `.sqlite` / `.sqlite3` (one more recording in the
 file each time, queryable with SQL; see [Recording to SQLite](user-manual.md#recording-to-sqlite)), CSV otherwise. The
 app's recording viewer opens either. The file is the store, so a recording can run for days without growing memory.
 
@@ -253,10 +255,11 @@ Attributes, Monitored Items, Trend and Info show vertical scrollbars when their 
 | `f` / `o` `O` / `i` / `p` | filter the monitored items / sort by a column, reverse / show the NodeId column / pause the display |
 | `-` / `+` | refresh time of all monitored items |
 | `x` / `[` `]` | reset the trend / fewer or more samples in it (fit the width, 30 at first, 60, 120, 300, 600) |
-| `r` | start or stop recording the monitored items: SQLite for `.db`, CSV otherwise (like `--record`) |
+| `r` | start or stop recording the monitored items: SQLite for `.db` / `.sqlite` / `.sqlite3`, CSV otherwise (like `--record`) |
 | `Ctrl+S` | save the monitored items as a session file; an existing one keeps everything else |
 | `Ctrl+O` | open a session (the app's recent ones, those in this folder, or any file): its endpoint, options and watch list, in place |
-| `y` / `a` / `e` | OPC UA: history of the variable / current alarms / live events |
+| `y` | history of the variable (OPC UA or MTConnect) |
+| `a` / `e` | current alarms / live events (OPC UA) |
 | `d` | MQTT: pause discovery, receiving only the monitored topics (like *Pause discovery* in the app) |
 | `k` | Modbus / S7: load a register map or tag list (or remove it with an empty path); reconnects, keeps the monitored items; `Ctrl+S` stores it |
 | `g` / `t` / `l` | connection diagnostics / next colour theme / light or dark |
@@ -307,8 +310,8 @@ See the [command line examples](cli-examples.md) for the other commands with the
 | `-u, --user` / `-p, --password` | login (OPC UA, MQTT, MTConnect over HTTP basic auth, Redis/Valkey); the password can also come from `MDBROWSER_PASSWORD` |
 | `--credential-store` | opt in to reading and saving passwords in the native OS credential store |
 | `--secure` | OPC UA: the most secure endpoint the server offers |
-| `--trust-all` | accept untrusted server certificates; for lab networks only |
-| `-m, --map` | Modbus register map (CSV) or S7 tag list (TIA Portal CSV, STEP 7 `.sdf`) naming the device's addresses; overrides the session's |
+| `--trust-all` | accept untrusted server certificates for OPC UA, MQTT TLS and HTTPS MTConnect; for lab networks only; Redis TLS uses normal certificate validation |
+| `-m, --map` | Modbus register map (CSV) or S7 tag list (TIA Portal CSV, STEP 7 `.sdf`) naming the device's addresses; `tui` can override a session's map, while `run` and `session add` use the saved map |
 
 `mdbrowser` shares the app's data folder: certificates trusted in the app are trusted here, and the OPC UA client
 identity is the same, so a server that trusts the app trusts the command line too. `run` takes the endpoint, login
@@ -350,7 +353,7 @@ after `--count` updates, and close the connection properly.
 | Exit code | |
 |---|---|
 | `0` | success, or a stream that ended normally |
-| `1` | an error (one line on stderr, `mdbrowser: …`), or a `read` where a value could not be read |
+| `1` | invalid command-line arguments, a runtime error (`mdbrowser: …` on stderr), or a `read` where a value could not be read |
 | `130` | cancelled before the command finished (e.g. Ctrl+C during `read`) |
 
 Items that can't be monitored are reported on stderr and the rest continue.
