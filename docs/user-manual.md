@@ -178,7 +178,7 @@ saved with the session (node ids are per server) and work for every protocol.
 - **PCCC (SLC 500, MicroLogix, PLC-5):** *Data Files*. These controllers have no tag names, only data-table
   addresses such as `N7:0`, `F8:3`, `B3:0/5` or `T4:0.ACC`.
   - PCCC can't list the files, so the standard ones (`O0`, `I1`, `S2`, `B3`, `T4`, `C5`, `R6`, `N7`, `F8`) are
-    tried, and those that exist are shown. Name other files in the endpoint: `pccc://localhost?files=N10,F11,ST12,L13`.
+    tried, and those that exist are shown. Name other files in the endpoint: `pccc://127.0.0.1?files=N10,F11,ST12,L13`.
   - A file's length is found when you expand it (a few reads); a file shows up to 1000 elements.
   - Timers, counters and controls expand into their members (`EN`, `TT`, `DN`, `PRE`, `ACC`; `CU`, `CD`, `OV`,
     `UN`; `EU`, `EM`, `ER`, `UL`, `IN`, `FD`, `LEN`, `POS`). Binary words expand into their 16 bits.

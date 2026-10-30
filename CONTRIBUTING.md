@@ -33,15 +33,15 @@ dotnet run --project src/MachineDataBrowser.App
 Local test servers ([`just`](https://github.com/casey/just) recipes, see [docs/simulators.md](docs/simulators.md)):
 
 ```sh
-just opcua          # opc-plc                        -> opc.tcp://localhost:50000
-just opcua-custom   # custom structures, large tree  -> opc.tcp://localhost:4841/
-just cip            # Logix / EtherNet/IP            -> eip://localhost:44818/1,0
-just pccc           # SLC 500 / MicroLogix / PLC-5    -> pccc://localhost:44819?plc=slc500
-just modbus         # Modbus TCP                     -> modbus://localhost:5020/1
-just mqtt           # MQTT + Sparkplug B + CloudEvents -> mqtt://localhost:1883
-just s7             # Siemens S7 (tags: simulators/s7/tags.csv) -> s7://localhost:102/0,1
-just mtconnect      # MTConnect agent                -> mtconnect://localhost:5050
-just valkey         # Redis-compatible Valkey        -> redis://localhost:6379/0
+just opcua          # opc-plc                        -> opc.tcp://127.0.0.1:50000
+just opcua-custom   # custom structures, large tree  -> opc.tcp://127.0.0.1:4841/
+just cip            # Logix / EtherNet/IP            -> eip://127.0.0.1:44818/1,0
+just pccc           # SLC 500 / MicroLogix / PLC-5    -> pccc://127.0.0.1:44819?plc=slc500
+just modbus         # Modbus TCP                     -> modbus://127.0.0.1:5020/1
+just mqtt           # MQTT + Sparkplug B + CloudEvents -> mqtt://127.0.0.1:1883
+just s7             # Siemens S7 (tags: simulators/s7/tags.csv) -> s7://127.0.0.1:102/0,1
+just mtconnect      # MTConnect agent                -> mtconnect://127.0.0.1:5050
+just valkey         # Redis-compatible Valkey        -> redis://127.0.0.1:6379/0
 ```
 
 Tip: while the app is running, run tests with `--artifacts-path /tmp/opcua-artifacts` so the test build does not

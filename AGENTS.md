@@ -121,14 +121,14 @@ The `mdbrowser-*` MCP servers (and `mdbrowser` itself) are often pointed at the 
 
 | Simulator | Endpoint | Pause tag |
 |---|---|---|
-| Logix | `eip://localhost:44818/1,0` | `PauseSimulation` |
-| PCCC (SLC/MicroLogix/PLC-5) | `pccc://localhost:44819?plc=slc500` | `B3:0/0` |
-| Custom types | `opc.tcp://localhost:4841` | `/Objects/Custom/PauseSimulation` |
-| MQTT | `mqtt://localhost:1883` | `/Topics/simulator/PauseSimulation` (retained topic) |
-| Modbus | `modbus://localhost:5020/1` | coil `co:0` (map: `simulators/modbus/simulator-map.csv`) |
-| S7 | `s7://localhost:102/0,1` | `M0.0`, symbol `PauseSimulation` (tag list: `simulators/s7/tags.csv`) |
-| MTConnect | `mtconnect://localhost:5050` | none (read-only protocol): `just mtconnect-pause true` / `false`; state in `agent_pause` |
-| opc-plc | `opc.tcp://localhost:50000` | none: methods `/Objects/OpcPlc/Methods/Stop…`/`StartUpdateFastNodes`/`SlowNodes` |
+| Logix | `eip://127.0.0.1:44818/1,0` | `PauseSimulation` |
+| PCCC (SLC/MicroLogix/PLC-5) | `pccc://127.0.0.1:44819?plc=slc500` | `B3:0/0` |
+| Custom types | `opc.tcp://127.0.0.1:4841` | `/Objects/Custom/PauseSimulation` |
+| MQTT | `mqtt://127.0.0.1:1883` | `/Topics/simulator/PauseSimulation` (retained topic) |
+| Modbus | `modbus://127.0.0.1:5020/1` | coil `co:0` (map: `simulators/modbus/simulator-map.csv`) |
+| S7 | `s7://127.0.0.1:102/0,1` | `M0.0`, symbol `PauseSimulation` (tag list: `simulators/s7/tags.csv`) |
+| MTConnect | `mtconnect://127.0.0.1:5050` | none (read-only protocol): `just mtconnect-pause true` / `false`; state in `agent_pause` |
+| opc-plc | `opc.tcp://127.0.0.1:50000` | none: methods `/Objects/OpcPlc/Methods/Stop…`/`StartUpdateFastNodes`/`SlowNodes` |
 
 - **Pause before asserting exact values.** Write `true` to freeze every changing value (the clock stops, so values
   continue from where they were), `false` to continue. Always write `false` again when done: the containers are

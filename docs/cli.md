@@ -93,10 +93,10 @@ a STEP 7 `.sdf`, or any CSV with name, address and type columns; see the
 addresses (`DB1.DBD4:REAL`, `M0.0`, `IW2:INT`) or the *Data blocks* / *Inputs* / *Outputs* / *Memory* folders.
 
 ```sh
-mdbrowser browse s7://localhost/0,1 --map plc-tags.csv /Tags
-mdbrowser monitor s7://localhost/0,1 --map plc-tags.csv /Tags/Machine -R
-mdbrowser read "s7://localhost/0,2?cpu=300" MW10:INT 'DB5.DBB0:STRING[20]'   # S7-300 in slot 2
-mdbrowser session create line1.mdbsession s7://localhost/0,1 --map plc-tags.csv /Tags/Machine -R
+mdbrowser browse s7://127.0.0.1/0,1 --map plc-tags.csv /Tags
+mdbrowser monitor s7://127.0.0.1/0,1 --map plc-tags.csv /Tags/Machine -R
+mdbrowser read "s7://127.0.0.1/0,2?cpu=300" MW10:INT 'DB5.DBB0:STRING[20]'   # S7-300 in slot 2
+mdbrowser session create line1.mdbsession s7://127.0.0.1/0,1 --map plc-tags.csv /Tags/Machine -R
 mdbrowser run line1.mdbsession                                                 # uses the saved tag list
 ```
 
