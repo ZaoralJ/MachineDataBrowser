@@ -36,10 +36,6 @@ Everything has a keyboard shortcut.
 
 ![mdbrowser tui: address space, attributes, monitored items with a trend chart, and the info log](docs/images/tui.png)
 
-![TUI with Attributes and Trend hidden: address space, monitored items and info](docs/images/tui-panes.png)
-
-![TUI Monitored Items pane alone on the full screen](docs/images/tui-zoom.png)
-
 See the [command line guide](docs/cli.md#full-screen-browser-tui) for more TUI screenshots and details.
 
 ```mermaid
