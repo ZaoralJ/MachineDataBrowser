@@ -3,8 +3,6 @@
 [![ci](https://github.com/ZaoralJ/MachineDataBrowser/actions/workflows/ci.yml/badge.svg)](https://github.com/ZaoralJ/MachineDataBrowser/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-![Machine Data Browser connected to an OPC UA server: address space, attributes and live watch values](docs/images/main-window.png)
-
 **Machine Data Browser** is a cross-platform viewer for machine data (.NET 10, Avalonia). It shows the data of one device at a time:
 
 | Protocol | Endpoint | Highlights |
@@ -27,6 +25,22 @@ For any of these you can:
 - copy values as tables, JSON or C#, and save sessions.
 
 Everything has a keyboard shortcut.
+
+## Screenshots
+
+### Desktop app
+
+![Machine Data Browser connected to an OPC UA server: address space, attributes and live watch values](docs/images/main-window.png)
+
+### Terminal UI
+
+![mdbrowser tui: address space, attributes, monitored items with a trend chart, and the info log](docs/images/tui.png)
+
+![TUI with Attributes and Trend hidden: address space, monitored items and info](docs/images/tui-panes.png)
+
+![TUI Monitored Items pane alone on the full screen](docs/images/tui-zoom.png)
+
+See the [command line guide](docs/cli.md#full-screen-browser-tui) for more TUI screenshots and details.
 
 ```mermaid
 flowchart LR
