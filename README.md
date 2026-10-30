@@ -41,9 +41,13 @@ See the [command line guide](docs/cli.md#full-screen-browser-tui) for more TUI s
 ```mermaid
 flowchart LR
     UA[(OPC UA server)] --- App
-    PLC[(Logix controller)] --- App
-    DEV[(Modbus device · S7 controller)] --- App
+    LOGIX[(EtherNet/IP · Logix)] --- App
+    PCCC[(PCCC · SLC / MicroLogix / PLC-5)] --- App
+    MODBUS[(Modbus TCP device)] --- App
+    S7[(Siemens S7 controller)] --- App
     MQ[(MQTT broker<br/>Sparkplug B · CloudEvents)] --- App
+    MTC[(MTConnect agent)] --- App
+    REDIS[(Redis · Valkey)] --- App
     App[Machine Data Browser] --> W[Watch] --> R[Recordings] --> V[Viewer + chart]
     App --> X[Export · copy · sessions]
 ```
