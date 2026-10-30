@@ -196,7 +196,7 @@ classDiagram
 ```
 
 | | OPC UA (`opc.tcp://`) | EtherNet/IP (`eip://host[:port]/1,0`) | MQTT (`mqtt://host[:port][/filter]`) | Modbus TCP (`modbus://host[:port][/unit]`) | S7 (`s7://host[:port]/rack,slot`) | MTConnect (`mtconnect://host[:5000][/device]`) | Redis/Valkey (`redis://host[:6379][/db]`) |
-|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|
 | Library | OPC Foundation UA-.NETStandard | libplctag.NET | MQTTnet | own client (`ModbusTcpTransport`) | S7netplus | HttpClient + System.Xml.Linq | StackExchange.Redis |
 | Tree | server address space (forward hierarchical references) | Controller tags / Programs ▸ tags ▸ UDT members, array elements | Topics (topic levels, JSON fields) and Sparkplug B (group ▸ edge node ▸ device ▸ metrics) | generated: Tags (register map) and the four areas in blocks of 100 addresses | Tags (tag list, folders from dots in names) and the DB/I/Q/M areas ▸ bytes ▸ bits | devices ▸ components ▸ data items, from `/probe` | database ▸ colon-separated key prefixes ▸ strings and hash fields |
 | Node ids | `nsu=<namespace URI>;…` | Logix tag path, e.g. `Program:Main.Motor[2].Speed` | `t:<topic>[#<JSON pointer>]`, `m:<group>\|<edge>\|<device>\|<metric>` | `area:address[:type][:swap]`, e.g. `hr:20:float32` | address with type `DB1.DBD4:REAL`, symbol `"Machine.Speed"` | data item id; components `@<id>` | portable `key/<base64url>` or `field/<key>/<field>` ids |
