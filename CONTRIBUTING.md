@@ -26,38 +26,49 @@ simulators in `simulators/`).
 
 ```sh
 dotnet build                     # warnings are errors
-dotnet test                      # Core integration + headless UI tests (needs Docker)
+dotnet test                      # Core, CLI and headless UI tests (needs Docker)
 dotnet run --project src/MachineDataBrowser.App
 ```
 
 Local test servers ([`just`](https://github.com/casey/just) recipes, see [docs/simulators.md](docs/simulators.md)):
 
 ```sh
-just opcua          # opc-plc                        -> opc.tcp://localhost:50000
-just opcua-custom   # custom structures, large tree  -> opc.tcp://localhost:4841/
-just cip            # Logix / EtherNet/IP            -> eip://localhost:44818/1,0
-just mqtt           # MQTT + Sparkplug B + CloudEvents -> mqtt://localhost:1883
-just s7             # Siemens S7 (tags: simulators/s7/tags.csv) -> s7://localhost:102/0,1
+just opcua          # opc-plc                        -> opc.tcp://127.0.0.1:50000
+just opcua-custom   # custom structures, large tree  -> opc.tcp://127.0.0.1:4841/
+just cip            # Logix / EtherNet/IP            -> eip://127.0.0.1:44818/1,0
+just pccc           # SLC 500 / MicroLogix / PLC-5    -> pccc://127.0.0.1:44819?plc=slc500
+just modbus         # Modbus TCP                     -> modbus://127.0.0.1:5020/1
+just mqtt           # MQTT + Sparkplug B + CloudEvents -> mqtt://127.0.0.1:1883
+just s7             # Siemens S7 (tags: simulators/s7/tags.csv) -> s7://127.0.0.1:102/0,1
+just mtconnect      # MTConnect agent                -> mtconnect://127.0.0.1:5050
+just valkey         # Redis-compatible Valkey        -> redis://127.0.0.1:6379/0
 ```
 
 Tip: while the app is running, run tests with `--artifacts-path /tmp/opcua-artifacts` so the test build does not
 overwrite the running app's binaries. `MACHINEDATABROWSER_DATA_DIR` points settings/PKI to another folder.
 
-Screenshots in README and the user manual (`docs/images`, dark theme) come from `DocsScreenshotTests`. They are
+Desktop screenshots in README and the user manual (`docs/images`) come from `DocsScreenshotTests`. They are
 skipped in normal test runs; after a visible UI change run `just docs-screenshots` (needs `pngquant`, e.g.
 `brew install pngquant`) and commit the updated PNGs.
+TUI screenshots come from `just docs-tui-screenshot`; CLI examples from `just docs-cli-examples` (both need the
+simulators and `uv`).
 
 The [documentation site](https://zaoralj.github.io/MachineDataBrowser/) is built from `docs/` with MkDocs Material
 (`mkdocs.yml`, workflow `pages`) on every push to `main`; pull requests check it with `mkdocs build --strict`.
-Preview it locally with `just docs-serve`.
+Preview it locally with `just docs-serve`. Build with the same dependencies as CI:
+
+```sh
+uv run --with-requirements .github/mkdocs-requirements.txt mkdocs build --strict
+```
 
 ## Code guidelines
 
-- Read [docs/architecture.md](docs/architecture.md) first; protocol logic (OPC UA, EtherNet/IP, S7, MQTT) belongs in `MachineDataBrowser.Core`
-  (no UI dependencies), UI in `MachineDataBrowser.App`.
+- Read [docs/architecture.md](docs/architecture.md) first. Protocol-neutral contracts belong in `MachineDataBrowser.Core`,
+  protocol implementations in `MachineDataBrowser.Driver.*`, composition in `MachineDataBrowser.Drivers`, and desktop UI
+  in `MachineDataBrowser.App`. Recording engines and formats live in `MachineDataBrowser.Recording*`.
 - Follow `.editorconfig` and the existing style; nullable reference types are on.
-- Persist NodeIds in the `nsu=` form (`ToPortableId`), never namespace indexes.
-- Never persist passwords or secrets.
+- Persist ids through `ToPortableId` (OPC UA uses `nsu=` rather than namespace indexes; other drivers use their own ids).
+- Never put passwords or secrets in session/settings files; saved passwords use the opt-in native OS credential store.
 - New behaviour needs a test: Core against opc-plc or the simulators in `simulators/`, UI with `Avalonia.Headless`
   (`[AvaloniaFact]`).
 - Comments explain *why*, not *what*.

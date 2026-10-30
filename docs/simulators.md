@@ -341,7 +341,7 @@ Both are in the solution under *simulators/s7*.
 
 ```sh
 mdbrowser browse s7://127.0.0.1/0,1 --map simulators/s7/tags.csv /Tags/Machine
-mdbrowser read s7://127.0.0.1/0,1 DB3.DBW4:INT DB3.DBB28:STRING[10]
+mdbrowser read s7://127.0.0.1/0,1 DB3.DBW4:INT 'DB3.DBB28:STRING[10]'
 ```
 
 ## MTConnect agent simulator (`simulators/mtconnect`)
@@ -392,4 +392,4 @@ in CI with the rest of `dotnet test`. `simulators/modbus` runs the same way (`Mo
 checks that the simulator's register map and session still match it. `simulators/s7` likewise (`S7SimulatorFixture`)
 for the `S7*Tests` in Core, the CLI's `S7CliTests` and the App's `S7AppTests`. `simulators/mtconnect`
 (`MtConnectSimulatorFixture`) backs `MtConnectClientTests`, the CLI's `MtConnectCliTests` and the App's
-`MtConnectAppTests`.
+`MtConnectAppTests`. `RedisServerFixture` starts Valkey 8 for `RedisClientTests` and the App's `RedisAppTests`.

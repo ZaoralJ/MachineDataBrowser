@@ -95,13 +95,6 @@ MTConnect is always read-only; its connection option is checked and locked:
 
 <img src="images/mtconnect-connection-options.png" alt="MTConnect connection options with read-only locked on" width="60%">
 
-Browsing uses incremental `SCAN`; results can change while a folder is being explored, and very large folders are
-capped. Colon-separated key names are shown as folders. String keys and hash fields can be read and monitored; other
-Redis types show their type but are not yet browsable. String values and hash fields are limited to 64 KiB when
-displayed. **Write value…** updates only existing strings and hash fields; it cannot create or delete entries, or run
-arbitrary commands. String writes preserve the key's expiry.
-Connections target one standalone Redis or Valkey server; Redis Cluster and Sentinel modes are not supported.
-
 **Diagnostics:** Connection ▸ **Diagnostics…** (⇧⌘I) shows the connection live, refreshed every second. Use it when
 values seem to stop:
 - *Session*: how the connection is doing, per protocol:
@@ -122,6 +115,7 @@ values seem to stop:
   - MTConnect: agent URL, version, sender, instance id, the agent's buffer (size, first and last sequence), device,
     component and data item counts, link drops, requests per second and, per refresh time, the data items polled,
     observations received, the next sequence and the last error.
+  - Redis/Valkey: server, logical database, connection time, request count and monitored value count.
 - *This app*: watched items, value updates per second, and how many rows are stale, bad or uncertain.
 - *Subscriptions* (OPC UA): the publishing interval the server granted (it may differ from the refresh time), items,
   notifications and when the last one arrived.
@@ -184,7 +178,7 @@ saved with the session (node ids are per server) and work for every protocol.
 - **PCCC (SLC 500, MicroLogix, PLC-5):** *Data Files*. These controllers have no tag names, only data-table
   addresses such as `N7:0`, `F8:3`, `B3:0/5` or `T4:0.ACC`.
   - PCCC can't list the files, so the standard ones (`O0`, `I1`, `S2`, `B3`, `T4`, `C5`, `R6`, `N7`, `F8`) are
-    tried, and those that exist are shown. Name other files in the endpoint: `pccc://10.0.0.5?files=N10,F11,ST12,L13`.
+    tried, and those that exist are shown. Name other files in the endpoint: `pccc://127.0.0.1?files=N10,F11,ST12,L13`.
   - A file's length is found when you expand it (a few reads); a file shows up to 1000 elements.
   - Timers, counters and controls expand into their members (`EN`, `TT`, `DN`, `PRE`, `ACC`; `CU`, `CD`, `OV`,
     `UN`; `EU`, `EM`, `ER`, `UL`, `IN`, `FD`, `LEN`, `POS`). Binary words expand into their 16 bits.
@@ -284,7 +278,7 @@ Classic S7 controllers can't list their variables, so the tree is built from thr
   its eight bits. *Data blocks* lists the DBs the tag list uses, plus those in the URL (`?db=1,2,10`). `?bytes=256`
   shows more bytes per area.
 - **Typed-in addresses:** any address can be watched or read without a tag list, with an optional type after a
-  colon. Use them in the CLI, in session files or with Watch ▸ add by id.
+  colon. Use them in the CLI or in session files, or include them in an imported tag list.
 
 | Address | Meaning |
 |---|---|
@@ -327,6 +321,21 @@ the symbol (`"Machine.Speed"`) or address (`DB1.DBD2:REAL`), so they work again 
 (`--map`) and the TUI (`k`) use the same tag list from the session ([command line](cli.md#s7)); `?tags=<file>` in the
 URL works too.
 
+### Redis and Valkey
+
+Connections target one standalone Redis or Valkey server; Redis Cluster and Sentinel modes are not supported.
+Browsing uses incremental `SCAN`; results can change while a folder is being explored. Each browse scans at most
+10 000 keys and returns at most 500 children, with a marker when the limit is reached.
+
+- Colon-separated keys appear as folders: `plant:line1:drive:main:speed` becomes
+  `plant ▸ line1 ▸ drive ▸ main ▸ speed`.
+- String keys and hash fields can be read and monitored. Other Redis types show their type but are not expanded.
+  String values and hash fields are limited to 64 KiB when displayed.
+- **Write value…** updates only existing strings and hash fields; it cannot create or delete entries or run arbitrary
+  commands. String writes preserve the key's expiry.
+- Monitoring polls each item at its refresh time, clamped to 100 ms–60 s. Browse a folder again to discover new keys.
+- `rediss://` validates the server's TLS certificate; the auto-trust option does not override Redis TLS validation.
+
 ## Watch
 
 Each row shows Name, Status, Value, Refresh, Last update, Since and Recorded. NodeId and Source time are hidden
@@ -355,7 +364,7 @@ and sort order are saved with the session.
   with the session. Rows from session files saved before 0.10.0 have no path and are grouped under *(no path)*; add
   them again to group them.
 - **Refresh time:** 1–7 (100 ms … 10 s), T for a custom time, or right-click ▸ Refresh time.
-  - OPC UA uses it as the sampling interval, Logix, Modbus and S7 as the poll interval.
+  - OPC UA uses it as the sampling interval; Logix, PCCC, Modbus, S7 and Redis/Valkey use polling.
   - For MQTT it is a maximum update rate: at most the latest value once per interval. **0** means every message;
     use it for events, CloudEvents or anything where each message matters.
   - For MTConnect it is how often the app asks the agent for what changed (`/sample` from the last sequence). Every
@@ -524,13 +533,13 @@ A recording captures the values of its items with timestamps. It keeps running w
   - *In memory:* **Max points per item** (the oldest samples are dropped) and **Keep only the last** minutes,
   - *Schedule:* **Start in** and **Stop after** minutes,
   - *File:* **Also write every sample to a file**, not limited by the in-memory settings. A `.csv` file gets one line
-    per sample; a `.db` / `.sqlite` file is a **SQLite database** you can query with SQL (see below). The line under
-    the buttons says whether the file is created or added to.
+    per sample; `.db`, `.sqlite` and `.sqlite3` files are **SQLite databases** you can query with SQL (see below).
+    The line under the buttons says whether the file is created or added to.
 - **Control (Recordings pane):**
   - N new recording from the Watch selection, A records everything monitored, Enter opens the viewer.
   - S start/resume, P pause, X stop.
   - ⇧⌫ reset the history; Delete close (discards the history).
-  - C / J export CSV / JSON; O opens a CSV file and follows it while it is still being written.
+  - C / J export CSV / JSON; O opens a CSV or SQLite file and follows it while it is still being written.
 - **Settings of a running recording:** right-click ▸ Settings… (E). Name, refresh time, limits, auto-stop and file
   change immediately.
 - **Add items to a recording:** in Watch, right-click ▸ *Add to recording ▸ name*.
@@ -541,7 +550,7 @@ A recording captures the values of its items with timestamps. It keeps running w
 
 ### Recording to SQLite
 
-Choose a file ending in `.db` (or `.sqlite`) with **New File…**; to add to a file you already have, pick it with **Add
+Choose `.db`, `.sqlite` or `.sqlite3` with **New File…**; to add to an existing file, pick it with **Add
 to Existing…** (the save dialog would ask to replace it, although nothing is replaced). Each start of a recording adds a
 recording to the file, so one file can hold a whole shift or week. Values keep their type: numbers in `value_num`
 (booleans 1/0), text in `value_text`, arrays and structures as JSON in `value_json`; times are UTC
@@ -576,7 +585,7 @@ Opened with Enter or double-click in Recordings, or from Watch for a single item
 ![Recording viewer: trend chart of two items above the table of samples](images/recording-viewer.png)
 
 - The table shows the kept samples (Received, Name, Status, Value, and optionally NodeId and Source time). The item
-  box filters to one item.
+  box filters to one item. The viewer keeps at most 20 000 rows, independently of the recording's own limits.
 - **Chart:** every numeric value is charted above the table; G shows or hides it.
   - With one item selected, the chart shows that item.
   - With *All items*, each numeric item gets its own coloured line and a legend.
@@ -620,7 +629,7 @@ wins.
   - New ⌘N, Open ⌘O, Save ⌘S, Save As ⇧⌘S, File ▸ Open Recent.
   - Settings can reopen the last session at start.
   - When the open session file is changed elsewhere (another window or instance, `mdbrowser tui`, `mdbrowser session`,
-    the MCP server, an editor), the app reloads it at once; a running `mdbrowser run` or `mdbrowser tui` on the same
+    an editor), the app reloads it at once; a running `mdbrowser run` or `mdbrowser tui` on the same
     file follows the app's saves the same way. With unsaved changes or running recordings it asks first in a bar:
     **Reload** opens the file as it is now, **Keep mine** keeps the window (saving then overwrites the file).
 - **Settings (⌘,):** appearance and colour theme, default refresh time, the item limit for "monitor all variables
@@ -639,7 +648,7 @@ wins.
 - If the session has unsaved changes, the app asks once: Save, Don't Save or Cancel. Everything keeps running while
   the question is open.
 - **Holding ⌘Q** quits without asking.
-- On quit, recordings are stopped, live CSV files are completed and the connection is closed properly.
+- On quit, recordings are stopped, live CSV and SQLite files are flushed and connections are closed properly.
 
 ## Keyboard
 
@@ -681,4 +690,4 @@ right-click menus and the tooltips. **Help ▸ Keyboard Shortcuts** (⌘/) lists
 | Something failed | The error bar shows it; details are in `logs/machinedatabrowser.log` in the data folder |
 
 For local test servers (OPC UA, Logix, SLC 500 / PLC-5, Modbus, S7, MQTT with Sparkplug B and CloudEvents,
-MTConnect) see [simulators.md](simulators.md).
+MTConnect and Valkey) see [simulators.md](simulators.md).

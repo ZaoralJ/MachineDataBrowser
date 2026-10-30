@@ -7,8 +7,8 @@ and a dark appearance.
 picks the appearance; Settings previews a theme while you choose, and Cancel goes back to the saved one.
 
 **In the terminal:** `mdbrowser tui` starts with the theme chosen in the app. `--theme Nord` picks another one for
-this run, and `--light` the light appearance. While it runs, `t` goes to the next theme and `l` switches between
-light and dark.
+this run, and `--light` the light appearance. If the app follows the system appearance, the TUI starts dark.
+While it runs, `t` goes to the next theme and `l` switches between light and dark.
 
 ```sh
 mdbrowser tui mqtt://127.0.0.1:1883 --theme Nord
@@ -98,7 +98,7 @@ The Nord palette: snow storm and polar night with frost blue.
 
 ## Solarized
 
-Ethan Schoonover's Solarized: cream light, dark teal dark, blue accent.
+Ethan Schoonover's Solarized: cream light with a blue accent, dark teal dark with a teal accent.
 
 === "App · dark"
     ![Solarized, dark, in the app](images/themes/app-solarized-dark.png)

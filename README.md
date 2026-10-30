@@ -3,9 +3,7 @@
 [![ci](https://github.com/ZaoralJ/MachineDataBrowser/actions/workflows/ci.yml/badge.svg)](https://github.com/ZaoralJ/MachineDataBrowser/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-![Machine Data Browser connected to an OPC UA server: address space, attributes and live watch values](docs/images/main-window.png)
-
-**Machine Data Browser** is a cross-platform viewer for machine data (.NET 10, Avalonia). It shows the data of one device at a time:
+**Machine Data Browser** is a cross-platform viewer for machine data (.NET 10, Avalonia), with one device per connection tab:
 
 | Protocol | Endpoint | Highlights |
 |---|---|---|
@@ -13,7 +11,7 @@
 | **EtherNet/IP** (Allen-Bradley Logix) | `eip://127.0.0.1:44818/1,0` | controller and program tags, UDTs, arrays of UDTs |
 | **Modbus TCP** | `modbus://127.0.0.1:5020/1` | coils, inputs and registers by address, typed values (float32, int32, strings, word order), register maps naming them |
 | **PCCC** (SLC 500, MicroLogix, PLC-5) | `pccc://127.0.0.1:44819?plc=slc500` | data files, timers, counters, controls, bits |
-| **S7** (Siemens S7-300/400/1200/1500) | `s7://127.0.0.1/0,1` | data blocks, inputs, outputs, memory by address, every elementary type, TIA Portal / STEP 7 tag lists naming them |
+| **S7** (Siemens S7-300/400/1200/1500) | `s7://127.0.0.1/0,1` | data blocks, inputs, outputs, memory by address, typed values and arrays, TIA Portal / STEP 7 tag lists naming them |
 | **MQTT** | `mqtt://127.0.0.1:1883[/topic/#]`, `mqtts://`, `ws://`, `wss://` | topic tree, JSON fields, Sparkplug B, CloudEvents |
 | **MTConnect** | `mtconnect://127.0.0.1:5050[/device]`, `http://`, `https://` | devices and components, samples, events, conditions, agent buffer as history; read-only |
 | **Redis / Valkey** | `redis://127.0.0.1:6379[/database]`, `rediss://` | key prefixes, strings, hash fields; update existing values only |
@@ -22,18 +20,34 @@ For any of these you can:
 
 - browse the address space and read attributes,
 - watch live values (stale and bad values stand out) and write new values,
-- record values with limits, a schedule and live CSV files,
+- record values with limits, a schedule and live CSV or SQLite files,
 - look at recordings as a table with a trend chart,
 - copy values as tables, JSON or C#, and save sessions.
 
 Everything has a keyboard shortcut.
 
+## Screenshots
+
+### Desktop app
+
+![Machine Data Browser connected to an OPC UA server: address space, attributes and live watch values](docs/images/main-window.png)
+
+### Terminal UI
+
+![mdbrowser tui: address space, attributes, monitored items with a trend chart, and the info log](docs/images/tui.png)
+
+See the [command line guide](docs/cli.md#full-screen-browser-tui) for more TUI screenshots and details.
+
 ```mermaid
 flowchart LR
     UA[(OPC UA server)] --- App
-    PLC[(Logix controller)] --- App
-    DEV[(Modbus device · S7 controller)] --- App
+    LOGIX[(EtherNet/IP · Logix)] --- App
+    PCCC[(PCCC · SLC / MicroLogix / PLC-5)] --- App
+    MODBUS[(Modbus TCP device)] --- App
+    S7[(Siemens S7 controller)] --- App
     MQ[(MQTT broker<br/>Sparkplug B · CloudEvents)] --- App
+    MTC[(MTConnect agent)] --- App
+    REDIS[(Redis · Valkey)] --- App
     App[Machine Data Browser] --> W[Watch] --> R[Recordings] --> V[Viewer + chart]
     App --> X[Export · copy · sessions]
 ```
@@ -64,7 +78,7 @@ mdbrowser monitor opc.tcp://127.0.0.1:4841 /Objects/Custom/Machines/Machine1/Spe
 `mdbrowser` browses, reads and monitors from a terminal or a script, and runs sessions saved in the app;
 `mdbrowser tui` is a full-screen browser in the terminal (tree, live values, trend, write, record) for every protocol.
 See [docs/cli.md](docs/cli.md). `mdbrowser mcp` lets AI agents (Copilot, Claude, opencode) browse and read machines,
-read-only; see [docs/mcp.md](docs/mcp.md).
+read-only by default, with opt-in writes; see [docs/mcp.md](docs/mcp.md).
 
 ## Try it with the test servers
 
@@ -84,6 +98,7 @@ Then connect to one of these:
   `simulators/modbus/simulator-modbus.mdbsession`)
 - `s7://127.0.0.1/0,1` (import `simulators/s7/tags.csv` as its tag list, or open `simulators/s7/simulator-s7.mdbsession`)
 - `mtconnect://127.0.0.1:5050`
+- `redis://127.0.0.1:6379/0`
 
 [docs/simulators.md](docs/simulators.md) describes what each simulator contains.
 
@@ -115,8 +130,8 @@ Releases are driven by [release-please](https://github.com/googleapis/release-pl
 - Every merge to `main` updates a release PR. It bumps the version (from the Conventional Commit PR titles) and
   updates `CHANGELOG.md`.
 - Merging that PR tags `vX.Y.Z`, creates the GitHub release and runs the `release` workflow. The workflow tests
-  again, builds self-contained `osx-arm64`/`osx-x64` app bundles, attaches them and updates the Homebrew cask in
-  `ZaoralJ/homebrew-tap`.
+  again, builds self-contained macOS app bundles and macOS/Linux CLI archives (arm64 and x64), attaches them and
+  updates the Homebrew cask and formula in `ZaoralJ/homebrew-tap`.
 
 Pre-releases are tagged by hand and skip the tap: `scripts/release.sh 0.2.0-rc.1`.
 Local package only: `packaging/macos/package.sh 0.2.0 arm64` → `artifacts/dist/`.
