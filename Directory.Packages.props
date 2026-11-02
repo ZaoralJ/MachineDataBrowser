@@ -11,11 +11,11 @@
     <!-- Siemens S7 -->
     <PackageVersion Include="S7netplus" Version="0.20.0" />
     <PackageVersion Include="MQTTnet" Version="5.2.0.1603" />
-    <PackageVersion Include="StackExchange.Redis" Version="2.13.17" />
+    <PackageVersion Include="StackExchange.Redis" Version="3.4.29" />
     <!-- Recordings in SQLite files -->
-    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.14" />
     <!-- CLI -->
-    <PackageVersion Include="System.CommandLine" Version="2.0.13" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.14" />
     <PackageVersion Include="Spectre.Console" Version="0.57.2" />
     <PackageVersion Include="Terminal.Gui" Version="2.5.0" />
     <PackageVersion Include="ModelContextProtocol.Core" Version="2.3.0" />
@@ -26,9 +26,9 @@
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.4" />
     <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageVersion Include="Dock.Avalonia" Version="12.1.0.12" />
-    <PackageVersion Include="Dock.Avalonia.Themes.Fluent" Version="12.1.0.12" />
-    <PackageVersion Include="Dock.Model.Mvvm" Version="12.1.0.12" />
+    <PackageVersion Include="Dock.Avalonia" Version="12.1.0.13" />
+    <PackageVersion Include="Dock.Avalonia.Themes.Fluent" Version="12.1.0.13" />
+    <PackageVersion Include="Dock.Model.Mvvm" Version="12.1.0.13" />
     <!-- Tests -->
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
     <PackageVersion Include="Testcontainers" Version="4.16.0" />
