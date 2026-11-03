@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.41.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.41.0...v0.41.1) (2026-11-03)
+
+
+### Fixes
+
+* **cli:** hide expanders for known leaf nodes ([#229](https://github.com/ZaoralJ/MachineDataBrowser/issues/229)) ([505c2e8](https://github.com/ZaoralJ/MachineDataBrowser/commit/505c2e8a40eae25773ed7b64acc5d4584c1a71b3))
+* **cli:** make TUI monitoring scope explicit ([#228](https://github.com/ZaoralJ/MachineDataBrowser/issues/228)) ([edf211f](https://github.com/ZaoralJ/MachineDataBrowser/commit/edf211ffb0b1486abb35f7333d066454dbf3e143))
+
 ## [0.41.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.40.0...v0.41.0) (2026-10-29)
 
 
