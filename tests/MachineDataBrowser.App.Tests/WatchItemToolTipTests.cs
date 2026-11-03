@@ -46,6 +46,7 @@ public sealed class WatchItemToolTipTests
             item.NodeId, json, DeviceStatusCodes.Good, DateTime.UtcNow, DateTime.UtcNow, Raw: json));
 
         Assert.Equal("Object · 4 properties\nDouble-click to view full value", item.ValueToolTip);
+        Assert.Equal(json, item.FullRawValueText);
         Assert.Contains("\n  \"enterprise\": \"ACME Toys\",", item.FullValueText, StringComparison.Ordinal);
         Assert.Contains("\n  \"areas\": [\n    \"moulding\"\n  ]", item.FullValueText, StringComparison.Ordinal);
     }

@@ -102,6 +102,7 @@ internal sealed class TuiApp : IDisposable
     private readonly Dictionary<TreeEntry, TreeEntry> _loadingPlaceholders = [];
     private readonly HashSet<TreeEntry> _treeMouseSelections = [];
     private readonly Dictionary<Key, Action> _extraKeys = [];
+    private Func<Key, bool>? _modalKeyHandler;
     private TreeEntry? _treeSelectionAnchor;
     private TreeEntry? _treeMouseDragAnchor;
     private bool _treeMouseWasDragged;
@@ -736,40 +737,133 @@ internal sealed class TuiApp : IDisposable
     {
         // Terminal.Gui 2.x has no built-in non-obsolete read-only multiline view; EditorView is a separate package.
 #pragma warning disable CS0618
-        var text = new TextView
+        var original = value;
+        var formatted = false;
+        TextView? activeText = null;
+        Button? formatButton = null;
+        TextView CreateText() => new()
         {
             X = 1,
             Y = 0,
             Width = Dim.Fill(1),
             Height = Dim.Fill(),
-            Text = value,
+            Text = formatted && JsonValueFormatting.TryFormat(original, out var pretty) ? pretty : original,
             ReadOnly = true,
             WordWrap = true,
         };
-        text.ViewportSettings |= ViewportSettingsFlags.HasVerticalScrollBar;
-        text.VerticalScrollBar.VisibilityMode = ScrollBarVisibilityMode.Auto;
-        text.SetScheme(new Scheme(Theme.Base) { Normal = new Attribute(Theme.Foreground, Theme.Surface) });
-        using var dialog = NewDialog(title, Dim.Percent(90), Dim.Percent(80), [text], "_Close");
+
         if (load is not null)
         {
             Run(async () =>
             {
                 var loaded = await load().ConfigureAwait(false);
-                Ui(() => text.Text = loaded);
+                Ui(() =>
+                {
+                    original = loaded;
+                    if (activeText is not null)
+                    {
+                        var canFormat = JsonValueFormatting.TryFormat(original, out var pretty);
+                        formatted &= canFormat;
+                        activeText.Text = formatted ? pretty : original;
+                        if (formatButton is not null)
+                        {
+                            formatButton.Visible = canFormat;
+                            formatButton.Title = formatted ? "_Show original" : "_Format JSON";
+                        }
+                    }
+                });
             }, $"reading {title}");
         }
 
-        text.SetFocus();
-        // Shift+C copies what the popup shows; the dialog's own letter keys ignore Shift.
-        text.KeyDown += (_, key) =>
+        var text = CreateText();
+        activeText = text;
+        text.ViewportSettings |= ViewportSettingsFlags.HasVerticalScrollBar;
+        text.VerticalScrollBar.VisibilityMode = ScrollBarVisibilityMode.Auto;
+        text.SetScheme(new Scheme(Theme.Base) { Normal = new Attribute(Theme.Foreground, Theme.Surface) });
+        formatButton = new Button
         {
+            Title = "_Format JSON",
+            Visible = JsonValueFormatting.TryFormat(original, out _),
+        };
+        void ToggleFormat()
+        {
+            if (formatted)
+            {
+                formatted = false;
+                text.Text = original;
+                formatButton.Title = "_Format JSON";
+            }
+            else if (JsonValueFormatting.TryFormat(original, out var pretty))
+            {
+                formatted = true;
+                text.Text = pretty;
+                formatButton.Title = "_Show original";
+            }
+        }
+
+        formatButton.Accepting += (_, args) =>
+        {
+            args.Handled = true;
+            ToggleFormat();
+        };
+        var copyButton = new Button { Title = "Copy" };
+        copyButton.Accepting += (_, args) =>
+        {
+            args.Handled = true;
+            CopyText(title, text.Text ?? string.Empty);
+        };
+        using var dialog = NewDialog(title, Dim.Percent(90), Dim.Percent(80), [text], [formatButton, copyButton, new Button { Title = "_Close" }]);
+        text.SetFocus();
+        bool HandleValueButtonKey(int index)
+        {
+            if (index == 0 && formatButton.Visible)
+            {
+                ToggleFormat();
+                return true;
+            }
+
+            return false;
+        }
+
+        bool HandleValueKey(Key key)
+        {
+            if (key.IsCtrl || key.IsAlt)
+            {
+                return false;
+            }
+
+            if (key.AsRune.Value is 'f' or 'F' && formatButton.Visible)
+            {
+                ToggleFormat();
+                return true;
+            }
+
             if (key == Key.C.WithShift)
             {
                 CopyText(title, text.Text ?? string.Empty);
-                key.Handled = true;
+                return true;
             }
-        };
-        RunDialog(dialog);
+
+            if (!key.IsShift && key.AsRune.Value is 'c' or 'C')
+            {
+                dialog.Result = 2;
+                dialog.RequestStop();
+                return true;
+            }
+
+            return false;
+        }
+
+        _modalKeyHandler = HandleValueKey;
+        try
+        {
+            // Shift+C copies from the popup; lowercase c remains the Close button's mnemonic.
+            RunDialog(dialog, HandleValueButtonKey);
+        }
+        finally
+        {
+            _modalKeyHandler = null;
+        }
 #pragma warning restore CS0618
     }
 
@@ -1608,7 +1702,18 @@ internal sealed class TuiApp : IDisposable
 
     private void OnAppKeyDown(object? sender, Key key)
     {
-        if (key.Handled || _app.TopRunnableView != _window)
+        if (_app.TopRunnableView != _window)
+        {
+            // Modal text views consume ordinary letters, so give the active value popup's shortcuts first refusal.
+            if (_modalKeyHandler?.Invoke(key) == true)
+            {
+                key.Handled = true;
+            }
+
+            return;
+        }
+
+        if (key.Handled)
         {
             return;
         }
@@ -2321,6 +2426,9 @@ internal sealed class TuiApp : IDisposable
 
     /// <summary>A themed dialog with its buttons (the last is the default); the caller adds the content first.</summary>
     private static Dialog NewDialog(string title, Dim width, Dim? height, View[] content, params string[] buttons)
+        => NewDialog(title, width, height, content, [.. buttons.Select(button => new Button { Title = $" {button} " })]);
+
+    private static Dialog NewDialog(string title, Dim width, Dim? height, View[] content, Button[] buttons)
     {
         var dialog = new Dialog { Title = title, Width = width };
         if (height is not null)
@@ -2331,7 +2439,7 @@ internal sealed class TuiApp : IDisposable
         dialog.Add(content);
         foreach (var button in buttons)
         {
-            dialog.AddButton(new Button { Title = $" {button} " });
+            dialog.AddButton(button);
         }
 
         Theme.Dialog(dialog);
@@ -2343,24 +2451,34 @@ internal sealed class TuiApp : IDisposable
     /// when the focused view passes letters on, and not as the kitty keyboard protocol (Warp) sends them. A text field
     /// with the focus keeps its letters.
     /// </summary>
-    private void RunDialog(Dialog dialog)
+    private void RunDialog(Dialog dialog, Func<int, bool>? handleButtonKey = null)
     {
-        var letters = dialog.Buttons
-            .Select((button, index) => (Index: index, Title: button.Title ?? string.Empty))
-            .Select(b => (b.Index, At: b.Title.IndexOf('_', StringComparison.Ordinal)))
-            .Where(b => b.At >= 0)
-            .ToDictionary(b => char.ToLowerInvariant(dialog.Buttons[b.Index].Title[b.At + 1]), b => b.Index);
-
         void OnKey(object? sender, Key key)
         {
-            if (key.Handled || _app.TopRunnableView != dialog || dialog.MostFocused is TextField || key.IsCtrl || key.IsAlt || key.IsShift)
+            if (key.Handled || _app.TopRunnableView != dialog || dialog.MostFocused is TextField || key.IsCtrl || key.IsAlt)
+            {
+                return;
+            }
+
+            if (key.IsShift)
             {
                 return;
             }
 
             var rune = key.NoShift.AsRune.Value;
+            var letters = dialog.Buttons
+                .Select((button, index) => (Index: index, Title: button.Title ?? string.Empty))
+                .Select(b => (b.Index, At: b.Title.IndexOf('_', StringComparison.Ordinal)))
+                .Where(b => b.At >= 0)
+                .ToDictionary(b => char.ToLowerInvariant(dialog.Buttons[b.Index].Title[b.At + 1]), b => b.Index);
             if (rune > 0 && rune < 0x10000 && letters.TryGetValue(char.ToLowerInvariant((char)rune), out var index))
             {
+                if (handleButtonKey?.Invoke(index) == true)
+                {
+                    key.Handled = true;
+                    return;
+                }
+
                 dialog.Result = index;
                 dialog.RequestStop();
                 key.Handled = true;

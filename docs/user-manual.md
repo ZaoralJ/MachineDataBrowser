@@ -378,8 +378,12 @@ and sort order are saved with the session.
     units (`MILLIMETER` as mm, `CELSIUS` as °C, …) show theirs automatically; type another, or untick to hide it.
   - Display only: filters, snapshots, recordings, exports and *Write value* use the device's value; the tooltip shows
     it. Complex values show a short type and size summary; double-click the value or right-click ▸ **Show full value**
-    to open the complete value in a scrollable, copyable dialog. Long values wrap to the available width, and JSON
-    objects and arrays are pretty-printed. Saved with the session.
+    to open the complete value in a scrollable, copyable dialog. Long values wrap to the available width. The display
+    format is saved with the session. When the value is valid JSON, **Format JSON** indents it for reading;
+    **Show original** restores the received text. This viewer-only toggle does not change the value used by filters,
+    snapshots, recordings, exports or writes.
+
+  ![A JSON value formatted in the full-value window](images/value-window.png)
 - **Monitoring settings** (OPC UA): right-click ▸ **Monitoring settings…** for the selected rows.
   - *Own sampling interval*: how often the server reads the value. The refresh time follows it, so Watch updates at
     the sampling pace; changing the refresh time afterwards publishes at that rate again.

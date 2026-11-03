@@ -9,6 +9,7 @@
     <Border DockPanel.Dock="Bottom" Padding="12,8"
             Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button x:Name="FormatJsonButton" Content="Format JSON" Click="OnFormatJson" MinWidth="104" IsVisible="False" />
         <Button Content="Copy" Click="OnCopy" MinWidth="84" />
         <Button Content="Close" Click="OnClose" MinWidth="84" />
       </StackPanel>

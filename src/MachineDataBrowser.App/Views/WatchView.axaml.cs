@@ -190,7 +190,7 @@ public sealed partial class WatchView : UserControl
         e.Handled = true;
         if (sender is TextBlock { DataContext: WatchItemViewModel item } && TopLevel.GetTopLevel(this) is Window owner)
         {
-            await new ValueWindow($"Value — {item.DisplayName}", item.FullValueText).ShowDialog(owner);
+            await new ValueWindow($"Value — {item.DisplayName}", item.FullRawValueText).ShowDialog(owner);
         }
     }
 
@@ -198,7 +198,7 @@ public sealed partial class WatchView : UserControl
     {
         if (DataContext is MainWindowViewModel { SelectedWatchItem: { } item } && TopLevel.GetTopLevel(this) is Window owner)
         {
-            await new ValueWindow($"Value — {item.DisplayName}", item.FullValueText).ShowDialog(owner);
+            await new ValueWindow($"Value — {item.DisplayName}", item.FullRawValueText).ShowDialog(owner);
         }
     }
 

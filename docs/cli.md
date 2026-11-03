@@ -247,7 +247,8 @@ Attributes, Monitored Items, Trend and Info show vertical scrollbars when their 
 | `m` / `Shift+M` | monitor only the selected variable / monitor it and all variables below it, including nested fields |
 | `u` | stop monitoring selected rows |
 | `v` | the full value of the selected tag, monitored item or attribute in a scrollable popup |
-| `C` (`Shift+c`) | copy that full value to the clipboard, also inside the popup (`⌘C` stays the terminal's own copy) |
+| `f` / `s` (in the popup) | format valid JSON; the button changes to Show original (`s`) to restore the received text |
+| `C` (`Shift+c`) | copy the full value to the clipboard (`⌘C` stays the terminal's own copy) |
 | `Shift+↑` / `Shift+↓`, Shift-click or drag | extend tree/watch selection; `m` / `u` act on it |
 | Ctrl-click | cherry-pick a tree node or monitored row |
 | `Space` / `Ctrl+A` | Monitored Items: toggle row / select all; Address Space: select visible nodes |
@@ -269,6 +270,8 @@ Attributes, Monitored Items, Trend and Info show vertical scrollbars when their 
 - **Colours** are the app's themes ([all of them](themes.md)), the one chosen in the app by default; `--theme Nord`
   and `--light` pick another for this run, `t` and `l` switch while running. Status is green, amber or red; stale
   values are dimmed.
+- In the value popup, **Format JSON** and **Copy** sit on the same bottom row as **Close**. `f` formats JSON, `s`
+  restores the original text, `Shift+C` copies the text currently shown, and `c` or `Esc` closes the popup.
 - **Writes** follow the session: a read-only session never writes. Names keep their underscores (`Bulk_0014`).
 - The display can pause (`p`) while monitoring and any recording go on; `-`/`+` change the rate at the device.
 - Dialogs take their buttons' letters (`c` Close, `g` Go to, `y` / `n`); text prompts use a steady block cursor. In
