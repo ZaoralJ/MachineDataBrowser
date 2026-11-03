@@ -148,7 +148,7 @@ internal sealed class TuiApp : IDisposable
             Y = 0,
             Width = Dim.Fill(),
             Height = Dim.Fill(),
-            TreeBuilder = new DelegateTreeBuilder<TreeEntry>(Children, e => e.Item.HasChildren),
+            TreeBuilder = new DelegateTreeBuilder<TreeEntry>(Children, e => e.HasChildren),
             AspectGetter = Label,
             MultiSelect = true,
             // Letters are the commands (m, w, q, …), not type-to-find.
@@ -466,6 +466,11 @@ internal sealed class TuiApp : IDisposable
 
     private IEnumerable<TreeEntry> Children(TreeEntry entry)
     {
+        if (!entry.HasChildren)
+        {
+            return entry.Children ?? [];
+        }
+
         if (entry.Children is { } children)
         {
             return children;
@@ -535,7 +540,7 @@ internal sealed class TuiApp : IDisposable
 
     private void Reload()
     {
-        if (Selected is not { } entry)
+        if (Selected is not { HasChildren: true } entry)
         {
             return;
         }
