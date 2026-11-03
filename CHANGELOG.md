@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.41.1...v0.42.0) (2026-11-03)
+
+
+### Features
+
+* **app:** format JSON in value viewers ([#232](https://github.com/ZaoralJ/MachineDataBrowser/issues/232)) ([ee999a5](https://github.com/ZaoralJ/MachineDataBrowser/commit/ee999a55d822a9d20d90f11d4b12db700e57fa64))
+
 ## [0.41.1](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.41.0...v0.41.1) (2026-11-03)
 
 
