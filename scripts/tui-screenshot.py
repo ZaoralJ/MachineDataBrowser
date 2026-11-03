@@ -261,7 +261,14 @@ def logix_scenes(mdbrowser: str, images: Path) -> None:
         terminal.keys("v", 3.0)
         terminal.wait_for("500, ")
         render(terminal.screen, images / "tui-value.png")
-        terminal.keys(ESC, 1.0)
+        # Formatting stays in the popup; Shift+C copies, while c closes it.
+        terminal.keys("f", 0.5)
+        terminal.wait_for("Show original")
+        terminal.keys("s", 0.5)
+        terminal.wait_for("Format JSON")
+        terminal.keys("c", 0.5)
+        if "Value — BigDintArray" in terminal.text():
+            sys.exit("c did not close the full-value popup")
 
         # w shows the current value and asks for the new one; Esc cancels, so nothing is written.
         terminal.search("TestDint", "TestDint")

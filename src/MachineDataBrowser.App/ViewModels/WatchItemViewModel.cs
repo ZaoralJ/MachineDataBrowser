@@ -104,6 +104,11 @@ public sealed partial class WatchItemViewModel(NodeId nodeId, string displayName
         }
     }
 
+    /// <summary>The unformatted JSON text to pass to the value viewer when available.</summary>
+    public string FullRawValueText => RawValue is string text && TryParseJsonContainer(text) is not null
+        ? text
+        : ValueFormatter.FormatFull(RawValue);
+
     public string ValueToolTip
     {
         get

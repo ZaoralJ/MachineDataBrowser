@@ -226,6 +226,18 @@ public sealed class DocsScreenshotTests(OpcPlcFixture plc, CustomTypesServerFixt
     // ---- Watch dialogs, snapshots, writing ----
 
     [AvaloniaFact]
+    public void Value_window_formats_json_on_request()
+    {
+        const string json = "{\"enterprise\":\"ACME Toys\",\"site\":\"Billund\",\"areas\":[\"moulding\"]}";
+        var window = new ValueWindow("Value — _meta", json);
+        window.Show();
+        window.FindControl<Button>("FormatJsonButton")!.RaiseEvent(
+            new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Save(window, "value-window.png");
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public async Task Display_format_monitoring_settings_and_write_value()
     {
         var (vm, window) = await OpenAsync(custom.EndpointUrl);
