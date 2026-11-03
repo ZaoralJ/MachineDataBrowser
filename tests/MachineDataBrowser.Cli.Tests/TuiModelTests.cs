@@ -187,21 +187,28 @@ public sealed class TuiModelTests(CustomTypesServerFixture custom, OpcPlcFixture
     }
 
     [Fact]
-    public async Task Mqtt_folder_monitors_the_json_fields_below_it()
+    public async Task Mqtt_monitoring_a_json_topic_includes_its_fields_only_when_recursive()
     {
         await using var model = await OpenAsync(broker.EndpointUrl, refreshMs: 0);
         await using var _ = model.Client;
         Assert.False(model.SupportsEvents);
         var m1 = await FindAsync(model, "m1");
-        Assert.True(await model.MonitorAsync(m1, Ct) >= 5);
-        Assert.Contains(model.Watch, r => r.Node.Name == "status/speed");
-        await Until(() => model.Watch.Any(r => r.Node.Name == "status/speed" && r.Snapshot().Updates > 0));
+        var status = (await model.LoadChildrenAsync(m1, cancellationToken: Ct)).Single(entry => entry.Item.DisplayName == "status");
+        Assert.True(status.IsVariable);
+        Assert.Equal(1, await model.MonitorAsync([status], recursive: false, cancellationToken: Ct));
+        Assert.Single(model.Watch);
+        await model.UnmonitorAsync(model.Watch[0]);
+
+        Assert.True(await model.MonitorAsync([status], recursive: true, cancellationToken: Ct) >= 6);
+        Assert.Contains(model.Watch, r => r.Node.Name == "status");
+        Assert.Contains(model.Watch, r => r.Node.Name == "speed" && r.Node.ParentPath?.EndsWith("/status", StringComparison.Ordinal) == true);
+        await Until(() => model.Watch.Any(r => r.Node.Name == "speed" && r.Snapshot().Updates > 0));
 
         // d in the TUI: discovery off and on again, like Pause discovery in the app; monitored topics keep coming.
         Assert.True(model.SupportsDiscoveryPause);
         await model.ToggleDiscoveryAsync(Ct);
         Assert.True(model.IsDiscoveryPaused);
-        var speed = model.Watch.Single(r => r.Node.Name == "status/speed");
+        var speed = model.Watch.Single(r => r.Node.Name == "speed" && r.Node.ParentPath?.EndsWith("/status", StringComparison.Ordinal) == true);
         var updates = speed.Snapshot().Updates;
         await Until(() => speed.Snapshot().Updates > updates);
         await model.ToggleDiscoveryAsync(Ct);

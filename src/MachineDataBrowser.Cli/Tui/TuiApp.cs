@@ -322,7 +322,7 @@ internal sealed class TuiApp : IDisposable
         _extraKeys.Clear();
         foreach (var (key, action) in new (Key, Action)[]
         {
-            (Key.M, Monitor), (Key.U, Unmonitor),
+            (Key.M, Monitor), (Key.M.WithShift, MonitorRecursive), (Key.U, Unmonitor),
             (Key.S, Search), (Key.F, Filter), (Key.P, TogglePause),
             (Key.V, ShowValue), (Key.C.WithShift, CopyValue),
             (Key.O, NextSort), (Key.R, ToggleRecording), (Key.H, Help), (Key.T, NextTheme), (Key.L, ToggleLight),
@@ -597,7 +597,11 @@ internal sealed class TuiApp : IDisposable
         }
     }
 
-    private void Monitor()
+    private void Monitor() => Monitor(recursive: false);
+
+    private void MonitorRecursive() => Monitor(recursive: true);
+
+    private void Monitor(bool recursive)
     {
         var entries = SelectedEntries;
         if (entries.Count == 0)
@@ -607,9 +611,11 @@ internal sealed class TuiApp : IDisposable
 
         Run(async () =>
         {
-            await _model.MonitorAsync(entries).ConfigureAwait(false);
+            await _model.MonitorAsync(entries, recursive).ConfigureAwait(false);
             Ui(() => RefreshWatch());
-        }, entries.Count == 1 ? $"monitoring {entries[0].Item.DisplayName}" : $"monitoring {entries.Count} selected address-space items");
+        }, entries.Count == 1
+            ? $"monitoring {entries[0].Item.DisplayName}"
+            : $"monitoring {entries.Count} selected address-space items");
     }
 
     private void Unmonitor()
@@ -2221,7 +2227,8 @@ internal sealed class TuiApp : IDisposable
             ["0", "Reset the layout: every pane, default sizes (forgets the sizes saved for this endpoint)"],
             ["Alt+arrows", "Resize: ←/→ the address space, ↑/↓ the focused pane's border (saved per endpoint)"],
             ["Mouse", "Shift-click / drag selects a range, Ctrl-click cherry-picks; drag borders to resize"],
-            ["m", "Monitor selected nodes; folders include their variables"],
+            ["m", "Monitor only the selected variable"],
+            ["Shift+M", "Monitor the selected variable and all variables below it"],
             ["u", "Stop monitoring the selected monitored item(s)"],
             ["v", "Full value of the selected tag, monitored item or attribute (scrollable)"],
             ["C (Shift+c)", "Copy that full value to the clipboard (also in the value popup)"],
