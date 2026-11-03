@@ -51,6 +51,11 @@ public sealed class TuiModelTests(CustomTypesServerFixture custom, OpcPlcFixture
         Assert.Equal("/Objects/Custom/PauseSimulation", pause.Path);
         Assert.Contains(await model.ReadAttributesAsync(pause, Ct), a => a.Name == "NodeClass" && a.Value == "Variable");
 
+        // A node previously thought expandable can turn out to be a leaf; do not keep trying to browse it.
+        var staleLeaf = new TreeEntry(pause.Item with { HasChildren = true }, pause.Parent) { Children = [] };
+        Assert.False(staleLeaf.HasChildren);
+        Assert.Empty(await model.LoadChildrenAsync(staleLeaf, cancellationToken: Ct));
+
         // A folder monitors every variable below it, named by their path below it.
         var fast = await FindAsync(model, "Every10ms");
         Assert.True(await model.MonitorAsync(fast, Ct) >= 4);

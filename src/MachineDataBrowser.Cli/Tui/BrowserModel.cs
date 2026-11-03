@@ -14,6 +14,9 @@ internal sealed class TreeEntry(BrowseItem item, TreeEntry? parent)
 
     public IReadOnlyList<TreeEntry>? Children { get; set; }
 
+    /// <summary>Once browsed, the actual child list is authoritative over provisional browse metadata.</summary>
+    public bool HasChildren => Children is { } children ? children.Count > 0 : Item.HasChildren;
+
     /// <summary>A browse is under way; the tree shows "loading…" meanwhile.</summary>
     public bool Loading { get; set; }
 
@@ -234,6 +237,11 @@ internal sealed class BrowserModel : IAsyncDisposable
 
     public async Task<IReadOnlyList<TreeEntry>> LoadChildrenAsync(TreeEntry entry, bool reload = false, CancellationToken cancellationToken = default)
     {
+        if (!reload && !entry.HasChildren)
+        {
+            return entry.Children ?? [];
+        }
+
         if (entry.Children is { } cached && !reload)
         {
             return cached;
