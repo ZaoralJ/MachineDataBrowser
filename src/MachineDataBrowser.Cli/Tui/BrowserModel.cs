@@ -300,21 +300,37 @@ internal sealed class BrowserModel : IAsyncDisposable
 
     /// <summary>Monitors selected variables and expands selected folders to their variables.</summary>
     public async Task<int> MonitorAsync(IReadOnlyList<TreeEntry> entries, CancellationToken cancellationToken = default)
+        => await MonitorAsync(entries, recursive: true, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>Monitors selected variables, optionally expanding folders and structured variables to descendants.</summary>
+    public async Task<int> MonitorAsync(IReadOnlyList<TreeEntry> entries, bool recursive, CancellationToken cancellationToken = default)
     {
         List<Node> nodes = [];
         var descendIntoVariables = Client is IDynamicAddressSpace;
         foreach (var entry in entries)
         {
-            if (entry.IsVariable && !(descendIntoVariables && entry.Item.HasChildren))
+            if (!recursive)
+            {
+                if (entry.IsVariable)
+                {
+                    nodes.Add(ToNode(entry));
+                }
+            }
+            else if (entry.IsVariable && !(descendIntoVariables && entry.Item.HasChildren))
             {
                 nodes.Add(ToNode(entry));
             }
             else
             {
+                if (entry.IsVariable)
+                {
+                    // Recursive monitoring includes the selected JSON topic as well as its expanded fields.
+                    nodes.Add(ToNode(entry));
+                }
+
                 var found = await Client.CollectVariablesWithPathsAsync(entry.Item.NodeId, 10, MaxFolderItems, descendIntoVariables, cancellationToken).ConfigureAwait(false);
                 if (found.Count == 0 && entry.IsVariable)
                 {
-                    nodes.Add(ToNode(entry));
                     continue;
                 }
 
@@ -334,7 +350,9 @@ internal sealed class BrowserModel : IAsyncDisposable
 
         if (nodes.Count == 0)
         {
-            Log(entries.Count == 1 ? $"No variables below {entries[0].Item.DisplayName}." : $"No variables below the selected items.");
+            Log(!recursive
+                ? "Select a variable to monitor; Shift+M monitors variables below folders."
+                : entries.Count == 1 ? $"No variables below {entries[0].Item.DisplayName}." : "No variables below the selected items.");
             return 0;
         }
 

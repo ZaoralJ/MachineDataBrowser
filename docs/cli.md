@@ -244,7 +244,8 @@ Attributes, Monitored Items, Trend and Info show vertical scrollbars when their 
 | `1` … `5` / `Shift+1` … `5` | show or hide a pane / the pane alone on the full screen (again restores the layout) |
 | `0` | reset the layout: every pane shown, default sizes, the endpoint's saved layout forgotten |
 | `Alt+←` `→` / `Alt+↑` `↓` | resize the address space / move the focused pane's border (like dragging it) |
-| `m` / `u` | monitor selected address-space nodes (folders include variables) / stop monitoring selected rows |
+| `m` / `Shift+M` | monitor only the selected variable / monitor it and all variables below it, including nested fields |
+| `u` | stop monitoring selected rows |
 | `v` | the full value of the selected tag, monitored item or attribute in a scrollable popup |
 | `C` (`Shift+c`) | copy that full value to the clipboard, also inside the popup (`⌘C` stays the terminal's own copy) |
 | `Shift+↑` / `Shift+↓`, Shift-click or drag | extend tree/watch selection; `m` / `u` act on it |

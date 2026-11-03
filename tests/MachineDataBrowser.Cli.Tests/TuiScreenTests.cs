@@ -289,8 +289,8 @@ public sealed class TuiScreenTests(CustomTypesServerFixture custom) : IAsyncLife
         _session.Tui.Reveal(hit.Path);
         await UntilScreen(s => s.Contains("Every10ms", StringComparison.Ordinal) && s.Contains("NodeId", StringComparison.Ordinal));
 
-        // m on a folder monitors the variables below it; values, status and the trend appear.
-        Press(Key.M);
+        // Shift+M on a folder monitors every variable below it; values, status and the trend appear.
+        Press(Key.M.WithShift);
         var screen = await UntilScreen(s => s.Contains("Counter", StringComparison.Ordinal)
             && s.Contains("Good", StringComparison.Ordinal)
             && s.Contains("⁴Trend ┤", StringComparison.Ordinal)
