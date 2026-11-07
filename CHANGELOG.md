@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.42.0...v0.43.0) (2026-11-07)
+
+
+### Features
+
+* **app:** save and restore session collections ([#235](https://github.com/ZaoralJ/MachineDataBrowser/issues/235)) ([5b6a5e3](https://github.com/ZaoralJ/MachineDataBrowser/commit/5b6a5e374b078877b53074850e5ab56556f5ff15))
+
 ## [0.42.0](https://github.com/ZaoralJ/MachineDataBrowser/compare/v0.41.1...v0.42.0) (2026-11-03)
 
 
