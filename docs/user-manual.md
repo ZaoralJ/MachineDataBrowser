@@ -628,14 +628,22 @@ wins.
 
 - **Sessions (`.mdbsession`; `.opcsession` files from before the rename still open):**
   - A session holds the endpoint and its options (read-only, auto-trust, user name; never passwords; Modbus: the
-    register map; S7: the tag list), the default refresh, bookmarks, and the watch list: rows with their path, refresh time, display
-    format and monitoring settings, plus columns, sort order and grouping.
-  - New ⌘N, Open ⌘O, Save ⌘S, Save As ⇧⌘S, File ▸ Open Recent.
+    register map; S7: the tag list), the default refresh, bookmarks, and the watch list: rows with their path,
+    refresh time, display format and monitoring settings, plus columns, sort order and grouping.
+  - New Session ⌘N, Open ⌘O, Save ⌘S, Save As ⇧⌘S, File ▸ Open Recent. A single-session file opens as one
+    connection; `.opcsession` files remain supported and save back to the same file.
   - Settings can reopen the last session at start.
   - When the open session file is changed elsewhere (another window or instance, `mdbrowser tui`, `mdbrowser session`,
     an editor), the app reloads it at once; a running `mdbrowser run` or `mdbrowser tui` on the same
     file follows the app's saves the same way. With unsaved changes or running recordings it asks first in a bar:
     **Reload** opens the file as it is now, **Keep mine** keeps the window (saving then overwrites the file).
+- **Session collections (`.mdbsessions`):** File ▸ **Save All Sessions As…** saves the open connection tabs in their
+  current order to one file. File ▸ **Open** opens a collection, replacing the current tabs after unsaved changes are
+  confirmed; the collection's first tab becomes active. Cancelling a confirmation leaves the current tabs open.
+  The collection becomes the window's saved state: Save updates the collection, Save As writes a new collection, and
+  changes to a tab or to the tab set are marked unsaved. Credentials are never stored. Collection files reference
+  external register maps/tag lists; they do not include those files. In a collection-backed window, Save and Save As
+  apply to the whole collection.
 - **Settings (⌘,):** appearance and colour theme, default refresh time, the item limit for "monitor all variables
   in folder", and whether to reopen the last session at start.
 - **Data folder:** Help ▸ Show Settings Folder (⌥⇧⌘,). On macOS it is

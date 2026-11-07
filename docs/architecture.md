@@ -522,9 +522,11 @@ flowchart TB
 - **Quit:** there is one "unsaved changes" prompt, and nothing stops while it is open. After confirming, a graceful
   shutdown stops recordings, flushes live files and closes the session (5 s timeout). Holding the quit shortcut skips
   the prompt.
-- **Persistence:**
+ - **Persistence:**
   - `.mdbsession` files (`.opcsession` still read): endpoint, options, default refresh, watch list and columns. Never
     passwords.
+  - `.mdbsessions` files: a versioned, ordered collection of those per-connection session documents; the window
+    tracks the collection as the saved state for its connection tabs. Collections never contain passwords.
   - `settings.json`: theme, zoom, defaults, recent lists.
   - `layout.json`: the pane arrangement.
   - All of this lives under the data folder: `~/Library/Application Support/MachineDataBrowser` on macOS, or

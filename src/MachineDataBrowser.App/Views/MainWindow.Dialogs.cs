@@ -11,9 +11,16 @@ namespace MachineDataBrowser.App.Views;
 
 public sealed partial class MainWindow : IDialogService
 {
-    private static readonly FilePickerFileType SessionFileType = new("Machine Data Browser session")
+    private static readonly FilePickerFileType SessionFileType = new("Machine Data Browser session or collection")
     {
-        Patterns = [$"*.{SessionDocument.FileExtension}", $"*.{SessionDocument.LegacyFileExtension}"],
+        Patterns = [$"*.{SessionDocument.FileExtension}", $"*.{SessionDocument.LegacyFileExtension}", $"*.{SessionCollectionDocument.FileExtension}"],
+        AppleUniformTypeIdentifiers = ["public.json"],
+        MimeTypes = ["application/json"],
+    };
+
+    private static readonly FilePickerFileType SessionCollectionFileType = new("Machine Data Browser session collection")
+    {
+        Patterns = [$"*.{SessionCollectionDocument.FileExtension}"],
         AppleUniformTypeIdentifiers = ["public.json"],
         MimeTypes = ["application/json"],
     };
@@ -119,6 +126,19 @@ public sealed partial class MainWindow : IDialogService
             SuggestedFileName = suggestedName,
             DefaultExtension = SessionDocument.FileExtension,
             FileTypeChoices = [SessionFileType],
+            ShowOverwritePrompt = true,
+        });
+        return file?.TryGetLocalPath();
+    }
+
+    public async Task<string?> PickSessionCollectionSaveTargetAsync(string suggestedName)
+    {
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save Session Collection",
+            SuggestedFileName = suggestedName,
+            DefaultExtension = SessionCollectionDocument.FileExtension,
+            FileTypeChoices = [SessionCollectionFileType],
             ShowOverwritePrompt = true,
         });
         return file?.TryGetLocalPath();

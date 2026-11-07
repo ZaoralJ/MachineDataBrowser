@@ -18,8 +18,17 @@ public sealed partial class MainWindowViewModel
     private readonly SettingsStore? _settingsStore;
     private bool _suppressDirty;
     private IReadOnlyList<RecentSessionEntry>? _recentSessionEntries;
+    private string? _sessionCollectionName;
 
     public IDialogService? Dialogs { get; set; }
+
+    public Func<Task>? SaveSessionCollection { get; set; }
+
+    public Func<Task>? SaveSessionCollectionAs { get; set; }
+
+    public Func<Task>? OpenSessionFromWindow { get; set; }
+
+    public event EventHandler? SessionContentChanged;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RecentSessions), nameof(RecentEndpoints), nameof(HasRecentSessions), nameof(HasRecentEndpoints), nameof(HasRecentHistory), nameof(HasRecentSessionsAndEndpoints), nameof(Theme), nameof(ColorTheme), nameof(UiScale))]
@@ -33,7 +42,8 @@ public sealed partial class MainWindowViewModel
     [NotifyPropertyChangedFor(nameof(WindowTitle))]
     public partial bool IsDirty { get; private set; }
 
-    public string DocumentName => CurrentSessionPath is null ? "Untitled" : Path.GetFileNameWithoutExtension(CurrentSessionPath);
+    public string DocumentName => _sessionCollectionName
+        ?? (CurrentSessionPath is null ? "Untitled" : Path.GetFileNameWithoutExtension(CurrentSessionPath));
 
     public string WindowTitle => $"{DocumentName}{(IsDirty ? " •" : string.Empty)} — {AppTitle}";
 
@@ -145,12 +155,19 @@ public sealed partial class MainWindowViewModel
         _suppressDirty = false;
         CurrentSessionPath = null;
         IsDirty = false;
+        SessionContentChanged?.Invoke(this, EventArgs.Empty);
         StatusMessage = "New session";
     }
 
     [RelayCommand]
     private async Task OpenSessionAsync()
     {
+        if (OpenSessionFromWindow is { } openSession)
+        {
+            await openSession();
+            return;
+        }
+
         if (Dialogs is null || !await ConfirmDiscardAsync())
         {
             return;
@@ -199,6 +216,11 @@ public sealed partial class MainWindowViewModel
             return;
         }
 
+        await LoadSessionDocumentAsync(document, path);
+    }
+
+    internal async Task<bool> LoadSessionDocumentAsync(SessionDocument document, string path, bool isCollectionEntry = false)
+    {
         var sameConnection = string.Equals(EndpointUrl.Trim(), document.EndpointUrl.Trim(), StringComparison.Ordinal)
             && string.Equals(UserName, document.UserName, StringComparison.Ordinal);
         string? sessionPassword = sameConnection && !string.IsNullOrEmpty(Password) ? Password : null;
@@ -222,7 +244,7 @@ public sealed partial class MainWindowViewModel
             var answer = await Dialogs.AskSessionPasswordAsync(document.UserName ?? "default", document.EndpointUrl);
             if (answer is null)
             {
-                return;
+                return false;
             }
 
             sessionPassword = answer.Password;
@@ -253,21 +275,24 @@ public sealed partial class MainWindowViewModel
         Password = sessionPassword ?? string.Empty;
         _suppressDirty = false;
 
-        CurrentSessionPath = path;
-        UpdateSettings(Settings.WithRecentSession(path));
+        CurrentSessionPath = isCollectionEntry ? null : path;
+        if (!isCollectionEntry)
+        {
+            UpdateSettings(Settings.WithRecentSession(path));
+        }
 
         if (document.Watch.Count == 0)
         {
             IsDirty = false;
             StatusMessage = $"Opened {DocumentName}";
-            return;
+            return true;
         }
 
         await ConnectAsync();
         if (!IsConnected)
         {
             IsDirty = false;
-            return;
+            return true;
         }
 
         var resolved = new List<(NodeId, string, string, int)>();
@@ -318,11 +343,18 @@ public sealed partial class MainWindowViewModel
         }
 
         StatusMessage = $"Opened {DocumentName} — {WatchItems.Count} item(s) monitored";
+        return true;
     }
 
     [RelayCommand]
     private async Task SaveSessionAsync()
     {
+        if (SaveSessionCollection is { } saveCollection)
+        {
+            await saveCollection();
+            return;
+        }
+
         if (CurrentSessionPath is null)
         {
             await SaveSessionAsAsync();
@@ -335,6 +367,12 @@ public sealed partial class MainWindowViewModel
     [RelayCommand]
     private async Task SaveSessionAsAsync()
     {
+        if (SaveSessionCollectionAs is { } saveCollectionAs)
+        {
+            await saveCollectionAs();
+            return;
+        }
+
         if (Dialogs is not null && await Dialogs.PickSessionSaveTargetAsync(DocumentName) is { } path)
         {
             await WriteSessionAsync(path);
@@ -343,24 +381,7 @@ public sealed partial class MainWindowViewModel
 
     public async Task WriteSessionAsync(string path)
     {
-        var document = new SessionDocument
-        {
-            EndpointUrl = EndpointUrlTools.WithoutPassword(EndpointUrl),
-            UseSecurity = UseSecurity,
-            Bookmarks = [.. Bookmarks],
-            ReadOnly = IsReadOnly,
-            AutoAcceptCertificates = AutoAcceptCertificates,
-            UserName = string.IsNullOrWhiteSpace(UserName) ? EndpointUrlTools.UserName(EndpointUrl) : UserName,
-            CredentialsRequired = !string.IsNullOrEmpty(Password) || EndpointUrlTools.HasPassword(EndpointUrl),
-            DefaultRefreshMs = DefaultRefreshMs,
-            AutoPauseDiscoverySeconds = AutoPauseDiscoverySeconds > 0 ? AutoPauseDiscoverySeconds : null,
-            TagMap = HasTagMap ? MachineDataBrowser.Core.TagMapReference.ToStored(TagMapPath.Trim(), path) : null,
-            WatchColumns = WatchColumns.Capture(),
-            WatchSortColumn = WatchColumns.SortColumn,
-            WatchSortDescending = WatchColumns.SortDescending,
-            GroupWatchByPath = GroupWatchByPath,
-            Watch = [.. WatchItems.Select(w => new WatchEntry(w.PortableId, w.DisplayName, w.RefreshMs == DefaultRefreshMs ? null : w.RefreshMs, w.Monitoring.IsDefault ? null : w.Monitoring, w.Display.IsDefault ? null : w.Display, w.Path.Length == 0 ? null : w.Path))],
-        };
+        var document = CaptureSessionDocument(path);
 
         try
         {
@@ -377,6 +398,37 @@ public sealed partial class MainWindowViewModel
             ErrorMessage = $"Could not save session: {ex.Message}";
         }
     }
+
+    public SessionDocument CaptureSessionDocument(string path) => new()
+    {
+        EndpointUrl = EndpointUrlTools.WithoutPassword(EndpointUrl),
+        UseSecurity = UseSecurity,
+        Bookmarks = [.. Bookmarks],
+        ReadOnly = IsReadOnly,
+        AutoAcceptCertificates = AutoAcceptCertificates,
+        UserName = string.IsNullOrWhiteSpace(UserName) ? EndpointUrlTools.UserName(EndpointUrl) : UserName,
+        CredentialsRequired = !string.IsNullOrEmpty(Password) || EndpointUrlTools.HasPassword(EndpointUrl),
+        DefaultRefreshMs = DefaultRefreshMs,
+        AutoPauseDiscoverySeconds = AutoPauseDiscoverySeconds > 0 ? AutoPauseDiscoverySeconds : null,
+        TagMap = HasTagMap ? MachineDataBrowser.Core.TagMapReference.ToStored(TagMapPath.Trim(), path) : null,
+        WatchColumns = WatchColumns.Capture(),
+        WatchSortColumn = WatchColumns.SortColumn,
+        WatchSortDescending = WatchColumns.SortDescending,
+        GroupWatchByPath = GroupWatchByPath,
+        Watch = [.. WatchItems.Select(w => new WatchEntry(w.PortableId, w.DisplayName, w.RefreshMs == DefaultRefreshMs ? null : w.RefreshMs, w.Monitoring.IsDefault ? null : w.Monitoring, w.Display.IsDefault ? null : w.Display, w.Path.Length == 0 ? null : w.Path))],
+    };
+
+    internal void SetSessionCollectionSavedState(string? path)
+    {
+        _sessionCollectionName = path is null ? null : Path.GetFileNameWithoutExtension(path);
+        CurrentSessionPath = null;
+        IsSessionChangedOnDisk = false;
+        IsDirty = false;
+        OnPropertyChanged(nameof(DocumentName));
+        OnPropertyChanged(nameof(WindowTitle));
+    }
+
+    internal void SetSessionCollectionDirty(bool isDirty) => IsDirty = isDirty;
 
     private bool HasWatchItemsToExport() => WatchItems.Count > 0;
 
@@ -571,11 +623,15 @@ public sealed partial class MainWindowViewModel
         ErrorMessage = null;
     }
 
-    private void MarkDirty()
+    private void MarkDirty(bool sessionContentChanged = true)
     {
         if (!_suppressDirty)
         {
             IsDirty = true;
+            if (sessionContentChanged)
+            {
+                SessionContentChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
     }
 

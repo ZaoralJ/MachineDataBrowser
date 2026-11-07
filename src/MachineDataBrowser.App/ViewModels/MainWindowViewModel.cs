@@ -914,7 +914,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IAsyncDispos
 
     public WatchColumnsViewModel WatchColumns { get; } = new();
 
-    public void MarkLayoutChanged() => MarkDirty();
+    public void MarkLayoutChanged() => MarkDirty(sessionContentChanged: false);
 
     [RelayCommand]
     private void ResetWatchColumns()
