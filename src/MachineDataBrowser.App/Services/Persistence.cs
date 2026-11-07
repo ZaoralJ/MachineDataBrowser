@@ -4,6 +4,63 @@ using MachineDataBrowser.Core;
 
 namespace MachineDataBrowser.App.Services;
 
+public sealed record SessionCollectionDocument
+{
+    public const string FileExtension = "mdbsessions";
+
+    public const int CurrentVersion = 1;
+
+    public int Version { get; init; } = CurrentVersion;
+
+    public IReadOnlyList<SessionDocument> Sessions { get; init; } = [];
+
+    public static bool IsSessionCollectionFile(string path) =>
+        path.EndsWith($".{FileExtension}", StringComparison.OrdinalIgnoreCase);
+
+    public static async Task<SessionCollectionDocument> LoadAsync(string path, CancellationToken cancellationToken = default)
+    {
+        await using var stream = File.OpenRead(path);
+        var document = await JsonSerializer.DeserializeAsync(stream, AppJsonContext.Default.SessionCollectionDocument, cancellationToken)
+            ?? throw new InvalidDataException($"'{Path.GetFileName(path)}' is not a valid session collection.");
+
+        document.Validate(path);
+
+        return document with
+        {
+            Sessions = document.Sessions.Select(session => session with
+            {
+                Watch = session.Watch ?? [],
+                Bookmarks = session.Bookmarks ?? [],
+            }).ToArray(),
+        };
+    }
+
+    public async Task SaveAsync(string path, CancellationToken cancellationToken = default)
+    {
+        Validate(path);
+        var temp = path + ".tmp";
+        await using (var stream = File.Create(temp))
+        {
+            await JsonSerializer.SerializeAsync(stream, this, AppJsonContext.Default.SessionCollectionDocument, cancellationToken);
+        }
+
+        File.Move(temp, path, overwrite: true);
+    }
+
+    private void Validate(string path)
+    {
+        if (Version != CurrentVersion)
+        {
+            throw new InvalidDataException($"'{Path.GetFileName(path)}' uses unsupported session collection version {Version}.");
+        }
+
+        if (Sessions is not { Count: > 0 } || Sessions.Any(session => session is null || string.IsNullOrWhiteSpace(session.EndpointUrl)))
+        {
+            throw new InvalidDataException($"'{Path.GetFileName(path)}' does not contain valid sessions.");
+        }
+    }
+}
+
 public sealed record SessionDocument
 {
     public const string FileExtension = "mdbsession";
@@ -181,6 +238,7 @@ public sealed class SettingsStore(string? path = null)
 
 [JsonSourceGenerationOptions(WriteIndented = true, UseStringEnumConverter = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(SessionDocument))]
+[JsonSerializable(typeof(SessionCollectionDocument))]
 [JsonSerializable(typeof(AppSettings))]
 [JsonSerializable(typeof(LayoutNode))]
 [JsonSerializable(typeof(WatchSnapshot))]

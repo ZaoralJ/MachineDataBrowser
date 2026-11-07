@@ -9,6 +9,8 @@ public interface IDialogService
 
     Task<string?> PickSessionSaveTargetAsync(string suggestedName);
 
+    Task<string?> PickSessionCollectionSaveTargetAsync(string suggestedName);
+
     Task<string?> PickCsvSaveTargetAsync(string suggestedName);
 
     Task<UnsavedChangesChoice> AskUnsavedChangesAsync(string documentName);

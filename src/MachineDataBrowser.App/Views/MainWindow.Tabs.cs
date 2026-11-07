@@ -20,7 +20,11 @@ public sealed partial class MainWindow
     /// <summary>Creates the view model of a new tab; the app sets one that uses its settings and layout stores.</summary>
     public Func<MainWindowViewModel> CreateConnection { get; set; } = () => new MainWindowViewModel();
 
-    private void InitializeTabs() => TabStrip.DataContext = Tabs;
+    private void InitializeTabs()
+    {
+        TabStrip.DataContext = Tabs;
+        Tabs.Tabs.CollectionChanged += OnConnectionTabsChanged;
+    }
 
     /// <summary>Shows <paramref name="connection"/>: header, menu and its dock.</summary>
     private void ShowConnection(MainWindowViewModel connection)

@@ -11,7 +11,9 @@ public class TestDialogs : IDialogService
 
     public void ShowRecordingViewer(RecordingViewerViewModel viewer) => Viewer = viewer;
 
-    public Task<string?> PickSessionToOpenAsync() => Task.FromResult<string?>(null);
+    public string? SessionOpenTarget { get; set; }
+
+    public Task<string?> PickSessionToOpenAsync() => Task.FromResult(SessionOpenTarget);
 
     public CredentialPromptResult? SessionPasswordAnswer { get; set; }
 
@@ -28,9 +30,15 @@ public class TestDialogs : IDialogService
 
     public Task<string?> PickSessionSaveTargetAsync(string suggestedName) => Task.FromResult<string?>(null);
 
+    public string? SessionCollectionSaveTarget { get; set; }
+
+    public Task<string?> PickSessionCollectionSaveTargetAsync(string suggestedName) => Task.FromResult(SessionCollectionSaveTarget);
+
     public Task<string?> PickCsvSaveTargetAsync(string suggestedName) => Task.FromResult<string?>(null);
 
-    public Task<UnsavedChangesChoice> AskUnsavedChangesAsync(string documentName) => Task.FromResult(UnsavedChangesChoice.Discard);
+    public UnsavedChangesChoice UnsavedChangesAnswer { get; set; } = UnsavedChangesChoice.Discard;
+
+    public Task<UnsavedChangesChoice> AskUnsavedChangesAsync(string documentName) => Task.FromResult(UnsavedChangesAnswer);
 
     public Task<AppSettings?> EditSettingsAsync(AppSettings current) => Task.FromResult<AppSettings?>(null);
 

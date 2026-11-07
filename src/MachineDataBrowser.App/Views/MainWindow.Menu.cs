@@ -109,6 +109,7 @@ public sealed partial class MainWindow
                 new NativeMenuItemSeparator(),
                 Item("_Save Session", vm.SaveSessionCommand, new KeyGesture(Key.S, cmd)),
                 Item("Save Session _As…", vm.SaveSessionAsCommand, new KeyGesture(Key.S, cmd | KeyModifiers.Shift)),
+                Item("Save All Sessions _As…", new RelayCommandAdapter(() => _ = SaveSessionCollectionAsAsync()), new KeyGesture(Key.S, cmd | KeyModifiers.Alt)),
                 new NativeMenuItemSeparator(),
                 Item("_Export Watch List as CSV…", vm.ExportWatchCsvCommand, new KeyGesture(Key.E, cmd)),
                 new NativeMenuItemSeparator(),
