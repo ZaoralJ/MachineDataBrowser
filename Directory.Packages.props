@@ -4,8 +4,8 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- OPC UA -->
-    <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.Client" Version="2.0.1" />
-    <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.Client.ComplexTypes" Version="2.0.1" />
+    <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.Client" Version="2.0.2" />
+    <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.Client.ComplexTypes" Version="2.0.2" />
     <!-- EtherNet/IP (CIP) -->
     <PackageVersion Include="libplctag" Version="1.5.2" />
     <!-- Siemens S7 -->
