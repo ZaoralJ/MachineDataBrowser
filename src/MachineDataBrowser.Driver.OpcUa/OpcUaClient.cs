@@ -1,10 +1,13 @@
 using Opc.Ua;
 using Opc.Ua.Client;
 using Opc.Ua.Client.ComplexTypes;
+using Opc.Ua.Client.Subscriptions;
+using Opc.Ua.Client.Subscriptions.MonitoredItems;
 using Opc.Ua.Configuration;
 using Opc.Ua.Security.Certificates;
 using MachineDataBrowser.Core;
 using ConnectionState = MachineDataBrowser.Core.ConnectionState;
+using UaItemOptions = Opc.Ua.Client.Subscriptions.MonitoredItems.MonitoredItemOptions;
 
 namespace MachineDataBrowser.Driver.OpcUa;
 
@@ -36,10 +39,11 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
     ];
 
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private ISession? _session;
+    private ManagedSession? _session;
     private ApplicationInstance? _applicationInstance;
-    private readonly Dictionary<int, Subscription> _subscriptions = [];
-    private SessionReconnectHandler? _reconnectHandler;
+    private readonly Dictionary<int, UaSubscription> _subscriptions = [];
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<UaSubscription, byte> _allSubscriptions = new();
+    private long _nextItem;
     private ConnectionState _state = ConnectionState.Disconnected;
 
     public event EventHandler<ConnectionState>? StateChanged;
@@ -196,19 +200,35 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
                     ? new UserIdentity(new AnonymousIdentityToken())
                     : new UserIdentity(options.UserName, System.Text.Encoding.UTF8.GetBytes(options.Password ?? string.Empty));
 
-                var session = await new DefaultSessionFactory(Telemetry).CreateAsync(
+                // The managed session reconnects on its own and keeps the subscriptions across it, also when it has
+                // to create a new session after a server restart. The first connect gets a single retry, so a wrong
+                // password or an untrusted certificate is reported at once; after that it retries without giving up:
+                // a machine that is switched off for a while must come back on its own, like the Logix and MQTT clients.
+                var reconnectPolicy = new ReconnectPolicy
+                {
+                    Strategy = BackoffStrategy.Constant,
+                    InitialDelay = ReconnectRetryDelay,
+                    MaxDelay = ReconnectRetryDelay,
+                    JitterFactor = 0,
+                    MaxRetries = 1,
+                    MaxTotalReconnectTime = TimeSpan.Zero,
+                };
+                var session = await ManagedSession.CreateAsync(
                     config,
                     endpoint,
-                    updateBeforeConnect: false,
-                    ClientConfiguration.ApplicationName,
-                    options.SessionTimeoutMs,
+                    new DefaultSessionFactory(Telemetry),
                     identity,
-                    [],
-                    cancellationToken).ConfigureAwait(false);
+                    reconnectPolicy,
+                    telemetry: Telemetry,
+                    sessionName: ClientConfiguration.ApplicationName,
+                    sessionTimeout: options.SessionTimeoutMs,
+                    transferSubscriptionsOnRecreate: true,
+                    updateBeforeConnect: false,
+                    ct: cancellationToken).ConfigureAwait(false);
 
+                reconnectPolicy.MaxRetries = 0;
                 session.DeleteSubscriptionsOnClose = true;
-                session.TransferSubscriptionsOnReconnect = true;
-                session.KeepAlive += OnKeepAlive;
+                session.ConnectionStateChanged += OnConnectionStateChanged;
 
                 // Custom structure types load when a value first needs them (OpcUaClient.Structures.cs), not here.
                 _session = session;
@@ -462,41 +482,50 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
 
         var subscription = await GetOrCreateSubscriptionAsync(samplingIntervalMs, cancellationToken).ConfigureAwait(false);
 
-        var items = nodeIds.Select(nodeId =>
+        var added = new List<(NodeId NodeId, string Name, OptionsMonitor<UaItemOptions> Options, IMonitoredItem? Item)>(nodeIds.Count);
+        foreach (var nodeId in nodeIds)
         {
-            var item = new MonitoredItem(Telemetry)
+            var name = "Value" + Interlocked.Increment(ref _nextItem).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var options = new OptionsMonitor<UaItemOptions>(new UaItemOptions
             {
                 StartNodeId = nodeId,
                 AttributeId = Attributes.Value,
-                SamplingInterval = (int)samplingIntervalMs,
+                SamplingInterval = TimeSpan.FromMilliseconds((int)samplingIntervalMs),
                 QueueSize = 1,
                 DiscardOldest = true,
                 MonitoringMode = MonitoringMode.Reporting,
-            };
+                TimestampsToReturn = TimestampsToReturn.Both,
+            });
+            subscription.SetValueHandler(name, OnValue(nodeId));
+            if (!subscription.Subscription.MonitoredItems.TryAdd(name, options, out var item))
+            {
+                subscription.RemoveValueHandler(name);
+                item = null;
+            }
+
+            added.Add((nodeId, name, options, item));
+        }
+
+        Action<DataValue> OnValue(NodeId nodeId)
+        {
             // Values waiting for their structure type to load; later values queue behind them to keep the order.
             var pending = Task.CompletedTask;
             var pendingLock = new object();
-            item.Notification += (monitoredItem, e) =>
+            return dv =>
             {
                 // Runs on an SDK thread: an exception here would take down the process.
-                if (e.NotificationValue is not MonitoredItemNotification { Value: { } dv })
-                {
-                    return;
-                }
-
                 lock (pendingLock)
                 {
                     if (!pending.IsCompleted || StructureTypes.HasUndecoded(dv.WrappedValue.AsBoxedObject()))
                     {
-                        pending = DeliverAfterAsync(pending, monitoredItem.StartNodeId, dv);
+                        pending = DeliverAfterAsync(pending, nodeId, dv);
                         return;
                     }
                 }
 
-                Deliver(monitoredItem.StartNodeId, dv);
+                Deliver(nodeId, dv);
             };
-            return item;
-        }).ToList();
+        }
 
         async Task DeliverAfterAsync(Task previous, NodeId nodeId, DataValue dv)
         {
@@ -542,28 +571,27 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
             }
         }
 
-        subscription.AddItems(items);
-        await subscription.ApplyChangesAsync(cancellationToken).ConfigureAwait(false);
+        await UaSubscription.WaitUntilAppliedAsync(added.Select(a => a.Item).OfType<IMonitoredItem>(), stopOnError: true, cancellationToken).ConfigureAwait(false);
 
-        var results = new List<MonitorResult>(items.Count);
-        var rejected = new List<MonitoredItem>();
-        foreach (var item in items)
+        var results = new List<MonitorResult>(added.Count);
+        foreach (var (nodeId, name, options, item) in added)
         {
-            if (ServiceResult.IsBad(item.Status.Error))
+            if (item is null)
             {
-                rejected.Add(item);
-                results.Add(new MonitorResult(UaNodeIdAdapter.ToDevice(item.StartNodeId), null, UaStatusAdapter.ToDevice(item.Status.Error ?? new ServiceResult(StatusCodes.Bad))));
+                results.Add(new MonitorResult(UaNodeIdAdapter.ToDevice(nodeId), null, UaStatusAdapter.ToDevice(new ServiceResult(StatusCodes.BadTooManyMonitoredItems))));
+            }
+            else if (!item.Created && ServiceResult.IsBad(item.Error))
+            {
+                // Removing the item may clear its status: keep the server's answer first.
+                var error = item.Error;
+                subscription.Subscription.MonitoredItems.TryRemove(item.ClientHandle);
+                subscription.RemoveValueHandler(name);
+                results.Add(new MonitorResult(UaNodeIdAdapter.ToDevice(nodeId), null, UaStatusAdapter.ToDevice(error)));
             }
             else
             {
-                results.Add(new MonitorResult(UaNodeIdAdapter.ToDevice(item.StartNodeId), new MonitorHandle(subscription, item), DeviceError.Good));
+                results.Add(new MonitorResult(UaNodeIdAdapter.ToDevice(nodeId), new MonitorHandle(subscription, item, options), DeviceError.Good));
             }
-        }
-
-        if (rejected.Count > 0)
-        {
-            subscription.RemoveItems(rejected);
-            await subscription.ApplyChangesAsync(cancellationToken).ConfigureAwait(false);
         }
 
         return results;
@@ -654,36 +682,56 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
     private const string SubscriptionPrefix = "Watch@";
 
     /// <summary>Items with the same refresh time share one subscription whose publishing interval equals it.</summary>
-    private async Task<Subscription> GetOrCreateSubscriptionAsync(double refreshMs, CancellationToken cancellationToken)
+    private async Task<UaSubscription> GetOrCreateSubscriptionAsync(double refreshMs, CancellationToken cancellationToken)
     {
         var interval = Math.Max(0, (int)refreshMs);
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var session = RequireSession();
-            if (_subscriptions.TryGetValue(interval, out var existing) && existing.Created)
+            if (_subscriptions.TryGetValue(interval, out var existing))
             {
                 return existing;
             }
 
-            var subscription = new Subscription(session.DefaultSubscription)
-            {
-                DisplayName = SubscriptionPrefix + interval.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                PublishingInterval = interval,
-                KeepAliveCount = interval >= 5000 ? 3u : 10u,
-                LifetimeCount = interval >= 5000 ? 30u : 100u,
-                PublishingEnabled = true,
-                TimestampsToReturn = TimestampsToReturn.Both,
-            };
-
-            session.AddSubscription(subscription);
-            await subscription.CreateAsync(cancellationToken).ConfigureAwait(false);
+            var subscription = AddSubscription(
+                session,
+                SubscriptionPrefix + interval.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                interval,
+                keepAliveCount: interval >= 5000 ? 3u : 10u,
+                lifetimeCount: interval >= 5000 ? 30u : 100u);
             _subscriptions[interval] = subscription;
             return subscription;
         }
         finally
         {
             _gate.Release();
+        }
+    }
+
+    private UaSubscription AddSubscription(ManagedSession session, string name, double publishingIntervalMs, uint keepAliveCount, uint lifetimeCount, Action<ArrayOf<Variant>>? onEvent = null)
+    {
+        if (!session.TryGetSubscriptionManager(out var manager) || manager is null)
+        {
+            throw new InvalidOperationException("The session has no subscription manager.");
+        }
+
+        var subscription = UaSubscription.Add(manager, name, publishingIntervalMs, keepAliveCount, lifetimeCount, onEvent);
+        _allSubscriptions[subscription] = 0;
+        return subscription;
+    }
+
+    private async Task RemoveSubscriptionAsync(UaSubscription subscription)
+    {
+        _allSubscriptions.TryRemove(subscription, out _);
+        try
+        {
+            await subscription.Subscription.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex) when (Errors.IsRecoverable(ex))
+        {
+            // The server may be gone; it drops the subscription when its lifetime ends.
+            System.Diagnostics.Trace.TraceWarning($"Removing a subscription failed: {ex.Message}");
         }
     }
 
@@ -699,145 +747,66 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
     {
         ArgumentNullException.ThrowIfNull(monitors);
         var owned = monitors.OfType<MonitorHandle>().ToList();
-        var nodeIds = owned.Select(h => h.Item.StartNodeId).ToList();
+        var nodeIds = owned.Select(h => h.NodeId).ToList();
         var results = await MonitorManyAsync(nodeIds, onUpdate, refreshMs, cancellationToken).ConfigureAwait(false);
         await StopMonitorsAsync(owned.Cast<IAsyncDisposable>(), cancellationToken).ConfigureAwait(false);
-        await DeleteEmptySubscriptionsAsync(cancellationToken).ConfigureAwait(false);
+        await DeleteEmptySubscriptionsAsync().ConfigureAwait(false);
         return results;
     }
 
-    private async Task DeleteEmptySubscriptionsAsync(CancellationToken cancellationToken)
+    private async Task DeleteEmptySubscriptionsAsync()
     {
-        if (_session is not { Connected: true } session)
+        if (_session is not { Connected: true })
         {
             return;
         }
 
-        foreach (var (interval, subscription) in _subscriptions.Where(p => p.Value.MonitoredItemCount == 0).ToList())
+        foreach (var (interval, subscription) in _subscriptions.Where(p => p.Value.Subscription.MonitoredItems.Count == 0).ToList())
         {
             _subscriptions.Remove(interval);
-            await session.RemoveSubscriptionAsync(subscription, cancellationToken).ConfigureAwait(false);
+            await RemoveSubscriptionAsync(subscription).ConfigureAwait(false);
         }
     }
 
-    private ISession RequireSession() =>
+    private ManagedSession RequireSession() =>
         _session is { Connected: true } s ? s : throw new InvalidOperationException("Not connected.");
-
-    private void OnKeepAlive(ISession session, KeepAliveEventArgs e)
-    {
-        if (!ReferenceEquals(session, _session) || !ServiceResult.IsBad(e.Status) || _reconnectHandler is not null || State == ConnectionState.Reconnecting)
-        {
-            return;
-        }
-
-        // SDK thread: a failure to start reconnecting must not crash the app; the next attempt follows.
-        State = ConnectionState.Reconnecting;
-        BeginReconnect(session);
-    }
 
     private static readonly TimeSpan ReconnectRetryDelay = TimeSpan.FromSeconds(2);
 
     /// <summary>
-    /// Reconnects until it works or the client is closed: a machine that is switched off for a while must come back
-    /// on its own, like the Logix and MQTT clients do.
+    /// Between failed reconnect cycles the managed session reports Disconnected and starts the next one later: for
+    /// the app the connection is still being restored until it is closed.
     /// </summary>
-    private void BeginReconnect(ISession session)
+    private void OnConnectionStateChanged(object? sender, Opc.Ua.Client.ConnectionStateChangedEventArgs e)
     {
-        try
-        {
-            _reconnectHandler = new SessionReconnectHandler(Telemetry, true, 30_000);
-            _reconnectHandler.BeginReconnect(session, 1_000, OnReconnectComplete);
-        }
-        catch (Exception ex) when (Errors.IsRecoverable(ex))
-        {
-            System.Diagnostics.Trace.TraceWarning($"Reconnect could not start: {ex.Message}");
-            _reconnectHandler?.Dispose();
-            _reconnectHandler = null;
-            RetryReconnectLater(session);
-        }
-    }
-
-    private void RetryReconnectLater(ISession session) =>
-        _ = Task.Delay(ReconnectRetryDelay).ContinueWith(
-            _ =>
-            {
-                // Closed or reconnected meanwhile: nothing to do.
-                if (_reconnectHandler is null && _session is not null && State == ConnectionState.Reconnecting)
-                {
-                    BeginReconnect(_session ?? session);
-                }
-            },
-            TaskScheduler.Default);
-
-    private void OnReconnectComplete(object? sender, EventArgs e)
-    {
-        try
-        {
-            CompleteReconnect();
-        }
-        catch (Exception ex) when (Errors.IsRecoverable(ex))
-        {
-            System.Diagnostics.Trace.TraceWarning($"Reconnect failed: {ex.Message}");
-            _reconnectHandler?.Dispose();
-            _reconnectHandler = null;
-            if (_session is { } session)
-            {
-                RetryReconnectLater(session);
-            }
-        }
-    }
-
-    private void CompleteReconnect()
-    {
-        var handler = _reconnectHandler;
-        if (handler is null)
+        if (!ReferenceEquals(sender, _session))
         {
             return;
         }
 
-        if (handler.Session is { } newSession && !ReferenceEquals(newSession, _session))
+        switch (e.NewState)
         {
-            if (_session is not null)
-            {
-                _session.KeepAlive -= OnKeepAlive;
-            }
-
-            _session = newSession;
-            _session.KeepAlive += OnKeepAlive;
-            _subscriptions.Clear();
-            foreach (var sub in _session.Subscriptions.Where(s => s.DisplayName?.StartsWith(SubscriptionPrefix, StringComparison.Ordinal) == true))
-            {
-                _subscriptions[(int)sub.PublishingInterval] = sub;
-            }
+            case Opc.Ua.Client.ConnectionState.Connected when State == ConnectionState.Reconnecting:
+                _reconnects++;
+                _lastReconnect = DateTime.UtcNow;
+                State = ConnectionState.Connected;
+                break;
+            case Opc.Ua.Client.ConnectionState.Reconnecting or Opc.Ua.Client.ConnectionState.Failover or Opc.Ua.Client.ConnectionState.Disconnected
+                when State == ConnectionState.Connected:
+                State = ConnectionState.Reconnecting;
+                break;
         }
-
-        handler.Dispose();
-        _reconnectHandler = null;
-        if (_session is not { Connected: true })
-        {
-            if (_session is { } session)
-            {
-                RetryReconnectLater(session);
-            }
-
-            return;
-        }
-
-        _reconnects++;
-        _lastReconnect = DateTime.UtcNow;
-        State = ConnectionState.Connected;
     }
 
     private async Task CloseCoreAsync()
     {
-        _reconnectHandler?.Dispose();
-        _reconnectHandler = null;
         _subscriptions.Clear();
+        _allSubscriptions.Clear();
 
         if (_session is { } session)
         {
             _session = null;
-            session.KeepAlive -= OnKeepAlive;
+            session.ConnectionStateChanged -= OnConnectionStateChanged;
             try
             {
                 await session.CloseAsync().ConfigureAwait(false);
@@ -850,7 +819,7 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
 
             try
             {
-                session.Dispose();
+                await session.DisposeAsync().ConfigureAwait(false);
             }
             catch (Exception ex) when (Errors.IsRecoverable(ex))
             {
@@ -897,38 +866,42 @@ public sealed partial class OpcUaClient : IDeviceClient, IServerCertificateTrust
     }
 
     /// <summary>
-    /// Stops many monitored items with one DeleteMonitoredItems round trip per subscription.
+    /// Stops many monitored items; the subscription manager deletes them on the server in one batch.
     /// Handles of other clients are ignored.
     /// </summary>
     public Task StopMonitoringAsync(IEnumerable<IAsyncDisposable> monitors, CancellationToken cancellationToken = default) =>
         StopMonitorsAsync(monitors, cancellationToken);
 
-    private static async Task StopMonitorsAsync(IEnumerable<IAsyncDisposable> handles, CancellationToken cancellationToken = default)
+    private static Task StopMonitorsAsync(IEnumerable<IAsyncDisposable> handles, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(handles);
-        foreach (var group in handles.OfType<MonitorHandle>().GroupBy(h => h.Subscription))
+        cancellationToken.ThrowIfCancellationRequested();
+        foreach (var handle in handles.OfType<MonitorHandle>())
         {
-            group.Key.RemoveItems(group.Select(h => h.Item));
-            if (group.Key.Session is { Connected: true })
+            handle.Subscription.RemoveValueHandler(handle.Item.Name);
+            try
             {
-                try
-                {
-                    await group.Key.ApplyChangesAsync(cancellationToken).ConfigureAwait(false);
-                }
-                catch (ServiceResultException ex)
-                {
-                    // After the server restarted, the subscription may no longer exist there: nothing left to stop.
-                    System.Diagnostics.Trace.TraceWarning($"Stopping monitored items failed: {ex.Message}");
-                }
+                handle.Subscription.Subscription.MonitoredItems.TryRemove(handle.Item.ClientHandle);
+            }
+            catch (ObjectDisposedException)
+            {
+                // Closed meanwhile: the session deleted its subscriptions.
             }
         }
+
+        return Task.CompletedTask;
     }
 
-    private sealed class MonitorHandle(Subscription subscription, MonitoredItem item) : IAsyncDisposable
+    private sealed class MonitorHandle(UaSubscription subscription, IMonitoredItem item, OptionsMonitor<UaItemOptions> options) : IAsyncDisposable
     {
-        public Subscription Subscription => subscription;
+        public UaSubscription Subscription => subscription;
 
-        public MonitoredItem Item => item;
+        public IMonitoredItem Item => item;
+
+        /// <summary>Changing its value applies new monitoring settings.</summary>
+        public OptionsMonitor<UaItemOptions> Options => options;
+
+        public NodeId NodeId => options.CurrentValue.StartNodeId;
 
         public async ValueTask DisposeAsync() => await StopMonitorsAsync([this]).ConfigureAwait(false);
     }

@@ -75,7 +75,7 @@ public sealed partial class OpcUaClient : IMethodCaller
         return outputs;
     }
 
-    private async Task<IReadOnlyList<MethodArgument>> ReadArgumentsAsync(ISession session, NodeId methodId, string browseName, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<MethodArgument>> ReadArgumentsAsync(ManagedSession session, NodeId methodId, string browseName, CancellationToken cancellationToken)
     {
         // Browse rather than TranslateBrowsePaths: not every server resolves the path, all of them list the property.
         var children = await BrowseCoreAsync(methodId, probe: false, cancellationToken).ConfigureAwait(false);

@@ -1,6 +1,7 @@
 using Opc.Ua;
 using Opc.Ua.Client;
 using MachineDataBrowser.Core;
+using UaItemOptions = Opc.Ua.Client.Subscriptions.MonitoredItems.MonitoredItemOptions;
 
 namespace MachineDataBrowser.Driver.OpcUa;
 
@@ -54,29 +55,12 @@ public sealed partial class OpcUaClient : IEventSource
         });
         filter.SelectClauses = selectClauses.ToArrayOf();
 
-        var subscription = new Subscription(session.DefaultSubscription)
-        {
-            DisplayName = "Events",
-            PublishingInterval = 250,
-            PublishingEnabled = true,
-            KeepAliveCount = 10,
-            LifetimeCount = 100,
-        };
-        var item = new MonitoredItem(Telemetry)
-        {
-            StartNodeId = notifier,
-            AttributeId = Attributes.EventNotifier,
-            SamplingInterval = 0,
-            QueueSize = 1000,
-            DiscardOldest = true,
-            Filter = filter,
-        };
-        item.Notification += (_, e) =>
+        var subscription = AddSubscription(session, "Events", 250, keepAliveCount: 10, lifetimeCount: 100, fields =>
         {
             // SDK thread: never throw.
             try
             {
-                if (e.NotificationValue is EventFieldList list && ToNotification(session, list.EventFields) is { } notification)
+                if (ToNotification(session, fields) is { } notification)
                 {
                     onEvent(notification);
                 }
@@ -85,29 +69,41 @@ public sealed partial class OpcUaClient : IEventSource
             {
                 System.Diagnostics.Trace.TraceError($"Event handler failed: {ex}");
             }
-        };
-
-        subscription.AddItem(item);
-        session.AddSubscription(subscription);
-        await subscription.CreateAsync(cancellationToken).ConfigureAwait(false);
-        if (ServiceResult.IsBad(item.Status.Error))
+        });
+        var options = new OptionsMonitor<UaItemOptions>(new UaItemOptions
         {
-            // Removing the subscription clears the item's status: keep the server's answer first.
-            var error = item.Status.Error;
-            await session.RemoveSubscriptionAsync(subscription, cancellationToken).ConfigureAwait(false);
-            throw new ServiceResultException(error?.StatusCode ?? StatusCodes.BadUnexpectedError);
+            StartNodeId = notifier,
+            AttributeId = Attributes.EventNotifier,
+            SamplingInterval = TimeSpan.Zero,
+            QueueSize = 1000,
+            DiscardOldest = true,
+            Filter = filter,
+        });
+        if (!subscription.Subscription.MonitoredItems.TryAdd("Events", options, out var item) || item is null)
+        {
+            await RemoveSubscriptionAsync(subscription).ConfigureAwait(false);
+            throw new ServiceResultException(StatusCodes.BadTooManyMonitoredItems);
+        }
+
+        await UaSubscription.WaitUntilAppliedAsync([item], stopOnError: true, cancellationToken).ConfigureAwait(false);
+        if (!item.Created && ServiceResult.IsBad(item.Error))
+        {
+            // Removing the subscription may clear the item's status: keep the server's answer first.
+            var error = item.Error;
+            await RemoveSubscriptionAsync(subscription).ConfigureAwait(false);
+            throw new ServiceResultException(error);
         }
 
         try
         {
-            await subscription.ConditionRefreshAsync(cancellationToken).ConfigureAwait(false);
+            await subscription.Subscription.ConditionRefreshAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (ServiceResultException)
         {
             // Servers without Alarms & Conditions reject the refresh; plain events still arrive.
         }
 
-        return new EventHandle(subscription);
+        return new EventHandle(this, subscription);
     }
 
     public async Task AcknowledgeAsync(NodeId conditionId, byte[] eventId, string comment, CancellationToken cancellationToken = default)
@@ -194,14 +190,8 @@ public sealed partial class OpcUaClient : IEventSource
         return eventType.ToString();
     }
 
-    private sealed class EventHandle(Subscription subscription) : IAsyncDisposable
+    private sealed class EventHandle(OpcUaClient client, UaSubscription subscription) : IAsyncDisposable
     {
-        public async ValueTask DisposeAsync()
-        {
-            if (subscription.Session is { Connected: true } session)
-            {
-                await session.RemoveSubscriptionAsync(subscription).ConfigureAwait(false);
-            }
-        }
+        public async ValueTask DisposeAsync() => await client.RemoveSubscriptionAsync(subscription).ConfigureAwait(false);
     }
 }
