@@ -468,8 +468,9 @@ The app writes to a device only when you ask it to.
     (`BadNotWritable`).
   - **Modbus:** coils and holding registers; discrete inputs and input registers are read-only. A value is written
     with its type from the id (`hr:20:float32` writes two registers). Strings are padded with zero bytes.
-  - **PCCC:** elements, timer/counter/control words and bits. A bit is written as read-modify-write of its word
-    in two requests, so if the program changes another bit of that word in between, that change is lost.
+  - **PCCC:** elements, timer/counter/control words and bits. A member or bit is written as read-modify-write of
+    its element in two requests, so if the program changes another part of that element in between, that change
+    is lost.
   - **S7:** every supported type and array, as described under [S7](#s7). The program may overwrite the value in its
     next cycle; a CPU with write protection rejects it (`BadNotWritable`).
   - **MQTT:** a topic is republished with the same payload kind, retain flag and properties; a JSON field republishes

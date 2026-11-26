@@ -354,6 +354,8 @@ stateDiagram-v2
 - **Monitoring:** one poll loop per refresh time. It only reports changes.
 - **Tag creation:** tags are created synchronously on a pool thread, because libplctag.NET's async creation leaks
   failed tags (see [decisions.md](decisions.md)).
+- **Read/write deadline:** async reads and writes are awaited with our own timeout (`TagOperations`), because
+  libplctag.NET can lose a pending operation while reconnecting and never complete it.
 
 ## PCCC (`MachineDataBrowser.Driver.Pccc.PcccClient`)
 
@@ -366,8 +368,8 @@ stateDiagram-v2
   connect (which also proves the link) and `files=` adds others. A file's length is found by binary search over
   element reads when it is first browsed, and cached.
 - **Reads:** always the whole element (a timer is 6 bytes); members and bits are taken from it, so every node of an
-  element reads the same way. Writes go to the element or the member word (`T4:0.PRE`, `.CON` for flags); bits are
-  read-modify-write of their word.
+  element reads the same way. Writes always go to the whole element: members (`T4:0.PRE`) and bits are
+  read-modify-write of their element, since libplctag 2.7 rejects member names in tag names.
 - **Monitoring:** one poll loop per refresh time, like `CipClient`; changes are compared by decoded value so a bit
   doesn't report when another bit of its word changes.
 

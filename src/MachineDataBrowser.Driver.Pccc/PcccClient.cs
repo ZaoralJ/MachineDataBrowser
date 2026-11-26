@@ -297,8 +297,8 @@ public sealed class PcccClient : IDeviceClient, IConnectionDiagnosticsSource
     }
 
     /// <summary>
-    /// Writes an element, a timer/counter/control word, or a bit. Bits are read-modify-write of their word in two
-    /// requests, so a bit the program changes in between can be overwritten.
+    /// Writes an element, a timer/counter/control word, or a bit. Members and bits are read-modify-write of their
+    /// element in two requests, so a value the program changes in between can be overwritten.
     /// </summary>
     public async Task WriteValueAsync(NodeId nodeId, string text, CancellationToken cancellationToken = default)
     {
@@ -310,19 +310,22 @@ public sealed class PcccClient : IDeviceClient, IConnectionDiagnosticsSource
             throw new DeviceClientException(DeviceStatusCodes.BadNotWritable, $"{address} is a {address.Type.Name.ToLowerInvariant()}; write its members.");
         }
 
-        using var tag = CreateTag(endpoint, WordTagName(address));
+        // The whole element is written: libplctag 2.7 rejects member names such as T4:5.PRE.
+        using var tag = CreateTag(endpoint, address.ElementName);
         await ReadTagAsync(tag, cancellationToken).ConfigureAwait(false);
         var buffer = tag.GetBuffer();
+        var offset = (address.Field?.WordIndex ?? 0) * 2;
         if (address.IsBoolean)
         {
             var on = (bool)ValueParser.Parse(text, DeviceDataType.Boolean, isArray: false);
             var bit = address.Field?.Bit ?? address.Bit!.Value;
+            var index = offset + bit / 8;
             var mask = 1 << (bit % 8);
-            buffer[bit / 8] = (byte)(on ? buffer[bit / 8] | mask : buffer[bit / 8] & ~mask);
+            buffer[index] = (byte)(on ? buffer[index] | mask : buffer[index] & ~mask);
         }
         else if (address.Field is not null)
         {
-            BitConverter.TryWriteBytes(buffer, (short)ValueParser.Parse(text, DeviceDataType.Int16, isArray: false));
+            BitConverter.TryWriteBytes(buffer.AsSpan(offset), (short)ValueParser.Parse(text, DeviceDataType.Int16, isArray: false));
         }
         else
         {
@@ -346,7 +349,7 @@ public sealed class PcccClient : IDeviceClient, IConnectionDiagnosticsSource
         tag.SetBuffer(buffer);
         try
         {
-            await tag.WriteAsync(cancellationToken).ConfigureAwait(false);
+            await tag.WriteGuardedAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (LibPlcTagException ex)
         {
@@ -619,14 +622,6 @@ public sealed class PcccClient : IDeviceClient, IConnectionDiagnosticsSource
         return tag.GetBuffer();
     }
 
-    /// <summary>The word a write goes to: the element, the field of a structure, or the control word of its flags.</summary>
-    private static string WordTagName(PcccAddress address) => address.Field switch
-    {
-        { Bit: null } field => $"{address.ElementName}.{field.Name}",
-        not null => $"{address.ElementName}.CON",
-        null => address.ElementName,
-    };
-
     private static string Unquote(string text)
     {
         var value = text.Trim();
@@ -638,7 +633,7 @@ public sealed class PcccClient : IDeviceClient, IConnectionDiagnosticsSource
         try
         {
             await InitializeTagAsync(tag, cancellationToken).ConfigureAwait(false);
-            await tag.ReadAsync(cancellationToken).ConfigureAwait(false);
+            await tag.ReadGuardedAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (LibPlcTagException ex)
         {
@@ -669,18 +664,14 @@ public sealed class PcccClient : IDeviceClient, IConnectionDiagnosticsSource
     /// A PCCC error reply (no such file, element past the end, wrong file type) comes back as a remote error; the
     /// controller answered, so it means the address doesn't exist rather than a broken link.
     /// </summary>
-    internal static DeviceStatusCode ToStatus(LibPlcTagException ex) => ex.Message switch
+    internal static DeviceStatusCode ToStatus(LibPlcTagException ex) => ex.Status switch
     {
-        var m when m.Contains(nameof(Status.ErrorRemoteErr), StringComparison.Ordinal)
-            || m.Contains(nameof(Status.ErrorNotFound), StringComparison.Ordinal)
-            || m.Contains(nameof(Status.ErrorBadParam), StringComparison.Ordinal)
-            || m.Contains(nameof(Status.ErrorOutOfBounds), StringComparison.Ordinal) => DeviceStatusCodes.BadNodeIdUnknown,
-        var m when m.Contains(nameof(Status.ErrorNotAllowed), StringComparison.Ordinal) => DeviceStatusCodes.BadNotReadable,
-        var m when m.Contains(nameof(Status.ErrorTimeout), StringComparison.Ordinal) => DeviceStatusCodes.BadTimeout,
-        var m when m.Contains(nameof(Status.ErrorBadConnection), StringComparison.Ordinal)
-            || m.Contains(nameof(Status.ErrorBadGateway), StringComparison.Ordinal)
-            || m.Contains(nameof(Status.ErrorOpen), StringComparison.Ordinal)
-            || m.Contains(nameof(Status.ErrorWinsock), StringComparison.Ordinal) => DeviceStatusCodes.BadCommunicationError,
+        Status.ErrorRemoteErr or Status.ErrorNotFound or Status.ErrorBadParam or Status.ErrorOutOfBounds
+            => DeviceStatusCodes.BadNodeIdUnknown,
+        Status.ErrorNotAllowed => DeviceStatusCodes.BadNotReadable,
+        Status.ErrorTimeout => DeviceStatusCodes.BadTimeout,
+        Status.ErrorBadConnection or Status.ErrorBadGateway or Status.ErrorOpen or Status.ErrorWinsock
+            => DeviceStatusCodes.BadCommunicationError,
         _ => DeviceStatusCodes.Bad,
     };
 
@@ -913,7 +904,7 @@ public sealed class PcccClient : IDeviceClient, IConnectionDiagnosticsSource
                 try
                 {
                     await InitializeTagAsync(entry.Tag, cancellationToken).ConfigureAwait(false);
-                    await entry.Tag.ReadAsync(cancellationToken).ConfigureAwait(false);
+                    await entry.Tag.ReadGuardedAsync(cancellationToken).ConfigureAwait(false);
                     value = PcccCodec.Decode(entry.Address, entry.Tag.GetBuffer());
                     status = DeviceStatusCodes.Good;
                 }

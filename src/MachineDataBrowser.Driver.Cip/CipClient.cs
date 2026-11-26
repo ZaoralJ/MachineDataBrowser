@@ -338,7 +338,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         tag.SetBuffer(buffer);
         try
         {
-            await tag.WriteAsync(cancellationToken).ConfigureAwait(false);
+            await tag.WriteGuardedAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (LibPlcTagException ex)
         {
@@ -732,7 +732,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         try
         {
             await InitializeTagAsync(tag, cancellationToken).ConfigureAwait(false);
-            await tag.ReadAsync(cancellationToken).ConfigureAwait(false);
+            await tag.ReadGuardedAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (LibPlcTagException ex)
         {
@@ -765,15 +765,13 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
         Timeout = endpoint.Timeout,
     };
 
-    internal static DeviceStatusCode ToStatus(LibPlcTagException ex) => ex.Message switch
+    internal static DeviceStatusCode ToStatus(LibPlcTagException ex) => ex.Status switch
     {
-        var m when m.Contains(nameof(Status.ErrorNotFound), StringComparison.Ordinal) => DeviceStatusCodes.BadNodeIdUnknown,
-        var m when m.Contains(nameof(Status.ErrorNotAllowed), StringComparison.Ordinal) => DeviceStatusCodes.BadNotReadable,
-        var m when m.Contains(nameof(Status.ErrorTimeout), StringComparison.Ordinal) => DeviceStatusCodes.BadTimeout,
-        var m when m.Contains(nameof(Status.ErrorBadConnection), StringComparison.Ordinal)
-            || m.Contains(nameof(Status.ErrorBadGateway), StringComparison.Ordinal)
-            || m.Contains(nameof(Status.ErrorOpen), StringComparison.Ordinal)
-            || m.Contains(nameof(Status.ErrorWinsock), StringComparison.Ordinal) => DeviceStatusCodes.BadCommunicationError,
+        Status.ErrorNotFound => DeviceStatusCodes.BadNodeIdUnknown,
+        Status.ErrorNotAllowed => DeviceStatusCodes.BadNotReadable,
+        Status.ErrorTimeout => DeviceStatusCodes.BadTimeout,
+        Status.ErrorBadConnection or Status.ErrorBadGateway or Status.ErrorOpen or Status.ErrorWinsock
+            => DeviceStatusCodes.BadCommunicationError,
         _ => DeviceStatusCodes.Bad,
     };
 
@@ -1001,7 +999,7 @@ public sealed class CipClient : IDeviceClient, IConnectionDiagnosticsSource
                 try
                 {
                     await InitializeTagAsync(entry.Tag, cancellationToken).ConfigureAwait(false);
-                    await entry.Tag.ReadAsync(cancellationToken).ConfigureAwait(false);
+                    await entry.Tag.ReadGuardedAsync(cancellationToken).ConfigureAwait(false);
                     data = entry.Tag.GetBuffer();
                     value = entry.Item.Decode(data);
                     status = DeviceStatusCodes.Good;

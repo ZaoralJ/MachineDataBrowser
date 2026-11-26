@@ -54,6 +54,12 @@ Modbus TCP, S7, MQTT, MTConnect and Redis/Valkey.
   (`simulators/cip`, pure Python, see [simulators.md](simulators.md)) that the CIP integration tests run against.
 - Tags are created with the synchronous `Initialize` on a pool thread: libplctag.NET 1.5 `InitializeAsync` leaks the
   native tag and its callback when creation fails, which crashed the process on a later libplctag event.
+- libplctag.NET 2.0 prerelease (2.0.0-alpha.5, native core 2.7.2) rather than 1.6.0: 1.6.0 throws from its native
+  callback on the connection-status events core 2.7 added, which hung reads when a PLC dropped. Neither version
+  is used through the deprecated mapper types (`Tag<M,T>`); the drivers use `Tag` and raw buffers only. Errors map
+  from `LibPlcTagException.Status`.
+- Async reads and writes get a deadline of our own (`TagOperations`): the wrapper drops a pending operation when
+  the core reports a `Pending` completion during reconnects, so its own timeout never fires.
 
 ## PCCC (SLC 500, MicroLogix, PLC-5): libplctag.NET, own driver
 
@@ -62,8 +68,9 @@ Modbus TCP, S7, MQTT, MTConnect and Redis/Valkey.
 - One scheme with `?plc=` rather than one per family: the families differ only in libplctag's command set.
 - No file directory: libplctag offers no raw PCCC, and reading the SLC directory (system file 0) differs between
   processors. Standard files are probed and `?files=` names the rest; any address can be watched or read directly.
-- Bit writes are read-modify-write of the word (two requests) instead of libplctag's masked-write bit tags, which
-  behaved differently between libplctag versions; documented as not atomic.
+- Member and bit writes are read-modify-write of the whole element (two requests) instead of libplctag's
+  masked-write bit tags or member tag names, which behave differently between libplctag versions (core 2.7 rejects
+  `T4:0.PRE`); documented as not atomic.
 - Own simulator (`simulators/pccc`): `ab_server` can't address sub-elements (`T4:0.ACC`) and runs one PLC type per
   process; ours serves SLC and PLC-5 commands from one data table.
 
