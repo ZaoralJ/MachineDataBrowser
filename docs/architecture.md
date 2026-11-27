@@ -170,7 +170,7 @@ classDiagram
     }
     class OpcUaClient {
         Session · subscriptions per refresh time
-        ComplexTypeSystem · reconnect handler
+        ComplexTypeSystem · ManagedSession
     }
     class CipClient {
         @tags / @udt listing · poll groups
@@ -282,8 +282,9 @@ stateDiagram-v2
     Connected --> Disconnected: Disconnect / quit
 ```
 
-- **OPC UA:** a failed keep-alive starts `SessionReconnectHandler`, and subscriptions are transferred to the new
-  session.
+- **OPC UA:** the SDK's `ManagedSession` reconnects on its own after a failed keep-alive and keeps the
+  subscriptions, transferring or recreating them also when a server restart needs a new session. The first connect
+  gets one retry, so errors are reported at once; after that it retries every 2 s until the client is closed.
 - **EtherNet/IP:** failed polls switch the state to `Reconnecting` until a read succeeds; libplctag reconnects by
   itself.
 - **Modbus:** a failed request switches the state to `Reconnecting` and drops the socket; the next request (the
@@ -325,16 +326,18 @@ stateDiagram-v2
 - **Address space view:** `FlatTree` flattens the expanded nodes into rows for a virtualized `ListBox` (Avalonia's
   `TreeView` builds every expanded node). Browses run on the pool with a 30 s timeout; a failure leaves an error row
   that retries on click. Folders collapsed for 10 minutes drop their children and are browsed again when expanded.
-- **Monitoring:** `MonitorManyAsync` creates many items in one round trip. Items with the same refresh time share a
-  subscription (`Watch@<ms>`); `ChangeRefreshAsync` moves items between these subscriptions.
+- **Monitoring:** subscriptions use the SDK's options-based subscription manager (`ISubscriptionManager`, wrapped in
+  `UaSubscription`), which batches item changes and applies them in the background; `MonitorManyAsync` waits for the
+  server's answer to report rejected items. Items with the same refresh time share a subscription (`Watch@<ms>`);
+  `ChangeRefreshAsync` moves items between these subscriptions.
 - **Portable ids:** `nsu=<namespace URI>`, because namespace indexes can change between server restarts.
 - **Methods (`OpcUaClient.Methods.cs`, `IMethodCaller`):** the InputArguments/OutputArguments properties are found
   by browsing the method (not every server resolves the browse path) and read as `Argument[]`. Text inputs are parsed
   with `ValueParser` into each argument's built-in type; a bad call reports the first rejected argument.
 - **Monitoring settings (`OpcUaClient.Monitoring.cs`, `IMonitoringSettings`):** sampling interval, queue size, discard
-  policy and a DataChangeFilter deadband applied to existing items in place (ModifyMonitoredItems). Rejected items are
-  restored to their previous settings. The App re-applies a row's settings after `ChangeRefreshAsync` and when a
-  session is opened (`WatchEntry.Monitoring`).
+  policy and a DataChangeFilter deadband applied to existing items by changing their options (ModifyMonitoredItems).
+  Rejected items are restored to their previous settings. The App re-applies a row's settings after
+  `ChangeRefreshAsync` and when a session is opened (`WatchEntry.Monitoring`).
 - **History (`OpcUaClient.History.cs`, `IHistorySource`):** HistoryRead with ReadRawModifiedDetails in pages of 1 000,
   following continuation points up to a value cap and releasing the last one. The App shows the result in the
   recording viewer (`RecordingViewerViewModel.ForRows`).

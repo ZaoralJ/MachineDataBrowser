@@ -76,17 +76,17 @@ public sealed partial class OpcUaClient : IConnectionDiagnosticsSource
             info.Add(("Server status", $"not readable: {ex.StatusCode}"));
         }
 
-        var subscriptions = session.Subscriptions
+        var subscriptions = _allSubscriptions.Keys
             .Select(s => new SubscriptionDiagnostics(
-                s.DisplayName ?? string.Empty,
-                s.Id,
-                s.CurrentPublishingInterval,
-                s.MonitoredItemCount,
+                s.Name,
+                s.ServerId,
+                s.Subscription.CurrentPublishingInterval.TotalMilliseconds,
+                s.Subscription.MonitoredItems.Count,
                 s.NotificationCount,
-                s.LastNotificationTime == DateTime.MinValue ? null : s.LastNotificationTime,
-                s.CurrentKeepAliveCount,
-                s.CurrentLifetimeCount,
-                s.CurrentPublishingEnabled))
+                s.LastNotificationTime,
+                s.Subscription.CurrentKeepAliveCount,
+                s.Subscription.CurrentLifetimeCount,
+                s.Subscription.CurrentPublishingEnabled))
             .OrderBy(s => s.Name, StringComparer.Ordinal)
             .ToList();
         return new ConnectionDiagnostics(info, subscriptions);
